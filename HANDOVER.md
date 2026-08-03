@@ -74,8 +74,7 @@
 - **已验证**：单元测试 8 项 + 故障注入全循环（stall→abort→resume→stall(2)→…→give_up，consecutive 1→4）。
 - 文件挂载：`/home/haber/oc-meta/ops/stall-watchdog.js` → 容器 `/root/control/stall-watchdog.js`；`opencode.json` 以 `["file:///root/control/stall-watchdog.js", {…}]` 注册。
 
-### 4.8 supervisor v2 宿主侧顶层监控（`ops/supervisor.py` + `ops/oc-run.sh`，已实现）
-- **运行位置**：宿主（`oc-run.sh` 用 `sg docker -c` + `setsid` 启动），拥有独立时钟 + docker 控制权（L4 restart 真正生效）。
+### 4.8 supervisor v2 宿主侧顶层监控（`ops/supervisor.py` + `ops/oc-run.sh`，已实现）- **运行位置**：宿主（`oc-run.sh` 用 `sg docker -c` + `setsid` 启动），拥有独立时钟 + docker 控制权（L4 restart 真正生效）。
 - **三层看门狗**：T1 进程健康（/global/health + docker）→ L4 重启；T2 会话级（busy 但无新消息 > `session_stall_sec`）→ abort；**T3 轮次级已移交 stall-watchdog 插件**（插件写 ledger 事件）。
 - **插件账本监听**：检测当前目标会话的 `watchdog_gave_up` → `plugin_gave_up_detected` → 交元分析。
 - **元分析（智能 + 确定性门）**：周期（`meta_analyze_every_min`）或异常时，把**近期消息+时间戳** + 目标 + 期限 + 会话状态喂给 `opencode/deepseek-v4-flash-free`（opencode API 借用；回退 `deepseek-api/deepseek-v4-flash` 直连，密钥从 opencode 全局配置读取，不复制密钥）。
@@ -95,6 +94,14 @@
   - `oc-run.sh` 注入防护：goal 走 `--goal-file` + 全程 `printf %q`（审查发现的 blocker）。
   - stall-watchdog：giveup 改为**粘性**（黑名单直至新轮次）；abort 加超时竞态防挂起；新增 dispose 钩子；未知 status 一律清态。
 - **已知限制/后续**：L1 空闲暂停目标续作仅靠 nudge(goal resume)，无独立 idle 检测；插件对"错过 busy 事件导致 idle 会话误建 busy 态"仍是理论边界；周期 code-review 未并入。**SSE 静默挂起**（fake 端点接受连接但不发 chunk）：实测 chunkTimeout 未按预期触发，静默挂起由**每轮尝试时间片兜底**（有界，随后 L3 回退完成）——已确认可恢复但非快速路径；`send_goal` worker 已加 `_resp_has_error` 检测响应中的 `MessageAbortedError` 使目标发送失败能被识别。生产每轮时间片默认 450s（deadline 30min÷4），静默挂起最多浪费 7.5min 后回退。
+
+### 4.9 oc-task 任务接管接口 + git 管理（2026-08-03）
+
+- **任务模型**：每任务 = 一个独立 supervisor 进程 + `ops/tasks/<id>.json` 记录（含 pid/out/summary）。无 daemon、无 systemd、不污染宿主——可控、可停、可清。
+- **`oc-task.py` CLI**（人类与 opencode 共用）：`submit/list/status/stop/logs/clean` + 可选只读网页 `web start|stop|status`（http://127.0.0.1:8721）。
+  - `submit` 把 goal 写临时文件经 `--goal-file` 传入（注入安全）；`--label-prefix <task-id>` 打标会话便于 `stop` 精确定位；`--summary-file` 落机器可读结果；`--pidfile` 记真实 python pid（supervisor 侧 SIGTERM 时先 abort 当前会话再退出）。
+- **git 管理**：`/home/haber/oc-meta` 已 `git init` + 两次提交。`.gitignore` 排除账本/日志/web/pid/任务运行态/`__pycache__`；密钥零入库（deepseek 密钥只从 opencode 全局配置读取）。
+- **interface 供你接手**：直接 `python3 ops/oc-task.py submit "<工程任务>"` 即可跑真实工程任务；或先 `web start` 在浏览器盯状态。
 
 ## 5. 关键决策与踩坑记录
 
@@ -136,16 +143,31 @@
 ## 9. 命令速查
 
 ```bash
-# 启动监督器（容器内）
-docker exec -d opencode-autopilot python3 /root/control/supervisor.py \
-  --goal "<目标>" --policy /root/control/policy.json
+# 提交一个自主任务（任务注册表模型，每任务独立 supervisor 进程）
+python3 /home/haber/oc-meta/ops/oc-task.py submit "<goal>" [--deadline 30]
 
-# 容器状态
+# 任务控制（接收接口，人类与 opencode 共用）
+python3 /home/haber/oc-meta/ops/oc-task.py list
+python3 /home/haber/oc-meta/ops/oc-task.py status <task-id>
+python3 /home/haber/oc-meta/ops/oc-task.py logs <task-id>
+python3 /home/haber/oc-meta/ops/oc-task.py stop <task-id>
+python3 /home/haber/oc-meta/ops/oc-task.py clean <task-id>
+
+# 只读网页状态页（可选，起停可控）
+python3 /home/haber/oc-meta/ops/oc-task.py web start   # http://127.0.0.1:8721
+python3 /home/haber/oc-meta/ops/oc-task.py web stop
+
+# 单次直接运行（不走任务注册表）
+bash /home/haber/oc-meta/ops/oc-run.sh '<goal>' [deadline_min]
+
+# 容器状态 / 重启
 sg docker -c 'docker ps --filter name=opencode-autopilot'
-
-# 重启容器
 sg docker -c 'docker restart opencode-autopilot'
 
-# 看账本
+# 看账本（插件 + supervisor 共享）
 tail -f /home/haber/oc-meta/ops/run-ledger.jsonl
+
+# 启动监督器（旧方式，容器内；现已被 oc-task 取代）
+docker exec -d opencode-autopilot python3 /root/control/supervisor.py \
+  --goal "<目标>" --policy /root/control/policy.json
 ```

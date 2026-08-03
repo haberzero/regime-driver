@@ -180,8 +180,9 @@ shell.checkpoint / agent.report / error.timeout / error.deadlock
 
 ### 6.2 M0 稳健自主运行 MVP（本次）
 
-> 进度：① ✅ ② ✅ ③ ✅（`oc-run.sh`）→ ④ ✅（thinking 全循环 / docker stop→T1+L4 / 模型故障→L3；SSE 静默待实测）→ ⑤ ✅（代码审查硬化 + 文档）。
+> 进度：① ✅ ② ✅ ③ ✅（`oc-task.py` 取代 oc-run 为任务接口）→ ④ ✅（thinking 全循环 / docker stop→T1+L4 / 模型故障→L3 / SSE 静默有界回退）→ ⑤ ✅（代码审查硬化 + git + 文档）。
 > 元分析已并入 supervisor v2（智能判定 + 确定性门，见 DESIGN §6.4 / HANDOVER §4.8）。
+> **任务接管接口**：`ops/oc-task.py`（submit/list/status/stop/logs/clean + 可选 web 状态页）；每任务独立进程 + 注册表，无 systemd 污染（见 HANDOVER §4.9）。git 已初始化（`.gitignore` 排除密钥/运行态）。
 
 1. **stall-watchdog 插件**（进程内，新增，`ops/stall-watchdog.js`）：
    - 事件级订阅 `message.part.updated` / `session.status` / `session.idle`；
@@ -225,9 +226,9 @@ shell.checkpoint / agent.report / error.timeout / error.deadlock
 
 ---
 
-## 8. 待决问题（需你拍板；M0 优先级）
+## 8. 待决问题（需你拍板；M0 已基本收官）
 
-1. **stall-watchdog 插件载体**：作为本工作区插件（`.opencode/plugins/`，仅容器内生效）vs 全局插件。建议项目级。
-2. **supervisor.py 运行位置**：宿主侧（setsid/systemd，持 docker 控制权，推荐）vs 容器内挂 docker socket。
-3. **skills/agents 归属**：留在全局（全环境生效）还是迁入工作区（仅项目生效）——不阻塞 M0。
-4. ~~L0 对话载体 / docker socket 权限 / 新工作区路径~~ → L0 推迟至 M1+；路径 `/home/haber/oc-meta` 已确认沿用。
+1. **真实工程任务试点**：通过 `oc-task.py submit` 接你的第一个工程任务（接口已就绪）。
+2. **skills/agents 归属**：留在全局（全环境生效）还是迁入工作区（仅项目生效）——不阻塞。
+3. **周期 code-review 是否并入 supervisor**（v1 的 do_review，v2 未带）。
+4. ~~L0 对话载体 / supervisor 常驻方式~~ → 已用 oc-task 每任务进程模型解决（无 daemon 污染）；L0 上帝对话框推迟至 M1+。
