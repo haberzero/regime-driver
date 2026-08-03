@@ -27,7 +27,7 @@ Roles:
 
 Stdlib only (urllib). Host-side: --base http://127.0.0.1:4096.
 """
-import argparse, json, os, sys, time, urllib.request, urllib.error, datetime, subprocess, re, threading
+import argparse, json, os, sys, time, urllib.request, urllib.error, datetime, subprocess, re, threading, signal
 
 def jreq(base, method, path, body=None, timeout=60):
     url = base + path
@@ -319,6 +319,14 @@ def main():
     ap.add_argument("--container", default="opencode-autopilot")
     ap.add_argument("--deadline", type=int, default=None,
                     help="override policy deadline_min")
+    ap.add_argument("--summary-file", default=None,
+                    help="write the run_summary JSON to this path at the end "
+                         "(used by oc-task.py for per-task status tracking)")
+    ap.add_argument("--label-prefix", default="autonomous-goal",
+                    help="session title prefix: '<prefix>-<attempt>'")
+    ap.add_argument("--pidfile", default=None,
+                    help="write the supervisor's real PID here at startup "
+                         "(used by oc-task.py for accurate lifecycle tracking)")
     args = ap.parse_args()
 
     if args.goal_file:
@@ -345,6 +353,27 @@ def main():
     goal_fail = {}
     meta_results = {}   # sid -> {"kind": "giveup"|"periodic", "result": (...) or None}
     meta_pending = set()
+
+    # Clean stop: on SIGTERM/SIGINT abort the current session then exit, so
+    # `oc-task stop` leaves no runaway goal running in the worker.
+    if args.pidfile:
+        try:
+            with open(args.pidfile, "w") as f:
+                f.write(str(os.getpid()))
+        except OSError:
+            pass
+    _stop_state = {"sid": None, "base": args.base, "aborting": False}
+    def _on_stop(signum, frame):
+        sid = _stop_state["sid"]
+        if sid and not _stop_state["aborting"]:
+            _stop_state["aborting"] = True
+            try:
+                jreq(_stop_state["base"], "POST", f"/session/{sid}/abort", {}, timeout=10)
+            except Exception:
+                pass
+        os._exit(0)
+    signal.signal(signal.SIGTERM, _on_stop)
+    signal.signal(signal.SIGINT, _on_stop)
 
     def meta_dispatch(sid, msgs, status, kind):
         """Run meta-analysis in a background thread so the poll loop (T1/T2/
@@ -440,6 +469,7 @@ def main():
             ledger.append({"event": "create_session_failed", "label": label, "err": str(e)})
             return "error", None
         ledger.append({"event": "session_created", "label": label, "model": mdl, "session": sid})
+        _stop_state["sid"] = sid
         send_goal_async(sid, mdl, label)
 
         last_msg_ts = None
@@ -598,7 +628,7 @@ def main():
     outcome = None
     while attempts <= pol["max_retries"]:
         mdl = model if attempts == 0 else fallback
-        label = f"autonomous-goal-{attempts}"
+        label = f"{args.label_prefix}-{attempts}"
         # Per-attempt time slice so a slow primary attempt cannot starve the L3
         # fallback: each attempt gets its share of the total budget (min 2 min).
         budget = pol["deadline_min"] * 60
@@ -638,6 +668,12 @@ def main():
     }
     ledger.append(summary)
     print("RUN_SUMMARY " + json.dumps(summary, ensure_ascii=False), flush=True)
+    if args.summary_file:
+        try:
+            with open(args.summary_file, "w") as f:
+                f.write(json.dumps(summary, ensure_ascii=False) + "\n")
+        except OSError as e:
+            print(f"[supervisor] summary write failed: {e}", flush=True)
 
 if __name__ == "__main__":
     main()

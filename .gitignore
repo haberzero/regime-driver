@@ -2,6 +2,8 @@
 ops/run-ledger.jsonl
 ops/supervisor.out
 ops/svc.pid
+ops/web.pid
+ops/web.log
 ops/tasks/
 ops/tasks.json
 
