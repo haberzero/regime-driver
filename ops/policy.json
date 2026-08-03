@@ -1,0 +1,17 @@
+{
+  "model": "opencode/deepseek-v4-flash-free",
+  "fallback_model": "deepseek-api/deepseek-v4-flash",
+  "deadline_min": 30,
+  "poll_sec": 5,
+  "health_poll_sec": 15,
+  "session_stall_sec": 300,
+  "health_fail_strikes": 3,
+  "max_retries": 3,
+  "meta_model": "opencode/deepseek-v4-flash-free",
+  "meta_fallback_url": "https://api.deepseek.com/v1/chat/completions",
+  "meta_analyze_every_min": 5,
+  "meta_context_msgs": 20,
+  "project_dir": "/root/ws",
+  "log": "/home/haber/oc-meta/ops/supervisor.log",
+  "ledger": "/home/haber/oc-meta/ops/run-ledger.jsonl"
+}

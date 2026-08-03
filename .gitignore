@@ -1,0 +1,24 @@
+# runtime state (never commit)
+ops/run-ledger.jsonl
+ops/supervisor.out
+ops/svc.pid
+ops/tasks/
+ops/tasks.json
+
+# python
+__pycache__/
+*.pyc
+
+# opencode runtime
+workspaces/opencode-autopilot/.opencode/
+workspaces/opencode-autopilot/*.txt
+
+# node
+node_modules/
+
+# local test temp
+/tmp/
+
+# editor
+.vscode/
+.idea/
