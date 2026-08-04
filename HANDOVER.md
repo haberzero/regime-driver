@@ -114,9 +114,9 @@
 ## 6. 当前运行状态
 
 - `opencode-autopilot` 容器运行中。
-- **stall-watchdog 插件已部署运行**（测试期 thinkingStallSec=120s）；goal-plugin 同载。
-- 测试残留：`ops/fake_reasoner.py`（假 provider，仅故障注入用，生产前停掉并移除配置里的 `stalltest` provider）。
-- 工作区已清理旧测试产物。
+- **stall-watchdog 插件已部署运行**（正式 thinkingStallSec=600s）；goal-plugin 同载。
+- 测试工具保留：`ops/fake_reasoner.py`、`ops/fake_silent.py`（故障注入用，不常驻）。
+- 工作区已清理测试产物。
 
 ## 7. 主目录污染清单（已迁移/清理完成）
 
@@ -130,15 +130,17 @@
 
 迁移后 `oc-control`、`oc-workspaces`、`work` 均已从主目录移除，唯一残留为规范化后的 `/home/haber/oc-meta/`。
 
-## 8. 下一步（M0：稳健自主运行 MVP，上帝对话框推迟）
+## 8. 下一步（M0 已完成 → regime-driver 实施）
 
-按 `PLANNING.md` v0.2 执行 **M0**（上帝对话框 L0/L1 整体推迟到 M0 稳定后）：
+**M0 已全部完成 ✅**（stall-watchdog + supervisor v2 + oc-task + 故障矩阵 + git）。
 
-1. ~~实现 `stall-watchdog` 插件~~ ✅ 已部署（正式 thinking 超时 600s，故障注入全循环验证通过）。
-2. ~~supervisor v2 宿主侧 + 元分析~~ ✅ 已实现（`oc-run.sh` 入口，端到端模型回退验证通过）。
-3. ~~故障注入演练~~ ✅ docker stop→T1→L4 ✅ / 模型故障→L3 ✅ / thinking 全循环 ✅；（SSE 静默断流 未单独注入，chunkTimeout 兜底未实测）。
-4. **待做**：`oc-run` 运行摘要已加（run_summary）；周期 code-review 暂缓；SSE 静默断流实测。
-5. 待用户拍板：supervisor 常驻方式（systemd unit vs setsid 手动）、skills/agents 归属。
+**当前方向**：`docs/DESIGN-regime-driver.md`（v0.3 定稿）——把 `workflow-regime/` 制度化流程编译成状态机，由固定代码机器人（L1）+ 审查者智能（L0）驱动**干净无插件**的开发者 opencode（L2）。里程碑 M-1 worker 镜像 → M-2 L1 骨架 → M-3 审查者接入 → M-4 端到端试跑。
+
+阅读顺序：`DESIGN-regime-driver.md` → `workflow-regime/README.md` → `workflow-regime/task-control/README.md`。
+
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计。
+
+**待办**：M-1 起实施；全局状态清单设计（P1）；审查者 session 轮换细则（P2）；多开发者 session（P3）。
 
 ## 9. 命令速查
 
