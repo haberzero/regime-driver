@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Callable
 
 from ..core.contract import (
     ContractError,
@@ -121,6 +122,7 @@ class Reviewer:
         developer_report: str | None = None,
         extra_context: str | None = None,
         valid_targets: set[str] | None = None,
+        cancel_event: Callable[[], bool] | None = None,
     ) -> ReviewerResult:
         """Call the reviewer, parse + gate the reply, retrying with feedback.
 
@@ -136,6 +138,8 @@ class Reviewer:
         retry_feedback: str | None = None
         last_failure: ReviewerResult | None = None
         for attempt in range(self.max_retries + 1):
+            if cancel_event is not None and cancel_event():
+                return ReviewerResult(error="cancelled by monitor")
             prompt = self._build_prompt(
                 node_id, context, developer_report, extra_context, retry_feedback, valid_targets
             )

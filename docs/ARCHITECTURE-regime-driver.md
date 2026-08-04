@@ -79,6 +79,7 @@ app → infra（infra 依赖 core 的模型，不依赖 app）
 | `contract.py` | 评审 JSON 合约 + 确定性门 | `ContractValidator`, `GateResult` |
 | `segment.py` | `[WORK_DONE]` 段协议解析 | `SegmentParser` |
 | `session.py` | 会话模型（面/轮次/健康） | `SessionState` |
+| `repetition.py` | 死循环检测（n-gram 重复率 + 相邻相似度） | `RepetitionDetector` |
 
 ### 3.2 infra/（基础设施）
 
@@ -88,6 +89,8 @@ app → infra（infra 依赖 core 的模型，不依赖 app）
 | `ledger.py` | 结构化事件账本 | `Ledger` |
 | `config.py` | 配置加载（typer 参数 + 文件） | `load_config()` |
 | `settings.py` | 配置模型 | `Settings` |
+| `skill_loader.py` | 按节点注入 skill | `load_skill()` |
+| `task_control.py` | 任务控制文档读写 | `TaskControl` |
 
 ### 3.3 app/（应用服务）
 
@@ -96,6 +99,8 @@ app → infra（infra 依赖 core 的模型，不依赖 app）
 | `driver.py` | `RegimeDriver`：主流程（状态机推进 + 会话编排 + 审查者判定） |
 | `session_manager.py` | `SessionManager`：开发者/审查者 session 创建/复用/轮换 |
 | `segment_runner.py` | `SegmentRunner`：下发指令 → 轮询 → 解析 `[WORK_DONE]` |
+| `reviewer.py` | `Reviewer`：审查者调用（prompt 构建 + JSON 解析 + 门 + 重试） |
+| `monitor.py` | `Monitor`：独立安全监控线程（死循环/卡死/API 挂起检测 + 紧急停止） |
 
 ### 3.4 cli/
 
@@ -218,6 +223,27 @@ class Settings(BaseModel):
 - **异常分层**：`core` 抛领域异常（`ContractError`/`StateMachineError`）；`infra` 抛 `OpenCodeError`；
   `app` 捕获并转成 `RunResult`（outcome/report），不裸抛。
 - **超时**：每个 session 轮询有 deadline；API 调用有 timeout；`abort` 兜底。
+
+### 9.1 安全监控与紧急停止（app/monitor.py + core/repetition.py）
+
+**独立性**：监控是**独立后台线程**，不随主流程阻塞。它按固定节奏轮询所有被管理 session 的
+实时状态（token 计数、最新消息文本、busy/idle），检测主流程无法发现的长转卡死。
+
+**检测信号**（`core/repetition.py`）：
+1. **死循环**：最新消息文本的 n-gram 重复率 / 相邻块相似度超过阈值 → 复读机式循环。
+2. **卡死（stall）**：session busy 但 token 计数在 `stall_sec` 内无增长 → API 挂起/思考停滞。
+3. **API 挂起**：busy 但无任何事件（预留，当前由 stall 覆盖）。
+
+**紧急停止（等价于人类多次 ESC）**：收到事件 → ① 先置 `_monitor_stop` 标志（让 in-flight
+调用感知）→ ② `abort_session`（15s 超时，幂等）→ ③ 主流程节点边界检查 `_monitor_failure()`
+返回 `blocked` 上报。`segments.run` 轮询与 `reviewer.judge` 重试均接受 `cancel_event`，
+在 monitor 触发后尽快退出，不等 deadline。
+
+**已实证**：opencode 的 `POST /session/{id}/abort` 真正打断模型生成——token 计数在 abort 后
+立即停止增长（实测 58/138 → 58/157 冻结），等价于人类紧急停止。监控据此可靠。
+
+**配置**（`Settings`）：`monitor_enabled` / `monitor_poll_sec` / `stall_sec` / `on_stall`
+（`abort`|`report_user`|`none`）。
 
 ---
 

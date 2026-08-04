@@ -258,7 +258,8 @@ Phase A 设定 → Phase B 推进 → [Phase C 阻塞判断] → Phase D 完成/
 > **M-2 已实现（2026-08-04）**：正式工程包 `regime-driver`（`src/` 布局，PyPI 就绪，pyproject + hatchling + pydantic + typer + rich）。架构见 `docs/ARCHITECTURE-regime-driver.md`。分层 `cli → app → (core + infra)`：core 纯领域（无 I/O）、infra 封装 HTTP/文件（`infra/opencode.py`、`infra/regime_loader.py`、`infra/ledger.py`、`infra/config.py`）、app 编排（`app/driver.py`、`app/session_manager.py`、`app/segment_runner.py`）、cli 薄壳（`cli/`，rich 增强）。确定性门（`core/contract.py`）、`[WORK_DONE]` 段协议（`core/segment.py`）、5 轮会话检查均已接入。17 项单测通过；端到端实测驱动 worker 完成两段（修复 bug + 新建模块），测试全绿。开发环境：conda `regime-driver`（python 3.12）。
 
 > **M-3 已实现（2026-08-04）**：L0 审查者接入 L1 判定回路。新增 `app/reviewer.py`（审查者 prompt 构建 + 严格 JSON 解析 + 确定性门 + 带反馈重试）、`infra/skill_loader.py`（按节点从 workflow-regime/skills 注入 skill）、`infra/task_control.py`（NEXT_STEPS/WORKLOG/PENDING_TASKS 读写，driver 节点完成时写 WORKLOG）。节点名改为**语义化 id**（understand/read_code/design/implement/test/wrap）；审查者 prompt 明确列出合法 `next_state` 清单；**advance 目标限定为当前节点的后继**（`state_machine.successors()`），杜绝回退/自环；确定性门为**精确匹配**（无模糊）。判定回路闭环：`ask_developer`（质询开发者→等 `[WORK_DONE]`→回喂审查者）、`advance`（用审查者选定目标推进）、`request_context`（补上下文重判）、`abort_session`/`report_user`（终止）。重试模型：gate 拒绝即回喂原因重试，上限 `max_reviewer_retries`。33 项单测通过；端到端实测：审查者先质询开发者（ask_developer）→ 开发者修复 → advance → 实现 → 测试验证 → 收尾，测试全绿，WORKLOG 正确写入。
-| **M-4** | 试跑一个真实工程任务 + 故障演练（session 异常中断 / 5 轮会话轮换 / blocked 上报） | 全程可复现、可审计、可汇报 | 待实施 |
+
+> **安全监控与紧急停止（2026-08-04，M-4 前置加固）**：新增独立监控线程（`app/monitor.py`）+ 死循环检测（`core/repetition.py`，n-gram 重复率 + 相邻相似度，支持中文标点）。监控独立轮询所有 session 的 token/时间戳/消息文本，检测 ① 死循环（复读机）② 卡死（busy 但 token 停滞 `stall_sec`）③ API 挂起；命中即 `abort + 终止 + 上报 blocked`。已实证 opencode 的 `POST /session/{id}/abort` 真正打断 token 生成（58/138 → 58/157 冻结），等价于人类紧急停止。修复 `session_status` 读取 bug（busy 状态在 `/session/status` 全局 map）。45 项单测通过；端到端实测卡死 → monitor 检测 → abort → blocked 上报全通。
 
 ---
 

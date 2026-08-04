@@ -135,10 +135,10 @@
 
 迁移后 `oc-control`、`oc-workspaces`、`work` 均已从主目录移除，唯一残留为规范化后的 `/home/haber/oc-meta/`。
 
-## 8. 下一步（M0、M-1、M-2、M-3 已完成 → M-4 端到端试跑）
+## 8. 下一步（M0、M-1、M-2、M-3、安全监控已完成 → M-4 端到端试跑）
 
 **M0 已全部完成 ✅**（stall-watchdog + supervisor v2 + oc-task + 故障矩阵 + git）。
-**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。
+**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。**安全监控✅**（独立线程 + 紧急停止，见下）。
 
 **当前方向**：`docs/DESIGN-regime-driver.md`（v0.3 定稿）——把 `workflow-regime/` 制度化流程编译成状态机，由固定代码机器人（L1）+ 审查者智能（L0）驱动**干净无插件**的开发者 opencode（L2）。里程碑 M-1 worker 镜像 → M-2 L1 骨架 → M-3 审查者接入 → M-4 端到端试跑。
 
@@ -146,9 +146,11 @@
 
 **M-3 成果（审查者接入）**：L0 审查者接入 L1 判定回路。新增 `app/reviewer.py`（严格 JSON 判定 + 带反馈重试 + 确定性门）、`infra/skill_loader.py`（按节点注入 skill）、`infra/task_control.py`（任务控制文档读写，节点完成写 WORKLOG）。节点名语义化（understand/read_code/design/implement/test/wrap）；审查者 prompt 明确列出合法 next_state；**advance 限定为后继节点**（杜绝回退/自环）；确定性门精确匹配。判定回路闭环：ask_developer（质询→开发者→回喂）、advance（用审查者目标推进）、request_context、abort/report_user。33 单测通过；端到端实测：审查者质询开发者→修复→advance→实现→测试验证→收尾，测试全绿，WORKLOG 正确写入。
 
+**安全监控与紧急停止（M-4 前置加固）**：独立监控线程 `app/monitor.py` + 死循环检测 `core/repetition.py`（n-gram 重复率 + 相邻相似度，支持中文标点）。监控独立轮询所有 session 的 token/时间戳/消息文本，检测 ① 死循环 ② 卡死（busy 但 token 停滞 `stall_sec`）③ API 挂起；命中即 **abort + 终止 + 上报 blocked**。已实证 opencode 的 `POST /session/{id}/abort` 真正打断 token 生成（58/138 → 58/157 冻结），是**与人类多次 ESC 等价的紧急停止**。修复 `session_status` 读取 bug（busy 状态在 `/session/status` 全局 map）。end-to-end 实测：卡死 → monitor 检测 → abort → blocked 上报。45 单测通过。
+
 阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `workflow-regime/README.md`。
 
-**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计。
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
 
 ### 里程碑进度
 
@@ -157,10 +159,10 @@
 | **M-1** | worker 镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent） | ✅ **完成，容器运行中** |
 | **M-2** | L1 骨架：正式工程包 `regime-driver`（src/ 布局 + 确定性门 + session 管理 + 5 轮检查 + `[WORK_DONE]` 段协议） | ✅ **完成，17 单测 + 端到端全绿** |
 | **M-3** | 审查者接入：skill 注入 + 判定回路 + 硬规则 + 任务控制文档 | ✅ **完成，33 单测 + 端到端全绿** |
-| M-4 | 试跑真实工程任务 + 故障演练 | 待实施 |
+| **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | 待实施 |
 
-**待办**：M-3 审查者接入；全局状态清单设计（P1）；审查者 session 轮换细则（P2）；多开发者 session（P3）。
+**待办**：M-4 端到端试跑；全局状态清单设计（P1）；审查者 session 轮换细则（P2）；多开发者 session（P3）。
 
 ## 9. 命令速查
 
@@ -201,12 +203,15 @@ conda run -n regime-driver regime validate          # 校验状态机
 conda run -n regime-driver regime gate '<verdict-json>'  # 校验审查者判定
 conda run -n regime-driver regime status --base http://127.0.0.1:4097
 conda run -n regime-driver regime run "<任务上下文>" --base http://127.0.0.1:4097 --ledger /tmp/regime-ledger.jsonl
-conda run -n regime-driver python -m pytest           # 单测 (33 项)
+conda run -n regime-driver python -m pytest           # 单测 (45 项)
 
 # 核心代码: src/regime_driver/{core,infra,app,cli}; 架构: docs/ARCHITECTURE-regime-driver.md
 # 状态机: src/regime_driver/data/regime.json (打包默认); 开发期可 --regime 指定
 # 审查者判定: app/reviewer.py (严格 JSON + 重试反馈 + 确定性门); skill 注入: infra/skill_loader.py
 # 任务控制文档: infra/task_control.py (WORKLOG/NEXT_STEPS/PENDING_TASKS), 由 --task-control-dir 启用
+# 安全监控: app/monitor.py (独立线程) + core/repetition.py (死循环检测)
+#   监控参数: --monitor-enabled/--monitor-poll-sec/--stall-sec/--on-stall (abort|report_user|none)
+#   监控由 config 或 env: REGIME_MONITOR_ENABLED/REGIME_POLL_SEC/REGIME_STALL_SEC 等控制
 
 # 看账本（插件 + supervisor 共享）
 tail -f /home/haber/oc-meta/ops/run-ledger.jsonl

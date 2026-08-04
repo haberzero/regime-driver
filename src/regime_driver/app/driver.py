@@ -12,11 +12,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..core.repetition import RepetitionDetector
 from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
 from ..infra.task_control import TaskControl
+from .monitor import Monitor, MonitorEvent
 from .reviewer import Reviewer
 from .segment_runner import SegmentRunner
 from .session_manager import SessionManager
@@ -56,12 +58,32 @@ class RegimeDriver:
         self.task_control: TaskControl | None = (
             TaskControl(settings.task_control_dir) if settings.task_control_dir else None
         )
+        self.monitor: Monitor | None = None
+        self._monitor_stop: str | None = None
+        self._monitor_stop_end_node: str | None = None
+        self._current_node: str | None = None
+        self._cancel_event = lambda: self._monitor_stop is not None
 
     # -- helpers ------------------------------------------------------------
 
     def _log(self, event: str, **fields) -> None:
         if self.ledger is not None:
             self.ledger.append(event, **fields)
+
+    def _current_node_set(self, node_id: str) -> None:
+        self._current_node = node_id
+
+    def _monitor_failure(self) -> RunResult | None:
+        """Return a terminal RunResult if the monitor has flagged a stop."""
+        if self._monitor_stop is not None:
+            self._log("monitor_halt", kind=self._monitor_stop,
+                      node=self._monitor_stop_end_node or self._current_node)
+            return RunResult(
+                outcome="blocked",
+                end_node=self._monitor_stop_end_node or self._current_node,
+                detail=f"monitor: {self._monitor_stop}",
+            )
+        return None
 
     def _get_reviewer(self) -> Reviewer:
         if self.reviewer is None:
@@ -75,6 +97,42 @@ class RegimeDriver:
                 max_retries=self.settings.max_reviewer_retries,
             )
         return self.reviewer
+
+    # -- safety monitor -----------------------------------------------------
+
+    def _start_monitor(self) -> None:
+        """Start the independent safety monitor thread (guards the whole run)."""
+        if not self.settings.monitor_enabled or self.monitor is not None:
+            return
+        self.monitor = Monitor(
+            settings=self.settings,
+            client=self.client,
+            session_provider=self.sessions.all_session_ids,
+            handler=self._on_monitor_event,
+        )
+        self.monitor.start()
+
+    def _stop_monitor(self) -> None:
+        if self.monitor is not None:
+            self.monitor.stop()
+            self.monitor = None
+
+    def _on_monitor_event(self, event: MonitorEvent) -> None:
+        """Emergency stop handler: abort the affected session and flag the run.
+
+        This is the authoritative "human pressed ESC" equivalent — it can
+        interrupt a turn the main flow cannot detect on its own.
+        """
+        self._log("monitor_event", kind=event.kind, session=event.session_id, detail=event.detail)
+        if event.kind == "stall" and self.settings.on_stall == "none":
+            return
+        # escalate: set the stop flag FIRST (so any in-flight judge sees it), then abort
+        self._monitor_stop = event.kind
+        self._monitor_stop_end_node = self._current_node
+        try:
+            self.client.abort_session(event.session_id)
+        except Exception as exc:
+            self._log("monitor_abort_error", session=event.session_id, err=str(exc))
 
     def _build_instruction(self, node_id: str, context: str) -> str:
         node = self.sm.node(node_id)
@@ -97,6 +155,7 @@ class RegimeDriver:
             agent=self.sessions.developer_agent,
             instruction=instruction,
             deadline_sec=self.settings.default_deadline_sec,
+            cancel_event=self._cancel_event,
         )
         self._log(
             "node_done",
@@ -105,6 +164,9 @@ class RegimeDriver:
             report_len=len(result.report or ""),
         )
         if result.outcome != "complete":
+            mf = self._monitor_failure()
+            if mf:
+                return mf, None
             return RunResult(
                 outcome=result.outcome,
                 end_node=node_id,
@@ -154,14 +216,20 @@ class RegimeDriver:
             self._log("reviewer_call", node=node_id)
             try:
                 result = reviewer.judge(node_id, context, developer_report,
-                                        extra_context, valid_targets)
+                                        extra_context, valid_targets, self._cancel_event)
             except Exception as exc:
                 self._log("reviewer_error", node=node_id, err=str(exc))
+                mf = self._monitor_failure()
+                if mf:
+                    return mf, None, None
                 return RunResult(outcome="error", end_node=node_id, detail=str(exc)), None, None
 
             if not result.ok:
                 self._log("reviewer_gate_exhausted", node=node_id,
                           reason=result.error or (result.gate.reason if result.gate else "?"))
+                mf = self._monitor_failure()
+                if mf:
+                    return mf, None, None
                 return RunResult(outcome="error", end_node=node_id,
                                  detail="reviewer gate exhausted"), None, None
 
@@ -211,12 +279,25 @@ class RegimeDriver:
     def run(self, context: str, title: str = "regime-driver") -> RunResult:
         """Run the whole flow on a fresh developer session and return the result."""
         self._log("flow_start", flow=self.sm.flow_name, context=context)
+        self._current_node = None
+        self._monitor_stop = None
+        self._monitor_stop_end_node = None
+        self._start_monitor()
         try:
             dev = self.sessions.ensure_developer(title)
             path = self.sm.flow_path()
             node_id = path[0]
             developer_report: str | None = None
             while node_id is not None:
+                if self._monitor_stop is not None:
+                    self._log("monitor_halt", kind=self._monitor_stop,
+                              node=self._monitor_stop_end_node)
+                    return RunResult(
+                        outcome="blocked",
+                        end_node=self._monitor_stop_end_node,
+                        detail=f"monitor: {self._monitor_stop}",
+                    )
+                self._current_node = node_id
                 self._log("node_enter", node=node_id, actor=self.sm.actor(node_id))
                 actor = self.sm.actor(node_id)
                 if actor == "developer":
@@ -245,3 +326,5 @@ class RegimeDriver:
         except Exception as exc:
             self._log("flow_error", step="run", detail=str(exc))
             return RunResult(outcome="error", detail=str(exc))
+        finally:
+            self._stop_monitor()

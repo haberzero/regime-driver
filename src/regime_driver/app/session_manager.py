@@ -58,3 +58,11 @@ class SessionManager:
     def abort_developer(self) -> None:
         if self.developer is not None and self.developer.session_id:
             self.client.abort_session(self.developer.session_id)
+
+    def all_session_ids(self) -> list[str]:
+        """All managed session ids (for the monitor thread to watch)."""
+        ids: list[str] = []
+        for state in (self.developer, self.reviewer):
+            if state is not None and state.session_id:
+                ids.append(state.session_id)
+        return ids

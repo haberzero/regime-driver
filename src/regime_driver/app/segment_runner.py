@@ -41,8 +41,13 @@ class SegmentRunner:
         agent: str,
         instruction: str,
         deadline_sec: int,
+        cancel_event: Callable[[], bool] | None = None,
     ) -> SegmentResult:
-        """Send an instruction and poll until [WORK_DONE] or timeout."""
+        """Send an instruction and poll until [WORK_DONE] or timeout.
+
+        cancel_event: optional callable returning True to abort the poll early
+        (used by the safety monitor to interrupt a stalled turn).
+        """
         try:
             self.client.send_message(session_id, instruction, agent)
         except Exception as exc:  # OpenCodeError
@@ -50,6 +55,8 @@ class SegmentRunner:
 
         t0 = time.time()
         while time.time() - t0 < deadline_sec:
+            if cancel_event is not None and cancel_event():
+                return SegmentResult(outcome="cancelled", detail="monitor cancel")
             try:
                 messages = self.client.read_messages(session_id)
             except Exception as exc:

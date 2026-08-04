@@ -66,14 +66,41 @@ class OpenCodeClient:
         return res["id"]
 
     def session_status(self, session_id: str) -> str | None:
-        res = self._request("GET", f"/session/{session_id}")
-        st = res.get("status") if isinstance(res, dict) else None
-        if isinstance(st, dict):
-            return st.get("type")
-        return st if isinstance(st, str) else None
+        """Return the session's live status type ('busy'/'idle'/etc.).
+
+        The busy/idle state lives in the global /session/status map, not in the
+        session object. Returns None if the session is not in the map (e.g.
+        idle/removed) or the map is unavailable.
+        """
+        res = self._request("GET", "/session/status", timeout=15.0)
+        if not isinstance(res, dict):
+            return None
+        entry = res.get(session_id)
+        if isinstance(entry, dict):
+            return entry.get("type")
+        return entry if isinstance(entry, str) else None
+
+    def session_tokens(self, session_id: str) -> tuple[int, int]:
+        """Return (reasoning, output) token counts for a session (0 if unknown)."""
+        res = self._request("GET", f"/session/{session_id}", timeout=15.0)
+        if not isinstance(res, dict):
+            return 0, 0
+        tokens = res.get("tokens") or {}
+        return int(tokens.get("reasoning") or 0), int(tokens.get("output") or 0)
+
+    def session_updated(self, session_id: str) -> float | None:
+        """Return the session's last-updated epoch seconds, or None if unknown."""
+        res = self._request("GET", f"/session/{session_id}", timeout=15.0)
+        if not isinstance(res, dict):
+            return None
+        t = res.get("time") or {}
+        updated = t.get("updated")
+        if isinstance(updated, (int, float)):
+            return float(updated) / 1000.0  # ms -> s
+        return None
 
     def abort_session(self, session_id: str) -> None:
-        self._request("POST", f"/session/{session_id}/abort", {})
+        self._request("POST", f"/session/{session_id}/abort", {}, timeout=15.0)
 
     # -- messages -----------------------------------------------------------
 

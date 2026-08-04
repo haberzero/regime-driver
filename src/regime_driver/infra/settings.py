@@ -27,4 +27,11 @@ class Settings(BaseModel):
     task_control_dir: str | None = Field(
         default=None, description="project dir for task-control documents (None = off)"
     )
+    # monitor thread (independent safety guard)
+    monitor_enabled: bool = Field(default=True, description="enable the monitor thread")
+    monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="monitor poll interval")
+    stall_sec: int = Field(default=120, ge=1, description="busy but no token growth beyond this -> stall")
+    on_stall: Literal["abort", "report_user", "none"] = Field(
+        default="abort", description="action when a session stalls (no progress)"
+    )
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")
