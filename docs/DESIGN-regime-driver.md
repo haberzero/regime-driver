@@ -197,9 +197,11 @@ Phase A 设定 → Phase B 推进 → [Phase C 阻塞判断] → Phase D 完成/
 ## 8. worker 容器（自主决定）
 
 - 新镜像 **`opencode-worker:1.18.11`**：Ubuntu 24.04 + Node 22 + opencode-ai@1.18.11（**无插件配置**）+ **miniconda**（python + 项目依赖）+ git + curl。
-- 运行：`opencode serve --hostname 0.0.0.0 --port 4097`（与现有 4096 共存）。
-- opencode.json：**无 plugin、无 goal 命令**；定义 `developer`（默认 build）与 `reviewer`（只读 agent，deny bash/edit/write）两个 agent。
+- 运行：`opencode serve --pure --hostname 0.0.0.0 --port 4097`（与现有 4096 共存；`--pure` 强制无插件）。
+- opencode.json：**无 plugin、无 goal 命令**；定义 `developer`（默认 build）与 `reviewer`（只读 agent，deny bash/edit/write）两个 agent；内置 `deepseek-api` provider（含密钥，供模型调用）。
 - 现有 `opencode-autopilot`（含 goal-plugin + stall-watchdog）保留为**过渡层/对照**，不删除。
+- **M-1 已实现（2026-08-04）**：`docker/Dockerfile.worker`（基座 opencode-mvp 叠加 miniconda，conda-forge 通道规避 ToS）、`docker/worker-config/`（opencode.json + agents/reviewer.md）。容器 `opencode-worker` 运行中，/config 显示 `plugin:[]`，API 全通（session 创建 + deepseek-api 调用实测返回 WORKER_OK）。
+- **密钥分离（2026-08-04）**：`opencode.json` 为**无密钥模板**（`apiKey: "{env:DEEPSEEK_API_KEY}"`，可提交、可复现），密钥经 `docker run -e DEEPSEEK_API_KEY=...` 注入，不烧进镜像、不挂载、不入 git。`miniconda` 从清华镜像下载是**本机规避 Docker Hub 被墙**的部署环境差异，未来下沉为构建参数。
 
 ---
 
@@ -246,12 +248,12 @@ Phase A 设定 → Phase B 推进 → [Phase C 阻塞判断] → Phase D 完成/
 
 ## 12. 里程碑
 
-| M | 内容 | 出口 |
-|---|---|---|
-| **M-1** | worker 镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent） | 容器可起、可 API 调用、环境就绪 |
-| **M-2** | L1 骨架：`regime.json` 状态机 + JSON 确定性门 + 开发者/审查者 session 创建/对话/读取/abort + 5 轮会话检查 + `[WORK_DONE]` 段协议 | 机器人能驱动 1 个开发者 session 完成 1 段并取回汇报 |
-| **M-3** | 审查者接入：skill 注入 + 判定回路（ask_developer / advance 闭环）+ 硬规则 + 任务控制文档读写 | 端到端：审查者质询→开发者修改→验证→推进节点 |
-| **M-4** | 试跑一个真实工程任务 + 故障演练（session 异常中断 / 5 轮会话轮换 / blocked 上报） | 全程可复现、可审计、可汇报 |
+| M | 内容 | 出口 | 状态 |
+|---|---|---|---|
+| **M-1** | worker 镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent） | 容器可起、可 API 调用、环境就绪 | ✅ **完成** |
+| **M-2** | L1 骨架：`regime.json` 状态机 + JSON 确定性门 + 开发者/审查者 session 创建/对话/读取/abort + 5 轮会话检查 + `[WORK_DONE]` 段协议 | 机器人能驱动 1 个开发者 session 完成 1 段并取回汇报 | 待实施 |
+| **M-3** | 审查者接入：skill 注入 + 判定回路（ask_developer / advance 闭环）+ 硬规则 + 任务控制文档读写 | 端到端：审查者质询→开发者修改→验证→推进节点 | 待实施 |
+| **M-4** | 试跑一个真实工程任务 + 故障演练（session 异常中断 / 5 轮会话轮换 / blocked 上报） | 全程可复现、可审计、可汇报 | 待实施 |
 
 ---
 

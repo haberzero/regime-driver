@@ -113,8 +113,13 @@
 
 ## 6. 当前运行状态
 
-- `opencode-autopilot` 容器运行中。
-- **stall-watchdog 插件已部署运行**（正式 thinkingStallSec=600s）；goal-plugin 同载。
+- `opencode-autopilot` 容器运行中（过渡层/对照，含 goal-plugin + stall-watchdog）。
+- **`opencode-worker` 容器运行中（M-1 已上线）**：端口 4097，`opencode serve --pure` 无插件 headless。
+  - 镜像 `opencode-worker:1.18.11`（基座 opencode-mvp + miniconda python 3.14 + 无插件）。
+  - opencode.json 定义 `developer`(primary) + `reviewer`(只读 subagent)；无 plugin/command。
+  - worker 挂载 `~/.local/share/opencode/auth.json` → 容器凭据；工作区 `workspaces/opencode-worker` → `/root/work`。
+  - 已实测：/config（plugin:[]）、/agent、session 创建、deepseek-api LLM 调用（返回 WORKER_OK）全通。
+- **stall-watchdog 插件已部署运行**（正式 thinkingStallSec=600s）；goal-plugin 同载（旧 autopilot 容器）。
 - 测试工具保留：`ops/fake_reasoner.py`、`ops/fake_silent.py`（故障注入用，不常驻）。
 - 工作区已清理测试产物。
 
@@ -140,7 +145,16 @@
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计。
 
-**待办**：M-1 起实施；全局状态清单设计（P1）；审查者 session 轮换细则（P2）；多开发者 session（P3）。
+### 里程碑进度
+
+| M | 内容 | 状态 |
+|---|---|---|
+| **M-1** | worker 镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent） | ✅ **完成，容器运行中** |
+| M-2 | L1 骨架：`regime.json` 状态机 + JSON 确定性门 + 开发者/审查者 session 管理 + 5 轮会话检查 + `[WORK_DONE]` 段协议 | 待实施 |
+| M-3 | 审查者接入：skill 注入 + 判定回路 + 硬规则 + 任务控制文档 | 待实施 |
+| M-4 | 试跑真实工程任务 + 故障演练 | 待实施 |
+
+**待办**：M-2 起实施；全局状态清单设计（P1）；审查者 session 轮换细则（P2）；多开发者 session（P3）。
 
 ## 9. 命令速查
 
@@ -165,6 +179,14 @@ bash /home/haber/oc-meta/ops/oc-run.sh '<goal>' [deadline_min]
 # 容器状态 / 重启
 sg docker -c 'docker ps --filter name=opencode-autopilot'
 sg docker -c 'docker restart opencode-autopilot'
+
+# worker 容器 (M-1, 无插件开发执行面)
+sg docker -c 'docker ps --filter name=opencode-worker'
+sg docker -c 'docker restart opencode-worker'
+# worker 镜像构建 (改动 docker/worker-config 后需重建)
+sg docker -c 'docker build -f docker/Dockerfile.worker -t opencode-worker:1.18.11 .'
+# worker API 冒烟测试
+curl -s http://127.0.0.1:4097/config
 
 # 看账本（插件 + supervisor 共享）
 tail -f /home/haber/oc-meta/ops/run-ledger.jsonl
