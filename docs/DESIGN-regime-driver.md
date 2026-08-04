@@ -251,7 +251,11 @@ Phase A 设定 → Phase B 推进 → [Phase C 阻塞判断] → Phase D 完成/
 | M | 内容 | 出口 | 状态 |
 |---|---|---|---|
 | **M-1** | worker 镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent） | 容器可起、可 API 调用、环境就绪 | ✅ **完成** |
-| **M-2** | L1 骨架：`regime.json` 状态机 + JSON 确定性门 + 开发者/审查者 session 创建/对话/读取/abort + 5 轮会话检查 + `[WORK_DONE]` 段协议 | 机器人能驱动 1 个开发者 session 完成 1 段并取回汇报 | 待实施 |
+| **M-2** | L1 骨架：`regime.json` 状态机 + JSON 确定性门 + 开发者/审查者 session 创建/对话/读取/abort + 5 轮会话检查 + `[WORK_DONE]` 段协议 | 机器人能驱动 1 个开发者 session 完成 1 段并取回汇报 | ✅ **完成（正式工程版）** |
+| **M-3** | 审查者接入：skill 注入 + 判定回路（ask_developer / advance 闭环）+ 硬规则 + 任务控制文档读写 | 端到端：审查者质询→开发者修改→验证→推进节点 | 待实施 |
+| **M-4** | 试跑一个真实工程任务 + 故障演练（session 异常中断 / 5 轮会话轮换 / blocked 上报） | 全程可复现、可审计、可汇报 | 待实施 |
+
+> **M-2 已实现（2026-08-04）**：正式工程包 `regime-driver`（`src/` 布局，PyPI 就绪，pyproject + hatchling + pydantic + typer + rich）。架构见 `docs/ARCHITECTURE-regime-driver.md`。分层 `cli → app → (core + infra)`：core 纯领域（无 I/O）、infra 封装 HTTP/文件（`infra/opencode.py`、`infra/regime_loader.py`、`infra/ledger.py`、`infra/config.py`）、app 编排（`app/driver.py`、`app/session_manager.py`、`app/segment_runner.py`）、cli 薄壳（`cli/`，rich 增强）。确定性门（`core/contract.py`）、`[WORK_DONE]` 段协议（`core/segment.py`）、5 轮会话检查均已接入。17 项单测通过；端到端实测驱动 worker 完成两段（修复 bug + 新建模块），测试全绿。开发环境：conda `regime-driver`（python 3.12）。
 | **M-3** | 审查者接入：skill 注入 + 判定回路（ask_developer / advance 闭环）+ 硬规则 + 任务控制文档读写 | 端到端：审查者质询→开发者修改→验证→推进节点 | 待实施 |
 | **M-4** | 试跑一个真实工程任务 + 故障演练（session 异常中断 / 5 轮会话轮换 / blocked 上报） | 全程可复现、可审计、可汇报 | 待实施 |
 

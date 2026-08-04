@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "regime-driver"
+dynamic = ["version"]
+description = "L1 institutional-process robot: compile workflow-regime into a state machine and drive a clean opencode worker."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "oc-meta" }]
+keywords = ["opencode", "agent", "workflow", "state-machine", "oa"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov"]
+
+[project.scripts]
+regime = "regime_driver.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/regime_driver"]
+
+[tool.hatch.version]
+source = "code"
+path = "src/regime_driver/__init__.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "e2e: end-to-end tests requiring a live worker container",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/regime_driver", "README.md", "pyproject.toml"]

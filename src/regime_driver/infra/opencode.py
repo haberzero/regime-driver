@@ -1,0 +1,114 @@
+"""OpenCode server REST client (infra, stdlib urllib).
+
+Provides a thin, typed wrapper over the opencode server HTTP API:
+session create/read/abort, message send/read, and health check.
+"""
+
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.request
+from dataclasses import dataclass, field
+from typing import Any
+
+
+class OpenCodeError(Exception):
+    """Raised for transport-level failures."""
+
+
+@dataclass
+class Message:
+    """A single chat message."""
+
+    role: str
+    text: str
+    ts: str | None = None
+    error: str | None = None
+
+
+@dataclass
+class OpenCodeClient:
+    """Thin typed client over the opencode server REST API."""
+
+    base_url: str
+    timeout: float = 240.0
+
+    # -- low-level ----------------------------------------------------------
+
+    def _request(self, method: str, path: str, body: dict | None = None, timeout: float | None = None) -> Any:
+        url = self.base_url + path
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(
+            url,
+            data=data,
+            method=method,
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
+                raw = resp.read()
+                return json.loads(raw) if raw else None
+        except urllib.error.HTTPError as e:
+            raise OpenCodeError(
+                f"HTTP {e.code} on {method} {path}: {e.read().decode(errors='ignore')[:300]}"
+            ) from e
+        except Exception as e:  # URLError, timeout, etc.
+            raise OpenCodeError(f"transport error on {method} {path}: {e}") from e
+
+    # -- sessions -----------------------------------------------------------
+
+    def create_session(self, title: str) -> str:
+        res = self._request("POST", "/session", {"title": title})
+        if not isinstance(res, dict) or not res.get("id"):
+            raise OpenCodeError(f"create_session returned no id: {res}")
+        return res["id"]
+
+    def session_status(self, session_id: str) -> str | None:
+        res = self._request("GET", f"/session/{session_id}")
+        st = res.get("status") if isinstance(res, dict) else None
+        if isinstance(st, dict):
+            return st.get("type")
+        return st if isinstance(st, str) else None
+
+    def abort_session(self, session_id: str) -> None:
+        self._request("POST", f"/session/{session_id}/abort", {})
+
+    # -- messages -----------------------------------------------------------
+
+    def send_message(self, session_id: str, text: str, agent: str) -> None:
+        body = {"agent": agent, "parts": [{"type": "text", "text": text}]}
+        self._request("POST", f"/session/{session_id}/message", body)
+
+    def read_messages(self, session_id: str) -> list[Message]:
+        res = self._request("GET", f"/session/{session_id}/message", timeout=30.0)
+        messages: list[Message] = []
+        if not isinstance(res, list):
+            return messages
+        for m in res:
+            info = m.get("info") or {}
+            parts = m.get("parts") or []
+            text = "".join(
+                p.get("text") or ""
+                for p in parts
+                if p.get("type") in ("text", "reasoning")
+            )
+            t = info.get("time") or {}
+            messages.append(
+                Message(
+                    role=info.get("role") or "?",
+                    text=text,
+                    ts=t.get("updated") or t.get("created"),
+                    error=info.get("error"),
+                )
+            )
+        return messages
+
+    # -- health -------------------------------------------------------------
+
+    def health(self) -> bool:
+        try:
+            res = self._request("GET", "/global/health", timeout=5.0)
+            return bool(isinstance(res, dict) and res.get("healthy"))
+        except OpenCodeError:
+            return False
