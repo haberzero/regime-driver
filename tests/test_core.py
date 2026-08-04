@@ -22,10 +22,10 @@ REGIME = Path(__file__).parent.parent / "src" / "regime_driver" / "data" / "regi
 
 def make_verdict(**overrides) -> dict:
     base = {
-        "node": "phase2_design",
+        "node": "design",
         "verdict": "issue_resolved",
         "action": "advance",
-        "next_state": "phase3_implement",
+        "next_state": "implement",
         "confidence": 0.8,
         "reason": "done",
     }
@@ -50,7 +50,7 @@ def test_ask_developer_requires_message():
 
 def test_advance_requires_valid_next_state():
     v = parse_reviewer_verdict(make_verdict())
-    res = gate_reviewer_verdict(v, valid_node_ids={"phase4_test"})
+    res = gate_reviewer_verdict(v, valid_node_ids={"test"})
     assert not res.ok
     assert "next_state" in res.reason
 
@@ -130,10 +130,10 @@ def test_parse_report_structured():
 def test_state_machine_loads_from_real_regime():
     sm = load_regime(REGIME)
     assert sm.flow_name == "code_workflow"
-    assert sm.start == "phase0_understand"
+    assert sm.start == "understand"
     path = sm.flow_path()
-    assert path[0] == "phase0_understand"
-    assert path[-1] == "phase5_wrap"
+    assert path[0] == "understand"
+    assert path[-1] == "wrap"
 
 
 def test_state_machine_cycle_detected():

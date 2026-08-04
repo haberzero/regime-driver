@@ -22,4 +22,9 @@ class Settings(BaseModel):
     ledger_path: str | None = Field(default=None, description="JSONL ledger path (None = off)")
     regime_path: str | None = Field(default=None, description="path to regime.json")
     session_turn_check: int = Field(default=5, ge=1, description="developer turn-check cadence")
+    skills_dir: str | None = Field(default=None, description="path to workflow-regime skills dir")
+    max_reviewer_retries: int = Field(default=2, ge=0, description="reviewer gate retries per node")
+    task_control_dir: str | None = Field(
+        default=None, description="project dir for task-control documents (None = off)"
+    )
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")

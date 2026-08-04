@@ -65,6 +65,12 @@ def run(
     ledger: Optional[Path] = typer.Option(None, "--ledger", help="JSONL ledger path"),
     deadline: int = typer.Option(None, "--deadline", help="per-segment deadline (sec)"),
     title: str = typer.Option("regime-driver", "--title"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"
+    ),
+    task_control_dir: Optional[Path] = typer.Option(
+        None, "--task-control-dir", help="project dir for task-control docs"
+    ),
 ) -> None:
     """Run a task through the regime flow on a developer session."""
     settings = load_settings(
@@ -74,6 +80,8 @@ def run(
             "regime_path": str(regime) if regime else None,
             "ledger_path": str(ledger) if ledger else None,
             "default_deadline_sec": deadline,
+            "skills_dir": str(skills_dir) if skills_dir else None,
+            "task_control_dir": str(task_control_dir) if task_control_dir else None,
         },
     )
     _run(settings, context, title)
@@ -85,7 +93,7 @@ def _run(settings: Settings, context: str, title: str) -> None:
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
 
-    client = OpenCodeClient(settings.base_url)
+    client = OpenCodeClient(settings.base_url, model=settings.model)
     ledger = Ledger(settings.ledger_path) if settings.ledger_path else None
     with console.status(f"[cyan]running flow[/cyan] [bold]{sm.flow_name}[/bold] …"):
         try:

@@ -1,6 +1,6 @@
 {
-  "version": "0.1",
-  "description": "Compiled institutional process from workflow-regime (code-workflow).",
+  "version": "0.2",
+  "description": "Compiled institutional process from workflow-regime (code-workflow). Node ids are semantic and are the single source of truth for reviewer next_state targets.",
   "meta": {
     "source": ["workflow-regime/task-control/07_goal_mechanism.md", "workflow-regime/task-control/08_autonomous_loop.md", "workflow-regime/skills/code-workflow/SKILL.md"],
     "session_turn_check": 5,
@@ -9,12 +9,12 @@
   "flows": {
     "code_workflow": {
       "nodes": {
-        "phase0_understand": {"id": "phase0_understand", "desc": "理解任务上下文", "actor": "developer", "next": "phase1_read"},
-        "phase1_read": {"id": "phase1_read", "desc": "理解代码上下文", "actor": "developer", "next": "phase2_design"},
-        "phase2_design": {"id": "phase2_design", "desc": "方案设计", "actor": "reviewer", "skill": "design-philosophy", "next": "phase3_implement"},
-        "phase3_implement": {"id": "phase3_implement", "desc": "实现", "actor": "developer", "next": "phase4_test"},
-        "phase4_test": {"id": "phase4_test", "desc": "测试与验证", "actor": "reviewer", "skill": "code-review", "next": "phase5_wrap"},
-        "phase5_wrap": {"id": "phase5_wrap", "desc": "收尾与清理", "actor": "developer", "next": null}
+        "understand": {"id": "understand", "desc": "理解任务上下文", "actor": "developer", "next": "read_code"},
+        "read_code": {"id": "read_code", "desc": "理解代码上下文", "actor": "developer", "next": "design"},
+        "design": {"id": "design", "desc": "方案设计", "actor": "reviewer", "skill": "design-philosophy", "next": "implement"},
+        "implement": {"id": "implement", "desc": "实现", "actor": "developer", "next": "test"},
+        "test": {"id": "test", "desc": "测试与验证", "actor": "reviewer", "skill": "code-review", "next": "wrap"},
+        "wrap": {"id": "wrap", "desc": "收尾与清理", "actor": "developer", "next": null}
       }
     },
     "main_loop": {
@@ -30,5 +30,5 @@
       }
     }
   },
-  "entry": {"flow": "code_workflow", "start_node": "phase0_understand"}
+  "entry": {"flow": "code_workflow", "start_node": "understand"}
 }

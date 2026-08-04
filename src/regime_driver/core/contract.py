@@ -45,10 +45,10 @@ def gate_reviewer_verdict(
     Args:
         verdict: the parsed reviewer verdict.
         valid_node_ids: optional set of valid next-state node ids; if provided,
-            advance actions must name a state in this set.
+            advance actions must name a state exactly in this set (no fuzzy match).
 
     Returns:
-        GateResult with ok=True and the normalized verdict, or ok=False plus a
+        GateResult with ok=True and the verified verdict, or ok=False plus a
         human-readable reason.
     """
     # 1. field whitelist (enforced by the Literal types on model construction)
@@ -65,7 +65,8 @@ def gate_reviewer_verdict(
         if valid_node_ids is not None and ns not in valid_node_ids:
             return GateResult(
                 ok=False,
-                reason=f"advance next_state '{ns}' not in state machine",
+                reason=f"advance next_state '{ns}' not in state machine "
+                       f"(valid: {sorted(valid_node_ids)})",
             )
     if action == "request_context" and not (verdict.context_requested or "").strip():
         return GateResult(ok=False, reason="request_context requires context_requested")

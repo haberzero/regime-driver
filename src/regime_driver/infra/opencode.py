@@ -33,6 +33,7 @@ class OpenCodeClient:
 
     base_url: str
     timeout: float = 240.0
+    model: str | None = None
 
     # -- low-level ----------------------------------------------------------
 
@@ -77,8 +78,34 @@ class OpenCodeClient:
     # -- messages -----------------------------------------------------------
 
     def send_message(self, session_id: str, text: str, agent: str) -> None:
-        body = {"agent": agent, "parts": [{"type": "text", "text": text}]}
+        body: dict = {"agent": agent, "parts": [{"type": "text", "text": text}]}
+        if self.model:
+            body["model"] = _model_obj(self.model)
         self._request("POST", f"/session/{session_id}/message", body)
+
+    def ask_and_get_text(self, session_id: str, prompt: str, agent: str) -> str:
+        """Send a prompt and synchronously return the assistant's text reply.
+
+        Used for reviewer judgements (pure reasoning, POST returns the complete
+        message). Raises OpenCodeError on transport failure or empty reply.
+        """
+        body: dict = {"agent": agent, "parts": [{"type": "text", "text": prompt}]}
+        if self.model:
+            body["model"] = _model_obj(self.model)
+        res = self._request("POST", f"/session/{session_id}/message", body)
+        if not isinstance(res, dict):
+            raise OpenCodeError(f"ask_and_get_text: unexpected response: {res}")
+        info = res.get("info") or {}
+        if info.get("error"):
+            raise OpenCodeError(f"ask_and_get_text: {info['error']}")
+        text = "".join(
+            p.get("text") or ""
+            for p in res.get("parts") or []
+            if p.get("type") in ("text", "reasoning")
+        )
+        if not text.strip():
+            raise OpenCodeError("ask_and_get_text: empty reply")
+        return text
 
     def read_messages(self, session_id: str) -> list[Message]:
         res = self._request("GET", f"/session/{session_id}/message", timeout=30.0)
@@ -112,3 +139,12 @@ class OpenCodeClient:
             return bool(isinstance(res, dict) and res.get("healthy"))
         except OpenCodeError:
             return False
+
+
+def _model_obj(model: str) -> dict:
+    """'deepseek-api/deepseek-v4-flash' -> {'providerID','modelID'} (message
+    endpoint requires the object form, not a string)."""
+    if "/" in model:
+        provider, _, model_id = model.partition("/")
+        return {"providerID": provider, "modelID": model_id}
+    return {"modelID": model}

@@ -65,6 +65,29 @@ class StateMachine:
     def actor(self, node_id: str) -> str:
         return self.node(node_id).actor
 
+    def node_ids(self) -> list[str]:
+        """All node ids in the current flow (for reviewer prompt / gate hints)."""
+        return list(self.flow.nodes)
+
+    def node_descriptions(self) -> dict[str, str]:
+        """Map node id -> description (for the reviewer's valid-target list)."""
+        return {nid: self.node(nid).desc for nid in self.flow.nodes}
+
+    def successors(self, node_id: str) -> list[str]:
+        """The valid advance targets from a node: its `next` plus branch `goto`s.
+
+        This is the authoritative set the reviewer may advance to. Restricting
+        advance to successors prevents backward/self transitions (cycle risk).
+        """
+        node = self.node(node_id)
+        targets: list[str] = []
+        if node.next:
+            targets.append(node.next)
+        for branch in node.branches or []:
+            if branch.goto not in targets:
+                targets.append(branch.goto)
+        return targets
+
     def flow_path(self) -> list[str]:
         """Linear ordered node ids from start to terminal (raises on cycles)."""
         path: list[str] = []

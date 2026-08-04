@@ -2,7 +2,7 @@
 
 > 版本：v0.3（务实聚焦版）
 > 日期：2026-08-04
-> 状态：**regime-driver 实施中 —— M-2 L1 骨架已完成（正式工程版），进入 M-3 审查者接入**。
+> 状态：**regime-driver 实施中 —— M-3 审查者接入已完成（正式工程版），进入 M-4 端到端试跑**。
 > 历史：v0.1 完整元系统设计 → v0.2 聚焦 M0 稳健自主运行（已完成）→ v0.3 以 regime-driver 落地"上帝对话框"（M1+ 的务实实现）。
 
 ---
@@ -28,7 +28,7 @@
 
 **M0 成果（已完成，HANDOVER §4）**：stall-watchdog 插件（thinking 超时 600s）+ 宿主 supervisor v2（T1/T2/L3/L4/L5 + 元分析确定性门）+ `oc-task.py` 任务接口 + git 管理。故障注入全矩阵验证通过（thinking 循环 / docker stop→T1+L4 / 模型故障→L3 / SSE 静默有界回退）。
 
-**后续方向（regime-driver，v0.3 实施中）**：制度化流程外置执行，里程碑见 DESIGN-regime-driver §12。**M-1 worker 镜像已 ✅（`opencode-worker:1.18.11` 容器运行中，无插件 + serve --pure + reviewer 只读 agent）**；**M-2 L1 骨架已 ✅（正式工程包 `regime-driver`，src/ 布局 + cli→app→core/infra 分层，确定性门 + [WORK_DONE] 段协议 + 5 轮会话检查，17 单测 + 端到端驱动 worker 全绿）**；当前进入 M-3 审查者接入。
+**后续方向（regime-driver，v0.3 实施中）**：制度化流程外置执行，里程碑见 DESIGN-regime-driver §12。**M-1 worker 镜像已 ✅（`opencode-worker:1.18.11` 容器运行中，无插件 + serve --pure + reviewer 只读 agent）**；**M-2 L1 骨架已 ✅（正式工程包 `regime-driver`，src/ 布局 + cli→app→core/infra 分层，确定性门 + [WORK_DONE] 段协议 + 5 轮会话检查）**；**M-3 审查者接入已 ✅（`app/reviewer.py` 严格 JSON 判定 + 带反馈重试；skill 注入；节点语义化命名 + 后继限定 advance；判定回路 ask_developer/advance/request_context/abort/report_user 闭环；任务控制文档读写；33 单测 + 端到端全绿）**；当前进入 M-4 端到端试跑。
 
 ---
 
