@@ -249,3 +249,34 @@ def test_transition_rotate_returns_rotated_role_set():
     d.sessions.ensure("reviewer", "t")
     rotated = d._apply_transition("a", "dummy", {})
     assert rotated == {"reviewer"}
+
+
+# ---------------------------------------------------------- config validation
+
+def test_tool_node_without_tool_name_fails_validation():
+    bad = Node(id="t", desc="", type=NodeType.TOOL, tool=None, next=None)
+    with pytest.raises(Exception) as exc:
+        _sm_with_nodes([bad])
+    assert "must declare a tool name" in str(exc.value)
+
+
+def test_route_without_branches_fails_validation():
+    bad = Node(id="r", desc="", type=NodeType.ROUTE, next=None)
+    with pytest.raises(Exception) as exc:
+        _sm_with_nodes([bad])
+    assert "must declare at least one branch" in str(exc.value)
+
+
+def test_gate_without_branches_fails_validation():
+    bad = Node(id="g", desc="", type=NodeType.GATE, next=None)
+    with pytest.raises(Exception) as exc:
+        _sm_with_nodes([bad])
+    assert "must declare at least one branch" in str(exc.value)
+
+
+def test_valid_tool_with_branch_passes_validation():
+    node = Node(id="t", desc="", type=NodeType.TOOL, tool="have_report",
+                next="end", branches=[{"when": "ok", "goto": "end"}])
+    end = Node(id="end", desc="", type=NodeType.AGENT, next=None)
+    sm = _sm_with_nodes([node, end])
+    assert sm.flow_name == "f"

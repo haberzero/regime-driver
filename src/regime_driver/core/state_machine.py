@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from .models import Flow, Node, Regime
+from .models import Flow, Node, NodeType, Regime
 
 
 class StateMachineError(Exception):
@@ -47,6 +47,13 @@ class StateMachine:
                     raise StateMachineError(
                         f"node '{node_id}' branch '{branch.goto}' not in flow '{self.flow_name}'"
                     )
+            # semantic checks for deterministic node types (fail fast on config errors)
+            if node.type == NodeType.TOOL and not node.tool:
+                raise StateMachineError(f"tool node '{node_id}' must declare a tool name")
+            if node.type in (NodeType.ROUTE, NodeType.GATE) and not node.branches:
+                raise StateMachineError(
+                    f"{node.type.value} node '{node_id}' must declare at least one branch"
+                )
 
     # -- traversal ----------------------------------------------------------
 
