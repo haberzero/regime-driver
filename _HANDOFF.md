@@ -2,7 +2,7 @@
 
 > ⚠️ 临时交接文档：交接完成后经确认删除（状态由 git 承载）。
 > 日期：2026-08-05
-> 当前状态一句话：**regime-driver 系统已完成 M-1/M-2/M-3 + 安全监控 + 架构 v2/v3/v4 + 流转决策并入策略，核心功能可用，进入后续可选工作。**
+> 当前状态一句话：**regime-driver 系统已完成 M-1/M-2/M-3 + 安全监控 + 架构 v2/v3/v4 + 流转决策并入策略 + tool/route/gate 确定性节点执行 + M-4 真实任务试跑 COMPLETE，核心功能可用，进入后续可选工作。**
 
 ---
 
@@ -77,15 +77,17 @@
 
 ## 4. 后续工作候选（按优先级）
 
-1. **P1 真实工程任务试跑（M-4）**：`regime run "<真实任务>"` 跑一个真实工程任务，
-   验证整套体系在真实负载下的表现（多轮质询、脑容量交接、角色流转）。
-2. **P1 加入自定义角色/流转策略的端到端验证**：注册一个 `transition_mode=ROTATE` 的角色，
-   验证"每节点新建 session + 交接文档"的流转路径（当前只有单测覆盖，无端到端）。
-3. **P2 工作区物理隔离**：`core/policy.py` 的 `WORKSPACE_CONVENTIONS` 已是参考常量，
-   但 worker 挂载未实际调整（开发者隔离到 code/，审查者看 work 根）。
-0. **P3 工具节点（tool/route/gate）**：`NodeType` 定义了 tool/route/gate，但 driver
-   的 `_execute_node` 对这三类直接 fall through 到 next，未实现确定性工具执行。
-5. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
+1. **P1 自定义角色/流转策略端到端验证**：注册一个 `transition_mode=ROTATE` 的角色，
+   验证"每节点新建 session + 交接文档"的流转路径（当前单测覆盖：`test_transition_rotates_role_session` +
+   `test_transition_rotate_returns_rotated_role_set` + `test_anchor_transition_pins_session`）。
+2. **P2 工作区物理隔离（部分完成）**：`core/policy.py` 的 `WORKSPACE_CONVENTIONS` 已通过 `workspace_for()`
+   注入到 agent 指令提示（角色可见性提示），但 worker 挂载的物理隔离仍未实际调整（需 worker 重建）。
+3. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
+4. **P3 其它**：`_deadline` 字段仍恒为空（meta 研判的 deadline 未实际设置）；`main_loop` flow 仍不可达（死配置）。
+
+- **已完成（2026-08-05 自主分支）**：tool/route/gate 确定性节点执行（`core/branching.py` 安全条件求值 +
+  `core/tools.py` 确定性工具注册表，driver 按 node.type 真正分发）；工作区提示注入；流转修复
+  （ANCHOR 显式处理、传 ctx、流转后刷新陈旧 dev 引用）；死代码清理；M-4 真实任务试跑 COMPLETE。
 
 ---
 

@@ -173,7 +173,8 @@ class RegimeDriver:
                 messages = self.client.read_messages(event.session_id)
                 result: MetaResult = self.meta_analyzer.analyze(
                     meta_sid, goal=self._goal or "", deadline=self._deadline or "",
-                    messages=messages, recent_events=[],
+                    messages=messages,
+                    recent_events=[f"{event.kind}: {event.detail}"],
                 )
                 self._log("meta_review", kind=event.kind, session=event.session_id,
                           verdict=result.verdict, action=result.action,
