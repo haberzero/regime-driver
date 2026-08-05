@@ -24,8 +24,8 @@
 - [DONE] 修复 ANCHOR 未处理 / 传递 ctx / 流转后 dev 陈旧引用 | 同上一并按 | driver._apply_transition / run()
 - [DONE] 清理死代码（WORK_DONE_RE / load_skill_description / Regime.node / status 硬编码 URL） | 同上一并按 | 多文件
 - [REVIEW] 里程碑1 | 0 blockers, 1 warning(数值比较,已修) | 分支/tools/驱动/清理
-- [ ] P1 M-4 真实工程任务试跑（regime run 真实任务，验证多轮质询/脑容量交接/角色流转）
-- [ ] P1 自定义角色 ROTATE 流转策略端到端验证（当前仅单测）
+- [DONE] P1 M-4 真实工程任务试跑 | verified: 真实 worker 全流程 COMPLETE | regime run 生成 utils.py/test_utils.py，双 reviewer judge advance(0.9)，pytest 2 passed；首跑因 reviewer LLM 瞬时停顿被 monitor 正确 abort(安全系统生效)
+- [ ] P1 自定义角色 ROTATE 流转策略端到端验证（当前仅单测：test_transition_rotates_role_session + test_transition_rotate_returns_rotated_role_set）
 - [ ] P3 上帝对话框演进（远期）
 
 ## 阻塞
