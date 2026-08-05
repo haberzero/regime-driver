@@ -1,24 +1,22 @@
 """Session state model (pure domain logic).
 
-Tracks the lifecycle of a developer or reviewer session: round count, health,
-and whether a session-turn check is due. No I/O.
+A session is the private brain capacity of a role. The kernel does not care
+which role it is — roles are user-registered instances. This module tracks a
+session's round count and turn-check cadence only.
 """
 
 from __future__ import annotations
 
-from enum import Enum
-
-
-class SessionKind(str, Enum):
-    DEVELOPER = "developer"
-    REVIEWER = "reviewer"
+# Convenience role ids (user may register any other role id).
+DEVELOPER = "developer"
+REVIEWER = "reviewer"
 
 
 class SessionState:
     """Mutable state for one opencode session."""
 
-    def __init__(self, kind: SessionKind, session_id: str | None = None) -> None:
-        self.kind = kind
+    def __init__(self, role: str, session_id: str | None = None) -> None:
+        self.role = role
         self.session_id = session_id
         self.round = 0
 
@@ -32,6 +30,6 @@ class SessionState:
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return (
-            f"SessionState(kind={self.kind.value}, sid={self.session_id}, "
+            f"SessionState(role={self.role}, sid={self.session_id}, "
             f"round={self.round})"
         )

@@ -1,87 +1,66 @@
-"""Session management (app layer): lifecycle of developer/reviewer sessions.
+"""Session registry (app layer): manage sessions by arbitrary role id.
 
-Composes the OpenCodeClient (infra) with the SessionState domain model (core)
-to create, reuse, round-track, and rotate sessions.
+The kernel manages sessions keyed by role id; it does not special-case
+"developer"/"reviewer". Roles are user-registered (see core/role.py). Each role
+owns one active session (its private brain capacity).
 """
 
 from __future__ import annotations
 
-from ..core.session import SessionKind, SessionState
+from ..core.session import SessionState
 from ..infra.opencode import OpenCodeClient
 
 
-class SessionManager:
-    """Owns the developer and reviewer sessions."""
+class SessionRegistry:
+    """Owns the active session per role id."""
 
     def __init__(
         self,
         client: OpenCodeClient,
-        developer_agent: str = "developer",
-        reviewer_agent: str = "reviewer",
+        agent_by_role: dict[str, str] | None = None,
     ) -> None:
         self.client = client
-        self.developer_agent = developer_agent
-        self.reviewer_agent = reviewer_agent
-        self.developer: SessionState | None = None
-        self.reviewer: SessionState | None = None
+        self.agent_by_role = agent_by_role or {}
+        self._sessions: dict[str, SessionState] = {}
 
-    # -- developer ----------------------------------------------------------
+    def register_agent(self, role: str, agent: str) -> None:
+        self.agent_by_role[role] = agent
 
-    def ensure_developer(self, title: str = "regime-driver") -> SessionState:
-        """Create the developer session if not present; reuse otherwise."""
-        if self.developer is None:
-            sid = self.client.create_session(title)
-            self.developer = SessionState(SessionKind.DEVELOPER, sid)
-        return self.developer
+    def agent_for(self, role: str) -> str:
+        return self.agent_by_role.get(role, role)
 
-    # -- reviewer -----------------------------------------------------------
+    def ensure(self, role: str, title: str | None = None) -> SessionState:
+        """Create the role's session if absent; reuse otherwise."""
+        if role not in self._sessions:
+            sid = self.client.create_session(title or f"regime-{role}")
+            self._sessions[role] = SessionState(role, sid)
+        return self._sessions[role]
 
-    def ensure_reviewer(self, title: str = "regime-reviewer") -> SessionState:
-        """Create the reviewer session if not present; reuse otherwise (M-3)."""
-        if self.reviewer is None:
-            sid = self.client.create_session(title)
-            self.reviewer = SessionState(SessionKind.REVIEWER, sid)
-        return self.reviewer
+    def get(self, role: str) -> SessionState | None:
+        return self._sessions.get(role)
 
-    # -- round / health -----------------------------------------------------
-
-    def advance_developer_round(self) -> int:
-        if self.developer is None:
-            raise RuntimeError("developer session not created")
-        return self.developer.advance_round()
-
-    def developer_turn_check_due(self, check_every: int) -> bool:
-        if self.developer is None:
-            return False
-        return self.developer.turn_check_due(check_every)
-
-    def abort_developer(self) -> None:
-        if self.developer is not None and self.developer.session_id:
-            self.client.abort_session(self.developer.session_id)
-
-    def rotate_session(self, kind: SessionKind, inject: str | None = None) -> SessionState:
-        """Rotate a session: create a fresh one, optionally inject a handover.
-
-        Returns the new SessionState. The old session is left on the server for
-        audit (not force-deleted); only the managed reference moves to the new id.
-        """
-        if kind == SessionKind.DEVELOPER:
-            self.developer = SessionState(kind, self.client.create_session("regime-driver"))
-            state = self.developer
-        elif kind == SessionKind.REVIEWER:
-            self.reviewer = SessionState(kind, self.client.create_session("regime-reviewer"))
-            state = self.reviewer
-        else:
-            raise ValueError(f"unknown session kind: {kind}")
+    def rotate(self, role: str, inject: str | None = None) -> SessionState:
+        """Rotate a role's session: create a fresh one, optionally inject."""
+        state = SessionState(role, self.client.create_session(f"regime-{role}"))
+        self._sessions[role] = state
         if inject:
-            agent = self.developer_agent if kind == SessionKind.DEVELOPER else self.reviewer_agent
-            self.client.send_message(state.session_id, inject, agent)
+            self.client.send_message(state.session_id, inject, self.agent_for(role))
         return state
 
+    def abort(self, role: str) -> None:
+        state = self._sessions.get(role)
+        if state is not None and state.session_id:
+            self.client.abort_session(state.session_id)
+
+    def advance_round(self, role: str) -> int:
+        state = self._sessions.get(role)
+        if state is None:
+            raise RuntimeError(f"session for role '{role}' not created")
+        return state.advance_round()
+
+    def turn_check_due(self, role: str, check_every: int) -> bool:
+        state = self._sessions.get(role)
+        return state.turn_check_due(check_every) if state else False
+
     def all_session_ids(self) -> list[str]:
-        """All managed session ids (for the monitor thread to watch)."""
-        ids: list[str] = []
-        for state in (self.developer, self.reviewer):
-            if state is not None and state.session_id:
-                ids.append(state.session_id)
-        return ids
+        return [s.session_id for s in self._sessions.values() if s.session_id]

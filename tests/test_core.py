@@ -13,7 +13,7 @@ from regime_driver.core.contract import (
 )
 from regime_driver.core.models import ReviewerVerdict
 from regime_driver.core.segment import SegmentParser
-from regime_driver.core.session import SessionKind, SessionState
+from regime_driver.core.session import SessionState
 from regime_driver.core.state_machine import StateMachine, StateMachineError
 from regime_driver.infra.regime_loader import load_regime
 
@@ -143,8 +143,8 @@ def test_state_machine_cycle_detected():
             "flows": {
                 "f": {
                     "nodes": {
-                        "a": {"id": "a", "desc": "", "actor": "developer", "next": "b"},
-                        "b": {"id": "b", "desc": "", "actor": "developer", "next": "a"},
+                        "a": {"id": "a", "desc": "", "role": "developer", "next": "b"},
+                        "b": {"id": "b", "desc": "", "role": "developer", "next": "a"},
                     }
                 }
             },
@@ -163,7 +163,7 @@ def test_state_machine_bad_next_rejected():
             "flows": {
                 "f": {
                     "nodes": {
-                        "a": {"id": "a", "desc": "", "actor": "developer", "next": "nope"},
+                        "a": {"id": "a", "desc": "", "role": "developer", "next": "nope"},
                     }
                 }
             },
@@ -177,7 +177,7 @@ def test_state_machine_bad_next_rejected():
 # --- session ----------------------------------------------------------------
 
 def test_session_turn_check():
-    s = SessionState(SessionKind.DEVELOPER, "s1")
+    s = SessionState("developer", "s1")
     assert not s.turn_check_due(5)
     s.advance_round()
     s.advance_round()
@@ -189,6 +189,6 @@ def test_session_turn_check():
 
 
 def test_session_turn_check_disabled():
-    s = SessionState(SessionKind.DEVELOPER, "s1")
+    s = SessionState("developer", "s1")
     s.advance_round()
     assert not s.turn_check_due(0)

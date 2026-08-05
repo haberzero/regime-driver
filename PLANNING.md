@@ -2,7 +2,7 @@
 
 > 版本：v0.3（务实聚焦版）
 > 日期：2026-08-04
-> 状态：**regime-driver 实施中 —— M-1/M-2/M-3 已完成，安全监控 + 架构v2交接模型 + 架构v3工作区机制已设计，进入 v3 实施**。
+> 状态：**regime-driver 实施中 —— M-1/M-2/M-3 已完成，架构 v2/v3/v4 已完成（交接模型 + 工作区机制 + 角色通用化），进入 M-4 端到端试跑**。
 > 历史：v0.1 完整元系统设计 → v0.2 聚焦 M0 稳健自主运行（已完成）→ v0.3 以 regime-driver 落地"上帝对话框"（M1+ 的务实实现）。
 
 ---
@@ -28,7 +28,7 @@
 
 **M0 成果（已完成，HANDOVER §4）**：stall-watchdog 插件（thinking 超时 600s）+ 宿主 supervisor v2（T1/T2/L3/L4/L5 + 元分析确定性门）+ `oc-task.py` 任务接口 + git 管理。故障注入全矩阵验证通过（thinking 循环 / docker stop→T1+L4 / 模型故障→L3 / SSE 静默有界回退）。
 
-**后续方向（regime-driver，v0.3 实施中）**：制度化流程外置执行，里程碑见 DESIGN-regime-driver §12。**M-1 worker 镜像已 ✅（`opencode-worker:1.18.11` 容器运行中，无插件 + serve --pure + reviewer 只读 agent）**；**M-2 L1 骨架已 ✅（正式工程包 `regime-driver`，src/ 布局 + cli→app→core/infra 分层，确定性门 + [WORK_DONE] 段协议 + 5 轮会话检查）**；**M-3 审查者接入已 ✅（`app/reviewer.py` 严格 JSON 判定 + 带反馈重试；skill 注入；节点语义化命名 + 后继限定 advance；判定回路闭环；任务控制文档读写）**；**安全监控与紧急停止已加固 ✅（独立监控线程 + 死循环检测 + 卡死 abort + 上报，实证 opencode abort 打断生成）**；**架构 v2 交接模型已 ✅（`core/handoff.py` 结构化交接单 + `detect_loop` 收敛检测；`app/session_lifecycle.py` 脑容量检测 + 交接；driver 重构为交接单路由 + 多轮质询 + 节点预算；角色私有记忆不共享）**；**架构 v3 工作区与交接机制已设计 ✅（工作区角色可见性 code/handoff 分区；交接文档体系 brain_normal/brain_urgent/role_transition；session 自评协议；策略可编程，见 `docs/ARCHITECTURE-v3.md`）**；当前进入 v3 实施（策略抽象 → 自评协议 → handoff 扩展 → 自评驱动生命周期）。
+**后续方向（regime-driver，v0.3 实施中）**：制度化流程外置执行，里程碑见 DESIGN-regime-driver §12。**M-1 worker 镜像已 ✅（`opencode-worker:1.18.11` 容器运行中，无插件 + serve --pure + reviewer 只读 agent）**；**M-2 L1 骨架已 ✅（正式工程包 `regime-driver`，src/ 布局 + cli→app→core/infra 分层，确定性门 + [WORK_DONE] 段协议 + 5 轮会话检查）**；**M-3 审查者接入已 ✅（`app/reviewer.py` 严格 JSON 判定 + 带反馈重试；skill 注入；节点语义化命名 + 后继限定 advance；判定回路闭环；任务控制文档读写）**；**安全监控与紧急停止已加固 ✅（独立监控线程 + 死循环检测 + 卡死 abort + 上报，实证 opencode abort 打断生成）**；**架构 v2 交接模型已 ✅（`core/handoff.py` 结构化交接单 + `detect_loop` 收敛检测；driver 重构为交接单路由 + 多轮质询 + 节点预算；角色私有记忆不共享）**；**架构 v3 工作区与交接机制已 ✅（工作区角色可见性 code/handoff；交接文档体系；session 自评协议；策略可编程，见 `docs/ARCHITECTURE-v3.md`）**；**架构 v4 角色通用化已 ✅（内核只认抽象角色 id；节点 role+type 分离；`core/role.py` RoleRegistry；`session_manager.py` SessionRegistry；driver 按 node.type 分流 + 锚点角色推断，见 `docs/ARCHITECTURE-v4.md`）**；当前进入 M-4 端到端试跑。
 
 ---
 

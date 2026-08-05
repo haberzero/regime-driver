@@ -81,7 +81,7 @@ class SelfAssessor:
 
     def _build_prompt(self, state: SessionState, usage: float) -> str:
         return (
-            f"你正在评估自己的会话状态。当前是 {state.kind.value} 会话。\n"
+            f"你正在评估自己的会话状态。当前是 {state.role} 会话。\n"
             f"上下文已使用约 {usage:.0%}。\n"
             f"请评估：是否应继续 / 旋转到新会话 / 立即交接。"
             f"同时估计你还能推进多少轮 (remaining_rounds_estimate)，"

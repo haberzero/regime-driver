@@ -14,7 +14,19 @@ from pydantic import BaseModel, Field
 
 # --- state machine ---------------------------------------------------------
 
-Actor = Literal["developer", "reviewer", "machine"]
+# Node type: what a node DOES (independent of which role owns it).
+#   agent : let a role (a session) do work   (e.g. developer implements)
+#   judge : judge a verdict via deterministic gate + intelligence (reviewer)
+#   tool  : execute a deterministic tool
+#   route : branch to a next node by condition
+#   gate  : hard gate (must-pass)
+class NodeType(str, Enum):
+    AGENT = "agent"
+    JUDGE = "judge"
+    TOOL = "tool"
+    ROUTE = "route"
+    GATE = "gate"
+
 
 DEFAULT_WORK_DONE_MARKER = "[WORK_DONE]"
 
@@ -47,11 +59,17 @@ class Branch(BaseModel):
 
 
 class Node(BaseModel):
-    """A single node in a flow."""
+    """A single node in a flow.
+
+    Node is a WORK UNIT (skill + requirement), NOT a role. The `role` field
+    names which user-registered role (session) owns this node. The same role
+    can own many nodes; different roles occupy different sessions.
+    """
 
     id: str
     desc: str
-    actor: Actor
+    role: str = "developer"          # user-registered role id (arbitrary)
+    type: NodeType = NodeType.AGENT  # what the node does
     skill: str | None = None
     next: str | None = None
     branches: list[Branch] | None = None

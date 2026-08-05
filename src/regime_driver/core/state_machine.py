@@ -62,8 +62,11 @@ class StateMachine:
     def is_terminal(self, node_id: str) -> bool:
         return self.node(node_id).next is None
 
-    def actor(self, node_id: str) -> str:
-        return self.node(node_id).actor
+    def role(self, node_id: str) -> str:
+        return self.node(node_id).role
+
+    def node_type(self, node_id: str) -> str:
+        return self.node(node_id).type.value
 
     def node_ids(self) -> list[str]:
         """All node ids in the current flow (for reviewer prompt / gate hints)."""

@@ -14,8 +14,8 @@ import threading
 from dataclasses import dataclass
 
 from ..core.handoff import Handoff, detect_loop
-from ..core.models import Outcome, SegmentOutcome
-from ..core.session import SessionKind
+from ..core.models import NodeType, Outcome, SegmentOutcome
+from ..core.role import RoleRegistry, default_roles
 from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
@@ -26,7 +26,7 @@ from .monitor import Monitor, MonitorEvent
 from .reviewer import Reviewer
 from .segment_runner import SegmentRunner
 from .session_lifecycle import SessionLifecycle, SessionRotator
-from .session_manager import SessionManager
+from .session_manager import SessionRegistry
 
 
 @dataclass
@@ -40,7 +40,7 @@ class RunResult:
 
 
 class RegimeDriver:
-    """Main orchestrator: drive a flow on a developer session."""
+    """Main orchestrator: drive a flow on sessions (role-agnostic)."""
 
     def __init__(
         self,
@@ -48,18 +48,18 @@ class RegimeDriver:
         state_machine: StateMachine,
         client: OpenCodeClient,
         ledger: Ledger | None = None,
+        roles: RoleRegistry | None = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
         self.client = client
         self.ledger = ledger
-        self.sessions = SessionManager(
-            client,
-            developer_agent=settings.agent_developer,
-            reviewer_agent=settings.agent_reviewer,
-        )
+        self.roles = roles or default_roles()
+        self.sessions = SessionRegistry(client, agent_by_role={
+            rid: self.roles.get(rid).agent for rid in self.roles.ids()
+        })
         self.segments = SegmentRunner(client, poll_sec=settings.poll_sec)
-        self.reviewer: Reviewer | None = None
+        self.reviewers: dict[str, Reviewer] = {}
         self.task_control: TaskControl | None = (
             TaskControl(settings.task_control_dir) if settings.task_control_dir else None
         )
@@ -71,7 +71,7 @@ class RegimeDriver:
         self.meta_analyzer = MetaAnalyzer(settings, client)
         self._goal: str = ""
         self._deadline: str = ""
-        self.session_lifecycle = SessionLifecycle(settings, client)
+        self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)
 
     # -- helpers ------------------------------------------------------------
@@ -92,18 +92,19 @@ class RegimeDriver:
             )
         return None
 
-    def _get_reviewer(self) -> Reviewer:
-        if self.reviewer is None:
-            rev = self.sessions.ensure_reviewer()
-            self.reviewer = Reviewer(
+    def _get_reviewer(self, role_id: str) -> Reviewer:
+        if role_id not in self.reviewers:
+            rev = self.sessions.ensure(role_id)
+            role = self.roles.get(role_id)
+            self.reviewers[role_id] = Reviewer(
                 client=self.client,
                 session_id=rev.session_id,
-                agent=self.sessions.reviewer_agent,
+                agent=role.agent,
                 state_machine=self.sm,
-                skills_dir=self.settings.skills_dir,
+                skills_dir=role.skills_dir or self.settings.skills_dir,
                 max_retries=self.settings.max_reviewer_retries,
             )
-        return self.reviewer
+        return self.reviewers[role_id]
 
     # -- safety monitor -----------------------------------------------------
 
@@ -228,15 +229,14 @@ class RegimeDriver:
             f"并在其前给出结构化汇报：改动文件 / 测试命令与结果 / 技术债 / 待决点。"
         )
 
-    # -- developer node -----------------------------------------------------
+    # -- agent node (developer-style work) ----------------------------------
 
-    def _run_developer_node(self, dev_sid: str, node_id: str, context: str) -> tuple[RunResult | None, str | None]:
-        """Run a developer segment. Returns (failure, report) where failure is a
-        terminal RunResult or None on success, and report is the [WORK_DONE] text."""
+    def _run_agent_node(self, sid: str, role_id: str, node_id: str, context: str) -> tuple[RunResult | None, str | None]:
+        """Run an agent segment. Returns (failure, report)."""
         instruction = self._build_instruction(node_id, context)
         result = self.segments.run(
-            dev_sid,
-            agent=self.sessions.developer_agent,
+            sid,
+            agent=self.sessions.agent_for(role_id),
             instruction=instruction,
             deadline_sec=self.settings.default_deadline_sec,
             cancel_event=self._cancel_event,
@@ -272,22 +272,21 @@ class RegimeDriver:
 
     def _run_reviewer_node(
         self,
-        dev_sid: str,
+        work_sid: str,
+        judge_role: str,
+        work_role: str,
         node_id: str,
         context: str,
         developer_report: str | None,
     ) -> tuple[RunResult | None, str | None, str | None]:
-        """Run the reviewer judgement loop for a reviewer node.
+        """Run the judgement loop for a judge-type node.
 
         v2: roles collaborate via structured handoffs, not manual text relay.
-        The reviewer produces inquiry handoffs; the developer returns report
-        handoffs; the reviewer consumes ONLY the report (never the developer's
-        session memory). The interrogation is bounded by max_dialogue_rounds
-        (independent of gate retries) and checked for convergence (looping).
-
-        Returns (failure, report, next_node).
+        The judging role produces inquiry handoffs; the working role returns
+        report handoffs; the judge consumes ONLY the report (never the working
+        role's session memory). Bounded by max_dialogue_rounds + convergence.
         """
-        reviewer = self._get_reviewer()
+        reviewer = self._get_reviewer(judge_role)
         valid_targets = set(self.sm.successors(node_id))
         extra_context: str | None = None
         rounds: list[tuple[str, str]] = []  # (inquiry_text, report_text) history
@@ -332,7 +331,7 @@ class RegimeDriver:
                     flow_node=node_id,
                 )
                 self._log("reviewer_inquiry", node=node_id, msg=inquiry.summary)
-                failure, report = self._run_developer_node(dev_sid, node_id, inquiry.inquiry_text())
+                failure, report = self._run_agent_node(work_sid, work_role, node_id, inquiry.inquiry_text())
                 if failure is not None:
                     return failure, report, None
                 developer_report = report
@@ -348,7 +347,7 @@ class RegimeDriver:
                 self._log("reviewer_request_context", node=node_id, req=extra_context)
                 continue
             if action == "abort_session":
-                self.sessions.abort_developer()
+                self.sessions.abort(work_role)
                 return RunResult(outcome=Outcome.ABORTED, end_node=node_id, detail=verdict.reason), None, None
             if action == "report_user":
                 return RunResult(outcome=Outcome.HUMAN, end_node=node_id, detail=verdict.reason), None, None
@@ -374,7 +373,7 @@ class RegimeDriver:
             usage = round(self.session_lifecycle.capacity_used(dev), 2)
             # if already urgent, skip self-assessment (decide forces handoff)
             assessment = None
-            if not self.session_lifecycle.policy_for(dev.kind).is_urgent(usage):
+            if not self.session_lifecycle.policy_for(dev.role).is_urgent(usage):
                 assessment = self.session_lifecycle.assess(dev, usage)
             action = self.session_lifecycle.decide(dev, assessment, usage)
             self._log("session_capacity_check", node=node_id, session=dev.session_id,
@@ -385,21 +384,21 @@ class RegimeDriver:
                 summary = (f"紧急：上下文已用 {usage:.0%}。当前流程节点 {node_id}。"
                            f"任务上下文：{self._goal[:100]}")
                 self.session_rotator.rotate_with_handover(
-                    SessionKind.DEVELOPER, summary=summary,
+                    dev.role, summary=summary,
                     constraints=["禁 push"], handoff_kind="urgent",
                 )
                 self._log("session_rotated", node=node_id, reason="urgent",
-                          new_session=self.sessions.developer.session_id)
+                          new_session=self.sessions.get(dev.role).session_id)
                 return True
             if action == "rotate":
                 summary = (f"当前流程节点 {node_id}。上下文已用 {usage:.0%}，"
                            f"里程碑可保存，切换会话。任务上下文：{self._goal[:100]}")
                 self.session_rotator.rotate_with_handover(
-                    SessionKind.DEVELOPER, summary=summary,
+                    dev.role, summary=summary,
                     constraints=["禁 push"], handoff_kind="normal",
                 )
                 self._log("session_rotated", node=node_id, reason="rotate",
-                          new_session=self.sessions.developer.session_id)
+                          new_session=self.sessions.get(dev.role).session_id)
                 return True
             # action == "continue"
             return False
@@ -409,33 +408,55 @@ class RegimeDriver:
 
     def _execute_node(
         self,
-        dev_sid: str,
         node_id: str,
         context: str,
         developer_report: str | None,
+        work_role: str,
     ) -> tuple[RunResult | None, str | None, str | None]:
-        """Execute a single node; return (failure, report, next_node).
+        """Execute a single node by its type; return (failure, report, next_node).
 
-        failure is a terminal RunResult or None on success; report carries the
-        latest developer report; next_node is the next node to visit (or None if
-        the node is terminal).
+        A node is dispatched by its `type` (what it does), independent of which
+        role owns it. agent=work, judge=judgement, tool=deterministic, etc.
         """
-        actor = self.sm.actor(node_id)
-        self._log("node_enter", node=node_id, actor=actor)
-        if actor == "developer":
-            failure, report = self._run_developer_node(dev_sid, node_id, context)
+        node = self.sm.node(node_id)
+        ntype = node.type
+        role = node.role
+        self._log("node_enter", node=node_id, type=ntype.value, role=role)
+
+        if ntype == NodeType.AGENT:
+            sid = self.sessions.ensure(role).session_id
+            failure, report = self._run_agent_node(sid, role, node_id, context)
             if failure is not None:
                 return failure, None, None
             return None, report, self.sm.next(node_id)
-        if actor == "reviewer":
+
+        if ntype == NodeType.JUDGE:
+            # judging role = this node's role; work role = the working role
+            # (defaults to developer, the stable anchor)
+            judge_role = role
+            work_rid = work_role or "developer"
+            work_sid = self.sessions.ensure(work_rid).session_id
             failure, report, next_node = self._run_reviewer_node(
-                dev_sid, node_id, context, developer_report
+                work_sid, judge_role, work_rid, node_id, context, developer_report
             )
             if failure is not None:
                 return failure, None, None
             return None, report, next_node
-        # machine node: no external action (future)
+
+        # tool / route / gate: reserved (fall through to next for now)
         return None, None, self.sm.next(node_id)
+
+    def _anchor_role(self) -> str:
+        """The primary working role for this flow (first agent node's role).
+
+        The kernel is role-agnostic; the anchor is whoever does the primary work.
+        Falls back to "developer" if no agent node is found.
+        """
+        for nid in self.sm.flow_path():
+            node = self.sm.node(nid)
+            if node.type == NodeType.AGENT:
+                return node.role
+        return "developer"
 
     def run(self, context: str, title: str = "regime-driver") -> RunResult:
         """Run the whole flow on a fresh developer session and return the result."""
@@ -448,7 +469,8 @@ class RegimeDriver:
         self._deadline = ""  # set by caller if a deadline is configured
         self._start_monitor()
         try:
-            dev = self.sessions.ensure_developer(title)
+            anchor = self._anchor_role()
+            dev = self.sessions.ensure(anchor, title)
             path = self.sm.flow_path()
             node_id = path[0]
             developer_report: str | None = None
@@ -464,19 +486,19 @@ class RegimeDriver:
                     return mf
                 self._current_node = node_id
                 failure, report, next_node = self._execute_node(
-                    dev.session_id, node_id, context, developer_report
+                    node_id, context, developer_report, anchor
                 )
                 if failure is not None:
                     return failure
                 developer_report = report
                 node_id = next_node
 
-                self.sessions.advance_developer_round()
-                if self.sessions.developer_turn_check_due(self.settings.session_turn_check):
+                self.sessions.advance_round(anchor)
+                if self.sessions.turn_check_due(anchor, self.settings.session_turn_check):
                     self._log("developer_turn_check", node=node_id,
-                              round=self.sessions.developer.round)
+                              round=self.sessions.get(anchor).round)
                 if self._check_session_capacity(dev, node_id):
-                    dev = self.sessions.developer  # refresh after rotation
+                    dev = self.sessions.get(anchor)  # refresh after rotation
             return RunResult(outcome=Outcome.COMPLETE, end_node=path[-1] if path else None)
         except Exception as exc:
             self._log("flow_error", step="run", detail=str(exc))

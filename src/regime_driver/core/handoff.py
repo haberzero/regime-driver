@@ -12,18 +12,19 @@ can be persisted to the ledger for auditability and recovery.
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Role = Literal["developer", "reviewer", "machine"]
+# Any role id (user-registered). The kernel does not care whether a role is
+# "developer"/"reviewer"/custom — those are user-specialized instances.
+Role = str
 
-# Handoff kinds: reviewer<->developer collaboration (inquiry/report/context),
+# Handoff kinds: cross-role collaboration (inquiry/report/context),
 # brain-capacity rotation (brain_normal/brain_urgent), and role transition
-# (reviewer A -> reviewer B).
+# (role A -> role B).
 HandoffKind = Literal[
     "inquiry", "report", "context",
     "brain_normal", "brain_urgent", "role_transition",
@@ -77,17 +78,14 @@ class Handoff(BaseModel):
     # -- factory methods -----------------------------------------------------
 
     @classmethod
-    def reviewer_inquiry(
-        cls,
-        criticisms: list[str],
-        required_rework: str,
-        acceptance: str = "",
-        flow_node: str = "",
-    ) -> "Handoff":
+    def make_inquiry(cls, criticisms: list[str], required_rework: str,
+                     acceptance: str = "", flow_node: str = "",
+                     from_role: Role = "reviewer", to_role: Role = "developer") -> "Handoff":
+        """Cross-role inquiry (from a judging role to a working role)."""
         return cls(
             kind="inquiry",
-            from_role="reviewer",
-            to_role="developer",
+            from_role=from_role,
+            to_role=to_role,
             flow_node=flow_node,
             summary=required_rework,
             inquiry=Inquiry(criticisms=criticisms, required_rework=required_rework,
@@ -95,23 +93,30 @@ class Handoff(BaseModel):
         )
 
     @classmethod
-    def developer_report(
-        cls,
-        files_changed: list[str],
-        changes: str,
-        test_result: str = "",
-        open_questions: list[str] | None = None,
-        flow_node: str = "",
-    ) -> "Handoff":
+    def make_report(cls, files_changed: list[str], changes: str,
+                    test_result: str = "", open_questions: list[str] | None = None,
+                    flow_node: str = "",
+                    from_role: Role = "developer", to_role: Role = "reviewer") -> "Handoff":
+        """Cross-role report (from a working role back to a judging role)."""
         return cls(
             kind="report",
-            from_role="developer",
-            to_role="reviewer",
+            from_role=from_role,
+            to_role=to_role,
             flow_node=flow_node,
             summary=changes,
             report=Report(files_changed=files_changed, changes=changes,
                           test_result=test_result, open_questions=open_questions or []),
         )
+
+    # -- aliases preserved for backward clarity ------------------------------
+    @classmethod
+    def reviewer_inquiry(cls, criticisms, required_rework, acceptance="", flow_node="") -> "Handoff":
+        return cls.make_inquiry(criticisms, required_rework, acceptance, flow_node)
+
+    @classmethod
+    def developer_report(cls, files_changed, changes, test_result="",
+                         open_questions=None, flow_node="") -> "Handoff":
+        return cls.make_report(files_changed, changes, test_result, open_questions, flow_node)
 
     @classmethod
     def context_request(cls, requested: str, flow_node: str = "") -> "Handoff":

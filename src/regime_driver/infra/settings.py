@@ -15,8 +15,7 @@ class Settings(BaseModel):
 
     base_url: str = Field(default="http://127.0.0.1:4097", description="worker opencode server URL")
     model: str = Field(default="deepseek-api/deepseek-v4-flash", description="model for all sessions")
-    agent_developer: str = Field(default="developer", description="developer agent name")
-    agent_reviewer: str = Field(default="reviewer", description="reviewer agent name")
+    agent_reviewer: str = Field(default="reviewer", description="reviewer agent name (for meta-analysis)")
     default_deadline_sec: int = Field(default=600, ge=1, description="per-segment deadline")
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")
     ledger_path: str | None = Field(default=None, description="JSONL ledger path (None = off)")

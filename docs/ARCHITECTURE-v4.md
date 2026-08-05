@@ -1,11 +1,16 @@
 # regime-driver 角色通用化重构设计（v4）
 
-> 状态：**设计定稿，激进重构（无兼容约束）**
+> 状态：**设计定稿，激进重构完成（R1-R7）**
 > 日期：2026-08-04
 > 背景：用户纠正两点——① 节点≠角色（角色=session分离，节点=skill+需求分离）；
 >   ② 开发者和审查者在自定义角度看没有本质区别，内核不关心，是用户特化。
 > 目标：把内核从"developer/reviewer 硬编码"通用化为"任意角色 id"。
 > 关联：`docs/ARCHITECTURE-BOUNDARY.md`（内核 vs 用户特化边界）
+> 实施结果：`core/role.py`（Role/RoleRegistry/default_roles）；`models.py` Actor→
+>   NodeType + Node.role/type；`session.py` SessionKind→role str；`handoff.py` Role=str +
+>   make_inquiry/make_report；`session_manager.py` SessionRegistry（按 role id）；
+>   `session_lifecycle.py` policy_for(role_id)；`driver` 按 node.type 分流 + 锚点角色推断。
+>   97 单测 + 端到端（真实 worker）全绿。
 
 ---
 
@@ -126,12 +131,15 @@ class FlowStrategy(Protocol):
 
 ## 7. 里程碑
 
-| 阶段 | 内容 |
-|---|---|
-| R1 | core 模型角色通用化（Node.role + NodeType） |
-| R2 | handoff 通用化（任意角色 id） |
-| R3 | SessionRegistry（按 role 管理 session） |
-| R4 | SessionLifecycle 按 role 策略 |
-| R5 | driver 按 node.type 分流 + FlowStrategy |
-| R6 | regime.json 更新 + 测试重建 |
-| R7 | 端到端验证 + 文档 |
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| R1 | core 模型角色通用化（Node.role + NodeType） | ✅ |
+| R2 | handoff 通用化（任意角色 id + make_inquiry/make_report） | ✅ |
+| R3 | SessionRegistry（按 role 管理 session） | ✅ |
+| R4 | SessionLifecycle policy_for(role_id) | ✅ |
+| R5 | driver 按 node.type 分流 + 锚点角色推断 | ✅ |
+| R6 | regime.json 更新（role+type）+ 测试重建 | ✅ |
+| R7 | 端到端验证 + 文档 | ✅ |
+
+> 注：FlowStrategy（流转策略：session 切换/锁锚点自定义）为后续待实现，当前按 node.type 分流 +
+> 锚点角色（首个 agent 节点角色）推断。
