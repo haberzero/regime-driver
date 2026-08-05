@@ -59,6 +59,25 @@ class SessionManager:
         if self.developer is not None and self.developer.session_id:
             self.client.abort_session(self.developer.session_id)
 
+    def rotate_session(self, kind: SessionKind, inject: str | None = None) -> SessionState:
+        """Rotate a session: create a fresh one, optionally inject a handover.
+
+        Returns the new SessionState. The old session is left on the server for
+        audit (not force-deleted); only the managed reference moves to the new id.
+        """
+        if kind == SessionKind.DEVELOPER:
+            self.developer = SessionState(kind, self.client.create_session("regime-driver"))
+            state = self.developer
+        elif kind == SessionKind.REVIEWER:
+            self.reviewer = SessionState(kind, self.client.create_session("regime-reviewer"))
+            state = self.reviewer
+        else:
+            raise ValueError(f"unknown session kind: {kind}")
+        if inject:
+            agent = self.developer_agent if kind == SessionKind.DEVELOPER else self.reviewer_agent
+            self.client.send_message(state.session_id, inject, agent)
+        return state
+
     def all_session_ids(self) -> list[str]:
         """All managed session ids (for the monitor thread to watch)."""
         ids: list[str] = []

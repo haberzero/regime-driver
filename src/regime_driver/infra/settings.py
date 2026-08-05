@@ -24,6 +24,16 @@ class Settings(BaseModel):
     session_turn_check: int = Field(default=5, ge=1, description="developer turn-check cadence")
     skills_dir: str | None = Field(default=None, description="path to workflow-regime skills dir")
     max_reviewer_retries: int = Field(default=2, ge=0, description="reviewer gate retries per node")
+    max_dialogue_rounds: int = Field(
+        default=5, ge=1,
+        description="max reviewer/developer interrogation rounds per node (independent of gate retries)"
+    )
+    convergence_max_identical: int = Field(
+        default=2, ge=2, description="same inquiry N+ times with no report change -> loop"
+    )
+    max_total_nodes: int = Field(
+        default=50, ge=1, description="global cap on nodes executed per run (anti-runaway)"
+    )
     task_control_dir: str | None = Field(
         default=None, description="project dir for task-control documents (None = off)"
     )
@@ -42,4 +52,12 @@ class Settings(BaseModel):
         default="deepseek-api/deepseek-v4-flash", description="model for independent stall review"
     )
     meta_max_context_msgs: int = Field(default=20, ge=1, description="messages fed to meta reviewer")
+    # session lifecycle (brain-capacity management)
+    context_limit_tokens: int = Field(
+        default=120_000, ge=1000,
+        description="session token ceiling; at/above this a session is rotated"
+    )
+    context_check_every: int = Field(
+        default=5, ge=1, description="check session capacity every N rounds"
+    )
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")

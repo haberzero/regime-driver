@@ -1,0 +1,188 @@
+"""Handoff model — the explicit collaboration channel between roles (pure domain).
+
+Core v2 idea: reviewer (L0) and developer (L2) are INDEPENDENT individuals, each
+with a private session memory. They do NOT share context; they collaborate via
+structured handoffs. This module defines the handoff documents that carry work
+between roles, and the lightweight convergence detector for multi-round
+interrogation.
+
+This is pure domain logic: no I/O, no network. Handoffs are serializable so they
+can be persisted to the ledger for auditability and recovery.
+"""
+
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+Role = Literal["developer", "reviewer", "machine"]
+
+# Handoff kinds: reviewer->developer inquiry, developer->reviewer report,
+# context request, and session handover (brain-capacity rotation).
+HandoffKind = Literal["inquiry", "report", "context", "handover"]
+
+
+class Inquiry(BaseModel):
+    """Reviewer->developer: a structured query demanding rework."""
+
+    criticisms: list[str] = Field(default_factory=list)
+    required_rework: str = ""
+    acceptance: str = ""
+
+
+class Report(BaseModel):
+    """Developer->reviewer: a structured report (reviewer reads only this)."""
+
+    files_changed: list[str] = Field(default_factory=list)
+    changes: str = ""
+    test_result: str = ""
+    open_questions: list[str] = Field(default_factory=list)
+
+
+class Handover(BaseModel):
+    """Session-rotation context: what to carry into a fresh session."""
+
+    summary: str = ""
+    constraints: list[str] = Field(default_factory=list)
+    pending: list[str] = Field(default_factory=list)
+
+
+class Handoff(BaseModel):
+    """A single handoff document exchanged between two roles.
+
+    This is the ONLY explicit channel of collaboration. It is structured,
+    serializable, and auditable. The receiver reads the `content` specific to
+    the `kind`; it never reads the sender's session memory.
+    """
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    kind: HandoffKind
+    from_role: Role
+    to_role: Role
+    flow_node: str = ""
+    summary: str = ""
+    inquiry: Inquiry | None = None
+    report: Report | None = None
+    handover: Handover | None = None
+    ts: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    # -- factory methods -----------------------------------------------------
+
+    @classmethod
+    def reviewer_inquiry(
+        cls,
+        criticisms: list[str],
+        required_rework: str,
+        acceptance: str = "",
+        flow_node: str = "",
+    ) -> "Handoff":
+        return cls(
+            kind="inquiry",
+            from_role="reviewer",
+            to_role="developer",
+            flow_node=flow_node,
+            summary=required_rework,
+            inquiry=Inquiry(criticisms=criticisms, required_rework=required_rework,
+                            acceptance=acceptance),
+        )
+
+    @classmethod
+    def developer_report(
+        cls,
+        files_changed: list[str],
+        changes: str,
+        test_result: str = "",
+        open_questions: list[str] | None = None,
+        flow_node: str = "",
+    ) -> "Handoff":
+        return cls(
+            kind="report",
+            from_role="developer",
+            to_role="reviewer",
+            flow_node=flow_node,
+            summary=changes,
+            report=Report(files_changed=files_changed, changes=changes,
+                          test_result=test_result, open_questions=open_questions or []),
+        )
+
+    @classmethod
+    def context_request(cls, requested: str, flow_node: str = "") -> "Handoff":
+        return cls(kind="context", from_role="reviewer", to_role="machine",
+                   flow_node=flow_node, summary=requested)
+
+    @classmethod
+    def session_handover(cls, summary: str, constraints: list[str] | None = None,
+                         pending: list[str] | None = None) -> "Handoff":
+        return cls(kind="handover", from_role="machine", to_role="machine",
+                   summary=summary,
+                   handover=Handover(summary=summary, constraints=constraints or [],
+                                     pending=pending or []))
+
+    # -- serialization -------------------------------------------------------
+
+    def to_json(self) -> str:
+        return self.model_dump_json()
+
+    @classmethod
+    def from_json(cls, raw: str) -> "Handoff":
+        return cls.model_validate_json(raw)
+
+    # -- accessors -----------------------------------------------------------
+
+    def inquiry_text(self) -> str:
+        """The developer-facing text of an inquiry handoff ('' if not inquiry)."""
+        if self.kind != "inquiry" or self.inquiry is None:
+            return ""
+        parts = [self.inquiry.required_rework]
+        if self.inquiry.acceptance:
+            parts.append(f"验收：{self.inquiry.acceptance}")
+        return "\n".join(p for p in parts if p)
+
+    def report_text(self) -> str:
+        """The reviewer-facing text of a report handoff ('' if not report)."""
+        if self.kind != "report" or self.report is None:
+            return ""
+        parts = [f"改动文件: {', '.join(self.report.files_changed) or '无'}",
+                 f"改动: {self.report.changes}"]
+        if self.report.test_result:
+            parts.append(f"测试: {self.report.test_result}")
+        if self.report.open_questions:
+            parts.append(f"待决: {', '.join(self.report.open_questions)}")
+        return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Convergence detection (pure function)
+# ---------------------------------------------------------------------------
+
+def detect_loop(rounds: list[tuple[str, str]], max_identical: int = 2) -> bool:
+    """Detect whether an interrogation is spinning (no progress).
+
+    Args:
+        rounds: list of (inquiry_text, report_text) per round.
+        max_identical: if the same inquiry text repeats this many times with no
+            change in the report, declare a loop.
+
+    Returns:
+        True if the interrogation is looping, else False.
+    """
+    if len(rounds) < 2:
+        return False
+    # count consecutive identical inquiries
+    last_inquiry = rounds[-1][0]
+    identical_count = 1
+    for inquiry, _ in reversed(rounds[:-1]):
+        if inquiry == last_inquiry:
+            identical_count += 1
+        else:
+            break
+    if identical_count >= max_identical:
+        # if reports are also unchanged, it's a true spin
+        last_report = rounds[-1][1]
+        if all(rpt == last_report for _, rpt in rounds[-identical_count:]):
+            return True
+    return False

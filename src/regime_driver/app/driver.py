@@ -13,8 +13,9 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 
+from ..core.handoff import Handoff, detect_loop
 from ..core.models import Outcome, SegmentOutcome
-from ..core.repetition import RepetitionDetector
+from ..core.session import SessionKind
 from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
@@ -24,6 +25,7 @@ from .meta_analyzer import MetaAnalyzer, MetaResult
 from .monitor import Monitor, MonitorEvent
 from .reviewer import Reviewer
 from .segment_runner import SegmentRunner
+from .session_lifecycle import SessionLifecycle, SessionRotator
 from .session_manager import SessionManager
 
 
@@ -69,6 +71,8 @@ class RegimeDriver:
         self.meta_analyzer = MetaAnalyzer(settings, client)
         self._goal: str = ""
         self._deadline: str = ""
+        self.session_lifecycle = SessionLifecycle(settings, client)
+        self.session_rotator = SessionRotator(client, self.sessions)
 
     # -- helpers ------------------------------------------------------------
 
@@ -275,24 +279,19 @@ class RegimeDriver:
     ) -> tuple[RunResult | None, str | None, str | None]:
         """Run the reviewer judgement loop for a reviewer node.
 
-        The reviewer call itself is retried internally (with feedback) in
-        reviewer.judge. This loop handles the action loop:
-          - ask_developer: send to developer, wait [WORK_DONE], feed report back
-          - request_context: add extra context, re-judge
-          - advance: return the reviewer-chosen next node
-          - abort_session / report_user: terminate the run.
+        v2: roles collaborate via structured handoffs, not manual text relay.
+        The reviewer produces inquiry handoffs; the developer returns report
+        handoffs; the reviewer consumes ONLY the report (never the developer's
+        session memory). The interrogation is bounded by max_dialogue_rounds
+        (independent of gate retries) and checked for convergence (looping).
 
-        The action loop is bounded by max_reviewer_retries to prevent a reviewer
-        never converging on a forward action.
-
-        Returns (failure, report, next_node) where failure is a terminal
-        RunResult or None on success, report carries the latest developer report,
-        and next_node is the reviewer-chosen advance target (or None).
+        Returns (failure, report, next_node).
         """
         reviewer = self._get_reviewer()
         valid_targets = set(self.sm.successors(node_id))
         extra_context: str | None = None
-        for _ in range(self.settings.max_reviewer_retries + 1):
+        rounds: list[tuple[str, str]] = []  # (inquiry_text, report_text) history
+        for _ in range(self.settings.max_dialogue_rounds):
             self._log("reviewer_call", node=node_id)
             try:
                 result = reviewer.judge(node_id, context, developer_report,
@@ -323,38 +322,71 @@ class RegimeDriver:
                 if target in valid_targets:
                     self._log("advance", to=target)
                     return None, developer_report, target
-                self._log("reviewer_bad_advance", node=node_id, next=target)
                 return RunResult(outcome=Outcome.ERROR, end_node=node_id,
                                  detail=f"bad advance target '{target}'"), None, None
             if action == "ask_developer":
-                msg = verdict.message_to_developer
-                self._log("reviewer_ask_developer", node=node_id, msg=msg)
-                failure, report = self._run_developer_node(dev_sid, node_id, msg or "")
+                # reviewer -> developer inquiry handoff
+                inquiry = Handoff.reviewer_inquiry(
+                    criticisms=[verdict.reason] if verdict.reason else [],
+                    required_rework=verdict.message_to_developer or "",
+                    flow_node=node_id,
+                )
+                self._log("reviewer_inquiry", node=node_id, msg=inquiry.summary)
+                failure, report = self._run_developer_node(dev_sid, node_id, inquiry.inquiry_text())
                 if failure is not None:
                     return failure, report, None
                 developer_report = report
-                continue  # feed new report back to reviewer
+                # record this interrogation round for convergence detection
+                rounds.append((inquiry.inquiry_text(), report or ""))
+                if detect_loop(rounds, self.settings.convergence_max_identical):
+                    self._log("reviewer_loop_detected", node=node_id)
+                    return RunResult(outcome=Outcome.BLOCKED, end_node=node_id,
+                                     detail="reviewer/developer interrogation is looping"), None, None
+                continue  # feed report back to reviewer
             if action == "request_context":
                 extra_context = verdict.context_requested
                 self._log("reviewer_request_context", node=node_id, req=extra_context)
-                continue  # re-judge with more context
+                continue
             if action == "abort_session":
                 self.sessions.abort_developer()
-                self._log("reviewer_abort", node=node_id, reason=verdict.reason)
                 return RunResult(outcome=Outcome.ABORTED, end_node=node_id, detail=verdict.reason), None, None
             if action == "report_user":
-                self._log("reviewer_report_user", node=node_id, reason=verdict.reason)
                 return RunResult(outcome=Outcome.HUMAN, end_node=node_id, detail=verdict.reason), None, None
 
             self._log("reviewer_unknown_action", node=node_id, action=action)
             return RunResult(outcome=Outcome.ERROR, end_node=node_id,
                              detail=f"unknown action '{action}'"), None, None
 
-        self._log("reviewer_action_loop_exhausted", node=node_id)
+        self._log("reviewer_dialogue_exhausted", node=node_id)
         return RunResult(outcome=Outcome.ERROR, end_node=node_id,
-                         detail="reviewer action loop exhausted"), None, None
+                         detail="reviewer dialogue rounds exhausted"), None, None
 
     # -- main flow ----------------------------------------------------------
+
+    def _check_session_capacity(self, dev, node_id: str) -> bool:
+        """Rotate the developer session if its brain capacity is near the limit.
+
+        Returns True if the session was rotated (caller should refresh `dev`).
+        """
+        try:
+            if not self.session_lifecycle.should_check(dev):
+                return False
+            if self.session_lifecycle.near_limit(dev):
+                self._log("session_capacity_rotate", node=node_id,
+                          session=dev.session_id,
+                          used=round(self.session_lifecycle.capacity_used(dev), 2))
+                summary = (f"当前流程节点 {node_id}。开发者会话脑容量已到上限，"
+                           f"自动交接。任务上下文：{self._goal[:100]}")
+                self.session_rotator.rotate_with_handover(
+                    SessionKind.DEVELOPER, summary=summary,
+                    constraints=["禁 push"],
+                )
+                self._log("session_rotated", node=node_id,
+                          new_session=self.sessions.developer.session_id)
+                return True
+        except Exception as exc:
+            self._log("session_capacity_error", node=node_id, err=str(exc))
+        return False
 
     def _execute_node(
         self,
@@ -401,7 +433,13 @@ class RegimeDriver:
             path = self.sm.flow_path()
             node_id = path[0]
             developer_report: str | None = None
+            node_count = 0
             while node_id is not None:
+                node_count += 1
+                if node_count > self.settings.max_total_nodes:
+                    self._log("flow_node_budget_exhausted", node=node_id)
+                    return RunResult(outcome=Outcome.BLOCKED, end_node=node_id,
+                                     detail=f"exceeded max_total_nodes ({self.settings.max_total_nodes})")
                 mf = self._monitor_failure()
                 if mf:
                     return mf
@@ -418,6 +456,8 @@ class RegimeDriver:
                 if self.sessions.developer_turn_check_due(self.settings.session_turn_check):
                     self._log("developer_turn_check", node=node_id,
                               round=self.sessions.developer.round)
+                if self._check_session_capacity(dev, node_id):
+                    dev = self.sessions.developer  # refresh after rotation
             return RunResult(outcome=Outcome.COMPLETE, end_node=path[-1] if path else None)
         except Exception as exc:
             self._log("flow_error", step="run", detail=str(exc))

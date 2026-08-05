@@ -135,10 +135,10 @@
 
 迁移后 `oc-control`、`oc-workspaces`、`work` 均已从主目录移除，唯一残留为规范化后的 `/home/haber/oc-meta/`。
 
-## 8. 下一步（M0、M-1、M-2、M-3、安全监控已完成 → M-4 端到端试跑）
+## 8. 下一步（M0、M-1、M-2、M-3、安全监控、架构v2已完成 → M-4 端到端试跑）
 
 **M0 已全部完成 ✅**（stall-watchdog + supervisor v2 + oc-task + 故障矩阵 + git）。
-**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。**安全监控✅**（独立线程 + 紧急停止，见下）。
+**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。**安全监控✅**（独立线程 + 紧急停止，见下）。**架构v2✅**（交接模型，见下）。
 
 **当前方向**：`docs/DESIGN-regime-driver.md`（v0.3 定稿）——把 `workflow-regime/` 制度化流程编译成状态机，由固定代码机器人（L1）+ 审查者智能（L0）驱动**干净无插件**的开发者 opencode（L2）。里程碑 M-1 worker 镜像 → M-2 L1 骨架 → M-3 审查者接入 → M-4 端到端试跑。
 
@@ -148,9 +148,11 @@
 
 **安全监控与紧急停止（M-4 前置加固）**：独立监控线程 `app/monitor.py` + 死循环检测 `core/repetition.py`（n-gram 重复率 + 相邻相似度，支持中文标点）。监控独立轮询所有 session 的 token/时间戳/消息文本，检测 ① 死循环 ② 卡死（busy 但 token 停滞 `stall_sec`）③ API 挂起；命中即 **abort + 终止 + 上报 blocked**。已实证 opencode 的 `POST /session/{id}/abort` 真正打断 token 生成（58/138 → 58/157 冻结），是**与人类多次 ESC 等价的紧急停止**。修复 `session_status` 读取 bug（busy 状态在 `/session/status` 全局 map）。end-to-end 实测：卡死 → monitor 检测 → abort → blocked 上报。45 单测通过。
 
-阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `workflow-regime/README.md`。
+**架构 v2（交接模型，2026-08-04）**：把"审查者/开发者"重构为**独立个体**（私有 session 记忆），靠**结构化交接单**协作而非共享上下文。设计见 `docs/ARCHITECTURE-v2.md`。新增 `core/handoff.py`（Handoff 交接单 + `detect_loop` 收敛检测 + 序列化）、`app/session_lifecycle.py`（脑容量检测 + `SessionRotator` 交接）。重构 `driver._run_reviewer_node` 为**交接单路由**：审查者出质询单 → 开发者返工汇报单 → 审查者只读汇报单判断（不读开发者记忆）；多轮质询用 `max_dialogue_rounds`（独立于 gate 重试）+ 收敛检测（同一质询反复且汇报无变化→判打转）；加 `max_total_nodes` 节点预算防 runaway；session 脑容量到上限自动交接新开。76 单测通过；端到端实测真实 worker 完整流程（multiround 质询逻辑经单测覆盖）。
 
-**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
+阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `workflow-regime/README.md`。
+
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；session 脑容量到上限自动交接新开；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
 
 ### 里程碑进度
 
