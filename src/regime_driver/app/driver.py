@@ -74,6 +74,10 @@ class RegimeDriver:
         self.meta_analyzer = MetaAnalyzer(settings, client)
         self._goal: str = ""
         self._deadline: str = ""
+        # Run environment for deterministic route/gate branching. `context` and
+        # `report` hold the current task context and latest agent report; `ok`/
+        # `message` are set by the most-recent TOOL node and persist until the
+        # next tool (branch on `report` for agent-driven conditions).
         self._env: dict = {"context": "", "report": "", "ok": True, "message": ""}
         self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)

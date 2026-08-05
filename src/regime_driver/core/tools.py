@@ -46,7 +46,9 @@ def _have_report(context: str, report: str, args: dict) -> ToolResult:
 
 def _report_mentions(context: str, report: str, args: dict) -> ToolResult:
     """Succeeds when the report contains every word in args['words']."""
-    words = args.get("words") or ([] if args.get("word") is None else [args["word"]])
+    words = _words_from_args(args)
+    if not words:
+        return ToolResult(ok=False, message="no words configured for report_mentions")
     missing = [w for w in words if w not in (report or "")]
     return ToolResult(
         ok=not missing,
@@ -57,13 +59,23 @@ def _report_mentions(context: str, report: str, args: dict) -> ToolResult:
 
 def _context_mentions(context: str, report: str, args: dict) -> ToolResult:
     """Succeeds when the task context contains every word in args['words']."""
-    words = args.get("words") or ([] if args.get("word") is None else [args["word"]])
+    words = _words_from_args(args)
+    if not words:
+        return ToolResult(ok=False, message="no words configured for context_mentions")
     missing = [w for w in words if w not in (context or "")]
     return ToolResult(
         ok=not missing,
         message="context mentions all words" if not missing else f"context missing: {', '.join(missing)}",
         data={"missing": missing},
     )
+
+
+def _words_from_args(args: dict) -> list:
+    """Extract the word list from a tool's args (either `words` or a single `word`)."""
+    words = args.get("words")
+    if words is None and args.get("word") is not None:
+        words = [args["word"]]
+    return words or []
 
 
 #: Registry of built-in deterministic tools (name -> callable).

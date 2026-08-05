@@ -50,6 +50,13 @@ def test_evaluate_numeric_comparison_int_float():
     assert evaluate("x != 3", {"x": 4}) is True
 
 
+def test_evaluate_string_false_is_falsy():
+    assert evaluate("ok", {"ok": "false"}) is False
+    assert evaluate("ok", {"ok": "true"}) is True
+    assert evaluate("ok", {"ok": "yes"}) is True  # non-empty non-boolean string is truthy
+    assert evaluate("ok", {"ok": ""}) is False
+
+
 def test_resolve_branch_first_match_wins():
     node = Node(id="r", desc="", type=NodeType.ROUTE,
                 branches=[{"when": "report contains 'X'", "goto": "a"},
@@ -80,6 +87,13 @@ def test_tools_mentions():
 def test_unknown_tool_raises():
     with pytest.raises(UnknownToolError):
         run_tool(Node(id="t", desc="", type=NodeType.TOOL, tool="nope"), "ctx", "rep")
+
+
+def test_mentions_tool_without_words_fails():
+    r = run_tool(Node(id="t", desc="", type=NodeType.TOOL, tool="report_mentions"), "ctx", "anything")
+    assert r.ok is False
+    c = run_tool(Node(id="t", desc="", type=NodeType.TOOL, tool="context_mentions"), "ctx", "rep")
+    assert c.ok is False
 
 
 # ---------------------------------------------------------------- workspace

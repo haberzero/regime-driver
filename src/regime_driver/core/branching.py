@@ -142,7 +142,7 @@ class _Parser:
             left = self._operand_value(left_tok)
             # bare value truthiness (e.g. `ok` or `report`)
             if self.peek().kind != "op":
-                return bool(left)
+                return _truthy(left)
             op = self.advance().value
             right_tok = self.advance()
             if right_tok.kind not in ("str", "number", "ident"):
@@ -188,6 +188,22 @@ def evaluate(expr: str, env: dict) -> bool:
 
 def _is_number(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _truthy(value: object) -> bool:
+    """Truthiness that honors the string literals `true`/`false`.
+
+    A bare identifier whose value is the *string* "false" should be falsy
+    (intuitive for a route author), rather than non-empty-string truthy.
+    """
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low == "false":
+            return False
+        if low == "true":
+            return True
+        return bool(value)
+    return bool(value)
 
 
 def _same_value(left: object, right: object) -> bool:

@@ -14,7 +14,7 @@
 
 - 开发环境：conda env `regime-driver`（python 3.12），本地 `pip install -e .`
 - 运行依赖：pydantic、typer、rich（`infra/config.py` 支持 JSON/TOML 配置）
-- 测试：`conda run -n regime-driver python -m pytest`（**99 项通过**）
+- 测试：`conda run -n regime-driver python -m pytest`（**119 项通过**，自主分支累计）
 - 端到端：真实 worker 容器 `opencode-worker`（端口 4097）已多次验证 COMPLETE
 
 **架构演进**（都在 `docs/` 有独立文档）：
@@ -32,7 +32,7 @@
 **主线**：regime-driver 系统本体（核心功能已可用）。
 **分支**：master（本地，无远程 push）。
 **测试基线**：99 项单测全绿；端到端真实 worker 多次 COMPLETE。
-**git 状态**：工作区干净，最近提交 `798e0e8`（流转决策并入 RolePolicy）。
+**git 状态**：工作区干净，自主分支 `autonomous-2026-08-05` HEAD `9c39cd7`（基线 `master` 最近提交 `798e0e8`）。
 
 ### 已完成（含 commit 引用）
 - `M-1` worker 镜像 `opencode-worker:1.18.11`（无插件 + `--pure`）— `ede90c4`
