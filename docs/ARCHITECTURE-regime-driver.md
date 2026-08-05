@@ -80,6 +80,7 @@ app → infra（infra 依赖 core 的模型，不依赖 app）
 | `segment.py` | `[WORK_DONE]` 段协议解析 | `SegmentParser` |
 | `session.py` | 会话模型（面/轮次/健康） | `SessionState` |
 | `repetition.py` | 死循环检测（n-gram 重复率 + 相邻相似度） | `RepetitionDetector` |
+| `json_utils.py` | LLM 回复解析共享工具（JSON 提取 / 最新 assistant 文本） | `extract_json`, `latest_assistant_text` |
 
 ### 3.2 infra/（基础设施）
 
@@ -100,7 +101,8 @@ app → infra（infra 依赖 core 的模型，不依赖 app）
 | `session_manager.py` | `SessionManager`：开发者/审查者 session 创建/复用/轮换 |
 | `segment_runner.py` | `SegmentRunner`：下发指令 → 轮询 → 解析 `[WORK_DONE]` |
 | `reviewer.py` | `Reviewer`：审查者调用（prompt 构建 + JSON 解析 + 门 + 重试） |
-| `monitor.py` | `Monitor`：独立安全监控线程（死循环/卡死/API 挂起检测 + 紧急停止） |
+| `monitor.py` | `Monitor`：独立安全监控线程（死循环/卡死检测 + 紧急停止） |
+| `meta_analyzer.py` | `MetaAnalyzer`：独立智能研判（独立模型复核卡死，经确定性门） |
 
 ### 3.4 cli/
 
@@ -224,7 +226,7 @@ class Settings(BaseModel):
   `app` 捕获并转成 `RunResult`（outcome/report），不裸抛。
 - **超时**：每个 session 轮询有 deadline；API 调用有 timeout；`abort` 兜底。
 
-### 9.1 安全监控与紧急停止（app/monitor.py + core/repetition.py）
+### 9.1 安全监控与紧急停止（app/monitor.py + core/repetition.py + app/meta_analyzer.py）
 
 **独立性**：监控是**独立后台线程**，不随主流程阻塞。它按固定节奏轮询所有被管理 session 的
 实时状态（token 计数、最新消息文本、busy/idle），检测主流程无法发现的长转卡死。
@@ -232,18 +234,26 @@ class Settings(BaseModel):
 **检测信号**（`core/repetition.py`）：
 1. **死循环**：最新消息文本的 n-gram 重复率 / 相邻块相似度超过阈值 → 复读机式循环。
 2. **卡死（stall）**：session busy 但 token 计数在 `stall_sec` 内无增长 → API 挂起/思考停滞。
-3. **API 挂起**：busy 但无任何事件（预留，当前由 stall 覆盖）。
 
-**紧急停止（等价于人类多次 ESC）**：收到事件 → ① 先置 `_monitor_stop` 标志（让 in-flight
-调用感知）→ ② `abort_session`（15s 超时，幂等）→ ③ 主流程节点边界检查 `_monitor_failure()`
-返回 `blocked` 上报。`segments.run` 轮询与 `reviewer.judge` 重试均接受 `cancel_event`，
-在 monitor 触发后尽快退出，不等 deadline。
+**智能研判（D1，`app/meta_analyzer.py`）**：当 `meta_analyze_enabled` 时，确定性检测命中的
+stall/dead_loop 先交**独立模型会话**（`meta_model`）复核——把时间戳+返回内容+目标+期限喂给
+独立智能体，输出结构化 verdict（normal/stalled/looping/...）+ `recommended_action`，经确定性门
+校验。仅当研判确认非 normal 才 escalate；`recommended_action` 与 `on_stall` 被尊重
+（`none`→不动、`report_user`→只上报不 abort、否则→abort+终止）。这是用户要求的"独立智能体
+作为独立监控者确认超时风险"。
+
+**紧急停止（等价于人类多次 ESC）**：收到事件 → ① 先置 `_monitor_stop` 标志 + `cancel_event.set()`
+（让 in-flight 调用感知）→ ②`abort_session`（15s 超时，幂等）→ ③ 主流程节点边界检查
+`_monitor_failure()` 返回 `blocked` 上报。`segments.run` 轮询与 `reviewer.judge` 重试均通过
+`threading.Event` 的 `is_set()` 检查取消，在 monitor 触发后尽快退出，不等 deadline。
+死循环与卡死均按 `on_stall` 统一约束（`abort`|`report_user`|`none`），并有去重（每 session
+只触发一次）。
 
 **已实证**：opencode 的 `POST /session/{id}/abort` 真正打断模型生成——token 计数在 abort 后
 立即停止增长（实测 58/138 → 58/157 冻结），等价于人类紧急停止。监控据此可靠。
 
 **配置**（`Settings`）：`monitor_enabled` / `monitor_poll_sec` / `stall_sec` / `on_stall`
-（`abort`|`report_user`|`none`）。
+（`abort`|`report_user`|`none`）/ `meta_analyze_enabled` / `meta_model` / `meta_max_context_msgs`。
 
 ---
 

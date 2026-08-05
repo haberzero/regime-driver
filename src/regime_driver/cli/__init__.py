@@ -14,6 +14,7 @@ from rich.text import Text
 
 from .. import __version__
 from ..core.contract import gate_reviewer_verdict, parse_reviewer_verdict
+from ..core.models import Outcome
 from ..core.state_machine import StateMachineError
 from ..infra.config import load_settings
 from ..infra.ledger import Ledger
@@ -103,10 +104,10 @@ def _run(settings: Settings, context: str, title: str) -> None:
             if ledger:
                 ledger.close()
 
-    if result.outcome == "complete":
+    if result.outcome == Outcome.COMPLETE:
         _ok(f"flow completed at node [bold]{result.end_node}[/bold]", markup=True)
     else:
-        _fail(f"flow {result.outcome} at node [bold]{result.end_node}[/bold]"
+        _fail(f"flow {result.outcome.value} at node [bold]{result.end_node}[/bold]"
               + (f": {result.detail}" if result.detail else ""), markup=True)
     if result.report:
         console.print(Panel(Text(result.report), title="final report", border_style="cyan"))

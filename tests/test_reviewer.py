@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from regime_driver.app.reviewer import Reviewer, _extract_json
+from regime_driver.app.reviewer import Reviewer
+from regime_driver.core.json_utils import extract_json
 from regime_driver.core.state_machine import StateMachine
 from regime_driver.infra.regime_loader import load_regime
 from regime_driver.infra.skill_loader import SkillNotFoundError, load_skill
@@ -23,7 +24,7 @@ class FakeClient:
         self.reply = reply
         self.calls = []
 
-    def ask_and_get_text(self, session_id, prompt, agent):
+    def ask_and_get_text(self, session_id, prompt, agent, model=None):
         self.calls.append((session_id, agent))
         return self.reply
 
@@ -49,16 +50,16 @@ def good_verdict(node="design", **overrides):
 
 def test_extract_json_fenced():
     text = '```json\n{"a":1}\n```'
-    assert _extract_json(text) == {"a": 1}
+    assert extract_json(text) == {"a": 1}
 
 
 def test_extract_json_inline():
     text = 'prefix {"a":1} suffix'
-    assert _extract_json(text) == {"a": 1}
+    assert extract_json(text) == {"a": 1}
 
 
 def test_extract_json_none():
-    assert _extract_json("no json here") is None
+    assert extract_json("no json here") is None
 
 
 def test_reviewer_judge_ok():

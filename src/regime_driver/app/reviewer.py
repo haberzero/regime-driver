@@ -11,16 +11,15 @@ and L0.
 
 from __future__ import annotations
 
-import json
-import re
+import threading
 from dataclasses import dataclass
-from typing import Callable
 
 from ..core.contract import (
     ContractError,
     gate_reviewer_verdict,
     parse_reviewer_verdict,
 )
+from ..core.json_utils import extract_json
 from ..core.models import GateResult, ReviewerVerdict
 from ..core.state_machine import StateMachine
 from ..infra.opencode import OpenCodeClient, OpenCodeError
@@ -74,9 +73,8 @@ class Reviewer:
 
     # -- prompt building ----------------------------------------------------
 
-    def _valid_nodes_block(self, valid_targets: set[str] | None = None) -> str:
-        targets = valid_targets or set(self.state_machine.successors(self.state_machine.start))
-        lines = [f"- {nid}: {self.state_machine.node_descriptions()[nid]}" for nid in targets]
+    def _valid_nodes_block(self, valid_targets: set[str]) -> str:
+        lines = [f"- {nid}: {self.state_machine.node_descriptions()[nid]}" for nid in valid_targets]
         return "VALID_NODES (next_state must be exactly one id from this list):\n" + "\n".join(lines)
 
     def _build_prompt(
@@ -86,7 +84,7 @@ class Reviewer:
         developer_report: str | None,
         extra_context: str | None,
         retry_feedback: str | None,
-        valid_targets: set[str] | None = None,
+        valid_targets: set[str],
     ) -> str:
         node = self.state_machine.node(node_id)
         skill_text = ""
@@ -122,7 +120,7 @@ class Reviewer:
         developer_report: str | None = None,
         extra_context: str | None = None,
         valid_targets: set[str] | None = None,
-        cancel_event: Callable[[], bool] | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> ReviewerResult:
         """Call the reviewer, parse + gate the reply, retrying with feedback.
 
@@ -138,7 +136,7 @@ class Reviewer:
         retry_feedback: str | None = None
         last_failure: ReviewerResult | None = None
         for attempt in range(self.max_retries + 1):
-            if cancel_event is not None and cancel_event():
+            if cancel_event is not None and cancel_event.is_set():
                 return ReviewerResult(error="cancelled by monitor")
             prompt = self._build_prompt(
                 node_id, context, developer_report, extra_context, retry_feedback, valid_targets
@@ -158,7 +156,7 @@ class Reviewer:
         return last_failure or ReviewerResult(error="reviewer failed")
 
     def _parse(self, text: str, node_id: str, valid_targets: set[str] | None = None) -> ReviewerResult:
-        raw = _extract_json(text)
+        raw = extract_json(text)
         if raw is None:
             return ReviewerResult(error="no JSON object in reviewer reply")
         try:
@@ -170,18 +168,3 @@ class Reviewer:
             return ReviewerResult(error=f"node mismatch: got '{verdict.node}', expected '{node_id}'")
         gate = gate_reviewer_verdict(verdict, valid_targets)
         return ReviewerResult(verdict=verdict, gate=gate)
-
-
-def _extract_json(text: str) -> dict | None:
-    """Extract the first JSON object from a reply (handles fenced blocks)."""
-    text = (text or "").strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-z]*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if not m:
-        return None
-    try:
-        return json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None

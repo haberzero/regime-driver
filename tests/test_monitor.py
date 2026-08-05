@@ -82,16 +82,15 @@ def test_monitor_detects_stall():
     class FakeClient:
         def session_status(self, sid): return "busy"
         def session_tokens(self, sid): return (0, 100)
-        def session_updated(self, sid): return time.time()
         def read_messages(self, sid): return []
         def abort_session(self, sid): pass
 
     m = Monitor(settings, FakeClient(), lambda: ["s1"], events.append)
     # simulate: first poll records output=100, then no growth
-    probe = MonitorProbe("s1", "busy", 0, 100, time.time(), "")
+    probe = MonitorProbe("s1", "busy", 0, 100, "")
     assert m._detect("s1", probe) is None  # no stall yet
     # simulate no growth for 3s
-    probe2 = MonitorProbe("s1", "busy", 0, 100, time.time(), "")
+    probe2 = MonitorProbe("s1", "busy", 0, 100, "")
     m._last_output["s1"] = 100
     m._stall_since["s1"] = time.time() - 3
     ev = m._detect("s1", probe2)
@@ -108,12 +107,11 @@ def test_monitor_detects_dead_loop():
     class FakeClient:
         def session_status(self, sid): return "busy"
         def session_tokens(self, sid): return (50, 50)
-        def session_updated(self, sid): return time.time()
         def read_messages(self, sid): return []
         def abort_session(self, sid): pass
 
     m = Monitor(settings, FakeClient(), lambda: ["s1"], events.append, repetition=d)
-    probe = MonitorProbe("s1", "busy", 50, 50, time.time(),
+    probe = MonitorProbe("s1", "busy", 50, 50,
                          "重复重复重复重复重复重复重复重复重复重复重复")
     ev = m._detect("s1", probe)
     assert ev is not None
@@ -127,12 +125,11 @@ def test_monitor_healthy_no_event():
     class FakeClient:
         def session_status(self, sid): return "busy"
         def session_tokens(self, sid): return (0, 100)
-        def session_updated(self, sid): return time.time()
         def read_messages(self, sid): return []
         def abort_session(self, sid): pass
 
     m = Monitor(settings, FakeClient(), lambda: ["s1"], lambda e: None, repetition=d)
-    probe = MonitorProbe("s1", "busy", 0, 100, time.time(), "正常文本没有重复")
+    probe = MonitorProbe("s1", "busy", 0, 100, "正常文本没有重复")
     assert m._detect("s1", probe) is None
 
 
@@ -142,7 +139,7 @@ def test_monitor_not_busy_resets_stall():
     # same output but not busy -> idle -> reset stall tracking
     m._last_output["s1"] = 100
     m._stall_since["s1"] = time.time() - 3
-    probe = MonitorProbe("s1", "idle", 0, 100, time.time(), "")
+    probe = MonitorProbe("s1", "idle", 0, 100, "")
     assert m._detect("s1", probe) is None
     assert "s1" not in m._stall_since
 
@@ -150,7 +147,6 @@ def test_monitor_not_busy_resets_stall():
 class FakeClientStub:
     def session_status(self, sid): return "idle"
     def session_tokens(self, sid): return (0, 120)
-    def session_updated(self, sid): return time.time()
     def read_messages(self, sid): return []
     def abort_session(self, sid): pass
 
@@ -167,7 +163,6 @@ def test_monitor_poll_loop_calls_handler():
         def session_tokens(self, sid):
             self.calls += 1
             return (0, 100 if self.calls < 3 else 100)  # never grows
-        def session_updated(self, sid): return time.time()
         def read_messages(self, sid): return []
         def abort_session(self, sid): pass
 
@@ -178,3 +173,56 @@ def test_monitor_poll_loop_calls_handler():
     m._poll_once()
     assert len(events) == 1
     assert events[0].kind == "stall"
+
+
+# --- driver on_stall dispatch (non-meta path) -------------------------------
+
+def test_on_stall_report_user_does_not_abort():
+    """on_stall=report_user sets the stop flag but does NOT abort the session."""
+    from regime_driver.app.driver import RegimeDriver
+    from regime_driver.app.monitor import MonitorEvent
+    from regime_driver.core.state_machine import StateMachine
+    from regime_driver.infra.settings import Settings
+    from regime_driver.infra.regime_loader import load_regime
+
+    aborted = []
+
+    class FakeClient:
+        def abort_session(self, sid): aborted.append(sid)
+        def create_session(self, t): return "x"
+        def read_messages(self, sid): return []
+        def session_status(self, sid): return "busy"
+        def session_tokens(self, sid): return (0, 100)
+
+    sm = load_regime()
+    settings = Settings(on_stall="report_user", meta_analyze_enabled=False,
+                        monitor_enabled=False)
+    d = RegimeDriver(settings, sm, FakeClient())
+    d._current_node = "design"
+    ev = MonitorEvent("stall", "s1", "stalled")
+    d._on_monitor_event(ev)
+    assert d._monitor_stop == "stall"  # flagged
+    assert aborted == []  # NOT aborted
+
+
+def test_on_stall_none_does_nothing():
+    from regime_driver.app.driver import RegimeDriver
+    from regime_driver.app.monitor import MonitorEvent
+    from regime_driver.infra.settings import Settings
+    from regime_driver.infra.regime_loader import load_regime
+
+    aborted = []
+
+    class FakeClient:
+        def abort_session(self, sid): aborted.append(sid)
+        def create_session(self, t): return "x"
+        def read_messages(self, sid): return []
+        def session_status(self, sid): return "busy"
+        def session_tokens(self, sid): return (0, 100)
+
+    sm = load_regime()
+    settings = Settings(on_stall="none", meta_analyze_enabled=False, monitor_enabled=False)
+    d = RegimeDriver(settings, sm, FakeClient())
+    d._on_monitor_event(MonitorEvent("stall", "s1", "stalled"))
+    assert d._monitor_stop is None
+    assert aborted == []

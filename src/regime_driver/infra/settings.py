@@ -34,4 +34,12 @@ class Settings(BaseModel):
     on_stall: Literal["abort", "report_user", "none"] = Field(
         default="abort", description="action when a session stalls (no progress)"
     )
+    # meta-analysis (independent intelligent review of stalls, D1)
+    meta_analyze_enabled: bool = Field(
+        default=False, description="confirm stalls with an independent model before acting"
+    )
+    meta_model: str = Field(
+        default="deepseek-api/deepseek-v4-flash", description="model for independent stall review"
+    )
+    meta_max_context_msgs: int = Field(default=20, ge=1, description="messages fed to meta reviewer")
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")

@@ -17,8 +17,9 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
+from ..core.json_utils import latest_assistant_text
 from ..core.repetition import RepetitionDetector
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
@@ -32,7 +33,6 @@ class MonitorProbe:
     status: str | None
     reasoning: int
     output: int
-    updated: float | None
     latest_text: str  # latest assistant message text (for repetition check)
 
 
@@ -40,7 +40,7 @@ class MonitorProbe:
 class MonitorEvent:
     """A problem the monitor detected, for the handler to act on."""
 
-    kind: str  # "stall" | "dead_loop" | "api_hang"
+    kind: str  # "stall" | "dead_loop"
     session_id: str
     detail: str
 
@@ -77,6 +77,7 @@ class Monitor:
         self._last_output: dict[str, int] = {}
         self._stall_since: dict[str, float] = {}
         self._stall_fired: set[str] = set()
+        self._dead_loop_fired: set[str] = set()
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -121,13 +122,12 @@ class Monitor:
         try:
             status = self.client.session_status(session_id)
             reasoning, output = self.client.session_tokens(session_id)
-            updated = self.client.session_updated(session_id)
         except Exception:
             return None
         latest_text = ""
         try:
             messages = self.client.read_messages(session_id)
-            latest_text = self._latest_assistant_text(messages)
+            latest_text = latest_assistant_text(messages)
         except Exception:
             pass
         return MonitorProbe(
@@ -135,7 +135,6 @@ class Monitor:
             status=status,
             reasoning=reasoning,
             output=output,
-            updated=updated,
             latest_text=latest_text,
         )
 
@@ -143,11 +142,15 @@ class Monitor:
 
     def _detect(self, session_id: str, probe: MonitorProbe) -> MonitorEvent | None:
         """Classify a probe. Returns a MonitorEvent or None (healthy)."""
-        # 1. dead loop: latest text shows loop-style repetition
+        # 1. dead loop: latest text shows loop-style repetition (fire once until text changes)
         if probe.latest_text:
             res = self.repetition.check(probe.latest_text)
             if res.repeated:
-                return MonitorEvent("dead_loop", session_id, f"repetition detected: {res.reason}")
+                if session_id not in self._dead_loop_fired:
+                    self._dead_loop_fired.add(session_id)
+                    return MonitorEvent("dead_loop", session_id, f"repetition detected: {res.reason}")
+            else:
+                self._dead_loop_fired.discard(session_id)
 
         # 2. stall: busy but no token/output growth for stall_sec
         output = probe.output
@@ -172,10 +175,3 @@ class Monitor:
             self._stall_since.pop(session_id, None)
             self._stall_fired.discard(session_id)
         return None
-
-    @staticmethod
-    def _latest_assistant_text(messages) -> str:
-        for m in reversed(messages or []):
-            if m.role == "assistant":
-                return m.text
-        return ""

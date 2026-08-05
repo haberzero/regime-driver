@@ -7,9 +7,10 @@ session create/read/abort, message send/read, and health check.
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -21,6 +22,7 @@ class OpenCodeError(Exception):
 class Message:
     """A single chat message."""
 
+    id: str
     role: str
     text: str
     ts: str | None = None
@@ -88,19 +90,11 @@ class OpenCodeClient:
         tokens = res.get("tokens") or {}
         return int(tokens.get("reasoning") or 0), int(tokens.get("output") or 0)
 
-    def session_updated(self, session_id: str) -> float | None:
-        """Return the session's last-updated epoch seconds, or None if unknown."""
-        res = self._request("GET", f"/session/{session_id}", timeout=15.0)
-        if not isinstance(res, dict):
-            return None
-        t = res.get("time") or {}
-        updated = t.get("updated")
-        if isinstance(updated, (int, float)):
-            return float(updated) / 1000.0  # ms -> s
-        return None
-
     def abort_session(self, session_id: str) -> None:
         self._request("POST", f"/session/{session_id}/abort", {}, timeout=15.0)
+
+    def delete_session(self, session_id: str) -> None:
+        self._request("DELETE", f"/session/{session_id}", timeout=15.0)
 
     # -- messages -----------------------------------------------------------
 
@@ -110,29 +104,41 @@ class OpenCodeClient:
             body["model"] = _model_obj(self.model)
         self._request("POST", f"/session/{session_id}/message", body)
 
-    def ask_and_get_text(self, session_id: str, prompt: str, agent: str) -> str:
-        """Send a prompt and synchronously return the assistant's text reply.
+    def ask_and_get_text(self, session_id: str, prompt: str, agent: str, model: str | None = None) -> str:
+        """Send a prompt and wait for the assistant's complete text reply.
 
-        Used for reviewer judgements (pure reasoning, POST returns the complete
-        message). Raises OpenCodeError on transport failure or empty reply.
+        opencode's POST /message is asynchronous/streaming: the POST returns
+        before the model finishes. This polls until a NEW assistant message
+        (with text) appears after the prompt, so the reply is complete and
+        reliable. Raises OpenCodeError on transport failure, reply error, or
+        timeout.
         """
+        base_count = len(self.read_messages(session_id))
         body: dict = {"agent": agent, "parts": [{"type": "text", "text": prompt}]}
-        if self.model:
-            body["model"] = _model_obj(self.model)
-        res = self._request("POST", f"/session/{session_id}/message", body)
-        if not isinstance(res, dict):
-            raise OpenCodeError(f"ask_and_get_text: unexpected response: {res}")
-        info = res.get("info") or {}
-        if info.get("error"):
-            raise OpenCodeError(f"ask_and_get_text: {info['error']}")
-        text = "".join(
-            p.get("text") or ""
-            for p in res.get("parts") or []
-            if p.get("type") in ("text", "reasoning")
-        )
-        if not text.strip():
-            raise OpenCodeError("ask_and_get_text: empty reply")
-        return text
+        if model or self.model:
+            body["model"] = _model_obj(model or self.model)
+        # POST /message is a streaming request: it stays open until the model's
+        # turn completes. Use the full timeout so a long reviewer judgement is
+        # not cut off at 30s.
+        self._request("POST", f"/session/{session_id}/message", body, timeout=self.timeout)
+
+        deadline = time.monotonic() + self.timeout
+        while time.monotonic() < deadline:
+            messages = self.read_messages(session_id)
+            if len(messages) <= base_count:
+                time.sleep(1.0)
+                continue  # no new message yet
+            # a new message appeared; return the newest assistant text if non-empty
+            for m in reversed(messages):
+                if m.role != "assistant":
+                    continue
+                if m.error:
+                    raise OpenCodeError(f"ask_and_get_text: {m.error}")
+                if m.text.strip():
+                    return m.text
+                break  # newest assistant message is empty; keep polling
+            time.sleep(1.0)
+        raise OpenCodeError("ask_and_get_text: timed out waiting for reply")
 
     def read_messages(self, session_id: str) -> list[Message]:
         res = self._request("GET", f"/session/{session_id}/message", timeout=30.0)
@@ -150,6 +156,7 @@ class OpenCodeClient:
             t = info.get("time") or {}
             messages.append(
                 Message(
+                    id=str(info.get("id") or ""),
                     role=info.get("role") or "?",
                     text=text,
                     ts=t.get("updated") or t.get("created"),

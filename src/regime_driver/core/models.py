@@ -7,6 +7,7 @@ perform network I/O, file access, or logging.
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -16,6 +17,26 @@ from pydantic import BaseModel, Field
 Actor = Literal["developer", "reviewer", "machine"]
 
 DEFAULT_WORK_DONE_MARKER = "[WORK_DONE]"
+
+
+class Outcome(str, Enum):
+    """Terminal outcome of a full flow run (RunResult)."""
+
+    COMPLETE = "complete"
+    ERROR = "error"
+    TIMEOUT = "timeout"
+    BLOCKED = "blocked"
+    HUMAN = "human"
+    ABORTED = "aborted"
+
+
+class SegmentOutcome(str, Enum):
+    """Outcome of a single developer segment (SegmentResult)."""
+
+    COMPLETE = "complete"
+    TIMEOUT = "timeout"
+    ERROR = "error"
+    CANCELLED = "cancelled"
 
 
 class Branch(BaseModel):

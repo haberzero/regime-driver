@@ -10,14 +10,17 @@ No business rules live here; this is orchestration only.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
+from ..core.models import Outcome, SegmentOutcome
 from ..core.repetition import RepetitionDetector
 from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
 from ..infra.task_control import TaskControl
+from .meta_analyzer import MetaAnalyzer, MetaResult
 from .monitor import Monitor, MonitorEvent
 from .reviewer import Reviewer
 from .segment_runner import SegmentRunner
@@ -28,7 +31,7 @@ from .session_manager import SessionManager
 class RunResult:
     """Result of a full flow run."""
 
-    outcome: str  # "complete" | "error" | "timeout" | "blocked" | "human"
+    outcome: Outcome
     end_node: str | None = None
     report: str | None = None
     detail: str | None = None
@@ -62,7 +65,10 @@ class RegimeDriver:
         self._monitor_stop: str | None = None
         self._monitor_stop_end_node: str | None = None
         self._current_node: str | None = None
-        self._cancel_event = lambda: self._monitor_stop is not None
+        self._cancel_event = threading.Event()
+        self.meta_analyzer = MetaAnalyzer(settings, client)
+        self._goal: str = ""
+        self._deadline: str = ""
 
     # -- helpers ------------------------------------------------------------
 
@@ -70,16 +76,13 @@ class RegimeDriver:
         if self.ledger is not None:
             self.ledger.append(event, **fields)
 
-    def _current_node_set(self, node_id: str) -> None:
-        self._current_node = node_id
-
     def _monitor_failure(self) -> RunResult | None:
         """Return a terminal RunResult if the monitor has flagged a stop."""
         if self._monitor_stop is not None:
             self._log("monitor_halt", kind=self._monitor_stop,
                       node=self._monitor_stop_end_node or self._current_node)
             return RunResult(
-                outcome="blocked",
+                outcome=Outcome.BLOCKED,
                 end_node=self._monitor_stop_end_node or self._current_node,
                 detail=f"monitor: {self._monitor_stop}",
             )
@@ -122,17 +125,94 @@ class RegimeDriver:
 
         This is the authoritative "human pressed ESC" equivalent — it can
         interrupt a turn the main flow cannot detect on its own.
+
+        If meta-analysis is enabled, a stall/dead_loop is first confirmed by an
+        independent model before escalating (D1), so a false positive doesn't
+        kill a healthy run.
         """
         self._log("monitor_event", kind=event.kind, session=event.session_id, detail=event.detail)
-        if event.kind == "stall" and self.settings.on_stall == "none":
+        if self.settings.on_stall == "none":
+            return  # monitoring only; no action for stalls or dead-loops
+        if self.settings.meta_analyze_enabled and event.kind in ("stall", "dead_loop"):
+            self._dispatch_meta_review(event)
             return
-        # escalate: set the stop flag FIRST (so any in-flight judge sees it), then abort
+        self._apply_monitor_action(event)
+
+    def _apply_monitor_action(self, event: MonitorEvent) -> None:
+        """Apply the configured on_stall action to a monitor event (no meta path)."""
+        if self.settings.on_stall == "report_user":
+            self._report_monitor_blocked(event)
+            return
+        self._escalate_monitor(event)
+
+    def _escalate_monitor(self, event: MonitorEvent) -> None:
+        """Set the stop flag FIRST (so any in-flight judge sees it), then abort."""
         self._monitor_stop = event.kind
         self._monitor_stop_end_node = self._current_node
+        self._cancel_event.set()
         try:
             self.client.abort_session(event.session_id)
         except Exception as exc:
             self._log("monitor_abort_error", session=event.session_id, err=str(exc))
+
+    def _dispatch_meta_review(self, event: MonitorEvent) -> None:
+        """Confirm a stall with an independent model in a background thread."""
+        def worker() -> None:
+            meta_sid = None
+            try:
+                meta_sid = self.client.create_session("meta-review")
+                messages = self.client.read_messages(event.session_id)
+                result: MetaResult = self.meta_analyzer.analyze(
+                    meta_sid, goal=self._goal or "", deadline=self._deadline or "",
+                    messages=messages, recent_events=[],
+                )
+                self._log("meta_review", kind=event.kind, session=event.session_id,
+                          verdict=result.verdict, action=result.action,
+                          confidence=result.confidence,
+                          error=result.error, reason=result.reason)
+                if result.ok:
+                    self._apply_meta_result(event, result)
+                else:
+                    # meta review failed; fall back to deterministic handling
+                    self._log("meta_review_fallback", kind=event.kind, session=event.session_id)
+                    self._escalate_monitor(event)
+            except Exception as exc:
+                self._log("meta_review_error", session=event.session_id, err=str(exc))
+            finally:
+                if meta_sid:
+                    try:
+                        self.client.delete_session(meta_sid)
+                    except Exception:
+                        pass
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _apply_meta_result(self, event: MonitorEvent, result: MetaResult) -> None:
+        """Honor the meta reviewer's verdict + recommended_action.
+
+        - verdict "normal": false positive, do nothing.
+        - action "none": do nothing (reviewer says leave it).
+        - action "nudge": light touch — if on_stall is report_user, just report;
+          else abort (stop the run) since a stuck turn is not recoverable here.
+        - action abort/restart/human: escalate (stop + abort).
+        - on_stall "report_user": report without aborting.
+        """
+        if result.verdict == "normal" or result.action == "none":
+            self._log("meta_review_clear", kind=event.kind, session=event.session_id,
+                      verdict=result.verdict)
+            return
+        if self.settings.on_stall == "report_user":
+            self._log("meta_review_report", kind=event.kind, session=event.session_id,
+                      verdict=result.verdict, action=result.action)
+            self._report_monitor_blocked(event, result)
+            return
+        # escalate (abort + stop) for any confirmed non-normal variant
+        self._escalate_monitor(event)
+
+    def _report_monitor_blocked(self, event: MonitorEvent, result: MetaResult | None = None) -> None:
+        """Report a blocked run to the human without aborting the session."""
+        self._monitor_stop = event.kind
+        self._monitor_stop_end_node = self._current_node
+        self._cancel_event.set()
 
     def _build_instruction(self, node_id: str, context: str) -> str:
         node = self.sm.node(node_id)
@@ -163,7 +243,7 @@ class RegimeDriver:
             outcome=result.outcome,
             report_len=len(result.report or ""),
         )
-        if result.outcome != "complete":
+        if result.outcome != SegmentOutcome.COMPLETE:
             mf = self._monitor_failure()
             if mf:
                 return mf, None
@@ -222,7 +302,7 @@ class RegimeDriver:
                 mf = self._monitor_failure()
                 if mf:
                     return mf, None, None
-                return RunResult(outcome="error", end_node=node_id, detail=str(exc)), None, None
+                return RunResult(outcome=Outcome.ERROR, end_node=node_id, detail=str(exc)), None, None
 
             if not result.ok:
                 self._log("reviewer_gate_exhausted", node=node_id,
@@ -230,7 +310,7 @@ class RegimeDriver:
                 mf = self._monitor_failure()
                 if mf:
                     return mf, None, None
-                return RunResult(outcome="error", end_node=node_id,
+                return RunResult(outcome=Outcome.ERROR, end_node=node_id,
                                  detail="reviewer gate exhausted"), None, None
 
             verdict = result.verdict
@@ -244,7 +324,7 @@ class RegimeDriver:
                     self._log("advance", to=target)
                     return None, developer_report, target
                 self._log("reviewer_bad_advance", node=node_id, next=target)
-                return RunResult(outcome="error", end_node=node_id,
+                return RunResult(outcome=Outcome.ERROR, end_node=node_id,
                                  detail=f"bad advance target '{target}'"), None, None
             if action == "ask_developer":
                 msg = verdict.message_to_developer
@@ -261,20 +341,50 @@ class RegimeDriver:
             if action == "abort_session":
                 self.sessions.abort_developer()
                 self._log("reviewer_abort", node=node_id, reason=verdict.reason)
-                return RunResult(outcome="aborted", end_node=node_id, detail=verdict.reason), None, None
+                return RunResult(outcome=Outcome.ABORTED, end_node=node_id, detail=verdict.reason), None, None
             if action == "report_user":
                 self._log("reviewer_report_user", node=node_id, reason=verdict.reason)
-                return RunResult(outcome="human", end_node=node_id, detail=verdict.reason), None, None
+                return RunResult(outcome=Outcome.HUMAN, end_node=node_id, detail=verdict.reason), None, None
 
             self._log("reviewer_unknown_action", node=node_id, action=action)
-            return RunResult(outcome="error", end_node=node_id,
+            return RunResult(outcome=Outcome.ERROR, end_node=node_id,
                              detail=f"unknown action '{action}'"), None, None
 
         self._log("reviewer_action_loop_exhausted", node=node_id)
-        return RunResult(outcome="error", end_node=node_id,
+        return RunResult(outcome=Outcome.ERROR, end_node=node_id,
                          detail="reviewer action loop exhausted"), None, None
 
     # -- main flow ----------------------------------------------------------
+
+    def _execute_node(
+        self,
+        dev_sid: str,
+        node_id: str,
+        context: str,
+        developer_report: str | None,
+    ) -> tuple[RunResult | None, str | None, str | None]:
+        """Execute a single node; return (failure, report, next_node).
+
+        failure is a terminal RunResult or None on success; report carries the
+        latest developer report; next_node is the next node to visit (or None if
+        the node is terminal).
+        """
+        actor = self.sm.actor(node_id)
+        self._log("node_enter", node=node_id, actor=actor)
+        if actor == "developer":
+            failure, report = self._run_developer_node(dev_sid, node_id, context)
+            if failure is not None:
+                return failure, None, None
+            return None, report, self.sm.next(node_id)
+        if actor == "reviewer":
+            failure, report, next_node = self._run_reviewer_node(
+                dev_sid, node_id, context, developer_report
+            )
+            if failure is not None:
+                return failure, None, None
+            return None, report, next_node
+        # machine node: no external action (future)
+        return None, None, self.sm.next(node_id)
 
     def run(self, context: str, title: str = "regime-driver") -> RunResult:
         """Run the whole flow on a fresh developer session and return the result."""
@@ -282,6 +392,9 @@ class RegimeDriver:
         self._current_node = None
         self._monitor_stop = None
         self._monitor_stop_end_node = None
+        self._cancel_event.clear()
+        self._goal = context
+        self._deadline = ""  # set by caller if a deadline is configured
         self._start_monitor()
         try:
             dev = self.sessions.ensure_developer(title)
@@ -289,42 +402,25 @@ class RegimeDriver:
             node_id = path[0]
             developer_report: str | None = None
             while node_id is not None:
-                if self._monitor_stop is not None:
-                    self._log("monitor_halt", kind=self._monitor_stop,
-                              node=self._monitor_stop_end_node)
-                    return RunResult(
-                        outcome="blocked",
-                        end_node=self._monitor_stop_end_node,
-                        detail=f"monitor: {self._monitor_stop}",
-                    )
+                mf = self._monitor_failure()
+                if mf:
+                    return mf
                 self._current_node = node_id
-                self._log("node_enter", node=node_id, actor=self.sm.actor(node_id))
-                actor = self.sm.actor(node_id)
-                if actor == "developer":
-                    failure, report = self._run_developer_node(dev.session_id, node_id, context)
-                    if failure is not None:
-                        return failure
-                    developer_report = report
-                    node_id = self.sm.next(node_id)
-                elif actor == "reviewer":
-                    failure, report, next_node = self._run_reviewer_node(
-                        dev.session_id, node_id, context, developer_report
-                    )
-                    if failure is not None:
-                        return failure
-                    developer_report = report
-                    node_id = next_node
-                else:
-                    # machine node: no external action (future)
-                    node_id = self.sm.next(node_id)
+                failure, report, next_node = self._execute_node(
+                    dev.session_id, node_id, context, developer_report
+                )
+                if failure is not None:
+                    return failure
+                developer_report = report
+                node_id = next_node
 
                 self.sessions.advance_developer_round()
                 if self.sessions.developer_turn_check_due(self.settings.session_turn_check):
                     self._log("developer_turn_check", node=node_id,
                               round=self.sessions.developer.round)
-            return RunResult(outcome="complete", end_node=path[-1] if path else None)
+            return RunResult(outcome=Outcome.COMPLETE, end_node=path[-1] if path else None)
         except Exception as exc:
             self._log("flow_error", step="run", detail=str(exc))
-            return RunResult(outcome="error", detail=str(exc))
+            return RunResult(outcome=Outcome.ERROR, detail=str(exc))
         finally:
             self._stop_monitor()

@@ -21,7 +21,6 @@ class SessionState:
         self.kind = kind
         self.session_id = session_id
         self.round = 0
-        self.healthy = True
 
     def advance_round(self) -> int:
         self.round += 1
@@ -34,5 +33,5 @@ class SessionState:
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return (
             f"SessionState(kind={self.kind.value}, sid={self.session_id}, "
-            f"round={self.round}, healthy={self.healthy})"
+            f"round={self.round})"
         )
