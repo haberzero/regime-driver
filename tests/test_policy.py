@@ -2,7 +2,13 @@
 
 import pytest
 
-from regime_driver.core.policy import SelfAssessment, developer_policy, reviewer_policy
+from regime_driver.core.policy import (
+    SelfAssessment,
+    TransitionDecision,
+    RolePolicy,
+    developer_policy,
+    reviewer_policy,
+)
 
 
 def test_self_assessment_parse_ok():
@@ -63,3 +69,21 @@ def test_handoff_message_templates_differ():
     assert "紧急" not in normal
     assert "50%" in normal
     assert "80%" in urgent
+
+
+def test_default_transition_is_reuse():
+    p = developer_policy()
+    assert p.on_node_transition("design", "implement") == TransitionDecision.REUSE
+
+
+def test_custom_transition_policy():
+    class PerNode(RolePolicy):
+        def on_node_transition(self, prev_node, next_node, ctx=None):
+            return TransitionDecision.ROTATE
+    p = PerNode()
+    assert p.on_node_transition("a", "b") == TransitionDecision.ROTATE
+
+
+def test_transition_mode_field():
+    p = RolePolicy(transition_mode=TransitionDecision.ANCHOR)
+    assert p.on_node_transition("a", "b") == TransitionDecision.ANCHOR

@@ -107,19 +107,35 @@ roles.register(Role(id="reviewer", agent="reviewer", policy=reviewer_policy()))
 
 ---
 
-## 5. 流转策略（用户可自定义）
+## 5. 流转决策（并入 RolePolicy，非孤立接口）
+
+**设计原则**：不用独立的 FlowStrategy 接口。"何时切换 session、是否锁锚点"是**角色自己
+管理 session 的一部分**，故并入 `RolePolicy`（唯一策略入口），与脑容量自评对齐。
 
 ```python
-class FlowStrategy(Protocol):
-    """决定流转：推进后是否切换 session、是否锁锚点。"""
-    def next_session(self, prev_node, next_node, ctx) -> str  # 返回 role id 或复用
-    def should_lock(self, role_id, ctx) -> bool               # 是否锁锚点（防双失忆）
+class TransitionDecision(str, Enum):
+    REUSE  = "reuse"   # 保持当前 session（上下文延续）
+    ROTATE = "rotate"  # 交接换新（写交接文档 → 新 session）
+    ANCHOR = "anchor"  # 作为稳定锚点，自己不切换
+
+class RolePolicy:
+    transition_mode: TransitionDecision = TransitionDecision.REUSE
+    def on_node_transition(self, prev_node, next_node, ctx=None) -> TransitionDecision:
+        """角色自己的流转决策（默认返回 transition_mode，用户可覆盖）。"""
+        return self.transition_mode
 ```
 
-参考策略：
-- `ReuseStrategy`：角色复用 session（当前行为）
-- `PerNodeStrategy`：每节点新建（靠交接）
-- 用户自定义，包括"允许双失忆"
+- 默认 `REUSE`（角色复用 session，当前行为）。
+- 用户通过 `RolePolicy(transition_mode=ROTATE)` 或覆盖 `on_node_transition` 实现
+  "每节点新建"、"按节点切换"、"作为锚点"等任意策略。
+- 内核在节点推进时查询**该节点角色**的 `on_node_transition`，按决策处置 session
+  （`ROTATE` → 交接换新；`REUSE`/`ANCHOR` → 保持）。
+- 脑容量交接（自评）与流转决策**同属一个 RolePolicy**，不分离。
+
+参考策略（用户可选用/自定义）：
+- `REUSE`：常驻复用（默认）
+- `ROTATE`：每节点/每角色交接换新（靠交接文档）
+- `ANCHOR`：作为稳定锚点（防双失忆，自己不动）
 
 ---
 
@@ -141,5 +157,6 @@ class FlowStrategy(Protocol):
 | R6 | regime.json 更新（role+type）+ 测试重建 | ✅ |
 | R7 | 端到端验证 + 文档 | ✅ |
 
-> 注：FlowStrategy（流转策略：session 切换/锁锚点自定义）为后续待实现，当前按 node.type 分流 +
-> 锚点角色（首个 agent 节点角色）推断。
+> 注：流转决策已并入 `RolePolicy.on_node_transition`（TransitionDecision: reuse/rotate/anchor），
+> 无需独立的 FlowStrategy 接口。driver 在节点推进时查询该节点角色的 policy 决定
+> 是否 rotate。99 单测 + 端到端（reuse 默认，transition 事件记录）全绿。

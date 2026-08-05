@@ -13,9 +13,23 @@ here too.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Literal
 
 Normalized = Literal["CONTINUE", "ROTATE", "HANDOFF_NOW"]
+
+
+class TransitionDecision(str, Enum):
+    """How a role handles its session when the flow advances to another node.
+
+    Reuse  : keep the current session (context persists).
+    Rotate : hand off to a fresh session (write handover, open new).
+    Anchor : stay as a stable anchor (others may rotate, this one does not).
+    """
+
+    REUSE = "reuse"
+    ROTATE = "rotate"
+    ANCHOR = "anchor"
 
 
 @dataclass
@@ -78,6 +92,30 @@ class RolePolicy:
         "紧急：你的上下文已使用 {usage:.0%}，达到紧急阈值。当前工作结束后必须立刻"
         "交接。请立即撰写紧急交接文档（比正常交接更精简，只保留关键状态与下一步）。"
     )
+
+    # -- flow transition (v4) ------------------------------------------------
+    # How this role's session should be handled when the flow advances to a
+    # different node. Default REUSE (context persists across nodes for the same
+    # role). A user may override on_node_transition for per-node/per-role logic.
+    transition_mode: TransitionDecision = TransitionDecision.REUSE
+
+    def on_node_transition(
+        self,
+        prev_node: str,
+        next_node: str,
+        ctx: dict | None = None,
+    ) -> TransitionDecision:
+        """Decide how this role's session is handled on a node transition.
+
+        This is the "flow strategy" folded into the role policy (no standalone
+        FlowStrategy interface). The kernel calls it when advancing from
+        prev_node to next_node; the returned decision tells the kernel whether
+        to reuse, rotate, or pin this role's session as an anchor.
+
+        Default behaviour follows `transition_mode`; users may override this
+        method for arbitrary per-node logic.
+        """
+        return self.transition_mode
 
     # -- decision logic ------------------------------------------------------
 

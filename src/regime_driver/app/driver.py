@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from ..core.handoff import Handoff, detect_loop
 from ..core.models import NodeType, Outcome, SegmentOutcome
+from ..core.policy import TransitionDecision
 from ..core.role import RoleRegistry, default_roles
 from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
@@ -446,6 +447,30 @@ class RegimeDriver:
         # tool / route / gate: reserved (fall through to next for now)
         return None, None, self.sm.next(node_id)
 
+    def _apply_transition(self, prev_node: str, next_node: str) -> None:
+        """Handle a node transition per the prev node's role policy.
+
+        The role's RolePolicy.on_node_transition decides whether the role's
+        session is reused, rotated, or pinned as an anchor when the flow advances.
+        """
+        try:
+            prev_role = self.sm.node(prev_node).role
+            policy = self.roles.get(prev_role).policy
+            decision = policy.on_node_transition(prev_node, next_node)
+            self._log("transition", from_node=prev_node, to_node=next_node,
+                      role=prev_role, decision=decision.value)
+            if decision == TransitionDecision.ROTATE:
+                summary = (f"节点 {prev_node} 完成，流转到 {next_node}。"
+                           f"角色 {prev_role} 会话交接换新。任务上下文：{self._goal[:100]}")
+                self.session_rotator.rotate_with_handover(
+                    prev_role, summary=summary, handoff_kind="normal",
+                )
+                self._log("transition_rotated", role=prev_role,
+                          new_session=self.sessions.get(prev_role).session_id)
+        except Exception as exc:
+            self._log("transition_error", from_node=prev_node, to_node=next_node,
+                      err=str(exc))
+
     def _anchor_role(self) -> str:
         """The primary working role for this flow (first agent node's role).
 
@@ -491,6 +516,8 @@ class RegimeDriver:
                 if failure is not None:
                     return failure
                 developer_report = report
+                if next_node is not None:
+                    self._apply_transition(node_id, next_node)
                 node_id = next_node
 
                 self.sessions.advance_round(anchor)

@@ -144,3 +144,25 @@ def test_session_rotation_on_capacity():
     assert rotated is True
     assert d.sessions.get("developer").session_id != old_sid
     assert any('"kind":"brain_normal"' in s[1] for s in client.sent)
+
+
+def test_transition_rotates_role_session():
+    """A role policy with transition_mode=ROTATE rotates its session on advance."""
+    from regime_driver.core.policy import RolePolicy, TransitionDecision
+    from regime_driver.core.role import Role, RoleRegistry
+    from regime_driver.app.session_manager import SessionRegistry
+
+    roles = RoleRegistry()
+    roles.register(Role(id="developer", agent="developer", policy=RolePolicy())) \
+         .register(Role(id="reviewer", agent="reviewer",
+                        policy=RolePolicy(transition_mode=TransitionDecision.ROTATE)))
+    d, client = make_driver()
+    d.roles = roles
+    d.sessions = SessionRegistry(client, agent_by_role={rid: roles.get(rid).agent for rid in roles.ids()})
+    d.session_rotator.sessions = d.sessions
+    # 'design' node's role is reviewer (from regime.json), whose policy rotates.
+    d.sessions.ensure("reviewer", "t")
+    old_sid = d.sessions.get("reviewer").session_id
+    d._apply_transition("design", "implement")
+    assert d.sessions.get("reviewer").session_id != old_sid
+    assert any('"kind":"brain_normal"' in s[1] for s in client.sent)
