@@ -135,12 +135,12 @@
 
 迁移后 `oc-control`、`oc-workspaces`、`work` 均已从主目录移除，唯一残留为规范化后的 `/home/haber/oc-meta/`。
 
-## 8. 下一步（M0、M-1、M-2、M-3、安全监控、架构v2已完成 → M-4 端到端试跑）
+## 8. 下一步（M0、M-1、M-2、M-3、安全监控、架构v2/v3已完成 → v3 实施）
 
 **M0 已全部完成 ✅**（stall-watchdog + supervisor v2 + oc-task + 故障矩阵 + git）。
-**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。**安全监控✅**（独立线程 + 紧急停止，见下）。**架构v2✅**（交接模型，见下）。
+**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。**安全监控✅**（独立线程 + 紧急停止，见下）。**架构v2✅**（交接模型，见下）。**架构v3✅**（工作区+交接机制设计，见下）。
 
-**当前方向**：`docs/DESIGN-regime-driver.md`（v0.3 定稿）——把 `workflow-regime/` 制度化流程编译成状态机，由固定代码机器人（L1）+ 审查者智能（L0）驱动**干净无插件**的开发者 opencode（L2）。里程碑 M-1 worker 镜像 → M-2 L1 骨架 → M-3 审查者接入 → M-4 端到端试跑。
+**当前方向**：`docs/DESIGN-regime-driver.md`（v0.3 定稿）——把 `workflow-regime/` 制度化流程编译成状态机，由固定代码机器人（L1）+ 审查者智能（L0）驱动**干净无插件**的开发者 opencode（L2）。里程碑 M-1 worker 镜像 → M-2 L1 骨架 → M-3 审查者接入 → M-4 端到端试跑；架构演进 v2 交接模型 → v3 工作区+交接机制。
 
 **M-2 成果（正式工程版）**：`regime-driver` 包（`src/` 布局，PyPI 就绪）。架构 `docs/ARCHITECTURE-regime-driver.md`。分层 `cli → app → (core + infra)`；core 纯领域（确定性门/段协议/状态机/会话模型，无 I/O）、infra 封装 HTTP/文件（opencode 客户端/regime 加载/账本/配置）、app 编排（driver/session_manager/segment_runner）、cli 薄壳（typer+rich）。确定性门核对、`[WORK_DONE]` 段协议、5 轮会话检查均已接入。17 单测通过；端到端实测驱动 worker 完成两段（修复 bug + 新建模块），测试全绿。开发环境：conda `regime-driver`（py3.12）。
 
@@ -150,9 +150,11 @@
 
 **架构 v2（交接模型，2026-08-04）**：把"审查者/开发者"重构为**独立个体**（私有 session 记忆），靠**结构化交接单**协作而非共享上下文。设计见 `docs/ARCHITECTURE-v2.md`。新增 `core/handoff.py`（Handoff 交接单 + `detect_loop` 收敛检测 + 序列化）、`app/session_lifecycle.py`（脑容量检测 + `SessionRotator` 交接）。重构 `driver._run_reviewer_node` 为**交接单路由**：审查者出质询单 → 开发者返工汇报单 → 审查者只读汇报单判断（不读开发者记忆）；多轮质询用 `max_dialogue_rounds`（独立于 gate 重试）+ 收敛检测（同一质询反复且汇报无变化→判打转）；加 `max_total_nodes` 节点预算防 runaway；session 脑容量到上限自动交接新开。76 单测通过；端到端实测真实 worker 完整流程（multiround 质询逻辑经单测覆盖）。
 
-阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `workflow-regime/README.md`。
+**架构 v3（工作区+交接机制，设计定稿 2026-08-04）**：设计见 `docs/ARCHITECTURE-v3.md`。核心：① **工作区角色可见性**（code/ 开发者只在此工作，handoff/ 审查者区，开发者不可见；利用 opencode session directory 机制）；② **交接文档体系**（统一 Handoff 扩展 kind：`brain_normal`/`brain_urgent`/`role_transition`/`report`，载体=文件系统 handoff/ + Ledger 审计）；③ **session 自评协议**（40% 开始自评、70% 停止工作后紧急交接，确定性字符 `CONTINUE/ROTATE/HANDOFF_NOW` + remaining_rounds，独立重试）；④ **策略可编程**（Python + 模板，开发者/审查者不同阈值，参考策略预置）。关键约束：审查者流转时**开发者 session 禁止切换**（防双失忆，开发者是稳定锚点）；脑容量交接文档 session 直接写工作区（code/HANDOFF.md 或 handoff/brain/），不需机器人文件传递。
 
-**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；session 脑容量到上限自动交接新开；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
+阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `workflow-regime/README.md`。
+
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
 
 ### 里程碑进度
 
