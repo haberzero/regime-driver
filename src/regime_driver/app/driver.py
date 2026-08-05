@@ -364,29 +364,48 @@ class RegimeDriver:
     # -- main flow ----------------------------------------------------------
 
     def _check_session_capacity(self, dev, node_id: str) -> bool:
-        """Rotate the developer session if its brain capacity is near the limit.
+        """Drive brain-capacity rotation via self-assessment + policy.
 
         Returns True if the session was rotated (caller should refresh `dev`).
         """
         try:
-            if not self.session_lifecycle.should_check(dev):
+            if not self.session_lifecycle.should_self_assess(dev):
                 return False
-            if self.session_lifecycle.near_limit(dev):
-                self._log("session_capacity_rotate", node=node_id,
-                          session=dev.session_id,
-                          used=round(self.session_lifecycle.capacity_used(dev), 2))
-                summary = (f"当前流程节点 {node_id}。开发者会话脑容量已到上限，"
-                           f"自动交接。任务上下文：{self._goal[:100]}")
+            usage = round(self.session_lifecycle.capacity_used(dev), 2)
+            # if already urgent, skip self-assessment (decide forces handoff)
+            assessment = None
+            if not self.session_lifecycle.policy_for(dev.kind).is_urgent(usage):
+                assessment = self.session_lifecycle.assess(dev, usage)
+            action = self.session_lifecycle.decide(dev, assessment, usage)
+            self._log("session_capacity_check", node=node_id, session=dev.session_id,
+                      used=usage, action=action,
+                      verdict=assessment.verdict if assessment else None,
+                      remaining=assessment.remaining_rounds_estimate if assessment else None)
+            if action == "handoff_now":
+                summary = (f"紧急：上下文已用 {usage:.0%}。当前流程节点 {node_id}。"
+                           f"任务上下文：{self._goal[:100]}")
                 self.session_rotator.rotate_with_handover(
                     SessionKind.DEVELOPER, summary=summary,
-                    constraints=["禁 push"],
+                    constraints=["禁 push"], handoff_kind="urgent",
                 )
-                self._log("session_rotated", node=node_id,
+                self._log("session_rotated", node=node_id, reason="urgent",
                           new_session=self.sessions.developer.session_id)
                 return True
+            if action == "rotate":
+                summary = (f"当前流程节点 {node_id}。上下文已用 {usage:.0%}，"
+                           f"里程碑可保存，切换会话。任务上下文：{self._goal[:100]}")
+                self.session_rotator.rotate_with_handover(
+                    SessionKind.DEVELOPER, summary=summary,
+                    constraints=["禁 push"], handoff_kind="normal",
+                )
+                self._log("session_rotated", node=node_id, reason="rotate",
+                          new_session=self.sessions.developer.session_id)
+                return True
+            # action == "continue"
+            return False
         except Exception as exc:
             self._log("session_capacity_error", node=node_id, err=str(exc))
-        return False
+            return False
 
     def _execute_node(
         self,

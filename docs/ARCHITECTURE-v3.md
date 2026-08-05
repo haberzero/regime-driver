@@ -1,10 +1,14 @@
 # regime-driver 工作区与交接机制设计（v3）
 
-> 状态：**设计定稿（待实施）**
+> 状态：**设计定稿，实施完成（P1-P4）**
 > 日期：2026-08-04
 > 背景：v2 确立了"角色是独立个体，靠交接单协作"。本设计细化**工作区模型**、
 >   **交接文档体系**、**session 自评协议**、**策略可编程**。
 > 关联：`docs/ARCHITECTURE-v2.md`（交接模型）、`docs/DESIGN-regime-driver.md`（OA 设计）
+> 实施结果：新增 `core/policy.py`（RolePolicy 策略抽象 + SelfAssessment + 默认策略）、
+>   `app/self_assess.py`（自评协议 + 独立重试）；`session_lifecycle.py` 改为自评驱动
+>   （策略阈值 + 自评 + decide）；`handoff.py` 扩展 kind（brain_normal/brain_urgent/
+>   role_transition）；`driver._check_session_capacity` 自评驱动。96 单测通过。
 
 ---
 
@@ -156,10 +160,10 @@ RolePolicy(Protocol):
 
 ## 7. 里程碑（本次设计落地）
 
-| 阶段 | 内容 |
-|---|---|
-| P1 | `core/policy.py` 策略抽象 + 默认策略（开发者/审查者不同阈值） |
-| P2 | 自评协议 + `app/self_assess.py`（确定性字符 + 独立重试） |
-| P3 | `core/handoff.py` 扩展 kind（brain_normal/brain_urgent/role_transition） |
-| P4 | `session_lifecycle.py` 改为自评驱动（40%/70%） |
-| P5 | 工作区目录约定（code/ handoff/ 导入参考策略） |
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| P1 | `core/policy.py` 策略抽象 + 默认策略（开发者/审查者不同阈值） | ✅ |
+| P2 | 自评协议 + `app/self_assess.py`（确定性字符 + 独立重试） | ✅ |
+| P3 | `core/handoff.py` 扩展 kind（brain_normal/brain_urgent/role_transition） | ✅ |
+| P4 | `session_lifecycle.py` 改为自评驱动（策略阈值 + 自评 + decide） | ✅ |
+| P5 | 工作区目录约定（`WORKSPACE_CONVENTIONS` 参考常量；worker 挂载调整留待重建） | ⏳ 部分 |

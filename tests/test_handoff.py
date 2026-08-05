@@ -79,3 +79,28 @@ def test_detect_loop_inquiry_changed_no_loop():
         ("问题3", "改了"),
     ]
     assert detect_loop(rounds, max_identical=2) is False
+
+
+def test_brain_handoff_normal():
+    h = Handoff.brain_handoff("brain_normal", "做了X", ["禁push"], role="developer")
+    assert h.kind == "brain_normal"
+    assert h.from_role == "developer"
+    assert h.to_role == "developer"
+    assert h.handover is not None
+    assert h.handover.constraints == ["禁push"]
+
+
+def test_brain_handoff_urgent():
+    h = Handoff.brain_handoff("brain_urgent", "紧急交接", role="reviewer")
+    assert h.kind == "brain_urgent"
+    assert h.from_role == "reviewer"
+
+
+def test_role_transition():
+    h = Handoff.role_transition("审查者A给B的记录", from_role="reviewer", to_role="reviewer")
+    assert h.kind == "role_transition"
+    assert h.from_role == "reviewer"
+    assert h.to_role == "reviewer"
+    # round-trip
+    h2 = Handoff.from_json(h.to_json())
+    assert h2.kind == "role_transition"

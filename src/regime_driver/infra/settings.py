@@ -52,12 +52,9 @@ class Settings(BaseModel):
         default="deepseek-api/deepseek-v4-flash", description="model for independent stall review"
     )
     meta_max_context_msgs: int = Field(default=20, ge=1, description="messages fed to meta reviewer")
-    # session lifecycle (brain-capacity management)
+    # session lifecycle (brain-capacity management, policy-driven)
     context_limit_tokens: int = Field(
         default=120_000, ge=1000,
-        description="session token ceiling; at/above this a session is rotated"
-    )
-    context_check_every: int = Field(
-        default=5, ge=1, description="check session capacity every N rounds"
+        description="session token ceiling; used to compute context usage fraction"
     )
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")

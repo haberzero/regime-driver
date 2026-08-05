@@ -122,18 +122,21 @@ def test_session_rotation_on_capacity(monkeypatch):
     dev = d.sessions.developer
     old_sid = dev.session_id
 
-    # stub lifecycle: always near limit on check
-    class FakeLC:
-        def should_check(self, state):
-            return True
-        def near_limit(self, state):
+    # stub lifecycle: always self-assess and decide to rotate
+    from regime_driver.app.session_lifecycle import SessionLifecycle
+    from regime_driver.core.policy import SelfAssessment, developer_policy
+
+    class FakeLC(SessionLifecycle):
+        def should_self_assess(self, state):
             return True
         def capacity_used(self, state):
-            return 1.2
-    d.session_lifecycle = FakeLC()
+            return 0.5
+        def assess(self, state, usage=None):
+            return SelfAssessment("ROTATE", milestone_reachable=True)
+    d.session_lifecycle = FakeLC(d.settings, client, developer_policy_obj=developer_policy())
 
     rotated = d._check_session_capacity(dev, "design")
     assert rotated is True
     assert d.sessions.developer.session_id != old_sid
     # handover JSON was injected into the fresh session
-    assert any('"kind":"handover"' in s[1] for s in client.sent)
+    assert any('"kind":"brain_normal"' in s[1] for s in client.sent)

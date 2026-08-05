@@ -21,9 +21,13 @@ from pydantic import BaseModel, Field
 
 Role = Literal["developer", "reviewer", "machine"]
 
-# Handoff kinds: reviewer->developer inquiry, developer->reviewer report,
-# context request, and session handover (brain-capacity rotation).
-HandoffKind = Literal["inquiry", "report", "context", "handover"]
+# Handoff kinds: reviewer<->developer collaboration (inquiry/report/context),
+# brain-capacity rotation (brain_normal/brain_urgent), and role transition
+# (reviewer A -> reviewer B).
+HandoffKind = Literal[
+    "inquiry", "report", "context",
+    "brain_normal", "brain_urgent", "role_transition",
+]
 
 
 class Inquiry(BaseModel):
@@ -115,9 +119,23 @@ class Handoff(BaseModel):
                    flow_node=flow_node, summary=requested)
 
     @classmethod
-    def session_handover(cls, summary: str, constraints: list[str] | None = None,
-                         pending: list[str] | None = None) -> "Handoff":
-        return cls(kind="handover", from_role="machine", to_role="machine",
+    def brain_handoff(cls, kind: Literal["brain_normal", "brain_urgent"],
+                      summary: str, constraints: list[str] | None = None,
+                      pending: list[str] | None = None,
+                      role: Role = "developer") -> "Handoff":
+        """Brain-capacity handoff (same role, session rotation)."""
+        return cls(kind=kind, from_role=role, to_role=role,
+                   summary=summary,
+                   handover=Handover(summary=summary, constraints=constraints or [],
+                                     pending=pending or []))
+
+    @classmethod
+    def role_transition(cls, summary: str, from_role: Role = "reviewer",
+                        to_role: Role = "reviewer",
+                        constraints: list[str] | None = None,
+                        pending: list[str] | None = None) -> "Handoff":
+        """Role-transition handoff (reviewer A -> reviewer B, same developer)."""
+        return cls(kind="role_transition", from_role=from_role, to_role=to_role,
                    summary=summary,
                    handover=Handover(summary=summary, constraints=constraints or [],
                                      pending=pending or []))
