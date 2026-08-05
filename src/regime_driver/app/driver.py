@@ -13,11 +13,13 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 
+from ..core.branching import ConditionError, resolve_branch
 from ..core.handoff import Handoff, detect_loop
 from ..core.models import NodeType, Outcome, SegmentOutcome
-from ..core.policy import TransitionDecision
+from ..core.policy import TransitionDecision, workspace_for
 from ..core.role import RoleRegistry, default_roles
 from ..core.state_machine import StateMachine
+from ..core.tools import UnknownToolError, run_tool
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
@@ -72,6 +74,7 @@ class RegimeDriver:
         self.meta_analyzer = MetaAnalyzer(settings, client)
         self._goal: str = ""
         self._deadline: str = ""
+        self._env: dict = {"context": "", "report": "", "ok": True, "message": ""}
         self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)
 
@@ -220,12 +223,18 @@ class RegimeDriver:
         self._monitor_stop_end_node = self._current_node
         self._cancel_event.set()
 
-    def _build_instruction(self, node_id: str, context: str) -> str:
+    def _build_instruction(self, node_id: str, context: str, role_id: str | None = None) -> str:
         node = self.sm.node(node_id)
         marker = self.sm.regime.meta.work_done_marker
+        ws = workspace_for(role_id or node.role)
+        ws_hint = (
+            f"\n工作区：你只在 {ws['work_dir']} 目录内工作变更，可读可见目录：{', '.join(ws['visible'])}，"
+            f"可写目录：{', '.join(ws['writable'])}。"
+        )
         return (
             f"【当前节点：{node_id}】{node.desc}\n"
             f"任务上下文：{context}\n"
+            f"{ws_hint}\n"
             f"请完成本节点工作。每段结束时，最后一行以 {marker} 标记，"
             f"并在其前给出结构化汇报：改动文件 / 测试命令与结果 / 技术债 / 待决点。"
         )
@@ -234,7 +243,7 @@ class RegimeDriver:
 
     def _run_agent_node(self, sid: str, role_id: str, node_id: str, context: str) -> tuple[RunResult | None, str | None]:
         """Run an agent segment. Returns (failure, report)."""
-        instruction = self._build_instruction(node_id, context)
+        instruction = self._build_instruction(node_id, context, role_id)
         result = self.segments.run(
             sid,
             agent=self.sessions.agent_for(role_id),
@@ -444,19 +453,66 @@ class RegimeDriver:
                 return failure, None, None
             return None, report, next_node
 
-        # tool / route / gate: reserved (fall through to next for now)
+        if ntype == NodeType.TOOL:
+            # deterministic tool execution; result is exposed to the run env as
+            # `ok`/`message` so a following route/gate can branch on it.
+            try:
+                tresult = run_tool(
+                    node, self._env.get("context", context), self._env.get("report", developer_report or "")
+                )
+            except UnknownToolError as exc:
+                self._log("tool_error", node=node_id, err=str(exc))
+                return RunResult(outcome=Outcome.ERROR, end_node=node_id, detail=str(exc)), None, None
+            self._env["ok"] = tresult.ok
+            self._env["message"] = tresult.message
+            self._log("tool_done", node=node_id, tool=node.tool, ok=tresult.ok, msg=tresult.message)
+            try:
+                target = resolve_branch(node, self._env)
+            except ConditionError as exc:
+                self._log("condition_error", node=node_id, err=str(exc))
+                return RunResult(outcome=Outcome.ERROR, end_node=node_id, detail=str(exc)), None, None
+            if target is None:
+                target = self.sm.next(node_id)
+            return None, None, target
+
+        if ntype in (NodeType.ROUTE, NodeType.GATE):
+            try:
+                target = resolve_branch(node, self._env)
+            except ConditionError as exc:
+                self._log("condition_error", node=node_id, err=str(exc))
+                return RunResult(outcome=Outcome.ERROR, end_node=node_id, detail=str(exc)), None, None
+            if target is not None:
+                # validate the branch target resolves within the flow
+                if target not in self.sm.flow.nodes:
+                    return RunResult(outcome=Outcome.ERROR, end_node=node_id,
+                                     detail=f"bad branch target '{target}'"), None, None
+                self._log("branched", node=node_id, to=target, type=ntype.value)
+                return None, None, target
+            if ntype == NodeType.ROUTE:
+                # soft route: fall through to `next` when no branch matches
+                return None, None, self.sm.next(node_id)
+            # gate: hard must-pass — no matching branch means the gate failed
+            self._log("gate_failed", node=node_id)
+            return RunResult(outcome=Outcome.BLOCKED, end_node=node_id,
+                             detail=f"gate '{node_id}' not satisfied"), None, None
+
+        # unreachable; kept for forward-compat with new node types
         return None, None, self.sm.next(node_id)
 
-    def _apply_transition(self, prev_node: str, next_node: str) -> None:
+    def _apply_transition(self, prev_node: str, next_node: str, env: dict | None = None) -> set[str]:
         """Handle a node transition per the prev node's role policy.
 
         The role's RolePolicy.on_node_transition decides whether the role's
         session is reused, rotated, or pinned as an anchor when the flow advances.
+
+        Returns the set of roles whose sessions were rotated (so the caller can
+        refresh stale references to those sessions).
         """
+        rotated: set[str] = set()
         try:
             prev_role = self.sm.node(prev_node).role
             policy = self.roles.get(prev_role).policy
-            decision = policy.on_node_transition(prev_node, next_node)
+            decision = policy.on_node_transition(prev_node, next_node, env or {})
             self._log("transition", from_node=prev_node, to_node=next_node,
                       role=prev_role, decision=decision.value)
             if decision == TransitionDecision.ROTATE:
@@ -465,11 +521,16 @@ class RegimeDriver:
                 self.session_rotator.rotate_with_handover(
                     prev_role, summary=summary, handoff_kind="normal",
                 )
+                rotated.add(prev_role)
                 self._log("transition_rotated", role=prev_role,
                           new_session=self.sessions.get(prev_role).session_id)
+            elif decision == TransitionDecision.ANCHOR:
+                # anchor: pin this role's session — never rotate on transition
+                self._log("transition_anchor", role=prev_role, node=prev_node)
         except Exception as exc:
             self._log("transition_error", from_node=prev_node, to_node=next_node,
                       err=str(exc))
+        return rotated
 
     def _anchor_role(self) -> str:
         """The primary working role for this flow (first agent node's role).
@@ -492,6 +553,7 @@ class RegimeDriver:
         self._cancel_event.clear()
         self._goal = context
         self._deadline = ""  # set by caller if a deadline is configured
+        self._env = {"context": context, "report": "", "ok": True, "message": ""}
         self._start_monitor()
         try:
             anchor = self._anchor_role()
@@ -500,6 +562,7 @@ class RegimeDriver:
             node_id = path[0]
             developer_report: str | None = None
             node_count = 0
+            last_node: str | None = None
             while node_id is not None:
                 node_count += 1
                 if node_count > self.settings.max_total_nodes:
@@ -510,14 +573,19 @@ class RegimeDriver:
                 if mf:
                     return mf
                 self._current_node = node_id
+                last_node = node_id
                 failure, report, next_node = self._execute_node(
                     node_id, context, developer_report, anchor
                 )
                 if failure is not None:
                     return failure
                 developer_report = report
+                if report is not None:
+                    self._env["report"] = report
                 if next_node is not None:
-                    self._apply_transition(node_id, next_node)
+                    rotated = self._apply_transition(node_id, next_node, self._env)
+                    if anchor in rotated:
+                        dev = self.sessions.get(anchor)  # refresh stale session ref
                 node_id = next_node
 
                 self.sessions.advance_round(anchor)
@@ -526,7 +594,7 @@ class RegimeDriver:
                               round=self.sessions.get(anchor).round)
                 if self._check_session_capacity(dev, node_id):
                     dev = self.sessions.get(anchor)  # refresh after rotation
-            return RunResult(outcome=Outcome.COMPLETE, end_node=path[-1] if path else None)
+            return RunResult(outcome=Outcome.COMPLETE, end_node=last_node)
         except Exception as exc:
             self._log("flow_error", step="run", detail=str(exc))
             return RunResult(outcome=Outcome.ERROR, detail=str(exc))

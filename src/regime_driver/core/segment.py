@@ -11,8 +11,6 @@ import re
 
 from .models import DEFAULT_WORK_DONE_MARKER, SegmentReport
 
-WORK_DONE_RE = re.compile(r"(?m)^\s*\[WORK_DONE\]\s*$")
-
 
 class SegmentParser:
     """Parses developer messages for the [WORK_DONE] segment boundary."""

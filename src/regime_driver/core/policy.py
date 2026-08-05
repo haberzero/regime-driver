@@ -73,7 +73,7 @@ class RolePolicy:
     context_threshold_normal: float = 0.4  # start self-assessment
     context_threshold_urgent: float = 0.7  # after stopping work, must hand off
 
-    # -- self-assessment cash --------------------------------
+    # -- self-assessment protocol -----------------------------
     self_assess_system_prompt: str = (
         "You are a session that tracks its own context usage. Your context "
         "window is filling. Assess whether you should continue, rotate to a "
@@ -166,6 +166,16 @@ WORKSPACE_CONVENTIONS = {
         "writable": ["handoff"],
     },
 }
+
+
+def workspace_for(role_id: str) -> dict:
+    """Return the workspace convention for a role (fallback: work at root).
+
+    This is the single accessor the kernel uses to read a role's workspace
+    visibility. It is a pure lookup; enforcement of the physical mount is a
+    worker/container concern (deferred to a worker rebuild).
+    """
+    return WORKSPACE_CONVENTIONS.get(role_id, {"work_dir": ".", "visible": [".", ], "writable": [".", ]})
 
 
 def developer_policy() -> RolePolicy:

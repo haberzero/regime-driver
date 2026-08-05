@@ -73,6 +73,8 @@ class Node(BaseModel):
     skill: str | None = None
     next: str | None = None
     branches: list[Branch] | None = None
+    tool: str | None = None               # tool name for TOOL nodes (see core/tools.py)
+    tool_args: dict | None = None          # args passed to that tool
 
 
 class Flow(BaseModel):
@@ -110,9 +112,6 @@ class Regime(BaseModel):
             return self.flows[name]
         except KeyError:
             raise KeyError(f"no flow '{name}' in regime") from None
-
-    def node(self, flow_name: str, node_id: str) -> Node:
-        return self.flow(flow_name).nodes[node_id]
 
 
 # --- reviewer contract (DESIGN §4) -----------------------------------------

@@ -48,13 +48,3 @@ def load_skill(skill_name: str, skills_dir: str | Path | None = None) -> str:
         raise SkillNotFoundError(f"skill '{skill_name}' not found at {path}")
     raw = path.read_text(encoding="utf-8")
     return _FRONTMATTER_RE.sub("", raw, count=1).strip()
-
-
-def load_skill_description(skill_name: str, skills_dir: str | Path | None = None) -> str:
-    """Return just the `description` field from the skill frontmatter."""
-    path = _resolve_skill_path(skill_name, skills_dir)
-    if not path.exists():
-        raise SkillNotFoundError(f"skill '{skill_name}' not found at {path}")
-    raw = path.read_text(encoding="utf-8")
-    m = re.search(r"^description:\s*(.+)$", raw, re.MULTILINE)
-    return m.group(1).strip() if m else ""

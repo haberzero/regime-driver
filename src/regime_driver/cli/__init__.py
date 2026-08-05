@@ -173,7 +173,7 @@ def gate(
 # ---------------------------------------------------------------------------
 @app.command("status")
 def status(
-    base: str = typer.Option("http://127.0.0.1:4097", "--base", help="worker URL"),
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
 ) -> None:
     """Check worker health."""
     client = OpenCodeClient(base)
