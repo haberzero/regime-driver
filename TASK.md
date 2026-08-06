@@ -50,8 +50,8 @@
 - [DONE] P1 mock 机制基础（思路设计+可行性） | verified: 176 passed(169+7) | 新增 src/regime_driver/testing/mock_client.py(MockClient/MockRule: 同接口drop-in, 默认reviewer advance+developer [WORK_DONE], 规则(agent,node)二段匹配, delay/stall/error 故障注入, 消息累积非替换) + docs/DESIGN-mock.md + ops/mock_feasibility.py(5/5 离线通过: 完整流程COMPLETE/慢judge时序/stall→宪法STOP BLOCKED/judge散文→gate exhausted) + tests/test_mock_client.py(7)
 - [DONE] E2E 调试定位根因 | verified: 真实 E2E | 新增 ops/e2e_debug.py(包裹真实 client 逐操作计时) + ops/probe_judge_stall.py(并发观察 reasoning/output)；根因=发派线程池饱和(max_workers=2)：streaming POST /message 晚于 message.completed/[WORK_DONE] 返回(agent 约11s 滞后)，workflow 提前 advance 发下一 node，前 node POST 仍占线程→2 个 trailing POST 占满池→design judge 发派永久排队→session 呈 busy 无输出→宪法误判 stall 杀掉(原 E2E 卡数分钟)
 - [DONE] E2E 修复发派序列化 | verified: 177 passed(176+1) + 真实 E2E 两次 COMPLETE(60.6s, 95.8s) | workflow_unit._dispatch 先 await 前一 POST future(_await_prior_dispatch, 保持 STOP 响应)再发下一 node→每回归 test_dispatch_serializes_prior_post(无修复 max_active=2 失败, 有修复=1)；judge reasoning 真实 21-60s(假设①确认为长推理非永久卡，stall_sec=120 有裕量)
-- [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
-- [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
+- [DONE(重复,见上方)] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）| 已由上方"阶段3/4a/4b/4c + R1-R5"完成：app/constitution_unit.py 无智能状态机 + app/monitor.py 已删除 + test_constitution_unit.py
+- [DONE(重复,见上方)] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）| 已由上方"阶段4a/4b/4c"完成：app/runtime_invariants.py(I1/I2/I3) + StatechartDriver(constitution= 注入) + test_runtime_invariants.py/test_custom_constitution.py
 - [ ] P3 上帝对话框演进（远期）
 
 ## 阻塞
