@@ -220,6 +220,23 @@ def test_native_completion_without_marker():
     assert end == "wrap"
 
 
+def test_per_node_wait_timeout():
+    """A node that never completes is marked TIMEOUT after default_deadline_sec."""
+    class NeverClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            pass  # never produce a reply -> node never completes
+    s = Settings(monitor_enabled=False, poll_sec=0.1, default_deadline_sec=1)
+    sm = load_regime()
+    client = NeverClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit.start()
+    unit.submit("任务")
+    outcome, end, detail = _wait_result(unit, timeout=5)
+    unit.stop()
+    assert outcome == Outcome.TIMEOUT
+    assert "default_deadline_sec" in detail
+
+
 def test_heartbeat_updates_per_step():
     """The workflow's blackboard heartbeat reflects liveness (refreshes each step)."""
     from regime_driver.core.statechart import Bus

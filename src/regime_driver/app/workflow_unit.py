@@ -107,6 +107,7 @@ class WorkflowUnit(ThreadedUnit):
         self._rejudge: str | None = None   # judge node awaiting a rework re-judge
         self._dialogue_rounds = 0          # ask_developer -> rework cycles
         self._start_time: float | None = None
+        self._phase_started: float | None = None  # when the current wait phase began
 
         # control handlers
         self.register(SignalKind.STOP, self._on_stop)
@@ -218,16 +219,35 @@ class WorkflowUnit(ThreadedUnit):
 
     def _step(self) -> None:
         self._touch_heartbeat()
+        if self._phase != _PH_NONE:
+            # per-node wait timeout: never hang forever on a stuck idle session
+            if (self._phase_started
+                    and time.time() - self._phase_started > self.settings.default_deadline_sec):
+                self._state = _ST_ERROR
+                self._result = (Outcome.TIMEOUT, self._node,
+                                f"node '{self._node}' exceeded default_deadline_sec "
+                                f"({self.settings.default_deadline_sec}s)")
+                return
         if self._phase == _PH_AGENT:
             self._step_agent()
         elif self._phase == _PH_JUDGE:
             self._step_judge()
 
     def _touch_heartbeat(self) -> None:
-        """Update the liveness heartbeat each step (per-workflow blackboard key)."""
+        """Update the liveness heartbeat + diagnostics each step (per-workflow key)."""
         bb = self.bus.blackboard if self.bus is not None else None
         if bb is not None:
-            bb.set(f"{self.id}.heartbeat", time.time())
+            p = f"{self.id}."
+            bb.update(**{
+                f"{p}heartbeat": time.time(),
+                f"{p}wait_sid": self._wait_sid,
+                f"{p}waiting_s": round(time.time() - self._phase_started, 1)
+                if self._phase_started else 0,
+            })
+
+    def _begin_wait(self, phase: str) -> None:
+        self._phase = phase
+        self._phase_started = time.time()
 
     def _enter_node(self, node_id: str) -> None:
         node = self.sm.node(node_id)
@@ -263,13 +283,13 @@ class WorkflowUnit(ThreadedUnit):
             return
         self._wait_sid = sid
         self._wait_role = role
-        self._phase = _PH_AGENT
+        self._begin_wait(_PH_AGENT)
 
     def _enter_judge(self, node_id: str) -> None:
         role = self.sm.node(node_id).role
         reviewer = self._get_reviewer(role)
         self._valid_targets = set(self.sm.successors(node_id))
-        self._phase = _PH_JUDGE
+        self._begin_wait(_PH_JUDGE)
         self._wait_sid = reviewer.session_id
         self._wait_role = role
         self._judge_attempts = 0
@@ -369,6 +389,7 @@ class WorkflowUnit(ThreadedUnit):
             if target in self._valid_targets:
                 self._log("advance", to=target)
                 self._phase = _PH_NONE
+                self._phase_started = None
                 self._advance(target)
                 return
             self._state = _ST_ERROR
@@ -402,7 +423,7 @@ class WorkflowUnit(ThreadedUnit):
                 return
             self._rejudge = self._node
             self._wait_sid = work_sid
-            self._phase = _PH_AGENT
+            self._begin_wait(_PH_AGENT)
             return
         if action == "request_context":
             self._extra_context = verdict.context_requested
@@ -433,6 +454,7 @@ class WorkflowUnit(ThreadedUnit):
         self.sessions.advance_round(self._anchor)
         self._check_session_capacity(self.sessions.get(self._anchor), next_node)
         self._phase = _PH_NONE
+        self._phase_started = None
         self._enter_node(next_node)
 
     def _enter_deterministic(self, node) -> None:
@@ -596,4 +618,6 @@ class WorkflowUnit(ThreadedUnit):
             f"{p}state": self._state,
             f"{p}heartbeat": now,
             f"{p}start_time": self._start_time or now,
+            f"{p}wait_sid": self._wait_sid,
+            f"{p}waiting_s": round(time.time() - self._phase_started, 1) if self._phase_started else 0,
         })

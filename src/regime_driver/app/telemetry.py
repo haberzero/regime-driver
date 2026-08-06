@@ -49,7 +49,8 @@ class Telemetry(StatechartUnit):
             if "." not in key:
                 continue
             wid, _, metric = key.rpartition(".")
-            if metric not in ("node", "phase", "node_count", "state", "heartbeat", "start_time"):
+            if metric not in ("node", "phase", "node_count", "state", "heartbeat",
+                              "start_time", "wait_sid", "waiting_s"):
                 continue
             workflows.setdefault(wid, {})[metric] = bb.get(key)
         return workflows
@@ -68,9 +69,13 @@ class Telemetry(StatechartUnit):
             s = status[wid]
             hb = s.get("heartbeat") or 0
             age = f"{time.time() - float(hb):.0f}s ago" if hb else "n/a"
+            wait = s.get("waiting_s")
+            wait_s = f" wait={wait}s" if wait is not None else ""
+            wsid = s.get("wait_sid") or ""
             lines.append(
                 f"  {wid}: state={s.get('state')} node={s.get('node')} "
-                f"phase={s.get('phase')} nodes={s.get('node_count')} hb={age}"
+                f"phase={s.get('phase')} nodes={s.get('node_count')}"
+                f" hb={age}{wait_s} sid={wsid}"
             )
         lines.append("=== recent watchdog_fire ===")
         wd = self.recent_watchdog()
