@@ -85,10 +85,11 @@
    - ✅ **新增 `ops/probe_node_timing.py`**："全流程节点耗时剖析"——测每个 node（agent/judge）的完整耗时构成（POST 等待 vs 原生 `time.completed` 生成 vs 轮询间隔 vs read_messages RTT）。实测：judge 隔离 8s（POST≈completed，read RTT 0.0s，干净）；agent 隔离 14s 但 `time.completed` 在 2s 出现而 POST 13.1s 才返回（11s 差，疑 agent 中间消息/工具调用，待查）。
    - ✅ **定位并修复 E2E judge 卡根因（静态缺陷）**：`workflow_unit._step_judge` 用 `_latest_text` 取最新 assistant 文本，但 real client **累积消息**（非 test fake 的替换），导致 judge 回复失败被 gate 拒绝后，在 re-prompt 生成窗口内**每个 poll 都重解析同一陈旧回复**并重复 `send_message` POST，塞满 dispatch pool（max_workers=2）→ 真卡死。修复引入 `_last_judged_key`（优先稳定 msg id）只处理一次/每回复；回归测试 `test_judge_waits_for_new_reply_not_stale`（无修复=ERROR/gate exhausted/prompts=3，有修复=COMPLETE/prompts=2）。168→169 测试全绿。
    - **剩余假设①**：真实 E2E judge prompt 含完整 skill + 开发者真实汇报（远大于 probe 简化 prompt），长推理致分钟级——需真实 E2E 复现确认（probe 可用 `--judge` 传真实 skill 验证）。
-2. **P1 mock 机制（用户提出思路，非本次工作）**：做内部功能检查时，设计**可注入的 mock 层**避免 API/LLM 响应不确定性，加速调试：
-   - 正式化现有测试内 FakeClient → 可配置 mock 客户端（确定性脚本化回复 / 延迟注入 / 故障注入：慢、卡死、超时、错误）。
-   - 或 mock worker 运行时（`ops/mock_worker.py`），让状态机/并发/超时/监控逻辑在**无网络/无 LLM** 下快速、确定地跑。
-   - 价值：调试状态机、并发、超时、宪法检测不依赖真实 LLM 随机性。
+2. **P1 mock 机制**：**已做基础（2026-08-06）**——避免 API/LLM 响应不确定性，无网络/无 LLM 确定性调试：
+   - ✅ `src/regime_driver/testing/mock_client.py`：`MockClient` 实现与 `OpenCodeClient` 相同接口（drop-in 替换）。默认行为：reviewer 恒 advance 到当前节点首后继（传 `sm`）、developer 恒 `[WORK_DONE]`；规则 `rules[(agent, node)]` 按 `(agent,node)`→`(agent,None)` 二段匹配，支持 `reply`/`builder`/`delay`/`stall`/`error` 故障注入；**消息累积非替换**（忠实复现真实 judge 陈旧文本场景）。
+   - ✅ `ops/mock_feasibility.py`：5/5 离线通过（完整流程 COMPLETE / 慢 judge 时序 / stall→宪法 STOP BLOCKED / judge 散文→gate exhausted）。
+   - ✅ `tests/test_mock_client.py`（7 项）+ `docs/DESIGN-mock.md`。
+   - **未做**：收敛现有测试内零散 FakeClient 到 MockClient；`ops/mock_worker.py` 离线运行时入口。
 3. **P1 CLI 多 workflow/可视化接入**：CLI `regime run` 仍单 workflow（StatechartDriver）；多 workflow（StatechartCluster）+ telemetry 仅脚本/API。用户明确"CLI 之后再优化"。
 4. **P2 工作区物理隔离**：`workspace_for()` 已注入指令提示，但 worker 挂载物理隔离未调（需 worker 重建）。
 5. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。

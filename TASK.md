@@ -47,6 +47,7 @@
 - [DONE] 交接准备 | 更新 _HANDOFF.md/HANDOVER 反映最新架构；清理实验session/工作区；168 passed
 - [DONE] P1 完善 probe：全流程节点耗时剖析 | verified: 新增 ops/probe_node_timing.py 实测 | 测每node(POST等待 vs time.completed vs 轮询间隔 vs read RTT)；实测 judge 隔离 8s(POST≈completed,read RTT 0.0s) 干净；agent 隔离 14s 但 time.completed 2s 出现 vs POST 13.1s（11s 差，待查 agent 中间消息）
 - [DONE] P1 修复 judge 陈旧文本重发派缺陷 | verified: 169 passed(168+1) | _step_judge 用 _last_judged_key(优先稳定 msg id) 只处理一次每回复；原缺陷：real client 累积消息→失败回复在 re-prompt 窗口内每 poll 被重解析→重发派 send_message POST 塞满 dispatch pool(max_workers=2)→E2E judge 真卡死；回归测试 test_judge_waits_for_new_reply_not_stale 无修复时 ERROR(gate exhausted,prompts=3) 有修复时 COMPLETE(prompts=2)
+- [DONE] P1 mock 机制基础（思路设计+可行性） | verified: 176 passed(169+7) | 新增 src/regime_driver/testing/mock_client.py(MockClient/MockRule: 同接口drop-in, 默认reviewer advance+developer [WORK_DONE], 规则(agent,node)二段匹配, delay/stall/error 故障注入, 消息累积非替换) + docs/DESIGN-mock.md + ops/mock_feasibility.py(5/5 离线通过: 完整流程COMPLETE/慢judge时序/stall→宪法STOP BLOCKED/judge散文→gate exhausted) + tests/test_mock_client.py(7)
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
@@ -62,3 +63,4 @@
 - [REFLECT] 2026-08-05 | progress: 架构方向研究(宪法层→对等多状态机,监督控制理论) + 阶段1(statechart原始)+阶段2(线程运行时)+阶段3(宪法单元能力等价) 全部零回归 146测试 | risk: 阶段4 接入真实 driver/替换 monitor 属侵入性生产改动 | next: 汇报阶段1-3,确认阶段4方案与风险 | escalate: no(方案已获用户确认,阶段4为侵入性集成,先汇报再动)
 - [REFLECT] 2026-08-05 | progress: 阶段4a(根不变量运行时强制)+4b(用户自定义宪法可覆写)+4c(宪法信号链E2E真实abort) 157测试零回归 | risk: 技术发现 POST /message 同步阻塞(等模型首条完整回复)，'线程永不阻塞'需发送线程池; 真正把 driver 重构进状态机网络是最后侵入性集成 | next: 汇报技术发现+剩余集成方案,待用户决定是否做最后集成 | escalate: no
 - [REFLECT] 2026-08-06 | progress: P1 排查E2E卡顿——完善probe(probe_node_timing.py 全流程节点耗时剖析) + 定位并修复 judge 陈旧文本重发派缺陷(_last_judged_key 只处理一次每回复) 169测试零回归 | risk: agent 节点 time.completed 早于 POST 返回 11s(中间消息/工具调用待查)；probe 用简化 prompt 未复现复杂 prompt 长推理(假设①) | next: 汇报 findings + 剩余假设①复杂 prompt 长推理是否需真实 E2E 复现 | escalate: no
+- [REFLECT] 2026-08-06 | progress: P1 mock 基础——MockClient 同接口 drop-in(默认行为+规则匹配+delay/stall/error 故障注入+消息累积)，离线驱动 WorkflowUnit/StatechartDriver 5/5 通过，176 测试 | risk: 现有测试内零散 FakeClient 未收敛(mock 可兼容但未替换)；agent time.completed 早 11s 待查 | next: 进入 E2E 调试(用户指定重点)——用 probe+真实 worker 复现 E2E 卡顿，核实复杂 judge prompt 长推理假设① | escalate: no
