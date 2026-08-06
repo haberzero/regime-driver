@@ -38,6 +38,9 @@
 - [DONE] 消息机制完善 | verified: 153 passed | R1线程池消除阻塞/R2主题订阅推送/R3黑板全局状态；真实 worker square.py E2E COMPLETE
 - [DONE] 宪法全局决策 | verified: 158 passed | G1工作流写start_time/heartbeat到黑板；G2宪法读黑板做全局超时/节点预算/心跳丢失判断；G3测试+E2E
 - [DONE] 审查者prompt加固 | verified: 158 passed + E2E | 根因L0不守严格JSON→散文；prompt强制严格JSON；真实E2E双judge advance COMPLETE
+- [DONE] 多 workflow 并发 | verified: 165 passed | M1黑板key按workflow隔离/M2宪法点到点STOP只停问题workflow/M3 StatechartCluster并发编排/M4测试；真实worker首跑双workflow并发产出正确文件
+- [DONE] 可视化 | verified: 165 passed | V1 Telemetry 订阅watchdog_fire/blackboard.changed 生成状态快照
+- [DONE] 健壮性 | verified: 161 passed | request_timeout可配(600s)+_dispatch重试退避，应对慢judge
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）

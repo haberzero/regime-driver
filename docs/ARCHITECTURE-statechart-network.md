@@ -228,3 +228,21 @@ StatechartUnit {
 - 单元经 `Runtime` 出站信号默认为**异步**（`_router` 注入），保证并行性。
 - `subscribe` 需在 `register` 之后（`register` 设置 `unit.bus`）。
 - 黑板变更即事件：工作流写指标 → 宪法/遥测读黑板 + 订阅 `blackboard.changed`。
+
+---
+
+## 11. 多 workflow 并发 + 可视化（v1.2）
+
+### 多 workflow 并发（`app/statechart_cluster.py`）
+- `StatechartCluster`：一个 `Runtime` 承载一个 `ConstitutionUnit` + 多个 `WorkflowUnit`。
+- 每个 workflow 独立 id，黑板按 `{wid}.{metric}` 隔离；宪法点到点 STOP 只停出问题的 workflow。
+- `add_workflow/submit/run_all(tasks)/wait`；预期并发多个真实任务。
+
+### 可视化（`app/telemetry.py`）
+- `Telemetry` 单元订阅 `watchdog_fire`/`blackboard.changed`，读黑板生成状态快照。
+- `render()` 输出每 workflow 的 state/node/phase/node_count/heartbeat 年龄 + 最近 watchdog 事件。
+- 纯被动（pull 黑板 + push 事件），不打扰运行。
+
+### 健壮性（slow-judge 应对）
+- `Settings.request_timeout`（默认 600s）替代固定 240s，慢 judge POST 不超时。
+- `WorkflowUnit._dispatch` 失败重试（3 次 + 退避），丢给池线程不阻塞混合循环。
