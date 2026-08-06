@@ -1,8 +1,8 @@
 # _HANDOFF.md — 会话交接文档
 
 > ⚠️ 临时交接文档：交接完成后经确认删除（状态由 git 承载）。
-> 日期：2026-08-05
-> 当前状态一句话：**regime-driver 已完成 M-1/M-2/M-3 + 安全监控 + 架构 v2/v3/v4 + tool/route/gate 确定性节点 + M-4 试跑 + 彻底重构为对等多状态机网络（宪法=无智能状态机+信号协议，根不变量运行时强制），真实 worker 多轮 COMPLETE，核心功能可用。**
+> 日期：2026-08-06
+> 当前状态一句话：**regime-driver 已彻底重构为对等多状态机网络（宪法=无智能状态机+信号协议+根不变量运行时强制），并完善多 workflow 并发 + 可视化(telemetry) + 原生完成检测 + 消息机制(订阅/黑板/线程池)；168 测试全绿，核心功能可用。**
 
 ---
 
@@ -14,7 +14,7 @@
 
 - 开发环境：conda env `regime-driver`（python 3.12），本地 `pip install -e .`
 - 运行依赖：pydantic、typer、rich（`infra/config.py` 支持 JSON/TOML 配置）
-- 测试：`conda run -n regime-driver python -m pytest`（**119 项通过**，自主分支累计）
+- 测试：`conda run -n regime-driver python -m pytest`（**168 项通过**，自主分支累计）
 - 端到端：真实 worker 容器 `opencode-worker`（端口 4097）已多次验证 COMPLETE
 
 **架构演进**（都在 `docs/` 有独立文档）：
@@ -30,9 +30,9 @@
 ## 2. 当前工作状态
 
 **主线**：regime-driver 系统本体（核心功能已可用）。
-**分支**：master（本地，无远程 push）。
-**测试基线**：99 项单测全绿；端到端真实 worker 多次 COMPLETE。
-**git 状态**：工作区干净，自主分支 `autonomous-2026-08-05` HEAD `9c39cd7`（基线 `master` 最近提交 `798e0e8`）。
+**分支**：`autonomous-2026-08-05`（本地，无远程 push）。
+**测试基线**：168 项单测全绿；端到端真实 worker 多次 COMPLETE。
+**git 状态**：工作区干净，自主分支 HEAD 为最新提交（baseline `master` 最近提交 `798e0e8`）。
 
 ### 已完成（含 commit 引用）
 - `M-1` worker 镜像 `opencode-worker:1.18.11`（无插件 + `--pure`）— `ede90c4`
@@ -44,16 +44,20 @@
 - 架构 v4 角色通用化（内核角色无关，RoleRegistry/SessionRegistry）— `17ace1d`
 - 流转决策并入 RolePolicy（废弃孤立 FlowStrategy）— `798e0e8`
 
-### 核心能力清单
-- 状态机：`core/state_machine.py` + `data/regime.json`（节点声明 role + type）
-- 确定性门：`core/contract.py`（verdict/action 白名单、置信度、一致性）
-- 交接单：`core/handoff.py`（inquiry/report/brain/role_transition + 收敛检测）
-- 角色注册：`core/role.py`（Role/RoleRegistry，developer/reviewer 是默认实例）
-- 策略：`core/policy.py`（RolePolicy：脑容量阈值 + 自评 + 流转决策 TransitionDecision）
-- 会话管理：`app/session_manager.py`（SessionRegistry 按 role id）
-- 脑容量自评：`app/session_lifecycle.py` + `app/self_assess.py`
-- 安全监控：`app/monitor.py` + `core/repetition.py` + `app/meta_analyzer.py`
-- 编排：`app/driver.py`（按 node.type 分流 + 锚点角色推断 + 流转决策）
+### 核心能力清单（对等多状态机网络 · 最终架构）
+- 信号协议：`core/statechart.py`（Signal/SignalKind/StatechartUnit/Bus：同步/异步点对点、广播、主题订阅推送、emit 可订阅事件）
+- 并行运行时：`app/statechart_runtime.py`（ThreadedUnit 独立线程+队列，Runtime 异步投递+根不变量强制）
+- 运行编排：`app/statechart_driver.py`（单 workflow）+ `app/statechart_cluster.py`（多 workflow 并发）
+- 工作流单元：`app/workflow_unit.py`（governed，单线程混合循环：drain 信号+轮询session+步进节点；原生完成检测+节点超时+线程池发派）
+- 宪法状态机：`app/constitution_unit.py`（watchdog，REPORT 信号→死循环/卡死检测→STOP；读黑板做全局超时/预算/心跳）
+- 根安全不变量：`app/runtime_invariants.py`（I1至少一watchdog/I2不可关STOP通道/I3元迭代上界，Runtime.start 强制）
+- 黑板全局状态：`app/blackboard.py`（线程安全共享键值 + blackboard.changed 订阅）
+- 遥测可视化：`app/telemetry.py`（订阅 watchdog_fire/blackboard.changed + 读黑板 render 状态表）
+- 状态机/门/交接/角色/策略：`core/state_machine.py` `core/contract.py` `core/handoff.py` `core/role.py` `core/policy.py`
+- 确定性节点：`core/branching.py`（安全条件求值）+ `core/tools.py`（确定性工具）
+- 审查者：`app/reviewer.py`（严格 JSON 判定 + 门反馈重试；原生完成检测）
+- 会话/脑容量：`app/session_manager.py` `app/session_lifecycle.py` `app/self_assess.py`
+- **已删除（被取代）**：`app/driver.py`(RegimeDriver)、`app/monitor.py`、`app/meta_analyzer.py`、`app/segment_runner.py`
 
 ---
 
@@ -77,26 +81,23 @@
 
 ## 4. 后续工作候选（按优先级）
 
-1. **P1 自定义角色/流转策略端到端验证**：注册一个 `transition_mode=ROTATE` 的角色，
-   验证"每节点新建 session + 交接文档"的流转路径（当前单测覆盖：`test_transition_rotates_role_session` +
-   `test_transition_rotate_returns_rotated_role_set` + `test_anchor_transition_pins_session`）。
-2. **P2 工作区物理隔离（部分完成）**：`core/policy.py` 的 `WORKSPACE_CONVENTIONS` 已通过 `workspace_for()`
-   注入到 agent 指令提示（角色可见性提示），但 worker 挂载的物理隔离仍未实际调整（需 worker 重建）。
-3. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
-4. **P3 其它**：`_deadline` 字段仍恒为空（meta 研判的 deadline 未实际设置）；`main_loop` flow 仍不可达（死配置）。
+1. **P1 慢 judge 根因排查（实验发现，未完成）**：官方 `deepseek-api/deepseek-v4-flash` 基线 0.6-0.9s、judge 回合仅 4.8s（`ops/probe_judge_latency.py` 实测），**但完整 E2E 中 judge 常卡数分钟**。已排除 provider 免费排队（系统全用官方 API）。疑似：复杂 judge prompt 偶发长推理 / 并发排队 / read_messages 阻塞主循环（30s timeout）。`default_deadline_sec` 节点超时兜底存在但真实 E2E 未及时触发，待查 `_step` 是否被 read_messages 阻塞。
+2. **P1 CLI 多 workflow/可视化接入**：CLI `regime run` 仍单 workflow（StatechartDriver）；多 workflow（StatechartCluster）+ telemetry 仅脚本/API。用户明确"CLI 之后再优化"。
+3. **P2 工作区物理隔离**：`workspace_for()` 已注入指令提示，但 worker 挂载物理隔离未调（需 worker 重建）。
+4. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
+5. **P3 其它**：`_deadline` 字段仍恒为空；`main_loop` flow 不可达（死配置）。
 
-- **已完成（2026-08-05 自主分支）**：tool/route/gate 确定性节点执行（`core/branching.py` 安全条件求值 +
-  `core/tools.py` 确定性工具注册表，driver 按 node.type 真正分发）；工作区提示注入；流转修复
-  （ANCHOR 显式处理、传 ctx、流转后刷新陈旧 dev 引用）；死代码清理；M-4 真实任务试跑 COMPLETE。
+**实验结论（2026-08-06）**：官方 API 基线快 4-6 倍于免费 provider（免费有排队）。系统已全用官方 API（settings.model/meta_model 默认 `deepseek-api/deepseek-v4-flash`）。`ops/probe_latency.py`/`probe_judge_latency.py` 可复用。
 
 ---
 
 ## 5. 关键约束
 
-- 宪法层（定死，不可改）：安全监控、确定性门、收敛检测、节点预算。
-- 用户特化（可自定义）：角色、策略、流转、交接模板。
+- **宪法层 = 无智能对等状态机**（可覆写：用户可注入自定义 watchdog/宪法单元）；**根安全不变量上移运行时强制**（`app/runtime_invariants.py`：I1 至少一 watchdog / I2 不可关 STOP 通道 / I3 元迭代上界，`Runtime.start` 违反拒启动）。
+- 用户特化（可自定义）：角色、策略、流转、宪法、交接模板。
 - 内核不关心角色：developer/reviewer 只是用户注册实例。
 - 节点 ≠ 角色：角色=session 分离，节点=skill 注入+需求分离。
+- 状态机线程 = 单线程混合循环（drain 信号 + 轮询 session + 步进节点），消除长阻塞（线程池发派）。
 
 ---
 
