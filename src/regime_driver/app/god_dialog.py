@@ -37,6 +37,11 @@ _METRICS = ("node", "phase", "node_count", "state", "heartbeat",
             "start_time", "wait_sid", "waiting_s")
 
 
+def _topic_label(topic: str) -> str:
+    """Short label for an event topic (e.g. 'blackboard.changed' -> 'blackboard')."""
+    return topic.split(".")[-1]
+
+
 class GodDialogUnit(ThreadedUnit):
     """A peer, event-driven state machine that is the one dialog surface."""
 
@@ -46,12 +51,14 @@ class GodDialogUnit(ThreadedUnit):
         bus=None,
         llm: Callable[[str, str], str] | None = None,
         launcher: Callable[[str, str], dict] | None = None,
+        session_client=None,
         settings_render: Callable[[], str] | None = None,
         max_events: int = 200,
     ) -> None:
         super().__init__(unit_id, bus, role="human")
         self.llm = llm
         self.launcher = launcher
+        self.session_client = session_client
         self.settings_render = settings_render
         self.max_events = max_events
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
@@ -112,33 +119,38 @@ class GodDialogUnit(ThreadedUnit):
             out.setdefault(wid, {})[metric] = bb.get(key)
         return out
 
-    def render_monitor(self) -> str:
+    def render_monitor(self, field: str | None = None) -> str:
         lines = ["=== 上帝对话框 · 实时监控 ==="]
         status = self.workflow_status()
         if not status:
             lines.append("  (尚无 workflow 上报)")
         for wid in sorted(status):
             s = status[wid]
+            if field and field not in s:
+                continue
             hb = s.get("heartbeat") or 0
             age = f"{time.time() - float(hb):.0f}s" if hb else "n/a"
             wait = s.get("waiting_s")
             wait_s = f" wait={wait}s" if wait is not None else ""
+            tail = f" {field}={s.get(field)}" if field else ""
             lines.append(
                 f"  {wid}: state={s.get('state')} node={s.get('node')} "
                 f"phase={s.get('phase')} nodes={s.get('node_count')} "
-                f"hb={age}{wait_s} sid={s.get('wait_sid') or ''}"
+                f"hb={age}{wait_s}{tail} sid={s.get('wait_sid') or ''}"
             )
         return "\n".join(lines)
 
-    def render_events(self, limit: int = 10) -> str:
+    def render_events(self, limit: int = 10, topic: str | None = None) -> str:
         lines = ["=== 最近事件 ==="]
-        recent = list(self.events)[-limit:]
+        recent = [e for e in self.events
+                  if topic is None or topic in e[0] or topic in _topic_label(e[0])]
+        recent = recent[-limit:]
         if not recent:
             lines.append("  (无)")
-        for topic, ts, p in recent:
+        for topic_name, ts, p in recent:
             lines.append(
                 f"  {time.strftime('%H:%M:%S', time.localtime(ts))} "
-                f"[{topic.split('.')[-1]}] key={p.get('key')} "
+                f"[{_topic_label(topic_name)}] key={p.get('key')} "
                 f"{'kind=' + str(p.get('kind')) if p.get('kind') else ''}"
             )
         return "\n".join(lines)
@@ -163,14 +175,15 @@ class GodDialogUnit(ThreadedUnit):
         if "config" in low or "设定" in t or "配置" in t:
             return self._render_settings()
         if self._is_monitor_cmd(low, t):
-            return self.render_monitor()
+            return self.render_monitor(self._field_in(t))
         if self._is_events_cmd(low, t):
-            n = self._int_in(t, default=10)
-            return self.render_events(n)
+            return self.render_events(self._int_in(t, default=10), self._event_topic_in(t))
         if self._is_start_cmd(low):
             return self._start(t)
         if self._is_inspect_cmd(low):
             return self._inspect(t)
+        if self._is_talk_cmd(low):
+            return self._talk(t)
         # free-form -> LLM explain on a worker thread (non-blocking)
         return self._explain(t)
 
@@ -197,11 +210,32 @@ class GodDialogUnit(ThreadedUnit):
         return "inspect" in low or "查看" in low or "详情" in low
 
     @staticmethod
+    def _is_talk_cmd(low: str) -> bool:
+        return low.startswith(("talk", "对话", "message "))
+
+    @staticmethod
     def _int_in(text: str, default: int = 10) -> int:
         for tok in text.split():
             if tok.isdigit():
                 return int(tok)
         return default
+
+    @staticmethod
+    def _field_in(text: str) -> str | None:
+        for name in _METRICS:
+            if name in text:
+                return name
+        return None
+
+    def _event_topic_in(self, text: str) -> str | None:
+        low = text.lower()
+        if "watchdog" in low or "卡" in text:
+            return "watchdog"
+        if "blackboard" in low or "黑板" in text:
+            return "blackboard"
+        if "notify" in low or "提示" in text:
+            return "notify"
+        return None
 
     def _start(self, text: str) -> str:
         if self.launcher is None:
@@ -245,6 +279,44 @@ class GodDialogUnit(ThreadedUnit):
             lines.append(f"  {k.split('.', 1)[1]}: {bb.get(k)}")
         return "\n".join(lines)
 
+    def _talk(self, text: str) -> str:
+        """Independent content interaction with a specific opencode session.
+
+        `talk <session_id> <message>` forwards a message to the given opencode
+        session and returns its reply. Runs on a worker thread (non-blocking);
+        the reply arrives via `drain_replies()`.
+        """
+        if self.session_client is None:
+            return "talk 能力未接入（未提供 session_client）。"
+        parts = text.split(maxsplit=2)
+        if len(parts) < 3:
+            return "用法：talk <session_id> <message>"
+        sid = parts[1]
+        msg = parts[2]
+        self._executor.submit(self._run_talk, sid, msg)
+        return f"已向 session {sid} 发送消息，等待回复…"
+
+    def _run_talk(self, sid: str, msg: str) -> None:
+        try:
+            self.session_client.send_message(sid, msg, "developer")
+            deadline = time.time() + 120
+            while time.time() < deadline:
+                try:
+                    msgs = self.session_client.read_messages(sid)
+                except Exception:
+                    msgs = []
+                for m in reversed(msgs):
+                    if getattr(m, "role", None) == "assistant" and (m.reply or m.text).strip():
+                        self.replies.append({"text": f"[session {sid}] " + (m.reply or m.text).strip(),
+                                             "kind": "talk", "ts": time.time()})
+                        return
+                time.sleep(1)
+            self.replies.append({"text": f"[session {sid}] 回复超时", "kind": "talk",
+                                "ts": time.time()})
+        except Exception as exc:
+            self.replies.append({"text": f"[session {sid}] 交互异常：{exc}", "kind": "talk",
+                                 "ts": time.time()})
+
     def _explain(self, text: str) -> str:
         if self.llm is None:
             return ("（自由文本响应未接入 LLM；可用 help 查看命令：" +
@@ -270,13 +342,14 @@ class GodDialogUnit(ThreadedUnit):
     def _help(self) -> str:
         return (
             "可用命令（中英文皆可）：\n"
-            "  status / monitor / 状态 / 监控   —— 实时 workflow 快照\n"
-            "  watch [n] / 事件                —— 最近 n 条事件/watchdog\n"
-            "  start <任务上下文> / 启动 ..     —— 非阻塞启动一个 workflow\n"
-            "  inspect <workflow_id> / 查看 ..  —— 查看某 workflow 黑板指标\n"
-            "  config / 配置                    —— 当前设置\n"
-            "  其它自由文本                     —— 交给 LLM 解释（worker 线程）\n"
-            "  quit / exit / 退出               —— 退出对话框"
+            "  status / monitor [字段] / 状态        —— 实时 workflow 快照（可只查 node/state/…）\n"
+            "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
+            "  start <任务上下文> / 启动 ..            —— 非阻塞启动一个 workflow\n"
+            "  inspect <workflow_id> / 查看 ..         —— 查看某 workflow 黑板指标\n"
+            "  talk <session_id> <内容> / 对话 ..      —— 与指定 opencode session 独立交互\n"
+            "  config / 配置                           —— 当前设置\n"
+            "  其它自由文本                            —— 交给 LLM 解释（worker 线程）\n"
+            "  quit / exit / 退出                      —— 退出对话框"
         )
 
     # -- front-end API -------------------------------------------------------

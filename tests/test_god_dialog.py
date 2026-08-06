@@ -102,3 +102,55 @@ def test_help_and_quit():
     d = GodDialogUnit()
     assert "start" in d.command("help")
     assert d.command("quit") == "__exit__"
+
+
+def test_monitor_field_filter():
+    rt = Runtime(enforce_invariants=False)
+    d = GodDialogUnit(bus=rt.bus)
+    rt.register(d)
+    rt.start()
+    rt.blackboard.set("w1.node", "implement")
+    rt.blackboard.set("w1.state", "running")
+    out = d.command("monitor node")
+    rt.stop()
+    # field filter: only the node-related line shows the field value
+    assert "node=implement" in out
+    assert out.count("node=") >= 1
+
+
+def test_watch_topic_filter():
+    rt = Runtime(enforce_invariants=False)
+    d = GodDialogUnit(bus=rt.bus)
+    rt.register(d)
+    rt.start()
+    rt.bus.publish("god", "watchdog_fire", {"kind": "stall", "session": "s1"})
+    rt.blackboard.set("w1.node", "x")
+    time.sleep(0.05)
+    out = d.command("watch 10 watchdog")
+    rt.stop()
+    assert "stall" in out
+
+
+def test_talk_forwards_to_session_client():
+    """talk <sid> <msg> sends to a session and surfaces its reply async."""
+    class FakeSessionClient:
+        def __init__(self):
+            self.sent = []
+            self.reply = "session-reply"
+
+        def send_message(self, sid, text, agent):
+            self.sent.append((sid, text, agent))
+
+        def read_messages(self, sid):
+            return [type("M", (), {"role": "assistant", "reply": self.reply,
+                                   "text": self.reply})()]
+
+    sc = FakeSessionClient()
+    d = GodDialogUnit(session_client=sc)
+    ack = d.command("talk ses_abc 你好")
+    assert "ses_abc" in ack
+    assert sc.sent[-1][0] == "ses_abc"
+    deadline = time.time() + 2
+    while not d.replies and time.time() < deadline:
+        time.sleep(0.02)
+    assert any("session-reply" in r for r in d.drain_replies())

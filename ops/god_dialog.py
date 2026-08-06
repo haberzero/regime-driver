@@ -77,7 +77,7 @@ def main() -> int:
 
     cluster = StatechartCluster(client)
     dialog = cluster.register_unit(GodDialogUnit(
-        bus=cluster.runtime.bus, llm=llm,
+        bus=cluster.runtime.bus, llm=llm, session_client=client if a.live else None,
         settings_render=lambda: settings.model_dump().__str__()))
 
     def launcher(ctx, title):
