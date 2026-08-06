@@ -182,5 +182,92 @@ def status(
         _fail(f"worker unhealthy at {base}")
 
 
+# ---------------------------------------------------------------------------
+# dialog
+# ---------------------------------------------------------------------------
+@app.command("dialog")
+def dialog(
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    live: bool = typer.Option(
+        False, "--live", help="use the real worker (else offline MockClient)"),
+    model: str = typer.Option(Settings().model, "--model", help="model for LLM explain"),
+) -> None:
+    """Open the God Dialog: one natural-language control/monitor surface."""
+    from ..app.god_dialog import GodDialogUnit
+    from ..app.statechart_cluster import StatechartCluster
+    from ..infra.opencode import OpenCodeClient
+    from ..infra.regime_loader import load_regime
+    from ..testing import MockClient
+
+    settings = load_settings(overrides={"base_url": base, "model": model})
+    sm = load_regime()
+    if live:
+        client = OpenCodeClient(base, model=model, timeout=settings.request_timeout)
+        llm = _make_dialog_llm(base, model, settings.request_timeout)
+    else:
+        client = MockClient(sm=sm)
+        llm = None
+
+    cluster = StatechartCluster(client)
+    god = cluster.register_unit(GodDialogUnit(
+        bus=cluster.runtime.bus, llm=llm,
+        settings_render=lambda: settings.model_dump().__str__()))
+
+    def launcher(ctx, title):
+        wid = f"god-{len(cluster.workflows) + 1}"
+        cluster.add_workflow(wid, settings, sm)
+        cluster.start()
+        cluster.submit(wid, ctx, title)
+        return {"workflow_id": wid}
+
+    god.launcher = launcher
+    cluster.start()
+
+    console.print("[bold]=== 上帝对话框 (God Dialog) ===[/bold]")
+    console.print("唯一对话面：用自然语言控制/监控所有 workflow。输入 help 看命令。")
+    try:
+        while True:
+            try:
+                line = input("God> ")
+            except (EOFError, KeyboardInterrupt):
+                console.print("\n再见。")
+                break
+            if not line.strip():
+                continue
+            out = god.command(line)
+            if out == "__exit__":
+                break
+            console.print(out)
+            for r in god.drain_replies():
+                console.print(f"[dim][async][/dim] {r}")
+    finally:
+        cluster.stop()
+
+
+def _make_dialog_llm(base: str, model: str, timeout: float):
+    """Worker-thread LLM runner for the dialog's free-form explain."""
+    import time as _t
+    client = OpenCodeClient(base, model=model, timeout=timeout)
+
+    def run(text, context):
+        sid = client.create_session("god-dialog-explain")
+        prompt = (
+            "你是制度流程机器人的上帝对话框，负责向用户解释系统状态。\n"
+            f"用户问题：{text}\n\n当前系统状态快照：\n{context}\n\n"
+            "请用简洁中文回答，说明要点并给出下一步建议。"
+        )
+        client.send_message(sid, prompt, "developer")
+        dl = _t.time() + timeout
+        while _t.time() < dl:
+            msgs = client.read_messages(sid)
+            for m in reversed(msgs):
+                if getattr(m, "role", None) == "assistant" and (m.reply or m.text).strip():
+                    return (m.reply or m.text).strip()
+            _t.sleep(1)
+        return "(LLM 超时)"
+
+    return run
+
+
 if __name__ == "__main__":
     app()

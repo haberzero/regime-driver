@@ -1,0 +1,104 @@
+"""Tests for GodDialogUnit (the conversational control surface as a peer unit)."""
+
+import time
+
+from regime_driver.app.god_dialog import GodDialogUnit
+from regime_driver.app.statechart_runtime import Runtime
+from regime_driver.core.statechart import Signal, SignalKind
+
+
+def _runtime(dialog):
+    rt = Runtime(enforce_invariants=False)
+    rt.register(dialog)
+    return rt
+
+
+def test_subscribes_and_renders_blackboard():
+    rt = Runtime(enforce_invariants=False)
+    d = GodDialogUnit(bus=rt.bus)
+    rt.register(d)
+    rt.start()
+    # simulate a workflow writing metrics to the blackboard
+    rt.blackboard.update(**{"w1.node": "design", "w1.state": "running",
+                            "w1.node_count": 2, "w1.heartbeat": time.time()})
+    out = d.render_monitor()
+    rt.stop()
+    assert "w1" in out
+    assert "design" in out
+
+
+def test_command_monitor_and_events():
+    rt = Runtime(enforce_invariants=False)
+    d = GodDialogUnit(bus=rt.bus)
+    rt.register(d)
+    rt.start()
+    rt.blackboard.set("w1.node", "implement")
+    rt.bus.publish("god", "watchdog_fire", {"kind": "stall", "session": "s1"})
+    time.sleep(0.05)
+    assert "implement" in d.command("status")
+    assert "stall" in d.command("watch")
+    rt.stop()
+
+
+def test_command_start_invokes_launcher():
+    called = {}
+    d = GodDialogUnit(launcher=lambda ctx, title: called.update(
+        ctx=ctx, title=title) or {"workflow_id": "w9"})
+    out = d.command("start 实现 add 函数")
+    assert "w9" in out
+    assert called["ctx"] == "实现 add 函数"
+
+
+def test_command_inspect_reads_blackboard():
+    rt = Runtime(enforce_invariants=False)
+    d = GodDialogUnit(bus=rt.bus)
+    rt.register(d)
+    rt.start()
+    rt.blackboard.set("w1.node", "test")
+    rt.blackboard.set("w1.phase", "judge_wait")
+    out = d.command("inspect w1")
+    rt.stop()
+    assert "node" in out
+    assert "test" in out
+
+
+def test_free_form_llm_async_non_blocking():
+    """Free-form text goes to the LLM on a worker thread; the unit returns ack
+    immediately and the reply arrives via drain_replies (never blocks)."""
+    rt = Runtime(enforce_invariants=False)
+
+    def fake_llm(text, context):
+        time.sleep(0.1)
+        return f"llm-echo:{text}"
+
+    d = GodDialogUnit(bus=rt.bus, llm=fake_llm)
+    rt.register(d)
+    rt.start()
+    t0 = time.monotonic()
+    ack = d.command("帮我解释一下当前状态")
+    assert time.monotonic() - t0 < 0.05  # returns immediately, not blocked
+    assert "思考" in ack
+    deadline = time.time() + 2
+    while not d.replies and time.time() < deadline:
+        time.sleep(0.02)
+    rt.stop()
+    echoes = [r for r in d.drain_replies() if "llm-echo" in r]
+    assert len(echoes) == 1, f"LLM reply surfaced {len(echoes)}x (should be 1)"
+
+
+def test_notify_signal_surfaced_to_user():
+    rt = Runtime(enforce_invariants=False)
+    d = GodDialogUnit(bus=rt.bus)
+    rt.register(d)
+    rt.start()
+    d.deliver(Signal(SignalKind.NOTIFY, "constitution", d.id,
+                     {"text": "workflow 卡住"}))
+    time.sleep(0.05)
+    rt.stop()
+    assert any("constitution" in r and "卡住" in r for r in d.drain_replies())
+
+
+def test_help_and_quit():
+    d = GodDialogUnit()
+    assert "start" in d.command("help")
+    assert d.command("quit") == "__exit__"

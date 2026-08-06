@@ -67,6 +67,12 @@ class StatechartCluster:
 
     # -- lifecycle -----------------------------------------------------------
 
+    def register_unit(self, unit: ThreadedUnit) -> ThreadedUnit:
+        """Join a peer unit (e.g. GodDialogUnit) onto this cluster's runtime so
+        it shares the same bus/blackboard and observes the workflows live."""
+        self.runtime.register(unit)
+        return unit
+
     def start(self) -> "StatechartCluster":
         self.runtime.start()
         return self

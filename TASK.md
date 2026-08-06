@@ -52,7 +52,8 @@
 - [DONE] E2E 修复发派序列化 | verified: 177 passed(176+1) + 真实 E2E 两次 COMPLETE(60.6s, 95.8s) | workflow_unit._dispatch 先 await 前一 POST future(_await_prior_dispatch, 保持 STOP 响应)再发下一 node→每回归 test_dispatch_serializes_prior_post(无修复 max_active=2 失败, 有修复=1)；judge reasoning 真实 21-60s(假设①确认为长推理非永久卡，stall_sec=120 有裕量)
 - [DONE(重复,见上方)] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）| 已由上方"阶段3/4a/4b/4c + R1-R5"完成：app/constitution_unit.py 无智能状态机 + app/monitor.py 已删除 + test_constitution_unit.py
 - [DONE(重复,见上方)] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）| 已由上方"阶段4a/4b/4c"完成：app/runtime_invariants.py(I1/I2/I3) + StatechartDriver(constitution= 注入) + test_runtime_invariants.py/test_custom_constitution.py
-- [ ] P3 上帝对话框演进（远期）
+- [DONE] 上帝对话框 MVP（分析+方案+事件驱动单元+REPL） | verified: 184 passed(177+7) | 新增 app/god_dialog.py(GodDialogUnit: ThreadedUnit, role=human, 订阅 bus blackboard.changed/watchdog_fire/NOTIFY, 实时监控+事件日志, 命令路由 status/start/inspect/watch/config/help + 自由文本→LLM worker线程非阻塞解释, emit 回总线) + docs/DESIGN-god-dialog.md(需求分析+现代码分析+"对话框应在状态机体系内"可行性定案) + statechart_cluster.register_unit + cli dialog 命令 + ops/god_dialog.py 演示；真实 LLM 解释 E2E 验证通过；tests/test_god_dialog.py(7)
+- [ ] P3 上帝对话框演进（远期）| 本次完成 MVP：事件驱动对话面 + 监控 + 启动/查看 workflow + LLM 解释；后续候选：自然语言设计 workflow / 对特定 opencode session 独立内容交互 / 权限门控 / 监控区随请求动态调整
 
 ## 阻塞
 

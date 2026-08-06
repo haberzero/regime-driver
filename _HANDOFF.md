@@ -94,7 +94,7 @@
    - **未做**：收敛现有测试内零散 FakeClient 到 MockClient；`ops/mock_worker.py` 离线运行时入口。
 3. **P1 CLI 多 workflow/可视化接入**：CLI `regime run` 仍单 workflow（StatechartDriver）；多 workflow（StatechartCluster）+ telemetry 仅脚本/API。用户明确"CLI 之后再优化"。
 4. **P2 工作区物理隔离**：`workspace_for()` 已注入指令提示，但 worker 挂载物理隔离未调（需 worker 重建）。
-5. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
+5. **P3 上帝对话框演进**：**已做 MVP（2026-08-06）**——实现为**对等状态机单元** `GodDialogUnit`（`app/god_dialog.py`，ThreadedUnit, role=human），订阅总线（`blackboard.changed`/`watchdog_fire`/`NOTIFY`）构建实时监控 + 事件日志；命令路由 status/start/inspect/watch/config/help + 自由文本→LLM（worker 线程，非阻塞解释，emit 回总线）。REPL 前端：`regime dialog` 命令 + `ops/god_dialog.py`。共享同一 Runtime（`StatechartCluster.register_unit`），故对话框原生订阅 workflow 指标。真实 LLM 解释 E2E 验证通过。**方案定案**见 `docs/DESIGN-god-dialog.md`（"对话框应在状态机体系内"=是，理由：永不阻塞不变量由 ThreadedUnit 满足、原生订阅总线、对等单元受根不变量约束）。**未做**：自然语言设计 workflow / 对特定 opencode session 独立内容交互 / 权限门控 / 监控区动态调整。
 6. **P3 其它**：`_deadline` 字段仍恒为空；`main_loop` flow 不可达（死配置）。
 
 **实验结论（2026-08-06）**：官方 API 基线快 4-6 倍于免费 provider（免费有排队）。系统已全用官方 API（settings.model/meta_model 默认 `deepseek-api/deepseek-v4-flash`）。`ops/probe_latency.py`/`probe_judge_latency.py` 可复用。
