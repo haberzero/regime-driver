@@ -33,7 +33,8 @@
 - [DONE] 阶段4a 根安全不变量运行时强制 | verified: 155 passed(146+9) | app/runtime_invariants.py(I1至少一watchdog/I2不可关STOP通道/I3元迭代上界)；Runtime.start 默认强制，违反拒启动
 - [DONE] 阶段4b 用户自定义宪法可覆写 | verified: 157 passed(155+2) | 用户注 role=watchdog 自定义单元即可覆写默认宪法，满足根不变量
 - [DONE] 阶段4c 宪法信号链端到端(真实worker) | verified: 真实 abort | ConstitutionUnit 检测卡死→STOP→工作单元 abort 真实 session
-- [ ] 阶段4d 汇报技术发现(POST同步阻塞)+剩余集成(judge阻塞消除/混合循环需发送线程池)评估
+- [DONE] R1-R5 彻底重构：WorkflowUnit(单线程混合循环)+StatechartDriver集成+删旧监控/驱动 | verified: 139 passed | CLI 迁移到新架构；旧 driver/monitor/meta_analyzer/segment_runner 删除；价值行为迁入新测试
+- [DONE] R6 彻底重构端到端(真实worker) | verified: 全流程 COMPLETE | add.py/test_add.py 正确生成，双 judge advance，pytest 2 passed
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
