@@ -106,6 +106,7 @@ class WorkflowUnit(ThreadedUnit):
         self._monitor_stop: str | None = None
         self._rejudge: str | None = None   # judge node awaiting a rework re-judge
         self._dialogue_rounds = 0          # ask_developer -> rework cycles
+        self._last_judged_key: tuple | None = None  # identity of the judge reply already processed
         self._start_time: float | None = None
         self._phase_started: float | None = None  # when the current wait phase began
 
@@ -294,6 +295,7 @@ class WorkflowUnit(ThreadedUnit):
         self._wait_role = role
         self._judge_attempts = 0
         self._retry_feedback = None
+        self._last_judged_key = None
         self._send_judge_prompt(reviewer, node_id)
 
     def _send_judge_prompt(self, reviewer: Reviewer, node_id: str) -> None:
@@ -359,10 +361,24 @@ class WorkflowUnit(ThreadedUnit):
             self._state = _ST_ERROR
             self._result = (Outcome.ERROR, self._node, str(exc))
             return
-        text = self._latest_text(messages)
-        if not text:
+        latest = self._latest_assistant(messages)
+        if latest is None:
             self._report_to_constitution()
             return
+        # skip a reply we have already processed: the judge session accumulates
+        # messages, so _latest_text alone would re-parse the previous (failure)
+        # reply on every poll while a re-prompt is still generating — spamming
+        # duplicate send_message POSTs and starving the dispatch pool. Only act
+        # once per distinct reply. Prefer the stable message id (real client);
+        # fall back to the reply text for clients without an id (test doubles).
+        mid = getattr(latest, "id", None)
+        key = ("id", mid) if mid else (
+            "text", (getattr(latest, "reply", "") or "") + (getattr(latest, "text", "") or ""))
+        if key == self._last_judged_key:
+            self._report_to_constitution()
+            return
+        self._last_judged_key = key
+        text = (getattr(latest, "reply", "") or "") or (getattr(latest, "text", "") or "")
         reviewer = self._get_reviewer(self._wait_role)
         result = reviewer.parse_reply(text, self._node, self._valid_targets)
         if result.ok:
@@ -560,6 +576,15 @@ class WorkflowUnit(ThreadedUnit):
                 text = m.text
                 break
         return text
+
+    def _latest_assistant(self, messages):
+        """Return the newest assistant message carrying a non-empty reply, else None."""
+        for m in reversed(messages):
+            if getattr(m, "role", None) != "assistant":
+                continue
+            if (getattr(m, "reply", "") or getattr(m, "text", "") or "").strip():
+                return m
+        return None
 
     def _record_worklog(self, node_id, report) -> None:
         if self.task_control is None:

@@ -220,6 +220,75 @@ def test_native_completion_without_marker():
     assert end == "wrap"
 
 
+def test_judge_waits_for_new_reply_not_stale():
+    """A failed judge verdict must NOT be re-parsed/re-dispatched every poll.
+
+    The real client accumulates messages, so once a judge reply exists it stays
+    the 'latest' until a newer one arrives. Without tracking the last-processed
+    reply, the workflow re-parses the stale (failed) verdict on every poll and
+    re-dispatches a duplicate send_message POST to the same session — starving
+    the dispatch pool and stalling. Regression: exactly one re-prompt, then the
+    workflow waits for and consumes the corrected reply.
+    """
+    from regime_driver.core.models import Node, NodeType
+
+    class StaleWindowClient(FakeClient):
+        def __init__(self, bad, good, delay_reads=5):
+            super().__init__()
+            self.bad, self.good = bad, good
+            self.delay_reads = delay_reads
+            self.reviewer_prompts = 0
+            self._reads_after_bad = 0
+            self._good_appended = False
+
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                m = re.search(r"当前节点：(\w+)", text)
+                node = m.group(1) if m else "judge"
+                self.reviewer_prompts += 1
+                # first prompt yields the bad reply; re-prompts overwrite with bad
+                # again until the good reply is appended by read_messages below
+                if node == "judge" and not self._good_appended:
+                    self.msgs[sid] = [Message("assistant", json.dumps(self.bad))]
+            else:
+                self.msgs.setdefault(sid, []).append(
+                    Message("assistant", "work done\n[WORK_DONE]"))
+
+        def read_messages(self, sid):
+            msgs = list(self.msgs.get(sid, []))
+            # the corrected reply only appears after a 'stale window' of reads
+            if (not self._good_appended
+                    and msgs
+                    and '"bogus"' in msgs[-1].text):
+                self._reads_after_bad += 1
+                if self._reads_after_bad > self.delay_reads:
+                    msgs.append(Message("assistant", json.dumps(self.good)))
+                    self._good_appended = True
+                    self.msgs[sid] = msgs
+            return msgs
+
+    produce = Node(id="produce", desc="produce", type=NodeType.AGENT, next="judge")
+    judge = Node(id="judge", desc="judge", type=NodeType.JUDGE,
+                 role="reviewer", next="end")
+    end = Node(id="end", desc="end", type=NodeType.AGENT, next=None)
+    s = Settings(monitor_enabled=False, poll_sec=0.1, max_reviewer_retries=2)
+    sm = _sm([produce, judge, end])
+    bad = {"node": "judge", "verdict": "advance", "action": "advance",
+           "next_state": "bogus", "confidence": 0.9, "reason": "bad target"}
+    good = {"node": "judge", "verdict": "advance", "action": "advance",
+            "next_state": "end", "confidence": 0.9, "reason": "ok"}
+    client = StaleWindowClient(bad, good)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit.start()
+    unit.submit("task")
+    outcome, end_node, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE, f"expected COMPLETE, got {outcome}: {detail}"
+    assert end_node == "end"
+    # initial prompt + exactly one retry; NOT a re-prompt on every stale poll
+    assert client.reviewer_prompts == 2, f"judge re-prompted {client.reviewer_prompts}x"
+
+
 def test_per_node_wait_timeout():
     """A node that never completes is marked TIMEOUT after default_deadline_sec."""
     class NeverClient(FakeClient):
