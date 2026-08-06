@@ -29,7 +29,8 @@
 - [DONE] 架构方向研究：宪法层→对等多状态机网络 | 产出 docs/ARCHITECTURE-statechart-network.md | 可行性:高(监督控制理论)；决策点已定案(渐进+线程+根不变量运行时强制+保留默认宪法)
 - [DONE] 阶段1 状态机泛化：事件驱动可交互单元 | verified: 134 passed(125+9) | 新增 core/statechart.py(StatechartUnit/Signal/Bus)，消息唤起回调机制，纯领域零回归
 - [DONE] 阶段2 并行运行时 + 双向信号投递 | verified: 140 passed(134+6) | 新增 app/statechart_runtime.py(ThreadedUnit/Runtime)，每单元独立线程+队列，异步投递线程安全，多单元互驱
-- [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+协议）
+- [DONE] 阶段3 宪法状态机化(能力等价验证) | verified: 146 passed(140+6) | 新增 app/constitution_unit.py(ConstitutionUnit: 无智能 StatechartUnit，REPORT 信号喂入→死循环/卡死检测→STOP 信号广播)；现有 monitor 暂保留零回归
+- [ ] 阶段4 接入真实 driver + 用户自定义宪法 + 根不变量运行时强制（侵入性，替换 monitor 集成）
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
