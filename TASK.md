@@ -47,3 +47,4 @@
 - [REFLECT] 2026-08-05 | progress: 里程碑1(tool/route/gate+工作区+流转修复,119测试) + M-4真实任务试跑COMPLETE | risk: reviewer LLM judge 瞬时停顿曾触发 monitor abort(安全系统按设计工作,非代码缺陷) | next: 更新交接/规划文档反映新状态 | escalate: no
 - [REFLECT] 2026-08-05 | progress: 分支求值/工具健壮性(+2)、状态机配置校验(+4)、meta recent_events接入、ROTATE端到端实跑 decision=rotate | risk: 无 blocker | next: 收尾质量门+汇报 | escalate: no
 - [REFLECT] 2026-08-05 | progress: 架构方向研究(宪法层→对等多状态机,监督控制理论) + 阶段1(statechart原始)+阶段2(线程运行时)+阶段3(宪法单元能力等价) 全部零回归 146测试 | risk: 阶段4 接入真实 driver/替换 monitor 属侵入性生产改动 | next: 汇报阶段1-3,确认阶段4方案与风险 | escalate: no(方案已获用户确认,阶段4为侵入性集成,先汇报再动)
+- [REFLECT] 2026-08-05 | progress: 阶段4a(根不变量运行时强制)+4b(用户自定义宪法可覆写)+4c(宪法信号链E2E真实abort) 157测试零回归 | risk: 技术发现 POST /message 同步阻塞(等模型首条完整回复)，'线程永不阻塞'需发送线程池; 真正把 driver 重构进状态机网络是最后侵入性集成 | next: 汇报技术发现+剩余集成方案,待用户决定是否做最后集成 | escalate: no
