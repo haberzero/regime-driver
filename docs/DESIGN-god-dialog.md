@@ -83,14 +83,20 @@
 ## 5. MVP 范围（本次实施）
 
 1. `GodDialogUnit`（ThreadedUnit）：事件驱动、订阅总线、维护实时监控、非阻塞对话。
-2. 命令能力：`status`/`monitor`、`start <ctx>`（经 launcher 非阻塞启动 workflow）、
-   `inspect <wf>`、`watch`、`help`、`config`、自由文本→LLM 解释（worker 线程）。
-3. REPL 前端：`regime dialog` 命令 + `ops/god_dialog.py` 演示脚本。
-4. 接入 StatechartCluster：launcher 回调启动真实 worker（或 MockClient 离线）。
-5. 测试：事件订阅、命令路由、非阻塞、监控快照。
+2. 命令能力：
+   - `design <flow名> <JSON|自然语言>` — 设计并注册新 workflow（编译为 StateMachine）
+   - `status` / `monitor [字段]` — 实时 workflow 快照（可只查某字段）
+   - `watch [n] [watchdog|blackboard|notify]` — 最近事件/按主题
+   - `start [flow名] <任务上下文>` — 非阻塞启动 workflow（可用设计流）
+   - `inspect <workflow_id>` — 查看某 workflow 黑板指标
+   - `talk <session_id> <内容>` — 与指定 opencode session 独立内容交互
+   - `config`、`help`；自由文本→LLM 解释（worker 线程）
+3. 权限门控：`allow_write=False` 默认只读，写操作（start/design/talk）被门禁拒绝——
+   防止困惑的 LLM 回复触发副作用（L0/L1 边界，PLANNING §3.3）。
+4. REPL 前端：`regime dialog` 命令 + `ops/god_dialog.py` 演示（离线 MockClient / 在线真实 worker+LLM）。
+5. 接入 StatechartCluster：launcher 回调启动（真实 worker 或 MockClient 离线）。
 
 ## 6. 后续（本次不做）
-- 自然语言设计新 workflow（compile 用户描述 → regime.json）。
-- 对特定 opencode session 的完全独立内容交互（转发对话）。
-- 权限门控（对话框工具调用权限）。
-- 监控区随用户请求动态增删字段/主题。
+- 对运行中 workflow / 已注册 session 的更深交互与回收。
+- 监控区随用户请求动态增删字段/主题（当前：monitor<字段>、watch<主题>已支持）。
+- 权限门控的细粒度策略（按命令/按用户角色）。

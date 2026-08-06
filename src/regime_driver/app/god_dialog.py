@@ -104,6 +104,7 @@ class GodDialogUnit(ThreadedUnit):
         session_client=None,
         settings_render: Callable[[], str] | None = None,
         max_events: int = 200,
+        allow_write: bool = False,
     ) -> None:
         super().__init__(unit_id, bus, role="human")
         self.llm = llm
@@ -111,6 +112,11 @@ class GodDialogUnit(ThreadedUnit):
         self.session_client = session_client
         self.settings_render = settings_render
         self.max_events = max_events
+        # permission gate (L0/L1 boundary, PLANNING §3.3): write operations
+        # (start / design / talk) are disabled unless explicitly allowed. The
+        # dialog is read-only by default so a confused LLM reply can never
+        # trigger a side effect; the human opts in via allow_write.
+        self.allow_write = allow_write
         self.flows: dict = {}  # name -> StateMachine (user-designed flows)
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
@@ -230,17 +236,25 @@ class GodDialogUnit(ThreadedUnit):
         if self._is_events_cmd(low, t):
             return self.render_events(self._int_in(t, default=10), self._event_topic_in(t))
         if self._is_start_cmd(low):
-            return self._start(t)
+            return self._write_gate(t) or self._start(t)
         if self._is_inspect_cmd(low):
             return self._inspect(t)
         if self._is_talk_cmd(low):
-            return self._talk(t)
+            return self._write_gate(t) or self._talk(t)
         if self._is_design_cmd(low):
-            return self._design(t)
+            return self._write_gate(t) or self._design(t)
         # free-form -> LLM explain on a worker thread (non-blocking)
         return self._explain(t)
 
     # -- helpers -------------------------------------------------------------
+
+    def _write_gate(self, text: str) -> str | None:
+        """Return a denial message if write permission is off, else None."""
+        if self.allow_write:
+            return None
+        cmd = text.split()[0] if text.split() else "?"
+        return (f"写操作 '{cmd}' 被权限门禁拒绝（上帝对话框默认只读）。"
+                "如需启用，请以 allow_write=True 构造。")
 
     @staticmethod
     def _is_monitor_cmd(low: str, raw: str) -> bool:

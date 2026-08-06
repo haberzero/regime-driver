@@ -42,7 +42,7 @@ def test_command_monitor_and_events():
 
 def test_command_start_invokes_launcher():
     called = {}
-    d = GodDialogUnit(launcher=lambda ctx, title, flow_sm=None: called.update(
+    d = GodDialogUnit(allow_write=True, launcher=lambda ctx, title, flow_sm=None: called.update(
         ctx=ctx, title=title) or {"workflow_id": "w9"})
     out = d.command("start 实现 add 函数")
     assert "w9" in out
@@ -146,7 +146,7 @@ def test_talk_forwards_to_session_client():
                                    "text": self.reply})()]
 
     sc = FakeSessionClient()
-    d = GodDialogUnit(session_client=sc)
+    d = GodDialogUnit(allow_write=True, session_client=sc)
     ack = d.command("talk ses_abc 你好")
     assert "ses_abc" in ack
     assert sc.sent[-1][0] == "ses_abc"
@@ -165,7 +165,7 @@ DESIGN_SPEC = (
 
 
 def test_design_compiles_and_registers_flow():
-    d = GodDialogUnit()
+    d = GodDialogUnit(allow_write=True)
     out = d.command(f"design myflow {DESIGN_SPEC}")
     assert "myflow" in out
     assert "understand" in out and "implement" in out
@@ -173,15 +173,24 @@ def test_design_compiles_and_registers_flow():
 
 
 def test_design_invalid_spec_reports_error():
-    d = GodDialogUnit()
+    d = GodDialogUnit(allow_write=True)
     out = d.command('design bad {"entry": "a"}')
     assert "设计失败" in out
     assert "bad" not in d.flows
 
 
+def test_write_gate_blocks_write_ops_by_default():
+    d = GodDialogUnit()  # allow_write defaults to False (read-only)
+    assert "权限门禁" in d.command("start 任务")
+    assert "权限门禁" in d.command("design x {}")
+    assert "权限门禁" in d.command("talk s1 hi")
+    # read ops still work
+    assert "实时监控" in d.command("status")
+
+
 def test_start_uses_designed_flow():
     launched = {}
-    d = GodDialogUnit(launcher=lambda ctx, title, flow_sm=None: launched.update(
+    d = GodDialogUnit(allow_write=True, launcher=lambda ctx, title, flow_sm=None: launched.update(
         ctx=ctx, flow=flow_sm) or {"workflow_id": "w1"})
     d.command(f"design myflow {DESIGN_SPEC}")
     d.command("start myflow 做任务")

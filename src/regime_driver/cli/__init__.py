@@ -211,7 +211,7 @@ def dialog(
     cluster = StatechartCluster(client)
     god = cluster.register_unit(GodDialogUnit(
         bus=cluster.runtime.bus, llm=llm, session_client=client if live else None,
-        settings_render=lambda: settings.model_dump().__str__()))
+        settings_render=lambda: settings.model_dump().__str__(), allow_write=True))
 
     def launcher(ctx, title, flow_sm=None):
         wid = f"god-{len(cluster.workflows) + 1}"
