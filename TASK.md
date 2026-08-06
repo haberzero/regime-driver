@@ -36,6 +36,8 @@
 - [DONE] R1-R5 彻底重构：WorkflowUnit(单线程混合循环)+StatechartDriver集成+删旧监控/驱动 | verified: 139 passed | CLI 迁移到新架构；旧 driver/monitor/meta_analyzer/segment_runner 删除；价值行为迁入新测试
 - [DONE] R6 彻底重构端到端(真实worker) | verified: 全流程 COMPLETE | add.py/test_add.py 正确生成，双 judge advance，pytest 2 passed
 - [DONE] 消息机制完善 | verified: 153 passed | R1线程池消除阻塞/R2主题订阅推送/R3黑板全局状态；真实 worker square.py E2E COMPLETE
+- [DONE] 宪法全局决策 | verified: 158 passed | G1工作流写start_time/heartbeat到黑板；G2宪法读黑板做全局超时/节点预算/心跳丢失判断；G3测试+E2E
+- [DONE] 审查者prompt加固 | verified: 158 passed + E2E | 根因L0不守严格JSON→散文；prompt强制严格JSON；真实E2E双judge advance COMPLETE
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
