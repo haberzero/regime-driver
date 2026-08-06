@@ -43,6 +43,8 @@
 - [DONE] 健壮性 | verified: 161 passed | request_timeout可配(600s)+_dispatch重试退避，应对慢judge
 - [DONE] 心跳存活修复 | verified: 166 passed | _step 每步刷新 {wid}.heartbeat，宪法心跳丢失检测与 telemetry 反映真实存活
 - [DONE] 演示脚本 | verified: ops/demo_cluster.py | 多workflow并发+telemetry 可复用，真实worker验证并行+隔离+实时渲染
+- [STOP] 实验阶段 | 用户叫停 | 结论：官方deepseek-api基线0.6-0.9s vs 免费opencode 1.8-4.2s(慢4-6倍,有排队)；judge回合官方仅4.8s但完整E2E常卡数分钟(慢judge根因待查)；系统已全用官方API
+- [DONE] 交接准备 | 更新 _HANDOFF.md/HANDOVER 反映最新架构；清理实验session/工作区；168 passed
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
