@@ -15,6 +15,10 @@ class Settings(BaseModel):
 
     base_url: str = Field(default="http://127.0.0.1:4097", description="worker opencode server URL")
     model: str = Field(default="deepseek-api/deepseek-v4-flash", description="model for all sessions")
+    request_timeout: float = Field(
+        default=600.0, ge=10.0,
+        description="HTTP/stream timeout (s) for each message POST; slow judges may exceed the old 240s"
+    )
     agent_reviewer: str = Field(default="reviewer", description="reviewer agent name (for meta-analysis)")
     default_deadline_sec: int = Field(default=600, ge=1, description="per-segment deadline")
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")

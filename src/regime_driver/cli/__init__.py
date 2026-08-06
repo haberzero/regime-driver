@@ -93,7 +93,8 @@ def _run(settings: Settings, context: str, title: str) -> None:
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
 
-    client = OpenCodeClient(settings.base_url, model=settings.model)
+    client = OpenCodeClient(settings.base_url, model=settings.model,
+                            timeout=settings.request_timeout)
     ledger = Ledger(settings.ledger_path) if settings.ledger_path else None
     with console.status(f"[cyan]running flow[/cyan] [bold]{sm.flow_name}[/bold] …"):
         try:

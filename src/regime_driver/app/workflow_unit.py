@@ -195,19 +195,24 @@ class WorkflowUnit(ThreadedUnit):
 
     # -- stepping -------------------------------------------------------------
 
-    def _dispatch(self, sid: str, text: str, agent: str) -> None:
+    def _dispatch(self, sid: str, text: str, agent: str, retries: int = 3) -> None:
         """Dispatch a prompt/send to the pool; never blocks the mixed loop.
 
         The remote session generates asynchronously; this unit observes progress
-        by polling the session. A send failure is logged and left to the
-        constitution's stall detection to catch (no progress -> STOP).
+        by polling the session. A send failure is retried with backoff so a slow
+        judge/agent is not dropped; the constitution's heartbeat/stall detection
+        is the final backstop.
         """
 
         def _send() -> None:
-            try:
-                self.client.send_message(sid, text, agent)
-            except Exception as exc:
-                self._log("dispatch_error", session=sid, err=str(exc))
+            for attempt in range(retries + 1):
+                try:
+                    self.client.send_message(sid, text, agent)
+                    return
+                except Exception as exc:
+                    self._log("dispatch_error", session=sid, attempt=attempt, err=str(exc))
+                    if attempt < retries:
+                        time.sleep(2.0 * (attempt + 1))  # backoff before retry
 
         self._executor.submit(_send)
 
