@@ -27,6 +27,9 @@ class Message:
     text: str
     ts: str | None = None
     error: str | None = None
+    completed: str | None = None   # info.time.completed (turn-finished timestamp)
+    finish: str | None = None      # info.finish (e.g. 'stop', '' on error)
+    reply: str = ""                # text-parts only (developer's final reply, no reasoning)
 
 
 @dataclass
@@ -153,6 +156,13 @@ class OpenCodeClient:
                 for p in parts
                 if p.get("type") in ("text", "reasoning")
             )
+            reply = "".join(
+                p.get("text") or ""
+                for p in parts
+                if p.get("type") == "text"
+            )
+            ie = info.get("error")
+            error = ie.get("message") if isinstance(ie, dict) else (ie or None)
             t = info.get("time") or {}
             messages.append(
                 Message(
@@ -160,7 +170,10 @@ class OpenCodeClient:
                     role=info.get("role") or "?",
                     text=text,
                     ts=t.get("updated") or t.get("created"),
-                    error=info.get("error"),
+                    error=error,
+                    completed=t.get("completed"),
+                    finish=info.get("finish"),
+                    reply=reply,
                 )
             )
         return messages

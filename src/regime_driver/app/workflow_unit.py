@@ -294,9 +294,8 @@ class WorkflowUnit(ThreadedUnit):
             self._state = _ST_ERROR
             self._result = (Outcome.ERROR, self._node, str(exc))
             return
-        latest = self._latest_text(messages)
-        if latest and self._parser_has_marker(latest):
-            report = self._extract_report(latest)
+        done, report = self._latest_agent_done(messages)
+        if done:
             self._log("node_done", node=self._node, outcome="complete",
                       report_len=len(report or ""))
             self._developer_report = report
@@ -310,6 +309,28 @@ class WorkflowUnit(ThreadedUnit):
             else:
                 self._advance()
         self._report_to_constitution()
+
+    def _latest_agent_done(self, messages) -> tuple[bool, str | None]:
+        """Detect whether the developer finished this node's work.
+
+        Primary signal: opencode's native turn-finished marker
+        (`info.time.completed` on the latest assistant message). This is more
+        reliable than asking the model to emit a magic string. A `[WORK_DONE]`
+        marker in the reply is kept as a fallback for short/scripted tasks.
+        """
+        for m in reversed(messages):
+            if getattr(m, "role", None) != "assistant":
+                continue
+            reply = (getattr(m, "reply", "") or "").strip() \
+                or (getattr(m, "text", "") or "").strip()
+            # fallback: explicit marker in the reply
+            if reply and self.segment_parser.has_segment_end(reply):
+                return True, self.segment_parser.extract_report(reply)
+            # native completion: the assistant turn finished
+            if getattr(m, "completed", None):
+                return True, reply or None
+            return False, None
+        return False, None
 
     def _step_judge(self) -> None:
         try:
@@ -497,7 +518,6 @@ class WorkflowUnit(ThreadedUnit):
 
     def _build_instruction(self, node_id, context, role_id) -> str:
         node = self.sm.node(node_id)
-        marker = self.sm.regime.meta.work_done_marker
         ws = workspace_for(role_id or node.role)
         ws_hint = (
             f"\n工作区：你只在 {ws['work_dir']} 目录内工作变更，可读可见目录：{', '.join(ws['visible'])}，"
@@ -507,15 +527,9 @@ class WorkflowUnit(ThreadedUnit):
             f"【当前节点：{node_id}】{node.desc}\n"
             f"任务上下文：{context}\n"
             f"{ws_hint}\n"
-            f"请完成本节点工作。每段结束时，最后一行以 {marker} 标记，"
-            f"并在其前给出结构化汇报：改动文件 / 测试命令与结果 / 技术债 / 待决点。"
+            f"请完成本节点工作。完成后直接用你的最终回复给出简短结构化汇报："
+            f"改动文件 / 测试命令与结果 / 技术债 / 待决点。"
         )
-
-    def _parser_has_marker(self, text) -> bool:
-        return self.segment_parser.has_segment_end(text)
-
-    def _extract_report(self, text) -> str | None:
-        return self.segment_parser.extract_report(text)
 
     def _latest_text(self, messages) -> str:
         text = ""

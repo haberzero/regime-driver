@@ -16,10 +16,12 @@ SUCC = {"design": "implement", "test": "wrap"}
 
 
 class Message:
-    def __init__(self, role, text="", error=None):
+    def __init__(self, role, text="", error=None, completed=None, reply=None):
         self.role = role
         self.text = text
         self.error = error
+        self.completed = completed
+        self.reply = reply if reply is not None else text
 
 
 class FakeClient:
@@ -194,6 +196,28 @@ def test_dialogue_rounds_exhausted():
     unit.stop()
     assert outcome == Outcome.ERROR
     assert "dialogue rounds exhausted" in detail
+
+
+def test_native_completion_without_marker():
+    """A developer turn that completes (info.time.completed) is node-done with no [WORK_DONE]."""
+    class NativeClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                super().send_message(sid, text, agent)
+            else:
+                # assistant turn finished, no [WORK_DONE] marker
+                self.msgs[sid] = [Message("assistant", "完成了 add 函数",
+                                          completed="1786008000000", reply="完成了 add 函数")]
+    s = Settings(monitor_enabled=False, poll_sec=0.1)
+    sm = load_regime()
+    client = NativeClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    unit.start()
+    unit.submit("任务")
+    outcome, end, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE
+    assert end == "wrap"
 
 
 def test_heartbeat_updates_per_step():
