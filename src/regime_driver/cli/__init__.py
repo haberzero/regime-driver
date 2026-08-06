@@ -8,7 +8,6 @@ from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -21,7 +20,7 @@ from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
-from ..app.driver import RegimeDriver
+from ..app.statechart_driver import StatechartDriver
 
 console = Console()
 
@@ -98,19 +97,17 @@ def _run(settings: Settings, context: str, title: str) -> None:
     ledger = Ledger(settings.ledger_path) if settings.ledger_path else None
     with console.status(f"[cyan]running flow[/cyan] [bold]{sm.flow_name}[/bold] …"):
         try:
-            driver = RegimeDriver(settings, sm, client, ledger)
-            result = driver.run(context, title)
+            driver = StatechartDriver(settings, sm, client, ledger)
+            outcome, end_node, detail = driver.run(context, title)
         finally:
             if ledger:
                 ledger.close()
 
-    if result.outcome == Outcome.COMPLETE:
-        _ok(f"flow completed at node [bold]{result.end_node}[/bold]", markup=True)
+    if outcome == Outcome.COMPLETE:
+        _ok(f"flow completed at node [bold]{end_node}[/bold]", markup=True)
     else:
-        _fail(f"flow {result.outcome.value} at node [bold]{result.end_node}[/bold]"
-              + (f": {result.detail}" if result.detail else ""), markup=True)
-    if result.report:
-        console.print(Panel(Text(result.report), title="final report", border_style="cyan"))
+        _fail(f"flow {outcome.value} at node [bold]{end_node}[/bold]"
+              + (f": {detail}" if detail else ""), markup=True)
 
 
 # ---------------------------------------------------------------------------

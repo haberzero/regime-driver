@@ -115,6 +115,85 @@ def test_constitution_reports_emitted():
     assert got[0].get("session_id")  # report carries the alive session id
 
 
+# --- interrogation / rework / convergence ---------------------------------
+
+class ScriptedClient(FakeClient):
+    """Reviewer returns a scripted sequence for ONE judge node; others default-advance."""
+
+    def __init__(self, reviewer_script, script_node="design"):
+        super().__init__()
+        self.reviewer_script = list(reviewer_script)
+        self.script_node = script_node
+        self.reviewer_calls = 0
+        self.scripted_calls = 0
+
+    def send_message(self, sid, text, agent):
+        if agent == "reviewer":
+            m = re.search(r"当前节点：(\w+)", text)
+            node = m.group(1) if m else "design"
+            if node == self.script_node and self.reviewer_calls < len(self.reviewer_script):
+                v = self.reviewer_script[self.reviewer_calls]
+                self.scripted_calls += 1
+            else:
+                # default: advance to the node's successor
+                v = {"node": node, "verdict": "advance", "action": "advance",
+                     "next_state": SUCC.get(node, "wrap"), "confidence": 0.9, "reason": "ok"}
+            self.reviewer_calls += 1
+            self.msgs[sid] = [Message("assistant", json.dumps(v))]
+        else:
+            self.msgs[sid] = [Message("assistant", "rework done\n[WORK_DONE]")]
+
+
+def _ask_verdict(node="design", msg="请修复"):
+    return {"node": node, "verdict": "issue_pending", "action": "ask_developer",
+            "message_to_developer": msg, "confidence": 0.9, "reason": msg}
+
+
+def test_multiround_interrogation_converges_on_advance():
+    script = [_ask_verdict("design", "fix A"),
+              _ask_verdict("design", "fix B"),
+              {"node": "design", "verdict": "advance", "action": "advance",
+               "next_state": "implement", "confidence": 0.9, "reason": "ok"}]
+    s = Settings(monitor_enabled=False, max_dialogue_rounds=5)
+    sm = load_regime()
+    client = ScriptedClient(script)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit.start()
+    unit.submit("任务")
+    outcome, end, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE
+    assert client.scripted_calls == 3  # two reworks then advance on the design node
+
+
+def test_convergence_loop_detected():
+    script = [_ask_verdict("design", "same problem") for _ in range(6)]
+    s = Settings(monitor_enabled=False, convergence_max_identical=2)
+    sm = load_regime()
+    client = ScriptedClient(script)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit.start()
+    unit.submit("任务")
+    outcome, end, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.BLOCKED
+    assert "looping" in detail
+
+
+def test_dialogue_rounds_exhausted():
+    script = [_ask_verdict("design", f"fix {i}") for i in range(10)]
+    s = Settings(monitor_enabled=False, max_dialogue_rounds=3)
+    sm = load_regime()
+    client = ScriptedClient(script)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit.start()
+    unit.submit("任务")
+    outcome, end, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.ERROR
+    assert "dialogue rounds exhausted" in detail
+
+
 def _sig(unit, src, kind, payload):
     from regime_driver.core.statechart import Signal
     return Signal(kind, src, unit.id, payload)

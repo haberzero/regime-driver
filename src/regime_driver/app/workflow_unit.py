@@ -99,6 +99,8 @@ class WorkflowUnit(ThreadedUnit):
         self._env: dict = {"context": "", "report": "", "ok": True, "message": ""}
         self._result: tuple[Outcome, str | None, str | None] | None = None
         self._monitor_stop: str | None = None
+        self._rejudge: str | None = None   # judge node awaiting a rework re-judge
+        self._dialogue_rounds = 0          # ask_developer -> rework cycles
 
         # control handlers
         self.register(SignalKind.STOP, self._on_stop)
@@ -174,6 +176,10 @@ class WorkflowUnit(ThreadedUnit):
         self._log("node_enter", node=node_id, type=node.type.value, role=node.role)
         self._node = node_id
         self._node_count += 1
+        # fresh node: reset per-node interrogation state (re-judge does not call this)
+        self._dialogue_rounds = 0
+        self._rounds = []
+        self._extra_context = None
         if self._node_count > self.settings.max_total_nodes:
             self._state = _ST_ABORTED
             self._result = (Outcome.BLOCKED, node_id,
@@ -238,7 +244,12 @@ class WorkflowUnit(ThreadedUnit):
             if report is not None:
                 self._env["report"] = report
             self._record_worklog(self._node, report)
-            self._advance()
+            if self._rejudge is not None:
+                judge_node = self._rejudge
+                self._rejudge = None
+                self._enter_judge(judge_node)  # re-judge after rework
+            else:
+                self._advance()
         self._report_to_constitution()
 
     def _step_judge(self) -> None:
@@ -284,6 +295,11 @@ class WorkflowUnit(ThreadedUnit):
             self._result = (Outcome.ERROR, self._node, f"bad advance target '{target}'")
             return
         if action == "ask_developer":
+            self._dialogue_rounds += 1
+            if self._dialogue_rounds > self.settings.max_dialogue_rounds:
+                self._state = _ST_ERROR
+                self._result = (Outcome.ERROR, self._node, "reviewer dialogue rounds exhausted")
+                return
             inquiry = Handoff.reviewer_inquiry(
                 criticisms=[verdict.reason] if verdict.reason else [],
                 required_rework=verdict.message_to_developer or "",
@@ -296,7 +312,6 @@ class WorkflowUnit(ThreadedUnit):
                 self._result = (Outcome.BLOCKED, self._node,
                                 "reviewer/developer interrogation is looping")
                 return
-            # route the rework back through the work role as an agent node
             work_sid = self.sessions.ensure("developer").session_id
             try:
                 self.client.send_message(work_sid, inquiry.inquiry_text(),
@@ -305,6 +320,7 @@ class WorkflowUnit(ThreadedUnit):
                 self._state = _ST_ERROR
                 self._result = (Outcome.ERROR, self._node, str(exc))
                 return
+            self._rejudge = self._node
             self._wait_sid = work_sid
             self._phase = _PH_AGENT
             return
