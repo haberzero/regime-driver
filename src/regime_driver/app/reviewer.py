@@ -113,6 +113,38 @@ class Reviewer:
 
     # -- interaction --------------------------------------------------------
 
+    def prompt_for(
+        self,
+        node_id: str,
+        context: str,
+        developer_report: str | None = None,
+        extra_context: str | None = None,
+        retry_feedback: str | None = None,
+        valid_targets: set[str] | None = None,
+    ) -> str:
+        """Assemble the full reviewer prompt (SYSTEM + task) for a judge node.
+
+        The workflow unit sends this prompt itself and then drives the reply
+        polling, so a judge call never blocks the state machine thread.
+        """
+        if valid_targets is None:
+            valid_targets = set(self.state_machine.successors(node_id))
+        body = self._build_prompt(
+            node_id, context, developer_report, extra_context, retry_feedback, valid_targets
+        )
+        return SYSTEM_PROMPT + "\n\n" + body
+
+    def parse_reply(
+        self,
+        text: str,
+        node_id: str,
+        valid_targets: set[str] | None = None,
+    ) -> ReviewerResult:
+        """Parse + gate a reviewer's raw reply (workflow polls then calls this)."""
+        if valid_targets is None:
+            valid_targets = set(self.state_machine.successors(node_id))
+        return self._parse(text, node_id, valid_targets)
+
     def judge(
         self,
         node_id: str,
