@@ -120,6 +120,26 @@ StatechartUnit {
 
 > 备注：asyncio 真正优于线程的仅有"精确取消阻塞调用"一点，但兑现它需重写同步 client，而此场景已用"每段 deadline + monitor abort + 根不变量"兜住，无需为此引入 asyncio。决策点②定案为**线程 + 消息队列**。
 
+### 5.2.1 执行模型原则：状态机线程 = 单线程混合循环（硬约束）
+
+**关键前提（已核实成立）**：任务发派给 session 后，session 的 LLM 工作由 worker 容器
+异步执行，**不占状态机线程**。因此状态机线程保持空闲，空闲时间可用于轮询/收发消息——
+这正是状态机间能通信的前提。
+
+**由此的硬约束**：每个状态机线程应是一个**单线程 event/poll 混合循环**，在同一个循环里
+同时处理：
+1. **已发派 session 的完成轮询**（`read_messages`，快速 HTTP GET）；
+2. **消息队列**（来自其它状态机的信号，`q.get(timeout)`）；
+3. **定时/超时检测**（deadline、stall 时钟）。
+
+**并消除一切长阻塞调用**。现状有两处偏差，阶段 4 必须修正：
+- ⚠️ **judge 节点阻塞**：`Reviewer.judge` 用 `ask_and_get_text`，其 POST 是流式长连接
+  （`opencode.py` timeout=240s），会占住线程直到模型回复，阻塞期间无法处理消息。
+  → 阶段 4 改为 **send + 轮询**（与 agent 节点 `SegmentRunner` 一致）。
+- ⚠️ **消息驱动循环 ≠ session 轮询**：阶段 2 `ThreadedUnit` 的 `q.get(timeout)` 循环只处理
+  消息，未同时轮询 session；现状工作流只轮询 session、不处理消息。二者是两种循环。
+  → 阶段 4 统一为**同一个混合循环**，避免"等自己的 session/judge 时无法响应他方 STOP 信号"。
+
 ### 5.3 状态机间通信：双向事件/命令总线
 
 - **事件总线**（广播/订阅）：状态机发事件（`ts`、`source`、`body`），其它状态机按需订阅。
