@@ -74,6 +74,7 @@ class StatechartUnit:
         self.bus = bus
         self.role = role  # governed | watchdog | human (see runtime invariants)
         self._handlers: dict[SignalKind, Handler] = {}
+        self._event_handlers: dict[str, Handler] = {}
         # async outbound routers, injected by a Runtime so signals are delivered
         # to a target unit's own queue (genuine parallelism) instead of being
         # dispatched synchronously on the caller's thread.
@@ -124,9 +125,43 @@ class StatechartUnit:
             self.bus.broadcast(self.id, kind, payload)
 
     def emit(self, event: str, **fields) -> None:
-        """Emit an audit event onto the bus (if any)."""
+        """Emit an event onto the bus (audit log + dispatch to subscribers).
+
+        Events are topic-based (named) and observable: any unit that subscribed
+        to `event` via `subscribe` receives it in `on_event`. This turns the
+        audit `emit` into a push channel (pub-sub over topics).
+        """
         if self.bus is not None:
-            self.bus.log(self.id, event, **fields)
+            self.bus.publish(self.id, event, fields)
+
+    # -- event subscription (topic-based pub/sub) ----------------------------
+
+    def on_event(self, event: str, handler: Handler) -> "StatechartUnit":
+        """Register a handler for a topic event (one handler per topic)."""
+        self._event_handlers[event] = handler
+        return self
+
+    def has_event(self, event: str) -> bool:
+        return event in self._event_handlers
+
+    def subscribe(self, event: str) -> "StatechartUnit":
+        """Subscribe this unit to a topic event on the bus."""
+        if self.bus is not None:
+            self.bus.subscribe(self, event)
+        return self
+
+    def unsubscribe(self, event: str) -> "StatechartUnit":
+        if self.bus is not None:
+            self.bus.unsubscribe(self, event)
+        return self
+
+    def handle_event(self, event: str, payload: dict) -> bool:
+        """Dispatch an event to this unit's handler. Returns False if unhandled."""
+        handler = self._event_handlers.get(event)
+        if handler is None:
+            return False
+        handler(payload)
+        return True
 
 
 class Bus:
@@ -140,6 +175,7 @@ class Bus:
     def __init__(self) -> None:
         self._units: dict[str, StatechartUnit] = {}
         self._events: list[tuple[str, str, dict]] = []  # (src, event, fields)
+        self._subs: dict[str, list[StatechartUnit]] = {}  # topic -> subscribers
 
     def register(self, unit: StatechartUnit) -> "Bus":
         self._units[unit.id] = unit
@@ -177,3 +213,27 @@ class Bus:
 
     def events(self) -> list[tuple[str, str, dict]]:
         return list(self._events)
+
+    # -- topic pub/sub -------------------------------------------------------
+
+    def subscribe(self, unit: StatechartUnit, event: str) -> None:
+        if unit not in self._subs.setdefault(event, []):
+            self._subs[event].append(unit)
+
+    def unsubscribe(self, unit: StatechartUnit, event: str) -> None:
+        subs = self._subs.get(event)
+        if subs and unit in subs:
+            subs.remove(unit)
+
+    def subscribers(self, event: str) -> list[StatechartUnit]:
+        return list(self._subs.get(event, []))
+
+    def publish(self, src: str, event: str, fields: dict | None = None) -> int:
+        """Log an event and deliver it to every subscriber (returns handled count)."""
+        fields = fields or {}
+        self._events.append((src, event, fields))
+        handled = 0
+        for unit in self._subs.get(event, []):
+            if unit.handle_event(event, fields):
+                handled += 1
+        return handled
