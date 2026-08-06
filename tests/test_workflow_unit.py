@@ -289,6 +289,47 @@ def test_judge_waits_for_new_reply_not_stale():
     assert client.reviewer_prompts == 2, f"judge re-prompted {client.reviewer_prompts}x"
 
 
+def test_dispatch_serializes_prior_post():
+    """Dispatch must await the prior node's POST before sending the next.
+
+    Regression for the E2E judge stall: the streaming POST /message returns
+    LATER than the completion marker the workflow advances on, so without
+    awaiting the prior future the dispatch pool saturates and the next node's
+    prompt queues forever (session looks busy-with-no-output -> false stall).
+    This asserts at most ONE send_message is in flight at a time.
+    """
+    import threading
+    from regime_driver.core.statechart import Bus
+
+    class ConcurrentClient(FakeClient):
+        def __init__(self):
+            super().__init__()
+            self._active = 0
+            self._max_active = 0
+            self._lock = threading.Lock()
+
+        def send_message(self, sid, text, agent):
+            with self._lock:
+                self._active += 1
+                self._max_active = max(self._max_active, self._active)
+            super().send_message(sid, text, agent)  # completion marker appears now
+            time.sleep(0.3)  # ...but the POST stays open past it (trailing)
+            with self._lock:
+                self._active -= 1
+
+    s = Settings(monitor_enabled=False, poll_sec=0.1)
+    sm = load_regime()
+    client = ConcurrentClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05, bus=Bus())
+    unit.start()
+    unit.submit("实现反转函数")  # code_workflow: 3+ developer nodes
+    outcome, _, _ = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE
+    assert client._max_active == 1, \
+        f"expected serialized dispatch, saw {client._max_active} concurrent POSTs"
+
+
 def test_per_node_wait_timeout():
     """A node that never completes is marked TIMEOUT after default_deadline_sec."""
     class NeverClient(FakeClient):

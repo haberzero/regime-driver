@@ -84,6 +84,7 @@ class WorkflowUnit(ThreadedUnit):
         # a worker thread so the mixed loop never blocks and stays responsive to
         # STOP even while a prompt is being generated remotely.
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dispatch")
+        self._active_dispatch = None  # future of the in-flight dispatch POST
 
         # run state
         self._state = _ST_IDLE
@@ -204,7 +205,18 @@ class WorkflowUnit(ThreadedUnit):
         by polling the session. A send failure is retried with backoff so a slow
         judge/agent is not dropped; the constitution's heartbeat/stall detection
         is the final backstop.
+
+        Crucial: the streaming POST /message only returns once the turn finishes,
+        which is LATER than the `message.completed` / `[WORK_DONE]` marker the
+        workflow uses to advance. If we dispatched the next node without waiting
+        for that POST to return, the previous node's POST would still be holding a
+        worker thread, and with a small pool the next dispatch would queue forever
+        (the session looks "busy, no output" -> false stall kill). So we await the
+        prior POST future first, waiting for true turn completion before freeing a
+        pool slot for the next node. The wait stays STOP-responsive (drains signals
+        and aborts early on a control state).
         """
+        self._await_prior_dispatch()
 
         def _send() -> None:
             for attempt in range(retries + 1):
@@ -216,7 +228,23 @@ class WorkflowUnit(ThreadedUnit):
                     if attempt < retries:
                         time.sleep(2.0 * (attempt + 1))  # backoff before retry
 
-        self._executor.submit(_send)
+        self._active_dispatch = self._executor.submit(_send)
+
+    def _await_prior_dispatch(self) -> None:
+        """Wait for the previous node's POST future, staying STOP-responsive."""
+        fut = self._active_dispatch
+        if fut is None:
+            return
+        while not fut.done():
+            self._drain_signals()
+            if self._state in (_ST_ABORTED, _ST_ERROR, _ST_DONE):
+                return  # a control signal interrupted the wait
+            time.sleep(0.05)
+        # consume a possible exception so it doesn't surface as an unhandled warning
+        try:
+            fut.result()
+        except Exception:
+            pass
 
     def _step(self) -> None:
         self._touch_heartbeat()
