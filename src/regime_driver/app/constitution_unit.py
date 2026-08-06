@@ -19,16 +19,18 @@ from __future__ import annotations
 import time
 
 from ..core.repetition import RepetitionDetector
-from ..core.statechart import Signal, SignalKind, StatechartUnit
+from ..core.statechart import Signal, SignalKind
+from .statechart_runtime import ThreadedUnit
 
 
-class ConstitutionUnit(StatechartUnit):
+class ConstitutionUnit(ThreadedUnit):
     """A peer, intelligence-free state machine that watches working units.
 
     It subscribes to REPORT signals (payload: session_id, node, output, status,
     latest_text) and broadcasts a STOP/ESCALATE control signal when a dead loop
     or stall is detected. It holds the detection state (stall_since, fired sets)
-    just like the current Monitor, so behaviour is equivalent.
+    just like the current Monitor, so behaviour is equivalent. It runs on the
+    runtime as a watchdog unit (role="watchdog").
     """
 
     def __init__(
@@ -39,7 +41,7 @@ class ConstitutionUnit(StatechartUnit):
         control_dst: str = "*",
         bus=None,
     ) -> None:
-        super().__init__(unit_id, bus)
+        super().__init__(unit_id, bus, role="watchdog")
         self.stall_sec = stall_sec
         self.repetition = repetition or RepetitionDetector()
         self.control_dst = control_dst or "*"
@@ -48,6 +50,7 @@ class ConstitutionUnit(StatechartUnit):
         self._stall_fired: set[str] = set()
         self._dead_loop_fired: set[str] = set()
         self.register(SignalKind.REPORT, self._on_report)
+        self.register(SignalKind.STOP, lambda s: None)  # root invariant I2
 
     # -- report intake ------------------------------------------------------
 
