@@ -28,12 +28,14 @@ class FakeClient:
         self.msgs = {}
         self.status = {}
         self.tokens = {}
+        self.sent = []
 
     def create_session(self, title):
         self.created += 1
         return f"ses_{self.created}"
 
     def send_message(self, sid, text, agent):
+        self.sent.append((sid, text, agent))
         if agent == "reviewer":
             m = re.search(r"当前节点：(\w+)", text)
             node = m.group(1) if m else "design"
@@ -197,3 +199,157 @@ def test_dialogue_rounds_exhausted():
 def _sig(unit, src, kind, payload):
     from regime_driver.core.statechart import Signal
     return Signal(kind, src, unit.id, payload)
+
+
+# --- tool / route / gate dispatch (custom flows) ---------------------------
+
+class NodeClient(FakeClient):
+    """Returns [WORK_DONE] with a per-node report; no reviewer involvement."""
+
+    def __init__(self, reports):
+        super().__init__()
+        self.reports = reports  # node_id -> report text
+
+    def send_message(self, sid, text, agent):
+        m = re.search(r"【当前节点：(\w+)】", text)
+        node = m.group(1) if m else "?"
+        rep = self.reports.get(node, "")
+        self.msgs[sid] = [Message("assistant", f"{rep}\n[WORK_DONE]")]
+
+
+def _sm(nodes):
+    from regime_driver.core.models import Flow, FlowEntry, Regime, RegimeMeta
+    flow = Flow(nodes={n.id: n for n in nodes})
+    regime = Regime(version="t", meta=RegimeMeta(), flows={"f": flow},
+                    entry=FlowEntry(flow="f", start_node=nodes[0].id))
+    from regime_driver.core.state_machine import StateMachine
+    return StateMachine(regime)
+
+
+def _wu(nodes, reports, overrides=None):
+    from regime_driver.core.models import Node  # noqa
+    s = Settings(monitor_enabled=False, poll_sec=0.1, **(overrides or {}))
+    sm = _sm(nodes)
+    client = NodeClient(reports)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    return unit, client
+
+
+def test_workflow_tool_node_runs_and_advances():
+    from regime_driver.core.models import Node, NodeType
+    tool = Node(id="t", desc="check", type=NodeType.TOOL, tool="have_report", next="end")
+    end = Node(id="end", desc="done", type=NodeType.AGENT, next=None)
+    unit, client = _wu([tool, end], {"end": "no report here"})
+    unit.start()
+    unit.submit("ctx")
+    outcome, end_node, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE
+    assert unit._env["ok"] is False  # no report at tool time
+
+
+def test_workflow_route_branches_to_match():
+    from regime_driver.core.models import Node, NodeType
+    p = Node(id="p", desc="produce", type=NodeType.AGENT, next="r")
+    route = Node(id="r", desc="route", type=NodeType.ROUTE,
+                 branches=[{"when": "report contains 'good'", "goto": "ok_node"}], next="bad_node")
+    ok_node = Node(id="ok_node", desc="ok", type=NodeType.AGENT, next=None)
+    bad_node = Node(id="bad_node", desc="bad", type=NodeType.AGENT, next=None)
+    unit, client = _wu([p, route, ok_node, bad_node], {"p": "good work here"})
+    unit.start()
+    unit.submit("ctx")
+    outcome, end_node, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE
+    assert end_node == "ok_node"  # routed to the branch, not the fallback
+
+
+def test_workflow_route_falls_through_to_next():
+    from regime_driver.core.models import Node, NodeType
+    p = Node(id="p", desc="produce", type=NodeType.AGENT, next="r")
+    route = Node(id="r", desc="route", type=NodeType.ROUTE,
+                 branches=[{"when": "report contains 'good'", "goto": "ok_node"}], next="bad_node")
+    ok_node = Node(id="ok_node", desc="ok", type=NodeType.AGENT, next=None)
+    bad_node = Node(id="bad_node", desc="bad", type=NodeType.AGENT, next=None)
+    unit, client = _wu([p, route, ok_node, bad_node], {"p": "nothing changed"})
+    unit.start()
+    unit.submit("ctx")
+    outcome, end_node, detail = _wait_result(unit)
+    unit.stop()
+    assert end_node == "bad_node"  # no branch matched -> next
+
+
+def test_workflow_gate_blocked_when_no_branch_matches():
+    from regime_driver.core.models import Node, NodeType
+    p = Node(id="p", desc="produce", type=NodeType.AGENT, next="g")
+    gate = Node(id="g", desc="gate", type=NodeType.GATE,
+                branches=[{"when": "report contains 'pass'", "goto": "end"}], next="end")
+    end = Node(id="end", desc="done", type=NodeType.AGENT, next=None)
+    unit, client = _wu([p, gate, end], {"p": "nothing changed"})
+    unit.start()
+    unit.submit("ctx")
+    outcome, end_node, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.BLOCKED
+    assert "not satisfied" in detail
+
+
+def test_workflow_gate_passes_when_branch_matches():
+    from regime_driver.core.models import Node, NodeType
+    p = Node(id="p", desc="produce", type=NodeType.AGENT, next="g")
+    gate = Node(id="g", desc="gate", type=NodeType.GATE,
+                branches=[{"when": "report contains 'pass'", "goto": "end"}], next="end")
+    end = Node(id="end", desc="done", type=NodeType.AGENT, next=None)
+    unit, client = _wu([p, gate, end], {"p": "pass ok"})
+    unit.start()
+    unit.submit("ctx")
+    outcome, end_node, detail = _wait_result(unit)
+    unit.stop()
+    assert outcome == Outcome.COMPLETE
+    assert end_node == "end"
+
+
+def test_workflow_workspace_hint_in_instruction():
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu([Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    instr = unit._build_instruction("a", "ctx", "developer")
+    assert "code" in instr
+
+
+# --- transition policy (anchor / rotate) -----------------------------------
+
+def _transition_unit(roles, node_role="reviewer"):
+    from regime_driver.core.models import Node, NodeType
+    from regime_driver.core.state_machine import StateMachine
+    n = Node(id="a", desc="", role=node_role, type=NodeType.AGENT, next=None)
+    s = Settings(monitor_enabled=False, poll_sec=0.1)
+    sm = _sm([n])
+    client = FakeClient()
+    unit = WorkflowUnit(s, sm, client, roles=roles, poll_sec=0.1)
+    unit.sessions.ensure(node_role, "t")
+    return unit
+
+
+def test_workflow_anchor_transition_pins_session():
+    from regime_driver.core.policy import RolePolicy, TransitionDecision
+    from regime_driver.core.role import Role, RoleRegistry
+    roles = RoleRegistry().register(
+        Role(id="reviewer", agent="reviewer",
+             policy=RolePolicy(transition_mode=TransitionDecision.ANCHOR)))
+    unit = _transition_unit(roles)
+    old_sid = unit.sessions.get("reviewer").session_id
+    unit._apply_transition("a", "dummy")
+    assert unit.sessions.get("reviewer").session_id == old_sid  # anchored
+
+
+def test_workflow_transition_rotate_rotates_session():
+    from regime_driver.core.policy import RolePolicy, TransitionDecision
+    from regime_driver.core.role import Role, RoleRegistry
+    roles = RoleRegistry().register(
+        Role(id="reviewer", agent="reviewer",
+             policy=RolePolicy(transition_mode=TransitionDecision.ROTATE)))
+    unit = _transition_unit(roles)
+    old_sid = unit.sessions.get("reviewer").session_id
+    unit._apply_transition("a", "dummy")
+    assert unit.sessions.get("reviewer").session_id != old_sid  # rotated
+    assert any('"kind":"brain_normal"' in s[1] for s in unit.client.sent)

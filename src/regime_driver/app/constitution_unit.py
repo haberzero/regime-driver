@@ -1,17 +1,14 @@
 """Constitution as a statechart unit (app layer, stage 3).
 
-The long-term architecture makes the "constitution layer" a *peer* state machine
-that coordinates with working state machines via signals, instead of a
-special-cased hardcoded guard. This unit is the first step of that rewrite: a
-`StatechartUnit` (no intelligence) that receives CHECKPOINT/REPORT signals from
-working units (carrying node/timestamps/output/latest-text), runs the same
-deterministic detection the current Monitor does (dead-loop + stall), and on a
-hit emits a control signal (STOP/ESCALATE) back over the bus.
+The constitution layer is a *peer* state machine that coordinates with working
+state machines via signals, instead of a special-cased hardcoded guard. This
+unit is a `StatechartUnit` (no intelligence) that receives CHECKPOINT/REPORT
+signals from working units (carrying node/timestamps/output/latest-text), runs
+deterministic dead-loop + stall detection, and on a hit emits a control signal
+(STOP) back over the bus.
 
 It is deliberately I/O-free: probe data is fed *in* via signals, so the unit is
-pure logic and fully testable in isolation. The existing `app/monitor.py` is kept
-intact for now (zero regression); this establishes capability equivalence on the
-signal protocol before replacing the monitor in the real run (stage 4).
+pure logic and fully testable in isolation.
 """
 
 from __future__ import annotations
@@ -78,8 +75,6 @@ class ConstitutionUnit(ThreadedUnit):
             self.send(self.control_dst, SignalKind.STOP,
                       {"reason": detail, "kind": kind, "watchdog": True})
         self.emit("watchdog_fire", kind=kind, session=payload.get("session_id"), detail=detail)
-
-    # -- deterministic detection (mirrors app/monitor.py) --------------------
 
     def _detect(
         self,
