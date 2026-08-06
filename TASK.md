@@ -54,7 +54,8 @@
 - [DONE(重复,见上方)] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）| 已由上方"阶段4a/4b/4c"完成：app/runtime_invariants.py(I1/I2/I3) + StatechartDriver(constitution= 注入) + test_runtime_invariants.py/test_custom_constitution.py
 - [DONE] 上帝对话框 MVP（分析+方案+事件驱动单元+REPL） | verified: 184 passed(177+7) | 新增 app/god_dialog.py(GodDialogUnit: ThreadedUnit, role=human, 订阅 bus blackboard.changed/watchdog_fire/NOTIFY, 实时监控+事件日志, 命令路由 status/start/inspect/watch/config/help + 自由文本→LLM worker线程非阻塞解释, emit 回总线) + docs/DESIGN-god-dialog.md(需求分析+现代码分析+"对话框应在状态机体系内"可行性定案) + statechart_cluster.register_unit + cli dialog 命令 + ops/god_dialog.py 演示；真实 LLM 解释 E2E 验证通过；tests/test_god_dialog.py(7)
 - [DONE] 上帝对话框：需求#5 独立session交互(talk) + 需求#4 动态监控区 | verified: 187 passed(184+3) | GodDialogUnit 增 talk <sid> <msg>(session_client 非阻塞转发+取回复) + monitor [字段] 过滤 + watch [n] [watchdog|blackboard|notify] 主题过滤；cli/ops 接 session_client；tests +3
-- [ ] P3 上帝对话框演进（远期）| 本次完成 MVP+talk+动态监控；后续候选：自然语言设计 workflow / 权限门控 / 监控区随请求动态调整
+- [DONE] 上帝对话框：需求#1 设计新 workflow | verified: 191 passed(187+4) | design <flow> <JSON|NL> 命令 + compile_flow(紧凑/full regime 规格→StateMachine 校验) 注册到 self.flows；start <flow> <ctx> 用设计流；NL 走 LLM worker 线程；launcher 契约改 (ctx,title,flow_sm)；tests +4
+- [ ] P3 上帝对话框演进（远期）| 已做 MVP+talk+动态监控+design；后续候选：权限门控 / 监控区动态增删字段 / 对运行中 workflow 的更深交互
 
 ## 阻塞
 

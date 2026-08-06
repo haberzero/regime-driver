@@ -42,6 +42,56 @@ def _topic_label(topic: str) -> str:
     return topic.split(".")[-1]
 
 
+def compile_flow(flow_name: str, spec_text: str) -> "object":
+    """Compile a workflow spec (JSON) into a validated StateMachine.
+
+    Accepts either a full regime dict (has "flows"/"entry") or a compact flow
+    spec `{"entry": "start_id", "nodes": [{id, desc, role, type, next, ...}]}`.
+    Raises on invalid/malformed input so the caller can surface a clean error.
+    """
+    import json
+
+    from ..core.state_machine import StateMachine
+
+    spec = json.loads(spec_text)
+    if not isinstance(spec, dict):
+        raise ValueError("workflow 规格必须是 JSON 对象")
+    if "flows" in spec:
+        regime = dict(spec)
+        flows = regime["flows"]
+        if flow_name not in flows:
+            raise ValueError(f"flows 中找不到 '{flow_name}'")
+        entry = regime.get("entry") or {"flow": flow_name,
+                                        "start_node": next(iter(flows[flow_name]["nodes"]))}
+        entry["flow"] = flow_name
+        regime["entry"] = entry
+        raw = json.dumps(regime)
+    else:
+        nodes_raw = spec.get("nodes")
+        entry_id = spec.get("entry")
+        if not isinstance(nodes_raw, list) or not nodes_raw:
+            raise ValueError("紧凑规格需含非空 ['nodes'] 列表")
+        if not entry_id:
+            raise ValueError("紧凑规格需含 ['entry'] 起始节点")
+        nodes: dict = {}
+        for n in nodes_raw:
+            if not isinstance(n, dict) or "id" not in n:
+                raise ValueError("每个 node 需含 'id'")
+            node = {k: n[k] for k in ("id", "desc", "role", "type") if k in n}
+            for extra in ("next", "skill", "tool", "tool_args", "branches"):
+                if n.get(extra) is not None:
+                    node[extra] = n[extra]
+            nodes[n["id"]] = node
+        regime = {
+            "version": "0.design",
+            "meta": {"work_done_marker": "[WORK_DONE]"},
+            "flows": {flow_name: {"nodes": nodes}},
+            "entry": {"flow": flow_name, "start_node": entry_id},
+        }
+        raw = json.dumps(regime)
+    return StateMachine.from_dict(raw)
+
+
 class GodDialogUnit(ThreadedUnit):
     """A peer, event-driven state machine that is the one dialog surface."""
 
@@ -61,6 +111,7 @@ class GodDialogUnit(ThreadedUnit):
         self.session_client = session_client
         self.settings_render = settings_render
         self.max_events = max_events
+        self.flows: dict = {}  # name -> StateMachine (user-designed flows)
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="god-llm")
@@ -184,6 +235,8 @@ class GodDialogUnit(ThreadedUnit):
             return self._inspect(t)
         if self._is_talk_cmd(low):
             return self._talk(t)
+        if self._is_design_cmd(low):
+            return self._design(t)
         # free-form -> LLM explain on a worker thread (non-blocking)
         return self._explain(t)
 
@@ -204,6 +257,10 @@ class GodDialogUnit(ThreadedUnit):
     @staticmethod
     def _is_start_cmd(low: str) -> bool:
         return low.startswith(("start", "启动"))
+
+    @staticmethod
+    def _is_design_cmd(low: str) -> bool:
+        return low.startswith(("design", "设计")) or "新建流程" in low
 
     @staticmethod
     def _is_inspect_cmd(low: str) -> bool:
@@ -240,7 +297,8 @@ class GodDialogUnit(ThreadedUnit):
     def _start(self, text: str) -> str:
         if self.launcher is None:
             return "start 能力未接入（未提供 launcher）。"
-        # extract the context after the keyword
+        # extract flow name (if it matches a designed flow) and the context
+        flow_sm = None
         ctx = text
         for kw in ("start", "启动", "开始"):
             idx = text.find(kw)
@@ -248,12 +306,59 @@ class GodDialogUnit(ThreadedUnit):
                 ctx = text[idx + len(kw):].strip()
                 break
         if not ctx:
-            return "用法：start <任务上下文>"
+            return "用法：start [flow_name] <任务上下文>"
+        # a leading token matching a designed flow -> run that flow
+        first = ctx.split()[0] if ctx.split() else ""
+        if first in self.flows:
+            flow_sm = self.flows[first]
+            ctx = ctx[len(first):].strip()
+        if not ctx:
+            ctx = first if flow_sm is None else "（默认任务）"
         try:
-            handle = self.launcher(ctx, f"god-{int(time.time())}")
+            handle = self.launcher(ctx, f"god-{int(time.time())}", flow_sm)
             return f"已非阻塞启动 workflow：{handle.get('workflow_id', '?')}"
         except Exception as exc:
             return f"启动失败：{exc}"
+
+    def _design(self, text: str) -> str:
+        """`design <flow_name> <spec>` — spec is JSON (deterministic) or natural
+        language (via LLM on a worker thread). Compiles + registers a new flow."""
+        parts = text.split(maxsplit=2)
+        if len(parts) < 3:
+            return ("用法：design <flow_name> <JSON 或自然语言描述>。\n"
+                    "JSON 形如 {\"entry\":\"a\",\"nodes\":[{\"id\":\"a\",\"desc\":\"..\","
+                    "\"role\":\"developer\",\"type\":\"agent\",\"next\":\"b\"}]}")
+        name, spec = parts[1], parts[2]
+        if spec.strip().startswith("{") or spec.strip().startswith("["):
+            try:
+                sm = compile_flow(name, spec)
+            except Exception as exc:
+                return f"设计失败：{exc}"
+            self.flows[name] = sm
+            return f"已设计并注册 workflow '{name}'：路径={' → '.join(sm.flow_path()) or '(空)'}"
+        if self.llm is None:
+            return "自然语言设计需接入 LLM；当前请提供 JSON 规格。"
+        self._executor.submit(self._run_design_nl, name, spec)
+        return f"正在用 LLM 设计 workflow '{name}'，稍后结果出现…"
+
+    def _run_design_nl(self, name: str, spec: str) -> None:
+        try:
+            prompt = (
+                "请把下面的流程描述转成一个 JSON（只输出 JSON，不要其它文字）：\n"
+                "{\"entry\":\"<起始node id>\",\"nodes\":[{\"id\":\"<id>\",\"desc\":\"<中文描述>\","
+                "\"role\":\"developer|reviewer\",\"type\":\"agent|judge\",\"next\":\"<下一id>\"}]}\n"
+                "要求：agent=开发者干活，judge=审查者判定；最后一个节点 next 为 null；"
+                f"流程必须有且仅有一个起始节点。\n流程描述：{spec}"
+            )
+            raw = self.llm(prompt, "")
+            sm = compile_flow(name, raw)
+            self.flows[name] = sm
+            self.replies.append({"text": f"已用 LLM 设计并注册 workflow '{name}'："
+                                         f"路径={' → '.join(sm.flow_path())}",
+                                 "kind": "design", "ts": time.time()})
+        except Exception as exc:
+            self.replies.append({"text": f"LLM 设计 workflow '{name}' 失败：{exc}",
+                                 "kind": "design", "ts": time.time()})
 
     def _inspect(self, text: str) -> str:
         bb = self.bus.blackboard if self.bus is not None else None
@@ -342,9 +447,10 @@ class GodDialogUnit(ThreadedUnit):
     def _help(self) -> str:
         return (
             "可用命令（中英文皆可）：\n"
+            "  design <flow名> <JSON|自然语言>   —— 设计并注册新 workflow\n"
             "  status / monitor [字段] / 状态        —— 实时 workflow 快照（可只查 node/state/…）\n"
             "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
-            "  start <任务上下文> / 启动 ..            —— 非阻塞启动一个 workflow\n"
+            "  start [flow名] <任务上下文> / 启动 ..   —— 非阻塞启动一个 workflow\n"
             "  inspect <workflow_id> / 查看 ..         —— 查看某 workflow 黑板指标\n"
             "  talk <session_id> <内容> / 对话 ..      —— 与指定 opencode session 独立交互\n"
             "  config / 配置                           —— 当前设置\n"

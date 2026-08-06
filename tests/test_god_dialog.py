@@ -42,7 +42,7 @@ def test_command_monitor_and_events():
 
 def test_command_start_invokes_launcher():
     called = {}
-    d = GodDialogUnit(launcher=lambda ctx, title: called.update(
+    d = GodDialogUnit(launcher=lambda ctx, title, flow_sm=None: called.update(
         ctx=ctx, title=title) or {"workflow_id": "w9"})
     out = d.command("start 实现 add 函数")
     assert "w9" in out
@@ -154,3 +154,45 @@ def test_talk_forwards_to_session_client():
     while not d.replies and time.time() < deadline:
         time.sleep(0.02)
     assert any("session-reply" in r for r in d.drain_replies())
+
+
+DESIGN_SPEC = (
+    '{"entry": "understand", "nodes": ['
+    '{"id": "understand", "desc": "理解任务", "role": "developer", "type": "agent", "next": "design"},'
+    '{"id": "design", "desc": "方案设计", "role": "reviewer", "type": "judge", "next": "implement"},'
+    '{"id": "implement", "desc": "实现", "role": "developer", "type": "agent", "next": null}]}'
+)
+
+
+def test_design_compiles_and_registers_flow():
+    d = GodDialogUnit()
+    out = d.command(f"design myflow {DESIGN_SPEC}")
+    assert "myflow" in out
+    assert "understand" in out and "implement" in out
+    assert "myflow" in d.flows
+
+
+def test_design_invalid_spec_reports_error():
+    d = GodDialogUnit()
+    out = d.command('design bad {"entry": "a"}')
+    assert "设计失败" in out
+    assert "bad" not in d.flows
+
+
+def test_start_uses_designed_flow():
+    launched = {}
+    d = GodDialogUnit(launcher=lambda ctx, title, flow_sm=None: launched.update(
+        ctx=ctx, flow=flow_sm) or {"workflow_id": "w1"})
+    d.command(f"design myflow {DESIGN_SPEC}")
+    d.command("start myflow 做任务")
+    assert launched["ctx"].strip() == "做任务"
+    assert launched["flow"] is d.flows["myflow"]
+
+
+def test_compile_flow_full_regime_dict():
+    from regime_driver.app.god_dialog import compile_flow
+    full = ('{"version": "t", "flows": {"f": {"nodes": {"a": {"id": "a", "desc": "d",'
+            '"role": "developer", "type": "agent", "next": null}}}}, '
+            '"entry": {"flow": "f", "start_node": "a"}}')
+    sm = compile_flow("f", full)
+    assert sm.flow_path() == ["a"]

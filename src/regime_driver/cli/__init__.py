@@ -213,9 +213,9 @@ def dialog(
         bus=cluster.runtime.bus, llm=llm, session_client=client if live else None,
         settings_render=lambda: settings.model_dump().__str__()))
 
-    def launcher(ctx, title):
+    def launcher(ctx, title, flow_sm=None):
         wid = f"god-{len(cluster.workflows) + 1}"
-        cluster.add_workflow(wid, settings, sm)
+        cluster.add_workflow(wid, settings, flow_sm or sm)
         cluster.start()
         cluster.submit(wid, ctx, title)
         return {"workflow_id": wid}
