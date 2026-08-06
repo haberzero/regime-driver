@@ -28,8 +28,8 @@ class ThreadedUnit(StatechartUnit):
     one misbehaving unit cannot kill the others or the runtime.
     """
 
-    def __init__(self, unit_id: str, bus: Bus | None = None) -> None:
-        super().__init__(unit_id, bus)
+    def __init__(self, unit_id: str, bus: Bus | None = None, role: str = "governed") -> None:
+        super().__init__(unit_id, bus, role=role)
         self._q: queue.Queue[Signal] = queue.Queue()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -79,9 +79,17 @@ class Runtime:
     their own threads. `broadcast` delivers to every unit.
     """
 
-    def __init__(self, bus: Bus | None = None) -> None:
+    def __init__(
+        self,
+        bus: Bus | None = None,
+        max_meta_depth: int = 8,
+        enforce_invariants: bool = True,
+    ) -> None:
         self.bus = bus or Bus()
         self.units: dict[str, ThreadedUnit] = {}
+        self.meta_depth = 0
+        self.max_meta_depth = max_meta_depth
+        self.enforce_invariants = enforce_invariants
 
     def register(self, unit: ThreadedUnit) -> "Runtime":
         self.bus.register(unit)
@@ -89,6 +97,17 @@ class Runtime:
         return self
 
     def start(self) -> "Runtime":
+        if self.enforce_invariants:
+            from .runtime_invariants import enforce
+
+            result = enforce(list(self.units.values()),
+                             meta_depth=self.meta_depth,
+                             max_meta_depth=self.max_meta_depth)
+            if not result.ok:
+                raise RuntimeError(
+                    "root invariant violation; refusing to start: "
+                    + "; ".join(result.violations)
+                )
         for unit in self.units.values():
             unit.start()
         return self

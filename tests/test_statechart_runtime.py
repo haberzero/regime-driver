@@ -30,7 +30,7 @@ def test_unit_processes_delivered_signal_on_own_thread():
 
 def test_runtime_ping_pong_between_units():
     """Two units running on separate threads drive each other via signals."""
-    rt = Runtime()
+    rt = Runtime(enforce_invariants=False)
     done = threading.Event()
 
     # A: on RETRY, record who stopped it and signal completion
@@ -59,7 +59,7 @@ def test_runtime_ping_pong_between_units():
 
 
 def test_broadcast_delivers_to_all_units():
-    rt = Runtime()
+    rt = Runtime(enforce_invariants=False)
     got = []
     for name in ("u1", "u2"):
         u = ThreadedUnit(name)
@@ -75,7 +75,7 @@ def test_broadcast_delivers_to_all_units():
 
 
 def test_handler_error_does_not_kill_runtime():
-    rt = Runtime()
+    rt = Runtime(enforce_invariants=False)
     seen = []
     unit = ThreadedUnit("work")
 
@@ -105,7 +105,7 @@ def test_stop_joins_unit_thread():
 
 
 def test_post_unknown_target_returns_false():
-    rt = Runtime()
+    rt = Runtime(enforce_invariants=False)
     rt.register(ThreadedUnit("a"))
     assert rt.post("a", "nobody", SignalKind.STOP) is False
 

@@ -69,9 +69,10 @@ class StatechartUnit:
     route through it; units may also be driven purely by direct `on_signal` calls.
     """
 
-    def __init__(self, unit_id: str, bus: "Bus | None" = None) -> None:
+    def __init__(self, unit_id: str, bus: "Bus | None" = None, role: str = "governed") -> None:
         self.id = unit_id
         self.bus = bus
+        self.role = role  # governed | watchdog | human (see runtime invariants)
         self._handlers: dict[SignalKind, Handler] = {}
 
     # -- signal registration -------------------------------------------------
