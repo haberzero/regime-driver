@@ -219,6 +219,7 @@ class WorkflowUnit(ThreadedUnit):
         self._log("node_enter", node=node_id, type=node.type.value, role=node.role)
         self._node = node_id
         self._node_count += 1
+        self._write_metrics()
         # fresh node: reset per-node interrogation state (re-judge does not call this)
         self._dialogue_rounds = 0
         self._rounds = []
@@ -551,3 +552,15 @@ class WorkflowUnit(ThreadedUnit):
     def _log(self, event, **fields) -> None:
         if self.ledger is not None:
             self.ledger.append(event, **fields)
+
+    def _write_metrics(self) -> None:
+        """Publish live runtime metrics to the shared blackboard (if any)."""
+        bb = self.bus.blackboard if self.bus is not None else None
+        if bb is None:
+            return
+        bb.update(**{
+            "workflow.node": self._node,
+            "workflow.phase": self._phase,
+            "workflow.node_count": self._node_count,
+            "workflow.state": self._state,
+        })

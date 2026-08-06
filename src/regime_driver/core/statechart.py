@@ -176,6 +176,7 @@ class Bus:
         self._units: dict[str, StatechartUnit] = {}
         self._events: list[tuple[str, str, dict]] = []  # (src, event, fields)
         self._subs: dict[str, list[StatechartUnit]] = {}  # topic -> subscribers
+        self.blackboard = None  # a shared Blackboard (app layer) may be attached
 
     def register(self, unit: StatechartUnit) -> "Bus":
         self._units[unit.id] = unit

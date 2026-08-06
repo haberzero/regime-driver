@@ -96,10 +96,18 @@ class Runtime:
         self.meta_depth = 0
         self.max_meta_depth = max_meta_depth
         self.enforce_invariants = enforce_invariants
+        # attach a shared blackboard; blackboard changes publish pub/sub events
+        from .blackboard import Blackboard
+
+        self.blackboard = Blackboard(
+            publisher=lambda event, fields: self.bus.publish("blackboard", event, fields)
+        )
+        self.bus.blackboard = self.blackboard
 
     def register(self, unit: ThreadedUnit) -> "Runtime":
         self.bus.register(unit)
         self.units[unit.id] = unit
+        unit.bus = self.bus  # so the unit can emit/subscribe through the runtime
         # inject async routers so this unit's outbound signals are delivered to
         # the target unit's own queue (genuine parallel delivery).
         src = unit.id
