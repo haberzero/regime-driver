@@ -24,10 +24,15 @@ class ConstitutionUnit(ThreadedUnit):
     """A peer, intelligence-free state machine that watches working units.
 
     It subscribes to REPORT signals (payload: session_id, node, output, status,
-    latest_text) and broadcasts a STOP/ESCALATE control signal when a dead loop
-    or stall is detected. It holds the detection state (stall_since, fired sets)
-    just like the current Monitor, so behaviour is equivalent. It runs on the
-    runtime as a watchdog unit (role="watchdog").
+    latest_text) and to blackboard changes, and broadcasts a STOP control signal
+    when a dead loop, stall, or a *global* condition (run timeout, node budget,
+    cross-session heartbeat loss) is detected. It runs on the runtime as a
+    watchdog unit (role="watchdog").
+
+    Global checks read the shared blackboard (written by WorkflowUnit): total
+    run time vs `global_deadline_sec`, total nodes vs `max_global_nodes`, and a
+    stale-heartbeat cross-session stall. This gives the constitution a
+    multi-session / whole-run view, not just per-session.
     """
 
     def __init__(
@@ -37,17 +42,27 @@ class ConstitutionUnit(ThreadedUnit):
         repetition: RepetitionDetector | None = None,
         control_dst: str = "*",
         bus=None,
+        global_deadline_sec: float | None = None,
+        max_global_nodes: int | None = None,
+        heartbeat_stale_sec: float | None = None,
     ) -> None:
         super().__init__(unit_id, bus, role="watchdog")
         self.stall_sec = stall_sec
         self.repetition = repetition or RepetitionDetector()
         self.control_dst = control_dst or "*"
+        self.global_deadline_sec = global_deadline_sec
+        self.max_global_nodes = max_global_nodes
+        self.heartbeat_stale_sec = heartbeat_stale_sec
         self._last_output: dict[str, int] = {}
         self._stall_since: dict[str, float] = {}
         self._stall_fired: set[str] = set()
         self._dead_loop_fired: set[str] = set()
+        self._global_fired: set[str] = set()
         self.register(SignalKind.REPORT, self._on_report)
         self.register(SignalKind.STOP, lambda s: None)  # root invariant I2
+        if self.bus is not None:
+            self.on_event("blackboard.changed", self._on_blackboard_change)
+            self.subscribe("blackboard.changed")
 
     # -- report intake ------------------------------------------------------
 
@@ -61,17 +76,53 @@ class ConstitutionUnit(ThreadedUnit):
         )
         if event is not None:
             self._emit_control(event, p)
+        self._scan_global()
+
+    def _on_blackboard_change(self, payload: dict) -> None:
+        """A blackboard metric changed -> re-run the global scan."""
+        self._scan_global()
 
     def _emit_control(self, event: tuple[str, str], payload: dict) -> None:
         kind, detail = event
-        # both a dead loop and a stall warrant a stop; the `kind` is preserved in
-        # the audit event so a user can distinguish (and later map to NUDGE etc.)
         if self.control_dst == "*":
             self.broadcast(SignalKind.STOP, {"reason": detail, "kind": kind, "watchdog": True})
         else:
             self.send(self.control_dst, SignalKind.STOP,
                       {"reason": detail, "kind": kind, "watchdog": True})
         self.emit("watchdog_fire", kind=kind, session=payload.get("session_id"), detail=detail)
+
+    # -- global scan (reads the shared blackboard) ---------------------------
+
+    def _scan_global(self) -> None:
+        """Check whole-run conditions from the blackboard; STOP if violated."""
+        bb = self.bus.blackboard if self.bus is not None else None
+        if bb is None:
+            return
+        now = time.time()
+        # 1. global run timeout
+        if self.global_deadline_sec is not None:
+            start = bb.get("workflow.start_time")
+            if start and now - float(start) > self.global_deadline_sec:
+                if "global_timeout" not in self._global_fired:
+                    self._global_fired.add("global_timeout")
+                    self._emit_control(
+                        ("global_timeout", f"run exceeded {self.global_deadline_sec}s"), {})
+        # 2. global node budget
+        if self.max_global_nodes is not None:
+            count = int(bb.get("workflow.node_count") or 0)
+            if count > self.max_global_nodes:
+                if "global_budget" not in self._global_fired:
+                    self._global_fired.add("global_budget")
+                    self._emit_control(
+                        ("global_budget", f"node count {count} > {self.max_global_nodes}"), {})
+        # 3. cross-session heartbeat loss (workflow stopped reporting)
+        if self.heartbeat_stale_sec is not None:
+            hb = bb.get("workflow.heartbeat")
+            if hb and now - float(hb) > self.heartbeat_stale_sec:
+                if "heartbeat_loss" not in self._global_fired:
+                    self._global_fired.add("heartbeat_loss")
+                    self._emit_control(
+                        ("heartbeat_loss", f"workflow heartbeat stale {self.heartbeat_stale_sec}s"), {})
 
     def _detect(
         self,

@@ -106,6 +106,7 @@ class WorkflowUnit(ThreadedUnit):
         self._monitor_stop: str | None = None
         self._rejudge: str | None = None   # judge node awaiting a rework re-judge
         self._dialogue_rounds = 0          # ask_developer -> rework cycles
+        self._start_time: float | None = None
 
         # control handlers
         self.register(SignalKind.STOP, self._on_stop)
@@ -185,6 +186,8 @@ class WorkflowUnit(ThreadedUnit):
         self._node = self.sm.flow_path()[0]
         self._state = _ST_RUNNING
         self._node_count = 0
+        self._start_time = time.time()
+        self._write_metrics()
         self._enter_node(self._node)
 
     def result(self) -> tuple[Outcome, str | None, str | None] | None:
@@ -558,9 +561,12 @@ class WorkflowUnit(ThreadedUnit):
         bb = self.bus.blackboard if self.bus is not None else None
         if bb is None:
             return
+        now = time.time()
         bb.update(**{
             "workflow.node": self._node,
             "workflow.phase": self._phase,
             "workflow.node_count": self._node_count,
             "workflow.state": self._state,
+            "workflow.heartbeat": now,
+            "workflow.start_time": self._start_time or now,
         })
