@@ -30,7 +30,10 @@
 - [DONE] 阶段1 状态机泛化：事件驱动可交互单元 | verified: 134 passed(125+9) | 新增 core/statechart.py(StatechartUnit/Signal/Bus)，消息唤起回调机制，纯领域零回归
 - [DONE] 阶段2 并行运行时 + 双向信号投递 | verified: 140 passed(134+6) | 新增 app/statechart_runtime.py(ThreadedUnit/Runtime)，每单元独立线程+队列，异步投递线程安全，多单元互驱
 - [DONE] 阶段3 宪法状态机化(能力等价验证) | verified: 146 passed(140+6) | 新增 app/constitution_unit.py(ConstitutionUnit: 无智能 StatechartUnit，REPORT 信号喂入→死循环/卡死检测→STOP 信号广播)；现有 monitor 暂保留零回归
-- [ ] 阶段4 接入真实 driver + 用户自定义宪法 + 根不变量运行时强制（侵入性，替换 monitor 集成）
+- [DONE] 阶段4a 根安全不变量运行时强制 | verified: 155 passed(146+9) | app/runtime_invariants.py(I1至少一watchdog/I2不可关STOP通道/I3元迭代上界)；Runtime.start 默认强制，违反拒启动
+- [DONE] 阶段4b 用户自定义宪法可覆写 | verified: 157 passed(155+2) | 用户注 role=watchdog 自定义单元即可覆写默认宪法，满足根不变量
+- [DONE] 阶段4c 宪法信号链端到端(真实worker) | verified: 真实 abort | ConstitutionUnit 检测卡死→STOP→工作单元 abort 真实 session
+- [ ] 阶段4d 汇报技术发现(POST同步阻塞)+剩余集成(judge阻塞消除/混合循环需发送线程池)评估
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
