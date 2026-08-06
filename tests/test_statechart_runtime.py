@@ -110,6 +110,32 @@ def test_post_unknown_target_returns_false():
     assert rt.post("a", "nobody", SignalKind.STOP) is False
 
 
+def test_unit_send_routes_through_runtime_queue():
+    """A unit's send() delivers to the target's queue (async), not synchronously."""
+    rt = Runtime(enforce_invariants=False)
+    src = ThreadedUnit("src")
+    dst = ThreadedUnit("dst")
+    rt.register(src).register(dst)
+    src.send("dst", SignalKind.STOP, {"who": "src"})
+    # the signal should be in dst's queue (async), not yet handled
+    assert not dst._q.empty()
+    sig = dst._q.get_nowait()
+    assert sig.dst == "dst" and sig.get("who") == "src"
+
+
+def test_broadcast_routes_through_runtime_queues():
+    rt = Runtime(enforce_invariants=False)
+    src = ThreadedUnit("src")
+    a = ThreadedUnit("a")
+    b = ThreadedUnit("b")
+    rt.register(src).register(a).register(b)
+    src.broadcast(SignalKind.NUDGE, {"n": 1})
+    assert not a._q.empty()
+    assert not b._q.empty()
+    assert a._q.get_nowait().get("n") == 1
+    assert b._q.get_nowait().get("n") == 1
+
+
 # -- helpers ----------------------------------------------------------------
 
 def _sig(kind, src, **payload):

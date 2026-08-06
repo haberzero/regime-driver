@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import queue
 import threading
+from functools import partial
 
 from ..core.statechart import Bus, Signal, SignalKind, StatechartUnit
 
@@ -38,7 +39,7 @@ class ThreadedUnit(StatechartUnit):
 
     def start(self) -> "ThreadedUnit":
         if self._thread is not None and self._thread.is_alive():
-            return self
+            return self  # already running; never spawn a duplicate
         self._stop.clear()
         self._thread = threading.Thread(
             target=self._run, daemon=True, name=f"statechart-{self.id}"
@@ -50,6 +51,11 @@ class ThreadedUnit(StatechartUnit):
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=timeout)
+            if self._thread.is_alive():
+                # still blocked (e.g. in a long send_message); leave it to die.
+                # Do NOT clear _thread so a later start() cannot spawn a duplicate
+                # while this one is still alive.
+                return
             self._thread = None
 
     def deliver(self, signal: Signal) -> None:
@@ -94,6 +100,11 @@ class Runtime:
     def register(self, unit: ThreadedUnit) -> "Runtime":
         self.bus.register(unit)
         self.units[unit.id] = unit
+        # inject async routers so this unit's outbound signals are delivered to
+        # the target unit's own queue (genuine parallel delivery).
+        src = unit.id
+        unit._router = partial(self.post, src)
+        unit._router_broadcast = partial(self.broadcast, src)
         return self
 
     def start(self) -> "Runtime":

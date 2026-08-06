@@ -106,6 +106,7 @@ class WorkflowUnit(ThreadedUnit):
         self.register(SignalKind.STOP, self._on_stop)
         self.register(SignalKind.PAUSE, lambda s: None)
         self.register(SignalKind.RESUME, lambda s: None)
+        self.register(SignalKind.NOTIFY, self._on_submit)  # start a run
 
     # -- lifecycle (ThreadedUnit override) -----------------------------------
 
@@ -118,7 +119,13 @@ class WorkflowUnit(ThreadedUnit):
                 now = time.monotonic()
                 if now - last_poll >= self.poll_sec:
                     last_poll = now
-                    self._step()
+                    try:
+                        self._step()
+                    except Exception as exc:
+                        self._log("workflow_step_error", node=self._node, err=str(exc))
+                        self._state = _ST_ERROR
+                        self._result = (Outcome.ERROR, self._node, f"workflow step error: {exc}")
+                        break
             if self._state in (_ST_DONE, _ST_ABORTED, _ST_ERROR):
                 break
             time.sleep(min(self.poll_sec, 0.1))
@@ -149,7 +156,18 @@ class WorkflowUnit(ThreadedUnit):
     # -- public start ---------------------------------------------------------
 
     def submit(self, context: str, title: str = "regime-workflow") -> None:
-        """Begin running the flow on a fresh anchor session (non-blocking)."""
+        """Request the flow to run on the workflow's own thread (non-blocking).
+
+        Enqueues a start signal so the initial dispatch happens on the workflow
+        thread, not the caller's (avoids blocking the caller on a long send).
+        """
+        self.deliver(Signal(SignalKind.NOTIFY, "user", self.id,
+                            {"context": context, "title": title}))
+
+    def _on_submit(self, signal: Signal) -> None:
+        self._begin(signal.get("context", ""), signal.get("title", "regime-workflow"))
+
+    def _begin(self, context: str, title: str) -> None:
         self._goal = context
         self._context = context
         self._env = {"context": context, "report": "", "ok": True, "message": ""}
@@ -351,8 +369,7 @@ class WorkflowUnit(ThreadedUnit):
         if self._state == _ST_ABORTED:  # transition may have been interrupted
             return
         self.sessions.advance_round(self._anchor)
-        if self._check_session_capacity(self.sessions.get(self._anchor), next_node):
-            pass
+        self._check_session_capacity(self.sessions.get(self._anchor), next_node)
         self._phase = _PH_NONE
         self._enter_node(next_node)
 
@@ -484,8 +501,8 @@ class WorkflowUnit(ThreadedUnit):
                 self.session_rotator.rotate_with_handover(
                     prev_role, summary=f"节点 {prev_node} 完成，流转到 {next_node}。",
                     handoff_kind="normal")
-        except Exception:
-            pass
+        except Exception as exc:
+            self._log("transition_error", from_node=prev_node, to_node=next_node, err=str(exc))
 
     def _check_session_capacity(self, dev, node_id) -> bool:
         try:
@@ -502,8 +519,8 @@ class WorkflowUnit(ThreadedUnit):
                     summary=f"节点 {node_id}，上下文已用 {usage:.0%}，切换会话。",
                     handoff_kind="urgent" if action == "handoff_now" else "normal")
                 return True
-        except Exception:
-            pass
+        except Exception as exc:
+            self._log("session_capacity_error", node=node_id, err=str(exc))
         return False
 
     def _log(self, event, **fields) -> None:

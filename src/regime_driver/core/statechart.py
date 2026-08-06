@@ -74,6 +74,11 @@ class StatechartUnit:
         self.bus = bus
         self.role = role  # governed | watchdog | human (see runtime invariants)
         self._handlers: dict[SignalKind, Handler] = {}
+        # async outbound routers, injected by a Runtime so signals are delivered
+        # to a target unit's own queue (genuine parallelism) instead of being
+        # dispatched synchronously on the caller's thread.
+        self._router: Callable[[str, SignalKind, dict | None], None] | None = None
+        self._router_broadcast: Callable[[SignalKind, dict | None], None] | None = None
 
     # -- signal registration -------------------------------------------------
 
@@ -98,10 +103,25 @@ class StatechartUnit:
     # -- outbound ------------------------------------------------------------
 
     def send(self, dst: str, kind: SignalKind, payload: dict | None = None) -> None:
-        """Send a signal to another unit via the bus (requires a bus)."""
-        if self.bus is None:
+        """Send a signal to another unit.
+
+        If a Runtime injected an async router (units running in parallel), the
+        signal is delivered to the target's queue (non-blocking). Otherwise it
+        falls back to synchronous bus dispatch.
+        """
+        if self._router is not None:
+            self._router(dst, kind, payload)
             return
-        self.bus.dispatch(self.id, dst, kind, payload)
+        if self.bus is not None:
+            self.bus.dispatch(self.id, dst, kind, payload)
+
+    def broadcast(self, kind: SignalKind, payload: dict | None = None) -> None:
+        """Send a signal to every unit (async when on a runtime, else sync bus)."""
+        if self._router_broadcast is not None:
+            self._router_broadcast(kind, payload)
+            return
+        if self.bus is not None:
+            self.bus.broadcast(self.id, kind, payload)
 
     def emit(self, event: str, **fields) -> None:
         """Emit an audit event onto the bus (if any)."""

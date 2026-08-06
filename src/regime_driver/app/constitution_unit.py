@@ -67,10 +67,7 @@ class ConstitutionUnit(ThreadedUnit):
         # both a dead loop and a stall warrant a stop; the `kind` is preserved in
         # the audit event so a user can distinguish (and later map to NUDGE etc.)
         if self.control_dst == "*":
-            if self.bus is not None:
-                self.bus.broadcast(
-                    self.id, SignalKind.STOP, {"reason": detail, "kind": kind, "watchdog": True}
-                )
+            self.broadcast(SignalKind.STOP, {"reason": detail, "kind": kind, "watchdog": True})
         else:
             self.send(self.control_dst, SignalKind.STOP,
                       {"reason": detail, "kind": kind, "watchdog": True})
