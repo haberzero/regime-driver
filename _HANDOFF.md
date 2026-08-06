@@ -81,11 +81,17 @@
 
 ## 4. 后续工作候选（按优先级）
 
-1. **P1 慢 judge 根因排查（实验发现，未完成）**：官方 `deepseek-api/deepseek-v4-flash` 基线 0.6-0.9s、judge 回合仅 4.8s（`ops/probe_judge_latency.py` 实测），**但完整 E2E 中 judge 常卡数分钟**。已排除 provider 免费排队（系统全用官方 API）。疑似：复杂 judge prompt 偶发长推理 / 并发排队 / read_messages 阻塞主循环（30s timeout）。`default_deadline_sec` 节点超时兜底存在但真实 E2E 未及时触发，待查 `_step` 是否被 read_messages 阻塞。
-2. **P1 CLI 多 workflow/可视化接入**：CLI `regime run` 仍单 workflow（StatechartDriver）；多 workflow（StatechartCluster）+ telemetry 仅脚本/API。用户明确"CLI 之后再优化"。
-3. **P2 工作区物理隔离**：`workspace_for()` 已注入指令提示，但 worker 挂载物理隔离未调（需 worker 重建）。
-4. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
-5. **P3 其它**：`_deadline` 字段仍恒为空；`main_loop` flow 不可达（死配置）。
+1. **P1 排查 E2E 卡顿（下个 session 首要任务）**：官方 API judge 回合仅 4.8s（`ops/probe_judge_latency.py`），但完整 E2E 中 judge 常卡数分钟。已排除 provider 免费排队（系统全用官方 API）。**规划（用户指导）**：
+   - **完善 probe**：`ops/probe_latency.py`/`probe_judge_latency.py` 扩展为"全流程节点耗时剖析"——测每个 node（agent/judge）的完整耗时构成（POST 等待 vs 原生 `time.completed` 生成 vs 轮询间隔），定位卡在哪一步。
+   - **利用 opencode 原生内省/调试机制**：调研并使用 `/session/{id}`（tokens/time/status）、`/session/status`（全局 busy/idle map）、消息 `time.completed`/`finish`/`error`；确认是否有 SSE/事件流/运行时日志可观测生成过程。据此定位"judge 卡"是 ①复杂 prompt 偶发长推理 ②并发排队 ③`read_messages`(30s timeout)阻塞主循环使 `default_deadline_sec` 节点超时未及时触发。
+2. **P1 mock 机制（用户提出思路，非本次工作）**：做内部功能检查时，设计**可注入的 mock 层**避免 API/LLM 响应不确定性，加速调试：
+   - 正式化现有测试内 FakeClient → 可配置 mock 客户端（确定性脚本化回复 / 延迟注入 / 故障注入：慢、卡死、超时、错误）。
+   - 或 mock worker 运行时（`ops/mock_worker.py`），让状态机/并发/超时/监控逻辑在**无网络/无 LLM** 下快速、确定地跑。
+   - 价值：调试状态机、并发、超时、宪法检测不依赖真实 LLM 随机性。
+3. **P1 CLI 多 workflow/可视化接入**：CLI `regime run` 仍单 workflow（StatechartDriver）；多 workflow（StatechartCluster）+ telemetry 仅脚本/API。用户明确"CLI 之后再优化"。
+4. **P2 工作区物理隔离**：`workspace_for()` 已注入指令提示，但 worker 挂载物理隔离未调（需 worker 重建）。
+5. **P3 上帝对话框演进**：事件总线/邮箱、代际号、自省回路（远期，见 PLANNING）。
+6. **P3 其它**：`_deadline` 字段仍恒为空；`main_loop` flow 不可达（死配置）。
 
 **实验结论（2026-08-06）**：官方 API 基线快 4-6 倍于免费 provider（免费有排队）。系统已全用官方 API（settings.model/meta_model 默认 `deepseek-api/deepseek-v4-flash`）。`ops/probe_latency.py`/`probe_judge_latency.py` 可复用。
 
