@@ -28,7 +28,8 @@
 - [DONE] P1 自定义角色 ROTATE 流转策略端到端验证 | verified: 真实 worker 实跑 | 自建 agent-only 流程，RolePolicy(transition_mode=ROTATE) 的 reviewer 在 b→c 流转时 ledger 记录 decision=rotate，会话真实换新
 - [DONE] 架构方向研究：宪法层→对等多状态机网络 | 产出 docs/ARCHITECTURE-statechart-network.md | 可行性:高(监督控制理论)；决策点已定案(渐进+线程+根不变量运行时强制+保留默认宪法)
 - [DONE] 阶段1 状态机泛化：事件驱动可交互单元 | verified: 134 passed(125+9) | 新增 core/statechart.py(StatechartUnit/Signal/Bus)，消息唤起回调机制，纯领域零回归
-- [ ] 阶段2 并行运行时 + 双向事件/命令总线（线程）
+- [DONE] 阶段2 并行运行时 + 双向信号投递 | verified: 140 passed(134+6) | 新增 app/statechart_runtime.py(ThreadedUnit/Runtime)，每单元独立线程+队列，异步投递线程安全，多单元互驱
+- [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+协议）
 - [ ] 阶段3 宪法状态机化（重写 monitor/gate 为无智能状态机+通信协议）
 - [ ] 阶段4 用户自定义宪法（注册接口 + 根不变量由运行时强制）
 - [ ] P3 上帝对话框演进（远期）
