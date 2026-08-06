@@ -196,6 +196,32 @@ def test_dialogue_rounds_exhausted():
     assert "dialogue rounds exhausted" in detail
 
 
+def test_dispatch_is_non_blocking():
+    """_dispatch returns immediately even if the remote send would block."""
+    import threading
+    import time as _t
+
+    class SlowClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            _t.sleep(0.5)  # simulate a slow pending model response
+            super().send_message(sid, text, agent)
+
+    s = Settings(monitor_enabled=False)
+    sm = load_regime()
+    client = SlowClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    t0 = _t.monotonic()
+    unit._dispatch("s1", "prompt", "developer")  # must return immediately
+    elapsed = _t.monotonic() - t0
+    assert elapsed < 0.4, f"_dispatch blocked for {elapsed:.2f}s"
+    # wait for the pool to actually deliver, then ensure it reached the client
+    deadline = _t.time() + 2
+    while not client.msgs and _t.time() < deadline:
+        _t.sleep(0.02)
+    unit.stop()
+    assert client.msgs, "dispatched send never reached the client"
+
+
 def _sig(unit, src, kind, payload):
     from regime_driver.core.statechart import Signal
     return Signal(kind, src, unit.id, payload)

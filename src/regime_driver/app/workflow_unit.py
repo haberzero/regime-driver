@@ -16,6 +16,7 @@ and the constitution can interrupt it with a STOP signal (abort).
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from ..core.branching import ConditionError, resolve_branch
 from ..core.handoff import Handoff, detect_loop
@@ -79,6 +80,10 @@ class WorkflowUnit(ThreadedUnit):
         )
         self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)
+        # dispatch pool: blocking send_message (up to the client timeout) runs on
+        # a worker thread so the mixed loop never blocks and stays responsive to
+        # STOP even while a prompt is being generated remotely.
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dispatch")
 
         # run state
         self._state = _ST_IDLE
@@ -109,6 +114,10 @@ class WorkflowUnit(ThreadedUnit):
         self.register(SignalKind.NOTIFY, self._on_submit)  # start a run
 
     # -- lifecycle (ThreadedUnit override) -----------------------------------
+
+    def stop(self, timeout: float = 2.0) -> None:
+        super().stop(timeout)
+        self._executor.shutdown(wait=False, cancel_futures=True)
 
     def _run(self) -> None:
         """Single-threaded mixed loop: drain signals + step the node machine."""
@@ -183,6 +192,22 @@ class WorkflowUnit(ThreadedUnit):
 
     # -- stepping -------------------------------------------------------------
 
+    def _dispatch(self, sid: str, text: str, agent: str) -> None:
+        """Dispatch a prompt/send to the pool; never blocks the mixed loop.
+
+        The remote session generates asynchronously; this unit observes progress
+        by polling the session. A send failure is logged and left to the
+        constitution's stall detection to catch (no progress -> STOP).
+        """
+
+        def _send() -> None:
+            try:
+                self.client.send_message(sid, text, agent)
+            except Exception as exc:
+                self._log("dispatch_error", session=sid, err=str(exc))
+
+        self._executor.submit(_send)
+
     def _step(self) -> None:
         if self._phase == _PH_AGENT:
             self._step_agent()
@@ -215,7 +240,7 @@ class WorkflowUnit(ThreadedUnit):
         sid = self.sessions.ensure(role).session_id
         instruction = self._build_instruction(node_id, self._context, role)
         try:
-            self.client.send_message(sid, instruction, self.sessions.agent_for(role))
+            self._dispatch(sid, instruction, self.sessions.agent_for(role))
         except Exception as exc:
             self._state = _ST_ERROR
             self._result = (Outcome.ERROR, node_id, str(exc))
@@ -241,7 +266,7 @@ class WorkflowUnit(ThreadedUnit):
             self._extra_context, self._retry_feedback, self._valid_targets,
         )
         try:
-            self.client.send_message(reviewer.session_id, prompt, reviewer.agent)
+            self._dispatch(reviewer.session_id, prompt, reviewer.agent)
         except Exception as exc:
             self._state = _ST_ERROR
             self._result = (Outcome.ERROR, node_id, str(exc))
@@ -332,8 +357,8 @@ class WorkflowUnit(ThreadedUnit):
                 return
             work_sid = self.sessions.ensure("developer").session_id
             try:
-                self.client.send_message(work_sid, inquiry.inquiry_text(),
-                                         self.sessions.agent_for("developer"))
+                self._dispatch(work_sid, inquiry.inquiry_text(),
+                               self.sessions.agent_for("developer"))
             except Exception as exc:
                 self._state = _ST_ERROR
                 self._result = (Outcome.ERROR, self._node, str(exc))
