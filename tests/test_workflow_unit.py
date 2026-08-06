@@ -196,6 +196,28 @@ def test_dialogue_rounds_exhausted():
     assert "dialogue rounds exhausted" in detail
 
 
+def test_heartbeat_updates_per_step():
+    """The workflow's blackboard heartbeat reflects liveness (refreshes each step)."""
+    from regime_driver.core.statechart import Bus
+    from regime_driver.app.blackboard import Blackboard
+
+    bus = Bus()
+    bb = Blackboard(publisher=lambda ev, f: bus.publish("blackboard", ev, f))
+    bus.blackboard = bb
+    s = Settings(monitor_enabled=False, poll_sec=0.1)
+    sm = load_regime()
+    client = FakeClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1, bus=bus)
+    unit.start()
+    unit.submit("任务")
+    time.sleep(0.5)
+    hb1 = unit.bus.blackboard.get("workflow.heartbeat")
+    time.sleep(0.6)
+    hb2 = unit.bus.blackboard.get("workflow.heartbeat")
+    unit.stop()
+    assert hb1 and hb2 and hb2 > hb1  # heartbeat advanced -> workflow is alive
+
+
 def test_dispatch_is_non_blocking():
     """_dispatch returns immediately even if the remote send would block."""
     import threading

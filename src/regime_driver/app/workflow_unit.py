@@ -217,10 +217,17 @@ class WorkflowUnit(ThreadedUnit):
         self._executor.submit(_send)
 
     def _step(self) -> None:
+        self._touch_heartbeat()
         if self._phase == _PH_AGENT:
             self._step_agent()
         elif self._phase == _PH_JUDGE:
             self._step_judge()
+
+    def _touch_heartbeat(self) -> None:
+        """Update the liveness heartbeat each step (per-workflow blackboard key)."""
+        bb = self.bus.blackboard if self.bus is not None else None
+        if bb is not None:
+            bb.set(f"{self.id}.heartbeat", time.time())
 
     def _enter_node(self, node_id: str) -> None:
         node = self.sm.node(node_id)
