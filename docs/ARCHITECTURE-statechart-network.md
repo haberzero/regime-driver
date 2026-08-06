@@ -1,11 +1,11 @@
 # 架构：从"分层宪法层"到"对等多状态机网络"（Statechart Network）
 
-> 版本：v1.0（已实施）
+> 版本：v1.1（已实施 + 消息机制完善）
 > 日期：2026-08-06
 > 状态：**全部阶段已落地并验证**。阶段1(信号协议)+阶段2(并行运行时)+阶段3(宪法状态机)+
 > 阶段4(根不变量+可覆写+E2E)已完成；彻底重构(WorkflowUnit 单线程混合循环 + StatechartDriver
-> 集成 + 删除旧 RegimeDriver/monitor/meta_analyzer/segment_runner)已通过真实 worker 多轮 COMPLETE。
-> 141 测试全绿。本文档后续为最终架构参考。
+> 集成 + 删除旧模块)已通过真实 worker 多轮 COMPLETE。消息机制完善：线程池消除阻塞、
+> 主题订阅/推送、黑板全局状态。153 测试全绿。
 
 ---
 
@@ -210,3 +210,21 @@ StatechartUnit {
 "宪法层不特殊，只是无智能体的独立状态机，通过信号与其它状态机交互"。可行性关键在
 **(a) 状态机从遍历器泛化为事件驱动单元**、**(b) 引入双向消息/命令总线**、
 **(c) 把根安全不变量从宪法层剥离到运行时**。按阶段 1→4 渐进实施，风险可控、每阶段可验证。
+---
+
+## 10. 消息/信号机制总览（v1.1 完善）
+
+| 机制 | 位置 | 说明 |
+|---|---|---|
+| 同步点对点 | `Bus.dispatch` | 同步调目标 `on_signal` |
+| 异步点对点 | `Runtime.post` / 单元 `send`（经 `_router`） | 投递到目标队列，看门狗真并行 |
+| 异步广播 | `Runtime.broadcast` / 单元 `broadcast` | 投递到所有单元队列 |
+| 主题订阅/推送 | `Bus.subscribe/publish` + `StatechartUnit.on_event/subscribe` | `emit` 升级为可订阅主题事件（观测/遥测） |
+| 黑板/全局状态 | `app/blackboard.py`（挂到 `Bus.blackboard`） | 线程安全共享键值；变更发 `blackboard.changed` 订阅事件 |
+| 消除阻塞 | `WorkflowUnit._dispatch`（`ThreadPoolExecutor`） | 阻塞 `send_message` 丢池线程，混合循环不阻塞、可响应 STOP |
+| 审计日志 | `Bus.publish`（保留 `events`） | 所有事件同时记审计 |
+
+### 关键设计约束
+- 单元经 `Runtime` 出站信号默认为**异步**（`_router` 注入），保证并行性。
+- `subscribe` 需在 `register` 之后（`register` 设置 `unit.bus`）。
+- 黑板变更即事件：工作流写指标 → 宪法/遥测读黑板 + 订阅 `blackboard.changed`。
