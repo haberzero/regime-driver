@@ -113,7 +113,7 @@ def test_audit_event_logged_on_fire():
 def _make_cons(bus, **kw):
     from regime_driver.app.blackboard import Blackboard
     cons = ConstitutionUnit(stall_sec=999, bus=bus, **kw)
-    work = StatechartUnit("work")
+    work = StatechartUnit("workflow")
     work.register(SignalKind.STOP, lambda s: None)
     bb = Blackboard(publisher=lambda ev, f: bus.publish("blackboard", ev, f))
     bus.blackboard = bb
@@ -125,7 +125,7 @@ def test_global_timeout_triggers_stop():
     bus = Bus()
     cons, bb = _make_cons(bus, global_deadline_sec=0.1)
     stopped = []
-    work = StatechartUnit("work")
+    work = StatechartUnit("workflow")
     work.register(SignalKind.STOP, lambda s: stopped.append(s.get("kind")))
     bus.register(work)
     bb.set("workflow.start_time", time.time() - 1.0)  # started long ago
@@ -137,7 +137,7 @@ def test_global_node_budget_triggers_stop():
     bus = Bus()
     cons, bb = _make_cons(bus, max_global_nodes=3)
     stopped = []
-    work = StatechartUnit("work")
+    work = StatechartUnit("workflow")
     work.register(SignalKind.STOP, lambda s: stopped.append(s.get("kind")))
     bus.register(work)
     bb.set("workflow.node_count", 5)
@@ -149,7 +149,7 @@ def test_global_heartbeat_loss_triggers_stop():
     bus = Bus()
     cons, bb = _make_cons(bus, heartbeat_stale_sec=0.1)
     stopped = []
-    work = StatechartUnit("work")
+    work = StatechartUnit("workflow")
     work.register(SignalKind.STOP, lambda s: stopped.append(s.get("kind")))
     bus.register(work)
     bb.set("workflow.heartbeat", time.time() - 5.0)  # stale heartbeat
@@ -162,7 +162,7 @@ def test_global_scan_healthy_no_stop():
     cons, bb = _make_cons(bus, global_deadline_sec=100, max_global_nodes=100,
                           heartbeat_stale_sec=100)
     stopped = []
-    work = StatechartUnit("work")
+    work = StatechartUnit("workflow")
     work.register(SignalKind.STOP, lambda s: stopped.append(1))
     bus.register(work)
     bb.set("workflow.start_time", time.time())
@@ -176,7 +176,7 @@ def test_global_fires_once():
     bus = Bus()
     cons, bb = _make_cons(bus, global_deadline_sec=0.1)
     stopped = []
-    work = StatechartUnit("work")
+    work = StatechartUnit("workflow")
     work.register(SignalKind.STOP, lambda s: stopped.append(1))
     bus.register(work)
     bb.set("workflow.start_time", time.time() - 2.0)

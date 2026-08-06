@@ -562,11 +562,12 @@ class WorkflowUnit(ThreadedUnit):
         if bb is None:
             return
         now = time.time()
+        p = f"{self.id}."  # per-workflow key prefix (multi-workflow isolation)
         bb.update(**{
-            "workflow.node": self._node,
-            "workflow.phase": self._phase,
-            "workflow.node_count": self._node_count,
-            "workflow.state": self._state,
-            "workflow.heartbeat": now,
-            "workflow.start_time": self._start_time or now,
+            f"{p}node": self._node,
+            f"{p}phase": self._phase,
+            f"{p}node_count": self._node_count,
+            f"{p}state": self._state,
+            f"{p}heartbeat": now,
+            f"{p}start_time": self._start_time or now,
         })

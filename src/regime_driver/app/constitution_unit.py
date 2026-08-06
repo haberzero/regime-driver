@@ -75,54 +75,70 @@ class ConstitutionUnit(ThreadedUnit):
             latest_text=p.get("latest_text", ""),
         )
         if event is not None:
-            self._emit_control(event, p)
+            # local detection -> STOP the reporting workflow (point-to-point)
+            self._emit_control(event, p, dst=signal.src or self.control_dst)
         self._scan_global()
 
     def _on_blackboard_change(self, payload: dict) -> None:
         """A blackboard metric changed -> re-run the global scan."""
         self._scan_global()
 
-    def _emit_control(self, event: tuple[str, str], payload: dict) -> None:
+    def _emit_control(self, event: tuple[str, str], payload: dict,
+                      dst: str | None = None) -> None:
         kind, detail = event
-        if self.control_dst == "*":
+        target = dst or self.control_dst
+        if target == "*":
             self.broadcast(SignalKind.STOP, {"reason": detail, "kind": kind, "watchdog": True})
         else:
-            self.send(self.control_dst, SignalKind.STOP,
+            self.send(target, SignalKind.STOP,
                       {"reason": detail, "kind": kind, "watchdog": True})
         self.emit("watchdog_fire", kind=kind, session=payload.get("session_id"), detail=detail)
 
     # -- global scan (reads the shared blackboard) ---------------------------
 
     def _scan_global(self) -> None:
-        """Check whole-run conditions from the blackboard; STOP if violated."""
+        """Check whole-run conditions across all workflows; stop the offender."""
         bb = self.bus.blackboard if self.bus is not None else None
         if bb is None:
             return
         now = time.time()
-        # 1. global run timeout
-        if self.global_deadline_sec is not None:
-            start = bb.get("workflow.start_time")
-            if start and now - float(start) > self.global_deadline_sec:
-                if "global_timeout" not in self._global_fired:
-                    self._global_fired.add("global_timeout")
-                    self._emit_control(
-                        ("global_timeout", f"run exceeded {self.global_deadline_sec}s"), {})
-        # 2. global node budget
-        if self.max_global_nodes is not None:
-            count = int(bb.get("workflow.node_count") or 0)
-            if count > self.max_global_nodes:
-                if "global_budget" not in self._global_fired:
-                    self._global_fired.add("global_budget")
-                    self._emit_control(
-                        ("global_budget", f"node count {count} > {self.max_global_nodes}"), {})
-        # 3. cross-session heartbeat loss (workflow stopped reporting)
-        if self.heartbeat_stale_sec is not None:
-            hb = bb.get("workflow.heartbeat")
-            if hb and now - float(hb) > self.heartbeat_stale_sec:
-                if "heartbeat_loss" not in self._global_fired:
-                    self._global_fired.add("heartbeat_loss")
-                    self._emit_control(
-                        ("heartbeat_loss", f"workflow heartbeat stale {self.heartbeat_stale_sec}s"), {})
+        workflows = self._workflow_ids(bb)
+        for wid in workflows:
+            p = f"{wid}."
+            # 1. per-workflow run timeout
+            if self.global_deadline_sec is not None:
+                start = bb.get(f"{p}start_time")
+                if start and now - float(start) > self.global_deadline_sec:
+                    self._fire_once(f"global_timeout:{wid}", wid,
+                                    ("global_timeout", f"{wid} exceeded {self.global_deadline_sec}s"))
+            # 2. per-workflow node budget
+            if self.max_global_nodes is not None:
+                count = int(bb.get(f"{p}node_count") or 0)
+                if count > self.max_global_nodes:
+                    self._fire_once(f"global_budget:{wid}", wid,
+                                    ("global_budget", f"{wid} node count {count} > {self.max_global_nodes}"))
+            # 3. per-workflow heartbeat loss
+            if self.heartbeat_stale_sec is not None:
+                hb = bb.get(f"{p}heartbeat")
+                if hb and now - float(hb) > self.heartbeat_stale_sec:
+                    self._fire_once(f"heartbeat_loss:{wid}", wid,
+                                    ("heartbeat_loss", f"{wid} heartbeat stale {self.heartbeat_stale_sec}s"))
+
+    def _workflow_ids(self, bb) -> list[str]:
+        """Derive workflow ids from blackboard keys (e.g. 'workflow-1.heartbeat')."""
+        ids = set()
+        for key in bb.keys():
+            if "." in key:
+                wid, _, metric = key.rpartition(".")
+                if metric in ("node", "phase", "node_count", "state", "heartbeat", "start_time"):
+                    ids.add(wid)
+        return sorted(ids)
+
+    def _fire_once(self, guard: str, wid: str, event: tuple[str, str]) -> None:
+        if guard in self._global_fired:
+            return
+        self._global_fired.add(guard)
+        self._emit_control(event, {}, dst=wid)
 
     def _detect(
         self,
