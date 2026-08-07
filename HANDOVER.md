@@ -170,20 +170,26 @@
 **P0 — A 路验证收尾（M3）**
 - [ ] **T1. 交互式验证 god agent**：在可交互环境用 `opencode`（god agent）实际驱动 regime——
       status → run → monitor(sessions/events) → session send 全链路，确认插件工具 + 权限门禁 + 手册可用。
+      （**2026-08-07：本环境 `opencode run` 挂起，无法做交互验证，留待交互环境**）
 - [ ] **T2. 依验证修**：修正 `.opencode/agent/god.md` 提示词 / `.opencode/plugins/regime-god.js` 工具的偏差。
 
-**P1 — 上帝对话框非阻塞作业管理（契约红线）**
-- [ ] **T3. `regime run/run-many --async`**：submit 立即返回 handle → `regime job status <id>` / `regime job list`
+**P1 — 上帝对话框非阻塞作业管理（契约红线）✅**
+- [x] **T3. `regime run/run-many --async`**：submit 立即返回 handle → `regime job status <id>` / `regime job list`
       （作业注册表：文件/进程），让控制命令真正"非阻塞"（DESIGN-god-dialog-carrier §5.2 红线）。
-- [ ] **T4. 插件加 `regime_job_status` / `regime_job_list`** 工具；手册补 async 用法。
+      实现：`infra/jobs.py`（JobRegistry）+ CLI `--async` + `job list/status`；真实冒烟通过。
+- [x] **T4. 插件加 `regime_job_status` / `regime_job_list`** 工具；手册补 async 用法。
 
-**P2 — 细粒度权限策略**
-- [ ] **T5. 权限策略层**：写操作分级（read/run/interact/clean），CLI 与对话框统一门禁（对接 allow_write）。
+**P2 — 细粒度权限策略 ✅**
+- [x] **T5. 权限策略层**：写操作分级（read/run/interact/clean），CLI 与对话框统一门禁（对接 allow_write）。
+      实现：`infra/permission.py`（PermissionLevel + classify + require）+ CLI `--perm` + 插件 perm 参数。
 
 **P3 — 收尾 / 演进**
-- [ ] **T6. WORK_PLAN2 H2 收拢**：其余测试 FakeClient → MockClient（谨慎，防行为漂移）。
-- [ ] **T7. 文档同步**：`docs/howto/god-dialog.md` 更新为 opencode 载体版；`GOD_DIALOG_OPERATOR.md` 随命令变更同步。
+- [x] **T6. WORK_PLAN2 H2 收拢**：评估后**决定不转** FakeClient → MockClient（MockClient 非单测 fakes 的
+      drop-in，防行为漂移；理由记 TASK.md）。`test_blackboard` 已用 MockClient。
+- [x] **T7. 文档同步**：`docs/howto/god-dialog.md` 更新为 opencode 载体版；`GOD_DIALOG_OPERATOR.md` 随命令变更同步。
 - [ ] **T8. B 路演进**：GodDialogUnit 对运行中 workflow/session 更深交互与回收。
+
+> **2026-08-07 成果**：T3/T4/T5/T7 完成，T6 评估定案，T1/T2 待交互环境。测试基线 207。分支 `autonomous-2026-08-05`。
 
 **历史里程碑（已完成，参考）**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 
