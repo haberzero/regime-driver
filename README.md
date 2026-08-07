@@ -45,3 +45,13 @@ conda run -n regime-driver pytest
 
 导航与阅读顺序见 `docs/README.md`；书写准则见 `docs/WRITING_GUIDE.md`；已知限制见 `docs/KNOWN_LIMITS.md`。
 改进工作清单见 `WORK_PLAN.md`。
+
+## 配置与密钥
+
+**配置文件**：见 `config.example.toml`（含全部字段说明）。用法：`regime run "任务" --config config.toml`。
+优先级：默认值 < 配置文件 < 环境变量(`REGIME_<字段>`) < CLI 参数。
+
+**环境变量覆盖**：任意 Settings 字段可用 `REGIME_<大写字段>` 覆盖，如 `REGIME_MODEL`、`REGIME_STALL_SEC`、`REGIME_POLL_SEC`。
+
+**模型密钥**：worker 从 `~/.local/share/opencode/auth.json`（挂载进容器）读取凭据，**不通过 REGIME_* 注入**。
+当前用 `deepseek-api/deepseek-v4-flash`（官方）；`DEEPSEEK_API_KEY` 按 opencode 全局配置注入，密钥零入库。

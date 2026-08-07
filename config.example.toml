@@ -1,0 +1,38 @@
+# regime-driver 配置示例（config.example.toml）
+#
+# 用法：复制为 config.toml 后 `regime run "任务" --config config.toml`。
+# 优先级（低→高）：默认值 < 配置文件 < 环境变量(REGIME_<字段>) < CLI 参数。
+# 所有字段也可用环境变量 `REGIME_<大写字段名>` 覆盖，例如 REGIME_MODEL、REGIME_STALL_SEC。
+
+# --- worker / 模型 ---
+base_url = "http://127.0.0.1:4097"          # worker opencode server URL
+model = "deepseek-api/deepseek-v4-flash"    # 所有 session 的模型
+request_timeout = 600.0                      # 每个 message POST 的流式超时(秒)（慢 judge 需较大值）
+agent_reviewer = "reviewer"                  # 审查者 agent 名
+
+# --- 流程控制 ---
+default_deadline_sec = 600                   # 每节点等待超时(秒)
+poll_sec = 5.0                               # session 轮询间隔(秒)
+max_reviewer_retries = 2                     # 审查者 gate 每节点重试
+max_dialogue_rounds = 5                      # 审查者/开发者质询轮数上限
+convergence_max_identical = 2                # 同一质询 N+ 次且汇报未变 -> 判打转
+max_total_nodes = 50                         # 全局节点预算防 runaway
+session_turn_check = 5                       # 开发者轮次检查节奏
+
+# --- 路径 ---
+# ledger_path = "/tmp/regime.ledger.jsonl"    # JSONL 事件账本
+# regime_path = "path/to/regime.json"          # 流程描述（默认打包版）
+# skills_dir = "path/to/workflow-regime/skills"
+# task_control_dir = "path/to/project"         # 任务控制文档目录
+
+# --- 监控 / 宪法 ---
+monitor_enabled = true                       # 启用 watchdog 监控
+monitor_poll_sec = 3.0                       # 监控轮询间隔
+stall_sec = 120                              # busy 且无输出增长超过此秒 -> 判卡死
+on_stall = "abort"                           # abort | report_user | none
+
+# --- session 生命周期 ---
+context_limit_tokens = 120_000               # session token 上限（算用量分数）
+
+# --- 日志 ---
+log_level = "info"                           # debug | info | warning | error
