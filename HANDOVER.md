@@ -177,7 +177,7 @@
 
 **架构 v4（角色通用化，2026-08-04）**：设计见 `docs/ARCHITECTURE-v4.md`。内核**角色无关**：`developer`/`reviewer` 不再是内核概念，是**用户注册的角色实例**（`core/role.py`：Role/RoleRegistry/default_roles）。节点声明 `role`（哪个 session 拥有）+ `type`（agent=工作/judge=判定/tool/route/gate），**节点≠角色**（角色=session 分离，节点=skill 分离）。`models.py` Actor→NodeType + Node.role/type；`session.py` SessionKind→role str；`handoff.py` Role=str + make_inquiry/make_report；`session_manager.py` SessionManager→SessionRegistry（按 role id）；`session_lifecycle.py` policy_for(role_id)；`driver` 按 node.type 分流 + 锚点角色推断（首个 agent 节点角色）。代理审查确认无 blocker，修正 abort_session 用 sessions.abort(role)。97 单测 + 端到端（真实 worker：agent/judge 节点按 role+type 分流，COMPLETE）全绿。
 
-阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `workflow-regime/README.md`。
+阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
 
