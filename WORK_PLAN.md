@@ -26,20 +26,20 @@
 
 ## C. 信息提示 / 可读性
 
-- [ ] **C1. `regime run` 进度可读化** — 已做：driver 在后台线程跑，rich Live 实时显示 node/phase/state + 耗时，结束打印总耗时。**（已做）**
+^- [x] **C1. `regime run` 进度可读化** — 已做：driver 在后台线程跑，rich Live 实时显示 node/phase/state + 耗时，结束打印总耗时。**（已做）**
 - [x] **C2. 监控输出语义化** — 已加 `blackboard.status_line` + STATE_LABELS/PHASE_LABELS（运行中/完成/待执行/待审查…），telemetry/god_dialog 复用。**（已做：`w1: 运行中 @ wrap [待执行] 已等12s 心跳0s 节点数6`）**
 - [x] **C3. 去重 `workflow_status`** — 已提取 `blackboard.workflow_status()` + `WORKFLOW_METRICS` 单一事实源，telemetry/god_dialog 复用。**（已做）**
 
 ## D. 代码 / 重构（已知债务）
 
-- [ ] **D1. 梳理 `_deadline` 恒空** — meta 研判 deadline 未写入，与 `global_deadline_sec` 语义重叠，归一到一处。
+^- [x] **D1. 梳理 `_deadline` 恒空** — meta 研判 deadline 未写入，与 `global_deadline_sec` 语义重叠，归一到一处。
 - [x] **D2. `main_loop` flow 死配置** — 已加可达性检查：`regime validate` 警告非入口不可达 flow。**（已做）**
 - [x] **D3. `god_dialog._run_talk` 硬编码** — 已参数化 `talk_agent` + `talk_timeout`。**（已做）**
 - [x] **D4. 清理未用参数** — 已删 `_is_monitor_cmd`/`_is_events_cmd` 的 `raw` 参数。**（已做）**
 
 ## E. 工程化
 
-- [ ] **E1. 加 CI / coverage** — 192 测试无 CI、无 coverage 门槛、e2e marker 无运行说明。加 GitHub Actions + `pytest --cov`。
+^- [x] **E1. 加 CI / coverage** — 192 测试无 CI、无 coverage 门槛、e2e marker 无运行说明。加 GitHub Actions + `pytest --cov`。
 - [x] **E2. 错误路径用户可见性** — 已加 `_dispatch_errors` 追踪 + `_with_dispatch_diag`，超时 detail 附 dispatch 失败原因。**（已做）**
 
 ---
@@ -48,12 +48,12 @@
 
 | 优先级 | 项 | 理由 |
 |---|---|---|
-| **P0** | A1✅、A4✅、A5✅、A6✅、A7✅、A8✅、C3✅、B1✅ | P0 已全部完成 |
-| **P1** | A2✅、A3✅、B2✅、B3✅、C1✅、C2✅、C3✅、D2✅、D3✅ | P1 已全部完成 |
-| **P2** | B4、D1、D4、E1、E2 | 进行中 |
+| **P0** | A1–A8、C3、B1 | ✅ 已全部完成 |
+| **P1** | A2、A3、B2、B3、C1、C2、D2、D3 | ✅ 已全部完成 |
+| **P2** | B4、D1、D4、E1、E2 | ✅ 已全部完成 |
+
+> **状态：全部清单项已完成（2026-08-06）。** 见 git 本会话提交记录。
 
 ## 需用户从另一工程补充 / 决策
 
-- A2：是否有可复用的 config 示例模板（否则自行生成）。
-- A3：是否有 env/密钥文档模板。
-- （A5/A7 已由本工程自行适配/装配，不再需要外部模板。）
+- （已不需要外部模板——A2/A5/A7 由本工程自行适配/生成。）
