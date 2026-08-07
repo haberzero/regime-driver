@@ -112,9 +112,27 @@ def run(
     ),
     perm: str = typer.Option("run", "--perm", help="held permission level "
                              "(read|interact|run|clean); gates write ops"),
+    preflight_enabled: bool = typer.Option(
+        False, "--preflight", help="run an offline trial of the flow before starting"
+    ),
 ) -> None:
     """Run a task through the regime flow on a developer session."""
     _gate(perm, ["run", context])
+    if preflight_enabled:
+        from ..app.preflight import preflight
+        from ..core.state_machine import StateMachineError
+
+        try:
+            sm = load_regime(regime)
+        except (StateMachineError, FileNotFoundError) as exc:
+            _fail(f"error loading regime: {exc}")
+        res = preflight(sm, timeout_sec=30.0)
+        if json_out:
+            _emit_json({"preflight": res, "started": False})
+        if not res["ok"]:
+            _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
+        else:
+            _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
     settings = load_settings(
         config_file=config,
         overrides={
@@ -316,6 +334,44 @@ def run_many(
     if bad:
         _fail(f"{len(bad)} workflow(s) not complete: {', '.join(bad)}", markup=False)
     _ok(f"all {len(results)} workflows done", markup=False)
+
+
+# ---------------------------------------------------------------------------
+# preflight
+# ---------------------------------------------------------------------------
+@app.command("preflight")
+def preflight_cmd(
+    regime: Optional[Path] = typer.Option(
+        None, "--regime", help="path to regime.json (default: packaged descriptor)"
+    ),
+    fault: str = typer.Option(
+        None, "--fault", help="fault injection: stall | delay (elasticity trial)"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Run an offline trial of the flow (MockClient) to verify it terminates cleanly.
+
+    Catches semantic errors static checks miss (gate never advances, no terminal,
+    unservable role) before a real worker/session is touched.
+    """
+    from ..app.preflight import preflight
+    from ..core.state_machine import StateMachineError
+
+    try:
+        sm = load_regime(regime)
+    except (StateMachineError, FileNotFoundError) as exc:
+        _fail(f"error loading regime: {exc}")
+    res = preflight(sm, fault=fault, timeout_sec=30.0)
+    if json_out:
+        _emit_json(res)
+        if not res["ok"]:
+            raise typer.Exit(1)
+        return
+    if res["ok"]:
+        _ok(f"preflight PASSED: offline outcome={res['outcome']} @ {res['end']}", markup=False)
+    else:
+        _fail(f"preflight FAILED: outcome={res['outcome']} @ {res['end']} "
+              f"detail={res['detail']!r}", markup=False)
 
 
 # ---------------------------------------------------------------------------
