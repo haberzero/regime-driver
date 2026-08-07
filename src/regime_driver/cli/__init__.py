@@ -402,6 +402,13 @@ def report_cmd(
         None, "--template",
         help="report template: milestone | blocker | period | activity"),
     since: float = typer.Option(None, "--since", help="epoch seconds; lower bound for period/activity"),
+    tasks_dir: str = typer.Option(
+        None, "--tasks-dir", help="oc-task registry dir (ops/tasks) to merge into the board"),
+    prune: bool = typer.Option(False, "--prune", help="prune the journal (retention)"),
+    max_age: float = typer.Option(
+        None, "--max-age", help="with --prune: drop records older than this many seconds"),
+    max_records: int = typer.Option(
+        None, "--max-records", help="with --prune: keep only this many tail records"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Show the report bus: global rollup board + optional journal history.
@@ -417,35 +424,64 @@ def report_cmd(
     try:
         if journal:
             rep.load()
+        if prune:
+            if not journal:
+                _fail("--prune requires --journal")
+            removed = rep.retain(max_age_sec=max_age, max_records=max_records)
+            if json_out:
+                _emit_json({"pruned": removed})
+            else:
+                _ok(f"pruned {removed} record(s) from journal", markup=False)
+            return
         rollups = rep.rollup(wf_id=wf_id)
+        tasks = []
+        if tasks_dir:
+            from ..infra.oc_tasks import load_tasks
+
+            tasks = load_tasks(tasks_dir)
         if template:
             _report_template(rep, rollups, template, since=since, wf_id=wf_id,
                              limit=limit, json_out=json_out)
             return
-        _report_board(rep, rollups, history, wf_id, limit, json_out)
+        _report_board(rep, rollups, history, wf_id, limit, json_out, tasks=tasks)
     finally:
         rep.close()
 
 
-def _report_board(rep, rollups, history, wf_id, limit, json_out) -> None:
+def _report_board(rep, rollups, history, wf_id, limit, json_out, tasks=None) -> None:
+    tasks = tasks or []
     if json_out:
         out = {"rollups": rollups}
+        if tasks:
+            out["tasks"] = tasks
         if history:
             out["history"] = rep.journal_slice(wf_id=wf_id, limit=limit)
         _emit_json(out)
         return
-    if not rollups:
+    if not rollups and not tasks:
         console.print("[dim]no report data[/dim]")
         return
-    table = Table(title="report bus · rollups", show_header=True)
-    for col in ("wf", "outcome", "node", "phase", "entered", "done", "elapsed"):
-        table.add_column(col)
-    for r in rollups:
-        table.add_row(str(r["wf_id"]), str(r["outcome"] or "-"),
-                      str(r["current_node"] or "-"), str(r["current_phase"] or "-"),
-                      str(r["nodes_entered"]), str(r["nodes_done"]),
-                      f"{r['elapsed_sec'] or '-'}s")
-    console.print(table)
+    if rollups:
+        table = Table(title="report bus · rollups", show_header=True)
+        for col in ("wf", "outcome", "node", "phase", "entered", "done", "elapsed"):
+            table.add_column(col)
+        for r in rollups:
+            table.add_row(str(r["wf_id"]), str(r["outcome"] or "-"),
+                          str(r["current_node"] or "-"), str(r["current_phase"] or "-"),
+                          str(r["nodes_entered"]), str(r["nodes_done"]),
+                          f"{r['elapsed_sec'] or '-'}s")
+        console.print(table)
+    if tasks:
+        t = Table(title="supervised tasks", show_header=True)
+        for col in ("id", "status", "outcome", "goal", "deadline"):
+            t.add_column(col)
+        for x in tasks:
+            st = x["status"]
+            style = "bold yellow" if st == "running" else (
+                "green" if st == "done" else "bold red")
+            t.add_row(x["id"], Text(st, style=style), str(x["outcome"] or "-"),
+                      str(x["goal"] or "-"), str(x["deadline"] or "-"))
+        console.print(t)
     if history:
         h = rep.journal_slice(wf_id=wf_id, limit=limit)
         console.print(f"\n[bold]journal · last {len(h)} records[/bold]")

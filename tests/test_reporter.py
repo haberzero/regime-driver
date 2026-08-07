@@ -83,6 +83,23 @@ def test_load_replays_rollups(tmp_path) -> None:
     assert roll["outcome"] == "complete"
 
 
+def test_retain_by_age_and_count(tmp_path) -> None:
+    path = tmp_path / "report.jsonl"
+    r = Reporter(journal_path=path)
+    r.ingest(kind="node_enter", wf_id="w1", ts=1.0)
+    r.ingest(kind="node_enter", wf_id="w1", ts=2.0)
+    r.ingest(kind="node_enter", wf_id="w1", ts=3.0)
+    r.close()
+    r2 = Reporter(journal_path=path)
+    # keep only the tail 1 record
+    removed = r2.retain(max_records=1)
+    assert removed == 2
+    assert len(r2.journal_slice()) == 1
+    assert r2.journal_slice()[0]["ts"] == 3.0
+    # rollups rebuilt to match
+    assert r2.rollup(wf_id="w1")[0]["nodes_entered"] == 1
+
+
 def test_journal_slice_since_filter(tmp_path) -> None:
     path = tmp_path / "report.jsonl"
     r = Reporter(journal_path=path)

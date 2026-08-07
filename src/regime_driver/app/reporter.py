@@ -235,6 +235,52 @@ class Reporter:
                     n += 1
         return n
 
+    def retain(self, max_age_sec: float | None = None, max_records: int | None = None) -> int:
+        """Prune the journal by age and/or record count (retention policy).
+
+        Drops records older than ``max_age_sec`` and keeps only the tail
+        ``max_records``, rewriting the journal in place under the lock. Returns
+        the number of records removed. Raises if no journal is configured.
+        """
+        if self.journal_path is None or not self.journal_path.exists():
+            raise ValueError("no journal configured to prune")
+        now = time.time()
+        kept = []
+        removed = 0
+        with self._lock:
+            with self.journal_path.open(encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except json.JSONDecodeError:
+                        removed += 1
+                        continue
+                    ts = rec.get("ts") or 0
+                    if max_age_sec is not None and (now - ts) > max_age_sec:
+                        removed += 1
+                        continue
+                    kept.append(line)
+            if max_records is not None and len(kept) > max_records:
+                overflow = len(kept) - max_records
+                kept = kept[overflow:]
+                removed += overflow
+            tmp = self.journal_path.with_suffix(".jsonl.tmp")
+            tmp.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+            tmp.replace(self.journal_path)
+            # refresh in-memory rollups to match the pruned journal
+            self._rollups.clear()
+            for line in kept:
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                self._apply(ReportRecord(**{k: data.get(k)
+                                            for k in ReportRecord.__dataclass_fields__.keys()}))
+        return removed
+
     def close(self) -> None:
         with self._lock:
             if self._fh is not None:
