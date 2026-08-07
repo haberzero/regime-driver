@@ -59,6 +59,9 @@
 - [DONE] 上帝对话框：需求#1 设计新 workflow | verified: 191 passed(187+4) | design <flow> <JSON|NL> 命令 + compile_flow(紧凑/full regime 规格→StateMachine 校验) 注册到 self.flows；start <flow> <ctx> 用设计流；NL 走 LLM worker 线程；launcher 契约改 (ctx,title,flow_sm)；tests +4
 - [DONE] 上帝对话框：权限门控(PLANNING §3.3 L0/L1 边界) | verified: 192 passed(191+1) | GodDialogUnit 增 allow_write(默认False只读, 防困惑LLM回复触发副作用), 写操作start/design/talk被门禁拒绝; cli/ops allow_write=True(人类显式启用); tests +1
 - [ ] P3 上帝对话框演进（远期/后续）| 已做 MVP+talk+动态监控+design+权限门控；后续候选：对运行中的 session/workflow 更深交互与回收 / 细粒度权限策略 / 对话框对接真实 E2E 运行验证
+- [DONE] T3 非阻塞作业管理（契约红线 §5.2） | verified: 200 passed(195+5) | 新增 infra/jobs.py(JobRegistry: JSON文件注册表+后台子进程start_new_session+result/stdout文件+pid存活刷新DONE/FAILED) + `regime run/run-many --async`(立即返回handle) + `regime job list/status`(--json)；真实CLI冒烟：submit立即返回 → 坏base子进程失败 → job status failed
+- [DONE] T4 插件加 job 工具 + 手册 async 用法 | verified: node --check 通过 | .opencode/plugins/regime-god.js 加 regime_job_list/regime_job_status 两个原生工具 + regime_run/regime_run_many 增 async 开关；docs/GOD_DIALOG_OPERATOR.md 增 §3.3 作业管理 + 阻塞/非阻塞说明 + 操作流程更新
+- [REVIEW] T3/T4 | 3 warnings 已修 | ①_refresh持久化bug(读盘再存丢变更)→改_update_record load-patch-save, 新增test验证落盘 ②pid复用+无结果永running→结果文件权威优先判定done ③Popen失败留dangling running→try/except标FAILED ④doc 3.3重复编号→重排3.3-3.6 ⑤--deadline 0被丢→is not None | 已知限制: 并发create/refresh的lost-update竞态(单agent使用场景可接受, 记录在KNOWN_LIMITS) | verified: 201 passed(200+1)
 
 ## 阻塞
 

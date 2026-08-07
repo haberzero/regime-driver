@@ -22,6 +22,11 @@
   测试已用构造参数规避。归属：`core/policy.py`。
 - **`_run_talk` 硬编码**：上帝对话框 `talk` 固定 `agent="developer"` + 120s 超时，未参数化。
   归属：`app/god_dialog.py`。
+- **async 作业注册表并发 lost-update 竞态**：`infra/jobs.py` 的 `registry.json` 是 load→patch→save 无
+  文件锁；并发 `create`/`_refresh`（多进程同时写）可能丢记录。单 god agent 串行使用可接受；如需并发，
+  应加文件锁或改为每作业独立文件 + 目录扫描。归属：`infra/jobs.py`。
+- **插件工具经 shell 拼接命令**：`.opencode/plugins/regime-god.js` 把参数拼成字符串走 shell；job_id
+  等由机器生成的内部 id 拼接，注入风险低，但新参数若来自外部输入需消毒。归属：`.opencode/plugins/regime-god.js`。
 
 ## 边界（设计使然）
 

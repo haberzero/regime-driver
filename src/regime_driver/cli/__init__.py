@@ -64,6 +64,20 @@ def _emit_json(data) -> None:
     sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
 
 
+def _submit_job(job_type: str, argv: list[str], *, ledger: str | None = None,
+                title: str = "", json_out: bool = False) -> None:
+    """Submit a background async job and print its handle."""
+    from ..infra.jobs import JobRegistry, public_record
+
+    record = JobRegistry().create(job_type, argv, ledger=ledger, title=title)
+    if json_out:
+        _emit_json({"submitted": True, "job": public_record(record)})
+        return
+    _ok(f"job [bold]{record['id']}[/bold] submitted "
+        f"(pid={record['pid']}, type={job_type})", markup=True)
+    _ok(f"status: regime job status {record['id']}", markup=False)
+
+
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
@@ -83,6 +97,9 @@ def run(
         None, "--task-control-dir", help="project dir for task-control docs"
     ),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
+    async_run: bool = typer.Option(
+        False, "--async", help="submit as a background job and return a handle immediately"
+    ),
 ) -> None:
     """Run a task through the regime flow on a developer session."""
     settings = load_settings(
@@ -96,6 +113,19 @@ def run(
             "task_control_dir": str(task_control_dir) if task_control_dir else None,
         },
     )
+    if async_run:
+        _submit_job("run", [
+            "run", context,
+            *(["--base", base] if base else []),
+            *(["--config", str(config)] if config else []),
+            *(["--regime", str(regime)] if regime else []),
+            *(["--ledger", str(ledger)] if ledger else []),
+            *(["--deadline", str(deadline)] if deadline is not None else []),
+            *(["--title", title] if title != "regime-driver" else []),
+            *(["--skills-dir", str(skills_dir)] if skills_dir else []),
+            *(["--task-control-dir", str(task_control_dir)] if task_control_dir else []),
+        ], ledger=str(ledger) if ledger else None, title=title, json_out=json_out)
+        return
     _run(settings, context, title, json_out=json_out)
 
 
@@ -174,6 +204,9 @@ def run_many(
     skills_dir: Optional[Path] = typer.Option(
         None, "--skills-dir", help="path to workflow-regime skills dir"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
+    async_run: bool = typer.Option(
+        False, "--async", help="submit as a background job and return a handle immediately"
+    ),
 ) -> None:
     """Run several tasks as concurrent workflows on one worker."""
     from ..app.statechart_cluster import StatechartCluster
@@ -188,6 +221,18 @@ def run_many(
             "skills_dir": str(skills_dir) if skills_dir else None,
         },
     )
+    if async_run:
+        _submit_job("run-many", [
+            "run-many", *contexts,
+            *(["--base", base] if base else []),
+            *(["--config", str(config)] if config else []),
+            *(["--regime", str(regime)] if regime else []),
+            *(["--ledger", str(ledger)] if ledger else []),
+            *(["--deadline", str(deadline)] if deadline is not None else []),
+            *(["--skills-dir", str(skills_dir)] if skills_dir else []),
+        ], ledger=str(ledger) if ledger else None, title=f"run-many×{len(contexts)}",
+            json_out=json_out)
+        return
     try:
         sm = load_regime(settings.regime_path)
     except (StateMachineError, FileNotFoundError) as exc:
@@ -518,6 +563,81 @@ def session_reply(
 
 
 app.add_typer(_session_app, name="session")
+
+
+# ---------------------------------------------------------------------------
+# job (subcommands: list / status) — async job registry
+# ---------------------------------------------------------------------------
+_job_app = typer.Typer(help="Query background async jobs (run/run-many --async).")
+
+
+@_job_app.command("list")
+def job_list(
+    running: bool = typer.Option(False, "--running", help="only running jobs"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """List submitted background jobs with their live status."""
+    from ..infra.jobs import JobRegistry, public_record
+
+    records = [public_record(r) for r in JobRegistry().list(include_all=not running)]
+    if json_out:
+        _emit_json({"jobs": records})
+        return
+    if not records:
+        _ok("no jobs", markup=False)
+        return
+    table = Table(title="regime jobs", show_header=True)
+    table.add_column("id", style="bold cyan")
+    table.add_column("type")
+    table.add_column("title")
+    table.add_column("status")
+    table.add_column("pid")
+    for r in records:
+        status = r["status"]
+        style = "bold yellow" if status == "running" else (
+            "green" if status == "done" else "bold red")
+        table.add_row(r["id"], str(r["type"]), str(r["title"] or "")[:24],
+                      Text(status, style=style), str(r.get("pid") or ""))
+    console.print(table)
+    console.print(f"[dim]{len(records)} jobs[/dim]")
+
+
+@_job_app.command("status")
+def job_status(
+    job_id: str = typer.Argument(..., help="job id from `regime run --async`"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Show the status and (if finished) the result of a background job."""
+    from ..infra.jobs import JobRegistry, public_record
+
+    record = JobRegistry().get(job_id)
+    if record is None:
+        _fail(f"unknown job: {job_id}")
+    pub = public_record(record)
+    if json_out:
+        _emit_json(pub)
+        return
+    status = pub["status"]
+    style = "bold yellow" if status == "running" else (
+        "green" if status == "done" else "bold red")
+    console.print(f"job [bold]{pub['id']}[/bold] · type={pub['type']} · "
+                  f"status=[{style}]{status}[/{style}]")
+    if pub.get("title"):
+        console.print(f"  title: {pub['title']}")
+    if pub.get("ledger"):
+        console.print(f"  ledger: {pub['ledger']}")
+    result = pub.get("result")
+    if result is not None:
+        outcome = result.get("outcome") or (
+            "ok" if result.get("ok") else "?")
+        console.print(f"  outcome: {outcome}")
+        if result.get("elapsed_sec") is not None:
+            console.print(f"  elapsed: {result['elapsed_sec']}s")
+    elif status == "running":
+        _ok(f"still running (pid={pub.get('pid')})", markup=False)
+
+
+app.add_typer(_job_app, name="job")
 
 
 # ---------------------------------------------------------------------------

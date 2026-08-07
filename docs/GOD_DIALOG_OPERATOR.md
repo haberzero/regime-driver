@@ -38,27 +38,39 @@
 |---|---|---|
 | `regime run "<context>" [--json]` | 跑一个任务到完成（**阻塞**） | `--ledger p` 写事件账本 |
 | `regime run-many "<t1>" "<t2>"... [--json]` | 并发跑多任务到完成（**阻塞**） | 单点失败隔离 |
+| `regime run "<context>" --async [--json]` | **非阻塞**提交后台作业，立即返回 handle | `job id` 形如 `20260807-184144-xxxxxx` |
+| `regime run-many ... --async [--json]` | 非阻塞并发提交 | 同上 |
 
 `--json` 输出：`{outcome, end, detail, elapsed_sec}`；run-many 为 `{elapsed_sec, results:{wid:{outcome,end,detail}}}`。
 `outcome` ∈ `complete|error|timeout|blocked|aborted|human`。
 
-**注意**：`run`/`run-many` 阻塞直到完成（分钟级）。**要非阻塞监控**，用 `run-many` 后台或
-`session send`/`sessions`/`events` 轮询（见下）；不要在阻塞运行期间同时需要响应实时事件。
+**阻塞 vs 非阻塞**：不加 `--async` 时 `run`/`run-many` 阻塞直到完成（分钟级）。
+加 `--async` 则**立即返回** `{submitted:true, job:{id,status:running,pid,...}}`，后台子进程继续跑，
+用 `regime job status <id>` / `regime job list` 查询进度（见 3.3）。
 
-### 3.3 监控与内省
+### 3.3 作业（async）管理
+| 命令 | 用途 |
+|---|---|
+| `regime job list [--running] [--json]` | 列出所有（或仅 running）后台作业及其状态 |
+| `regime job status <id> [--json]` | 查单作业状态 `running\|done\|failed`；done 时带 `result`（outcome/elapsed_sec） |
+
+作业注册表在 `~/.regime/jobs/`（可用 `$REGIME_JOBS_DIR` 覆盖）：`registry.json` + `<id>.result.json` + `<id>.stdout.log`。
+`status` 由后台 pid 存活 + 结果文件判定：结果文件可解析即 `done`；子进程退出且无结果 → `failed`。
+
+### 3.4 监控与内省
 | 命令 | 用途 |
 |---|---|
 | `regime sessions [--json] [--clean] [--kill <id>]` | 列出/清理所有 opencode session（id/title/agent/status/tokens） |
 | `regime events --ledger <path> [--follow]` | 读/尾随 JSONL 事件账本（`node_enter/node_done/reviewer_verdict/...`） |
 | `regime session <id> reply [--json]` | 读某 session 最新 assistant 回复 |
 
-### 3.4 与指定 session 独立交互
+### 3.5 与指定 session 独立交互
 | 命令 | 用途 |
 |---|---|
 | `regime session <id> send "<msg>" [--reply] [--json]` | 向某 opencode session 发消息（独立内容交互） |
 | `regime session <id> reply [--json]` | 读其最新回复 |
 
-### 3.5 对话式控制面（可选，程序化）
+### 3.6 对话式控制面（可选，程序化）
 | 命令 | 用途 |
 |---|---|
 | `regime dialog [--live] [--base url] [--model m]` | 交互式 REPL（设计/启动/监控/talk/解释）。作为替代面 |
@@ -66,9 +78,9 @@
 ## 4. 操作流程（推荐）
 
 1. **确认健康**：`regime status --json`。
-2. **启动**：`regime run "<明确任务>" --json --ledger /tmp/god.ledger.jsonl`（阻塞，拿最终结果）；
-   或 `regime run-many "t1" "t2" --json`（并发）。
-3. **监控**：另一终端/后续用 `regime sessions --json`、`regime events --ledger ... --follow` 观察。
+2. **启动**：短任务用 `regime run "<明确任务>" --json --ledger /tmp/god.ledger.jsonl`（阻塞拿最终结果）；
+   长任务/想立即返回用 `regime run ... --async --json`（拿 handle，见 3.3）；并发用 `regime run-many "t1" "t2" --json`。
+3. **监控**：另一终端/后续用 `regime job status <id>`、`regime sessions --json`、`regime events --ledger ... --follow` 观察。
 4. **中途交互**：`regime session <id> send "..." --reply`。
 5. **失败诊断**：`outcome` 非 complete 时看 `detail`；`node 'X' exceeded default_deadline_sec` =
    超时，`reviewer gate exhausted` = 审查判定重试耗尽，`monitor: ...` = 宪法/监控中止。

@@ -54,28 +54,55 @@ export const RegimeGod = async ({ $ }) => {
 
       regime_run: tool({
         description: "Run ONE task through the regime flow to completion (BLOCKING, can take minutes). " +
-                     "Returns {outcome,end,detail,elapsed_sec} JSON. Provide a clear, self-contained task context.",
+                     "Returns {outcome,end,detail,elapsed_sec} JSON. Provide a clear, self-contained task context. " +
+                     "Set async=true to submit as a background job and return a handle immediately.",
         args: {
           context: tool.schema.string(),
           base: tool.schema.string().optional().default(BASE),
           ledger: tool.schema.string().optional(),
+          async: tool.schema.boolean().optional().default(false),
         },
         async execute(args) {
           const opts = ["run", args.context, "--json", "--base", args.base]
           if (args.ledger) opts.push("--ledger", args.ledger)
+          if (args.async) opts.push("--async")
           return await run($, opts)
         },
       }),
 
       regime_run_many: tool({
         description: "Run several tasks as concurrent workflows (BLOCKING). " +
-                     "Returns {elapsed_sec, results:{wid:{outcome,end,detail}}} JSON.",
+                     "Returns {elapsed_sec, results:{wid:{outcome,end,detail}}} JSON. " +
+                     "Set async=true to submit as a background job and return a handle immediately.",
         args: {
           contexts: tool.schema.array(tool.schema.string()),
           base: tool.schema.string().optional().default(BASE),
+          async: tool.schema.boolean().optional().default(false),
         },
         async execute(args) {
-          return await run($, ["run-many", ...args.contexts, "--json", "--base", args.base])
+          const opts = ["run-many", ...args.contexts, "--json", "--base", args.base]
+          if (args.async) opts.push("--async")
+          return await run($, opts)
+        },
+      }),
+
+      regime_job_list: tool({
+        description: "List submitted background jobs (run/run-many --async) with their live status. " +
+                     "running=true lists only running jobs. Returns {jobs:[...]} JSON.",
+        args: { running: tool.schema.boolean().optional().default(false) },
+        async execute(args) {
+          const opts = ["job", "list", "--json"]
+          if (args.running) opts.push("--running")
+          return await run($, opts)
+        },
+      }),
+
+      regime_job_status: tool({
+        description: "Show the status and (if finished) the result of a background job. " +
+                     "Returns {id,type,status,pid,result,...} JSON. status is running|done|failed.",
+        args: { job_id: tool.schema.string() },
+        async execute(args) {
+          return await run($, ["job", "status", args.job_id, "--json"])
         },
       }),
 
