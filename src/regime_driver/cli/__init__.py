@@ -64,6 +64,16 @@ def _emit_json(data) -> None:
     sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
 
 
+def _gate(perm: str, argv: list[str]) -> None:
+    """Enforce the uniform permission gate before a (potentially) write command."""
+    from ..infra.permission import PermissionDenied, PermissionLevel, classify, require
+
+    try:
+        require(PermissionLevel(perm), classify(argv))
+    except (PermissionDenied, ValueError) as exc:
+        _fail(str(exc))
+
+
 def _submit_job(job_type: str, argv: list[str], *, ledger: str | None = None,
                 title: str = "", json_out: bool = False) -> None:
     """Submit a background async job and print its handle."""
@@ -100,8 +110,11 @@ def run(
     async_run: bool = typer.Option(
         False, "--async", help="submit as a background job and return a handle immediately"
     ),
+    perm: str = typer.Option("run", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
 ) -> None:
     """Run a task through the regime flow on a developer session."""
+    _gate(perm, ["run", context])
     settings = load_settings(
         config_file=config,
         overrides={
@@ -207,8 +220,11 @@ def run_many(
     async_run: bool = typer.Option(
         False, "--async", help="submit as a background job and return a handle immediately"
     ),
+    perm: str = typer.Option("run", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
 ) -> None:
     """Run several tasks as concurrent workflows on one worker."""
+    _gate(perm, ["run-many", *contexts])
     from ..app.statechart_cluster import StatechartCluster
 
     settings = load_settings(
@@ -404,8 +420,12 @@ def sessions(
     clean: bool = typer.Option(False, "--clean", help="abort all sessions"),
     kill: Optional[str] = typer.Option(None, "--kill", help="abort a specific session id"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("read", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
 ) -> None:
     """List all opencode sessions on the worker with their live status."""
+    _gate(perm, ["sessions"]
+          + (["--clean"] if clean else []) + (["--kill", kill] if kill else []))
     client = OpenCodeClient(base)
     if kill:
         try:
@@ -469,6 +489,8 @@ def dialog(
     live: bool = typer.Option(
         False, "--live", help="use the real worker (else offline MockClient)"),
     model: str = typer.Option(Settings().model, "--model", help="model for LLM explain"),
+    perm: str = typer.Option("run", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
 ) -> None:
     """Open the God Dialog: one natural-language control/monitor surface.
 
@@ -484,6 +506,7 @@ def dialog(
     """
     from ..app.dialog_app import run_dialog
 
+    _gate(perm, ["dialog"])
     run_dialog(base, model, live=live, print_fn=lambda s: console.print(s))
 
 
@@ -502,8 +525,11 @@ def session_send(
     agent: str = typer.Option("developer", "--agent", help="agent to send as"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     timeout: float = typer.Option(120.0, "--timeout", help="max wait for reply (s)"),
+    perm: str = typer.Option("interact", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
 ) -> None:
     """Send a message to a specific opencode session (independent interaction)."""
+    _gate(perm, ["session", "send"])
     client = OpenCodeClient(base, timeout=timeout)
     client.send_message(session_id, message, agent)
     if not reply:

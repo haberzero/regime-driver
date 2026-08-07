@@ -32,9 +32,10 @@ export const RegimeGod = async ({ $ }) => {
           base: tool.schema.string().optional().default(BASE),
           clean: tool.schema.boolean().optional().default(false),
           kill: tool.schema.string().optional(),
+          perm: tool.schema.string().optional().default("clean"),
         },
         async execute(args) {
-          const opts = ["sessions", "--json", "--base", args.base]
+          const opts = ["sessions", "--json", "--base", args.base, "--perm", args.perm]
           if (args.clean) opts.push("--clean")
           if (args.kill) opts.push("--kill", args.kill)
           return await run($, opts)
@@ -61,9 +62,10 @@ export const RegimeGod = async ({ $ }) => {
           base: tool.schema.string().optional().default(BASE),
           ledger: tool.schema.string().optional(),
           async: tool.schema.boolean().optional().default(false),
+          perm: tool.schema.string().optional().default("run"),
         },
         async execute(args) {
-          const opts = ["run", args.context, "--json", "--base", args.base]
+          const opts = ["run", args.context, "--json", "--base", args.base, "--perm", args.perm]
           if (args.ledger) opts.push("--ledger", args.ledger)
           if (args.async) opts.push("--async")
           return await run($, opts)
@@ -78,9 +80,10 @@ export const RegimeGod = async ({ $ }) => {
           contexts: tool.schema.array(tool.schema.string()),
           base: tool.schema.string().optional().default(BASE),
           async: tool.schema.boolean().optional().default(false),
+          perm: tool.schema.string().optional().default("run"),
         },
         async execute(args) {
-          const opts = ["run-many", ...args.contexts, "--json", "--base", args.base]
+          const opts = ["run-many", ...args.contexts, "--json", "--base", args.base, "--perm", args.perm]
           if (args.async) opts.push("--async")
           return await run($, opts)
         },
@@ -114,9 +117,10 @@ export const RegimeGod = async ({ $ }) => {
           message: tool.schema.string(),
           reply: tool.schema.boolean().optional().default(false),
           base: tool.schema.string().optional().default(BASE),
+          perm: tool.schema.string().optional().default("interact"),
         },
         async execute(args) {
-          const opts = ["session", "send", args.session_id, args.message, "--json", "--base", args.base]
+          const opts = ["session", "send", args.session_id, args.message, "--json", "--base", args.base, "--perm", args.perm]
           if (args.reply) opts.push("--reply")
           return await run($, opts)
         },

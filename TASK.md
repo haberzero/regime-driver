@@ -62,6 +62,8 @@
 - [DONE] T3 非阻塞作业管理（契约红线 §5.2） | verified: 200 passed(195+5) | 新增 infra/jobs.py(JobRegistry: JSON文件注册表+后台子进程start_new_session+result/stdout文件+pid存活刷新DONE/FAILED) + `regime run/run-many --async`(立即返回handle) + `regime job list/status`(--json)；真实CLI冒烟：submit立即返回 → 坏base子进程失败 → job status failed
 - [DONE] T4 插件加 job 工具 + 手册 async 用法 | verified: node --check 通过 | .opencode/plugins/regime-god.js 加 regime_job_list/regime_job_status 两个原生工具 + regime_run/regime_run_many 增 async 开关；docs/GOD_DIALOG_OPERATOR.md 增 §3.3 作业管理 + 阻塞/非阻塞说明 + 操作流程更新
 - [REVIEW] T3/T4 | 3 warnings 已修 | ①_refresh持久化bug(读盘再存丢变更)→改_update_record load-patch-save, 新增test验证落盘 ②pid复用+无结果永running→结果文件权威优先判定done ③Popen失败留dangling running→try/except标FAILED ④doc 3.3重复编号→重排3.3-3.6 ⑤--deadline 0被丢→is not None | 已知限制: 并发create/refresh的lost-update竞态(单agent使用场景可接受, 记录在KNOWN_LIMITS) | verified: 201 passed(200+1)
+- [DONE] T5 细粒度权限策略（T5） | verified: 207 passed(201+6) | 新增 infra/permission.py(PermissionLevel read<interact<run<clean + classify(argv) + require + from_god_dialog对接allow_write) + CLI `--perm`门禁(_gate)于 run/run-many/session send/sessions(--clean/--kill) + 插件写工具增perm参数 + god.md权限等级 + 手册§3.7；真实CLI验证: run --perm read拒绝 / sessions --clean --perm read拒绝 / sessions --perm read放行
+- [REVIEW] T5 | 1 warning 已修 | dialog分类RUN但未门禁(写REPL可被read持者进入)→dialog加--perm并require RUN, 手册§3.7注明; 说明: --perm为操作者自限策略门, 非授权安全边界(设计使然, 已记录) | verified: 207 passed
 
 ## 阻塞
 

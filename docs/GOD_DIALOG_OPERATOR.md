@@ -75,6 +75,22 @@
 |---|---|
 | `regime dialog [--live] [--base url] [--model m]` | 交互式 REPL（设计/启动/监控/talk/解释）。作为替代面 |
 
+### 3.7 权限门禁（--perm）
+写操作受统一分级门禁，等级由低到高：`read` < `interact` < `run` < `clean`。
+| 等级 | 允许 |
+|---|---|
+| `read` | status / sessions(列表) / events / session reply / validate / gate / job list/status |
+| `interact` | + `session <id> send`（与指定 session 对话） |
+| `run` | + `run` / `run-many`（含 `--async` 作业） |
+| `clean` | + `sessions --clean` / `--kill`（破坏性清理） |
+
+- 用法：`regime run "<任务>" --perm run`；`regime session <id> send ... --perm interact`；
+  `regime sessions --clean --perm clean`。读命令无需 `--perm`（恒为 read）。
+- `regime dialog` 是写能力 REPL（live 时 `allow_write=True`），进入需 `--perm run` 及以上。
+- 判定逻辑：`src/regime_driver/infra/permission.py`（`classify` + `require`），CLI 与对话框共用同一门禁。
+- 对应 GodDialogUnit 的 `allow_write`：`False`==read，`True`==clean（见 `DESIGN-god-dialog.md`）。
+- 拒绝示例：`regime run x --perm read` → `permission denied: 'run' required, held 'read'`。
+
 ## 4. 操作流程（推荐）
 
 1. **确认健康**：`regime status --json`。
