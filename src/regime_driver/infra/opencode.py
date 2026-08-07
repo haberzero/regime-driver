@@ -202,44 +202,67 @@ class OpenCodeClient:
 
     # -- events (SSE) -------------------------------------------------------
 
-    def event_stream(self):
+    def event_stream(self, reconnect: bool = True, max_retries: int | None = None,
+                     backoff_sec: float = 2.0):
         """Yield opencode bus events from the `GET /event` SSE stream.
 
         Each yielded item is ``{"event": <type>, "data": <parsed-json-or-str>}``.
         The first event is ``server.connected``. This is the push-based event
-        chain a dialog/reporter can consume (WORK_PLAN4 II). The stream stays
-        open; the generator yields as events arrive and raises OpenCodeError on
-        connect failure.
+        chain a dialog/reporter can consume (WORK_PLAN4 II).
+
+        With ``reconnect=True`` a dropped/mid-stream stream is retried with
+        linear backoff (``backoff_sec``) until ``max_retries`` is reached
+        (None = retry forever); connect failure raises OpenCodeError. With
+        ``reconnect=False`` any stream error propagates immediately.
         """
-        req = urllib.request.Request(self.base_url + "/event")
-        try:
-            resp = urllib.request.urlopen(req, timeout=min(self.timeout, 30.0))
-        except Exception as exc:
-            raise OpenCodeError(f"event_stream connect failed: {exc}") from exc
-        event_type = None
-        data_lines: list[str] = []
-        try:
-            for raw in resp:
-                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-                if line == "":
-                    if data_lines:
-                        payload = "\n".join(data_lines)
-                        try:
-                            data = json.loads(payload)
-                        except json.JSONDecodeError:
-                            data = payload
-                        yield {"event": event_type, "data": data}
-                    event_type = None
-                    data_lines = []
-                elif line.startswith("event:"):
-                    event_type = line[len("event:"):].strip()
-                elif line.startswith("data:"):
-                    data_lines.append(line[len("data:"):].lstrip())
-        finally:
+        retries = 0
+        while True:
+            req = urllib.request.Request(self.base_url + "/event")
             try:
-                resp.close()
+                resp = urllib.request.urlopen(req, timeout=min(self.timeout, 30.0))
+            except Exception as exc:
+                if not reconnect:
+                    raise OpenCodeError(f"event_stream connect failed: {exc}") from exc
+                retries += 1
+                if max_retries is not None and retries > max_retries:
+                    raise OpenCodeError(f"event_stream connect failed after "
+                                        f"{max_retries} retries: {exc}") from exc
+                time.sleep(backoff_sec * retries)
+                continue
+            event_type = None
+            data_lines: list[str] = []
+            dropped = False
+            try:
+                for raw in resp:
+                    line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                    if line == "":
+                        if data_lines:
+                            payload = "\n".join(data_lines)
+                            try:
+                                data = json.loads(payload)
+                            except json.JSONDecodeError:
+                                data = payload
+                            yield {"event": event_type, "data": data}
+                        event_type = None
+                        data_lines = []
+                    elif line.startswith("event:"):
+                        event_type = line[len("event:"):].strip()
+                    elif line.startswith("data:"):
+                        data_lines.append(line[len("data:"):].lstrip())
             except Exception:
-                pass
+                dropped = True
+                if not reconnect:
+                    raise
+            finally:
+                try:
+                    resp.close()
+                except Exception:
+                    pass
+            # reconnect only on a mid-stream drop (SSE stays open otherwise);
+            # a clean end is not retried
+            if not dropped:
+                break
+            retries = 0  # we reconnected successfully once; count from 1 again
 
     # -- session extras (WORK_PLAN4 II) -------------------------------------
 

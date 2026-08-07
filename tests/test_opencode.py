@@ -45,6 +45,66 @@ def test_event_stream_parses_sse(monkeypatch):
     assert events[1] == {"event": "session.idle", "data": {"sessionID": "s1"}}
 
 
+class _FailingIter:
+    """An iterator that raises partway through (simulates a dropped SSE stream)."""
+
+    def __init__(self, lines, fail_after):
+        self._lines = lines
+        self._fail_after = fail_after
+        self._i = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._i >= self._fail_after:
+            raise OSError("stream dropped")
+        if self._i >= len(self._lines):
+            raise StopIteration
+        line = self._lines[self._i]
+        self._i += 1
+        return line.encode()
+
+    def close(self):
+        pass
+
+
+def test_event_stream_reconnects_after_drop(monkeypatch):
+    import urllib.request
+    from regime_driver.infra.opencode import OpenCodeClient
+
+    calls = {"n": 0}
+    good = "event: server.connected\ndata: {\"healthy\":true}\n\nevent: session.idle\ndata: {\"s\":\"1\"}\n\n"
+
+    def fake_urlopen(req, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # first connection drops after the server.connected event
+            return _FailingIter(good.split("\n")[:3], fail_after=3)
+        return _FakeSSEResponse("event: session.status\ndata: {\"s\":\"2\"}\n\n")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    c = OpenCodeClient("http://x:4097")
+    ev = list(c.event_stream(reconnect=True, max_retries=3, backoff_sec=0.0))
+    assert calls["n"] >= 2  # reconnected
+    assert ev[0]["event"] == "server.connected"
+    # the reconnected stream's events appear
+    assert ev[-1]["event"] == "session.status"
+
+
+def test_event_stream_no_reconnect_propagates(monkeypatch):
+    import urllib.request
+    from regime_driver.infra.opencode import OpenCodeClient, OpenCodeError
+
+    def fake_urlopen(req, **kw):
+        raise OSError("down")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    c = OpenCodeClient("http://x:4097")
+    with pytest.raises(OpenCodeError):
+        list(c.event_stream(reconnect=False))
+
+
 def test_event_stream_first_is_connected(monkeypatch):
     import urllib.request
     from regime_driver.infra.opencode import OpenCodeClient
