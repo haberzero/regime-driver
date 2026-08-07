@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -55,8 +56,12 @@ def _ok(message: str, markup: bool = False) -> None:
 
 
 def _emit_json(data) -> None:
-    """Print machine-readable JSON (the CLI contract's --json surface)."""
-    console.print(json.dumps(data, ensure_ascii=False, indent=2))
+    """Print machine-readable JSON to raw stdout (the CLI contract's --json surface).
+
+    Must bypass rich's console (which word-wraps long lines and would corrupt
+    large JSON). Machine consumers parse this verbatim.
+    """
+    sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
 
 
 # ---------------------------------------------------------------------------

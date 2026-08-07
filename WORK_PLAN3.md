@@ -32,7 +32,7 @@
 - [x] **M4. 操作手册** — 已建 `docs/GOD_DIALOG_OPERATOR.md`（供 opencode 消费：CLI 契约全命令 + --json schema + 操作流程 + 红线）。**（已做）**
 - [x] **M1. 做 opencode `god` agent 配置** — 已建 `.opencode/agent/god.md`（mode primary + 权限门禁 + 系统提示引用手册）。**（已做）**
 - [x] **M2. regime custom-tool 插件** — 已建 `.opencode/plugins/regime-god.js`（status/sessions/events/run/run-many/session send/reply/validate 原生工具）。**（已做，JS 语法通过）**
-- [ ] **M3. 验证** — 用真实 opencode 会话以 god agent 模式驱动 regime。
+- [ ] **M3. 验证** — 命令级验证通过（所有插件封装的 regime 命令产合法 `--json`，`_emit_json` 改 raw stdout 保证大 JSON 不被 rich 换行破坏）；完整交互式 opencode 会话验证需交互环境（`opencode run` 在本环境挂起）。
 
 ---
 
