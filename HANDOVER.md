@@ -142,8 +142,10 @@
 
 - **架构已彻底重构为对等多状态机网络**（2026-08-05~06）：`core/statechart.py`（信号协议+总线+主题 pub/sub）+ `app/statechart_runtime.py`（ThreadedUnit 独立线程+队列 + Runtime 异步路由+黑板+根不变量强制）+ `app/workflow_unit.py`（单线程混合循环）+ `app/constitution_unit.py`（宪法=无智能对等状态机）+ `app/statechart_driver.py` / `app/statechart_cluster.py`（单/多 workflow）+ `app/telemetry.py`（遥测可视化）+ `app/blackboard.py`（共享黑板）。旧 `app/driver.py` / `app/monitor.py` / `app/meta_analyzer.py` / `app/segment_runner.py` 已删除。
 - **`opencode-worker` 容器运行中**：端口 4097，`opencode serve --pure` 无插件 headless，镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent）。工作区 `workspaces/opencode-worker` → `/root/work`。
-- **测试基线**：192 单测全绿（conda env `regime-driver`，`python -m pytest`）。真实 worker E2E 多次 COMPLETE；mock 离线可行性 5/5。
-- **上帝对话框 MVP 已实现**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元）+ `regime dialog` CLI 命令 + `ops/god_dialog.py` 演示。
+- **测试基线**：195 单测全绿（conda env `regime-driver`，`python -m pytest`）。真实 worker E2E 多次 COMPLETE；mock 离线可行性 5/5。
+- **CLI 契约已就绪**：`regime` 命令集 `run/run-many/validate/gate/status/sessions/dialog/events/session` 全部支持 `--json`（机器可读，raw stdout 防换行破坏）+ 非阻塞（run/run-many 后台线程）。
+- **上帝对话框 A 路（opencode 作载体）已装配**：`docs/GOD_DIALOG_OPERATOR.md`（操作手册）+ `.opencode/agent/god.md`（god agent，权限门禁）+ `.opencode/plugins/regime-god.js`（8 个原生工具）。命令级验证通过；完整交互式会话验证待做。
+- **上帝对话框 B 路（程序化面）**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元）+ `regime dialog` CLI 命令 + `ops/god_dialog.py` 演示。
 - 工作区已清理测试产物。
 
 ## 7. 主目录污染清单（已迁移/清理完成）
@@ -158,28 +160,38 @@
 
 迁移后 `oc-control`、`oc-workspaces`、`work` 均已从主目录移除，唯一残留为规范化后的 `/home/haber/oc-meta/`。
 
-## 8. 下一步（M0、M-1、M-2、M-3、安全监控、架构v2/v3/v4已完成 → M-4 端到端试跑）
+## 8. 下一步（下一 session 主线任务）
 
-**M0 已全部完成 ✅**（stall-watchdog + supervisor v2 + oc-task + 故障矩阵 + git）。
-**M-1 ✅**（worker 镜像，容器运行中）。**M-2 ✅**（正式工程包 `regime-driver`，见下）。**M-3 ✅**（审查者接入，见下）。**安全监控✅**（独立线程 + 紧急停止，见下）。**架构v2✅**（交接模型，见下）。**架构v3✅**（工作区+交接机制，见下）。**架构v4✅**（角色通用化，见下）。
+> **当前主线：上帝对话框 A 路（opencode 作载体）收尾验证 + 深度演进。** 目标：让一个 opencode `god` agent
+> 能真正作为"上帝对话框"可靠地控制/监控整个 regime-driver。
 
-**当前方向**：`docs/DESIGN-regime-driver.md`（v0.3 定稿）——把 `workflow-regime/` 制度化流程编译成状态机，由固定代码机器人（L1）+ 审查者智能（L0）驱动**干净无插件**的开发者 opencode（L2）。里程碑 M-1 worker 镜像 → M-2 L1 骨架 → M-3 审查者接入 → M-4 端到端试跑；架构演进 v2 交接模型 → v3 工作区+交接机制 → v4 角色通用化。
+### 主线任务（按优先级，我的建议排布）
 
-**M-2 成果（正式工程版）**：`regime-driver` 包（`src/` 布局，PyPI 就绪）。架构 `docs/ARCHITECTURE-regime-driver.md`。分层 `cli → app → (core + infra)`；core 纯领域（确定性门/段协议/状态机/会话模型，无 I/O）、infra 封装 HTTP/文件（opencode 客户端/regime 加载/账本/配置）、app 编排（driver/session_manager/segment_runner）、cli 薄壳（typer+rich）。确定性门核对、`[WORK_DONE]` 段协议、5 轮会话检查均已接入。17 单测通过；端到端实测驱动 worker 完成两段（修复 bug + 新建模块），测试全绿。开发环境：conda `regime-driver`（py3.12）。
+**P0 — A 路验证收尾（M3）**
+- [ ] **T1. 交互式验证 god agent**：在可交互环境用 `opencode`（god agent）实际驱动 regime——
+      status → run → monitor(sessions/events) → session send 全链路，确认插件工具 + 权限门禁 + 手册可用。
+- [ ] **T2. 依验证修**：修正 `.opencode/agent/god.md` 提示词 / `.opencode/plugins/regime-god.js` 工具的偏差。
 
-**M-3 成果（审查者接入）**：L0 审查者接入 L1 判定回路。新增 `app/reviewer.py`（严格 JSON 判定 + 带反馈重试 + 确定性门）、`infra/skill_loader.py`（按节点注入 skill）、`infra/task_control.py`（任务控制文档读写，节点完成写 WORKLOG）。节点名语义化（understand/read_code/design/implement/test/wrap）；审查者 prompt 明确列出合法 next_state；**advance 限定为后继节点**（杜绝回退/自环）；确定性门精确匹配。判定回路闭环：ask_developer（质询→开发者→回喂）、advance（用审查者目标推进）、request_context、abort/report_user。33 单测通过；端到端实测：审查者质询开发者→修复→advance→实现→测试验证→收尾，测试全绿，WORKLOG 正确写入。
+**P1 — 上帝对话框非阻塞作业管理（契约红线）**
+- [ ] **T3. `regime run/run-many --async`**：submit 立即返回 handle → `regime job status <id>` / `regime job list`
+      （作业注册表：文件/进程），让控制命令真正"非阻塞"（DESIGN-god-dialog-carrier §5.2 红线）。
+- [ ] **T4. 插件加 `regime_job_status` / `regime_job_list`** 工具；手册补 async 用法。
 
-**安全监控与紧急停止（M-4 前置加固）**：独立监控线程 `app/monitor.py` + 死循环检测 `core/repetition.py`（n-gram 重复率 + 相邻相似度，支持中文标点）。监控独立轮询所有 session 的 token/时间戳/消息文本，检测 ① 死循环 ② 卡死（busy 但 token 停滞 `stall_sec`）③ API 挂起；命中即 **abort + 终止 + 上报 blocked**。已实证 opencode 的 `POST /session/{id}/abort` 真正打断 token 生成（58/138 → 58/157 冻结），是**与人类多次 ESC 等价的紧急停止**。修复 `session_status` 读取 bug（busy 状态在 `/session/status` 全局 map）。end-to-end 实测：卡死 → monitor 检测 → abort → blocked 上报。45 单测通过。
+**P2 — 细粒度权限策略**
+- [ ] **T5. 权限策略层**：写操作分级（read/run/interact/clean），CLI 与对话框统一门禁（对接 allow_write）。
 
-**架构 v2（交接模型，2026-08-04）**：把"审查者/开发者"重构为**独立个体**（私有 session 记忆），靠**结构化交接单**协作而非共享上下文。设计见 `docs/ARCHITECTURE-v2.md`。新增 `core/handoff.py`（Handoff 交接单 + `detect_loop` 收敛检测 + 序列化）、`app/session_lifecycle.py`（脑容量检测 + `SessionRotator` 交接）。重构 `driver._run_reviewer_node` 为**交接单路由**：审查者出质询单 → 开发者返工汇报单 → 审查者只读汇报单判断（不读开发者记忆）；多轮质询用 `max_dialogue_rounds`（独立于 gate 重试）+ 收敛检测（同一质询反复且汇报无变化→判打转）；加 `max_total_nodes` 节点预算防 runaway；session 脑容量到上限自动交接新开。76 单测通过；端到端实测真实 worker 完整流程（multiround 质询逻辑经单测覆盖）。
+**P3 — 收尾 / 演进**
+- [ ] **T6. WORK_PLAN2 H2 收拢**：其余测试 FakeClient → MockClient（谨慎，防行为漂移）。
+- [ ] **T7. 文档同步**：`docs/howto/god-dialog.md` 更新为 opencode 载体版；`GOD_DIALOG_OPERATOR.md` 随命令变更同步。
+- [ ] **T8. B 路演进**：GodDialogUnit 对运行中 workflow/session 更深交互与回收。
 
-**架构 v3（工作区+交接机制，设计定稿 2026-08-04）**：设计见 `docs/ARCHITECTURE-v3.md`。核心：① **工作区角色可见性**（code/ 开发者只在此工作，handoff/ 审查者区，开发者不可见；利用 opencode session directory 机制）；② **交接文档体系**（统一 Handoff 扩展 kind：`brain_normal`/`brain_urgent`/`role_transition`/`report`，载体=文件系统 handoff/ + Ledger 审计）；③ **session 自评协议**（40% 开始自评、70% 停止工作后紧急交接，确定性字符 `CONTINUE/ROTATE/HANDOFF_NOW` + remaining_rounds，独立重试）；④ **策略可编程**（Python + 模板，开发者/审查者不同阈值，参考策略预置）。关键约束：审查者流转时**开发者 session 禁止切换**（防双失忆，开发者是稳定锚点）；脑容量交接文档 session 直接写工作区（code/HANDOFF.md 或 handoff/brain/），不需机器人文件传递。
+**历史里程碑（已完成，参考）**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 
-**架构 v4（角色通用化，2026-08-04）**：设计见 `docs/ARCHITECTURE-v4.md`。内核**角色无关**：`developer`/`reviewer` 不再是内核概念，是**用户注册的角色实例**（`core/role.py`：Role/RoleRegistry/default_roles）。节点声明 `role`（哪个 session 拥有）+ `type`（agent=工作/judge=判定/tool/route/gate），**节点≠角色**（角色=session 分离，节点=skill 分离）。`models.py` Actor→NodeType + Node.role/type；`session.py` SessionKind→role str；`handoff.py` Role=str + make_inquiry/make_report；`session_manager.py` SessionManager→SessionRegistry（按 role id）；`session_lifecycle.py` policy_for(role_id)；`driver` 按 node.type 分流 + 锚点角色推断（首个 agent 节点角色）。代理审查确认无 blocker，修正 abort_session 用 sessions.abort(role)。97 单测 + 端到端（真实 worker：agent/judge 节点按 role+type 分流，COMPLETE）全绿。
+**待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）；`main_loop` flow 死配置（已加 validate 警告，可删）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
-阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
+阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
-**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（宪法=无智能状态机+根不变量运行时强制）**；**上帝对话框双路：opencode 作载体（A 路）+ GodDialogUnit 程序化面（B 路），共用 CLI 契约**。
 
 ### 里程碑进度
 
