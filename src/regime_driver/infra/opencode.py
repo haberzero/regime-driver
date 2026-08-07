@@ -200,6 +200,82 @@ class OpenCodeClient:
             )
         return messages
 
+    # -- events (SSE) -------------------------------------------------------
+
+    def event_stream(self):
+        """Yield opencode bus events from the `GET /event` SSE stream.
+
+        Each yielded item is ``{"event": <type>, "data": <parsed-json-or-str>}``.
+        The first event is ``server.connected``. This is the push-based event
+        chain a dialog/reporter can consume (WORK_PLAN4 II). The stream stays
+        open; the generator yields as events arrive and raises OpenCodeError on
+        connect failure.
+        """
+        req = urllib.request.Request(self.base_url + "/event")
+        try:
+            resp = urllib.request.urlopen(req, timeout=min(self.timeout, 30.0))
+        except Exception as exc:
+            raise OpenCodeError(f"event_stream connect failed: {exc}") from exc
+        event_type = None
+        data_lines: list[str] = []
+        try:
+            for raw in resp:
+                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                if line == "":
+                    if data_lines:
+                        payload = "\n".join(data_lines)
+                        try:
+                            data = json.loads(payload)
+                        except json.JSONDecodeError:
+                            data = payload
+                        yield {"event": event_type, "data": data}
+                    event_type = None
+                    data_lines = []
+                elif line.startswith("event:"):
+                    event_type = line[len("event:"):].strip()
+                elif line.startswith("data:"):
+                    data_lines.append(line[len("data:"):].lstrip())
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    # -- session extras (WORK_PLAN4 II) -------------------------------------
+
+    def prompt_async(self, session_id: str, text: str, agent: str) -> None:
+        """Send a message asynchronously (POST /session/:id/prompt_async, no wait)."""
+        body: dict = {"agent": agent, "parts": [{"type": "text", "text": text}]}
+        if self.model:
+            body["model"] = _model_obj(self.model)
+        self._request("POST", f"/session/{session_id}/prompt_async", body, timeout=15.0)
+
+    def todo(self, session_id: str) -> list[dict]:
+        """Return the session's todo list (GET /session/:id/todo)."""
+        res = self._request("GET", f"/session/{session_id}/todo", timeout=15.0)
+        return res if isinstance(res, list) else []
+
+    def children(self, session_id: str) -> list[dict]:
+        """Return child sessions (GET /session/:id/children) — session genealogy."""
+        res = self._request("GET", f"/session/{session_id}/children", timeout=15.0)
+        return res if isinstance(res, list) else []
+
+    def fork(self, session_id: str, message_id: str | None = None) -> str:
+        """Fork a session at a message (POST /session/:id/fork). Returns new session id."""
+        body = {"messageID": message_id} if message_id else {}
+        res = self._request("POST", f"/session/{session_id}/fork", body, timeout=15.0)
+        if not isinstance(res, dict) or not res.get("id"):
+            raise OpenCodeError(f"fork returned no id: {res}")
+        return res["id"]
+
+    def summarize(self, session_id: str, model: str | None = None) -> bool:
+        """Request a session summary (POST /session/:id/summarize)."""
+        body = {}
+        if model or self.model:
+            body["modelID"] = (model or self.model).partition("/")[2] or (model or self.model)
+        res = self._request("POST", f"/session/{session_id}/summarize", body, timeout=30.0)
+        return bool(res)
+
     # -- health -------------------------------------------------------------
 
     def health(self) -> bool:

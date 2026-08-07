@@ -1,8 +1,87 @@
 """Tests for the opencode client's ask_and_get_text polling."""
 
+import json
+
 import pytest
 
 from regime_driver.infra.opencode import Message, OpenCodeClient, OpenCodeError
+
+
+class _FakeSSEResponse:
+    """Fake urllib response that iterates SSE-formatted lines."""
+
+    def __init__(self, text: str):
+        self._lines = [(line + "\n").encode() for line in text.split("\n")]
+        self._i = 0
+        self.closed = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._i >= len(self._lines):
+            raise StopIteration
+        line = self._lines[self._i]
+        self._i += 1
+        return line
+
+    def close(self):
+        self.closed = True
+
+
+def test_event_stream_parses_sse(monkeypatch):
+    import urllib.request
+    from regime_driver.infra.opencode import OpenCodeClient
+
+    sse = (
+        "event: server.connected\ndata: {\"healthy\":true}\n\n"
+        "event: session.idle\ndata: {\"sessionID\":\"s1\"}\n\n"
+    )
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda req, **kw: _FakeSSEResponse(sse))
+    c = OpenCodeClient("http://x:4097")
+    events = list(c.event_stream())
+    assert events[0] == {"event": "server.connected", "data": {"healthy": True}}
+    assert events[1] == {"event": "session.idle", "data": {"sessionID": "s1"}}
+
+
+def test_event_stream_first_is_connected(monkeypatch):
+    import urllib.request
+    from regime_driver.infra.opencode import OpenCodeClient
+
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda req, **kw: _FakeSSEResponse(
+                            "event: server.connected\ndata: {}\n\n"))
+    c = OpenCodeClient("http://x:4097")
+    assert list(c.event_stream())[0]["event"] == "server.connected"
+
+
+def test_prompt_async_and_extras():
+    calls = []
+
+    class C(OpenCodeClient):
+        def _request(self, method, path, body=None, timeout=None):
+            calls.append((method, path, body))
+            if "/todo" in path:
+                return [{"id": "t1"}]
+            if "/children" in path:
+                return [{"id": "child1"}]
+            if "/fork" in path:
+                return {"id": "new-session"}
+            if "/summarize" in path:
+                return True
+            return {}
+
+    c = C("http://x:4097")
+    c.prompt_async("s1", "hi", "developer")
+    assert calls[-1] == ("POST", "/session/s1/prompt_async", {"agent": "developer",
+                                                              "parts": [{"type": "text", "text": "hi"}]})
+    assert c.todo("s1") == [{"id": "t1"}]
+    assert c.children("s1") == [{"id": "child1"}]
+    assert c.fork("s1") == "new-session"
+    assert c.fork("s1", "m1") == "new-session"
+    assert calls[-1][1] == "/session/s1/fork"
+    assert c.summarize("s1") is True
 
 
 def _raw(m: Message) -> dict:
