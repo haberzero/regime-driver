@@ -289,6 +289,24 @@ def test_judge_waits_for_new_reply_not_stale():
     assert client.reviewer_prompts == 2, f"judge re-prompted {client.reviewer_prompts}x"
 
 
+def test_dispatch_records_failures_for_diagnostics():
+    """A send that keeps failing is recorded so the error/timeout detail surfaces it."""
+    class FailClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            raise RuntimeError("provider down")
+
+    s = Settings(monitor_enabled=False, poll_sec=0.1, default_deadline_sec=1)
+    sm = load_regime()
+    unit = WorkflowUnit(s, sm, FailClient(), poll_sec=0.05)
+    unit.start()
+    unit.submit("任务")
+    outcome, _, detail = _wait_result(unit, timeout=5)
+    unit.stop()
+    assert outcome == Outcome.TIMEOUT
+    assert "dispatch failures" in (detail or "")
+    assert "provider down" in (detail or "")
+
+
 def test_dispatch_serializes_prior_post():
     """Dispatch must await the prior node's POST before sending the next.
 

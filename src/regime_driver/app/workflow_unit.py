@@ -85,6 +85,7 @@ class WorkflowUnit(ThreadedUnit):
         # STOP even while a prompt is being generated remotely.
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dispatch")
         self._active_dispatch = None  # future of the in-flight dispatch POST
+        self._dispatch_errors: list[str] = []  # last dispatch failures (for diagnostics)
 
         # run state
         self._state = _ST_IDLE
@@ -225,6 +226,8 @@ class WorkflowUnit(ThreadedUnit):
                     return
                 except Exception as exc:
                     self._log("dispatch_error", session=sid, attempt=attempt, err=str(exc))
+                    if attempt == 0:
+                        self._dispatch_errors.append(f"{agent}: {exc}")
                     if attempt < retries:
                         time.sleep(2.0 * (attempt + 1))  # backoff before retry
 
@@ -254,8 +257,9 @@ class WorkflowUnit(ThreadedUnit):
                     and time.time() - self._phase_started > self.settings.default_deadline_sec):
                 self._state = _ST_ERROR
                 self._result = (Outcome.TIMEOUT, self._node,
-                                f"node '{self._node}' exceeded default_deadline_sec "
-                                f"({self.settings.default_deadline_sec}s)")
+                                self._with_dispatch_diag(
+                                    f"node '{self._node}' exceeded default_deadline_sec "
+                                    f"({self.settings.default_deadline_sec}s)"))
                 return
         if self._phase == _PH_AGENT:
             self._step_agent()
@@ -656,6 +660,12 @@ class WorkflowUnit(ThreadedUnit):
     def _log(self, event, **fields) -> None:
         if self.ledger is not None:
             self.ledger.append(event, **fields)
+
+    def _with_dispatch_diag(self, detail: str) -> str:
+        """Append recent dispatch failures to a result detail for user visibility."""
+        if not self._dispatch_errors:
+            return detail
+        return detail + " (dispatch failures: " + "; ".join(self._dispatch_errors[-5:]) + ")"
 
     def _write_metrics(self) -> None:
         """Publish live runtime metrics to the shared blackboard (if any)."""

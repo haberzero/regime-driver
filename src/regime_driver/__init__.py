@@ -7,4 +7,4 @@ reviewer (L0) judgements gated by a deterministic gate.
 See the architecture doc: docs/ARCHITECTURE-regime-driver.md
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

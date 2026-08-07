@@ -9,8 +9,8 @@
 ## A. 文档 / 手册完善（最欠，首当其冲）
 
 - [x] **A1. 重写 `README.md`** — 现严重过时/太薄（0 处提 dialog/mock/statechart）。补：安装→快速上手→架构→命令→调试(mock)→测试→文档索引。**（已做：重写含 dialog/mock/测试/文档链接）**
-- [ ] **A2. 加配置示例** — `--config` 支持 JSON/TOML 但无示例文件。加 `config.example.toml`，或 `regime gen-config`。
-- [ ] **A3. 补 env/密钥文档** — `DEEPSEEK_API_KEY` 注入、`REGIME_*` 环境变量过载设置。
+- [x] **A2. 加配置示例** — 已加 `config.example.toml`（全部字段+注释+env覆盖+优先级）。**（已做）**
+- [x] **A3. 补 env/密钥文档** — 已加 README「配置与密钥」章节（REGIME_* env 覆盖 + DEEPSEEK_API_KEY 经 opencode auth 注入）。**（已做）**
 - [x] **A4. 建 `docs/` 导航页** — 已建 `docs/README.md`（声明 WRITING_GUIDE 为尺子 + 读者旅程 + docs 索引 + 书写纪律）。**（已做）**
 - [x] **A5. 解决 WRITING_GUIDE 适用范围与 oc-meta 结构不匹配** — 已适配：改适用范围到扁平命名 + 加 oc-meta 结构映射表 + 读者旅程示例。**（已做，自行适配而非照搬 IBCI）**
 - [x] **A6. 补 `KNOWN_LIMITS.md`** — 已建 `docs/KNOWN_LIMITS.md`（未实现项/行为限制/边界）。**（已做）**
@@ -22,7 +22,7 @@
 - [x] **B1. 加 `regime sessions` 命令** — 已加：`OpenCodeClient.list_sessions()`（GET /session）+ `regime sessions`（列所有 session：id/title/agent/status/tokens）。**（已做，实测列出 42 个 session）**
 - [x] **B2. CLI `dialog --help` 补能力说明** — 已加：dialog 命令 docstring 列出全部命令。**（已做）**
 - [x] **B3. 合并 CLI dialog 与 `ops/god_dialog.py` 重复** — 已抽 `app/dialog_app.py`（run_dialog + make_llm_runner），CLI 命令与 ops 脚本都委托它。**（已做）**
-- [ ] **B4. 版本升级** — 从 `0.1.0` 随功能升级（重构/对话框/mock）。
+- [x] **B4. 版本升级** — 已从 `0.1.0` → `0.2.0`。**（已做）**
 
 ## C. 信息提示 / 可读性
 
@@ -35,12 +35,12 @@
 - [ ] **D1. 梳理 `_deadline` 恒空** — meta 研判 deadline 未写入，与 `global_deadline_sec` 语义重叠，归一到一处。
 - [x] **D2. `main_loop` flow 死配置** — 已加可达性检查：`regime validate` 警告非入口不可达 flow。**（已做）**
 - [x] **D3. `god_dialog._run_talk` 硬编码** — 已参数化 `talk_agent` + `talk_timeout`。**（已做）**
-- [ ] **D4. 清理未用参数** — `_is_monitor_cmd`/`_is_events_cmd` 的 `raw` 参数（nit）。
+- [x] **D4. 清理未用参数** — 已删 `_is_monitor_cmd`/`_is_events_cmd` 的 `raw` 参数。**（已做）**
 
 ## E. 工程化
 
 - [ ] **E1. 加 CI / coverage** — 192 测试无 CI、无 coverage 门槛、e2e marker 无运行说明。加 GitHub Actions + `pytest --cov`。
-- [ ] **E2. 错误路径用户可见性** — `dispatch_error`/`workflow_step_error` 只记 ledger，补面向用户的诊断摘要。
+- [x] **E2. 错误路径用户可见性** — 已加 `_dispatch_errors` 追踪 + `_with_dispatch_diag`，超时 detail 附 dispatch 失败原因。**（已做）**
 
 ---
 
@@ -49,8 +49,8 @@
 | 优先级 | 项 | 理由 |
 |---|---|---|
 | **P0** | A1✅、A4✅、A5✅、A6✅、A7✅、A8✅、C3✅、B1✅ | P0 已全部完成 |
-| **P1** | A2、A3 + B2✅、B3✅、C1✅、C2✅、C3✅、D2✅、D3✅ | P1 已做 B2/B3/C1/C2/C3/D2/D3；剩 A2/A3 |
-| **P2** | B4、D1、D4、E1、E2 | 需用户决策或远期 |
+| **P1** | A2✅、A3✅、B2✅、B3✅、C1✅、C2✅、C3✅、D2✅、D3✅ | P1 已全部完成 |
+| **P2** | B4、D1、D4、E1、E2 | 进行中 |
 
 ## 需用户从另一工程补充 / 决策
 

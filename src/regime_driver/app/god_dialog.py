@@ -214,9 +214,9 @@ class GodDialogUnit(ThreadedUnit):
             return self._help()
         if "config" in low or "设定" in t or "配置" in t:
             return self._render_settings()
-        if self._is_monitor_cmd(low, t):
+        if self._is_monitor_cmd(low):
             return self.render_monitor(self._field_in(t))
-        if self._is_events_cmd(low, t):
+        if self._is_events_cmd(low):
             return self.render_events(self._int_in(t, default=10), self._event_topic_in(t))
         if self._is_start_cmd(low):
             return self._write_gate(t) or self._start(t)
@@ -240,14 +240,14 @@ class GodDialogUnit(ThreadedUnit):
                 "如需启用，请以 allow_write=True 构造。")
 
     @staticmethod
-    def _is_monitor_cmd(low: str, raw: str) -> bool:
+    def _is_monitor_cmd(low: str) -> bool:
         # command-like only: bare keyword or a leading command, so a free-form
         # sentence like "帮我解释一下当前状态" falls through to the LLM.
         bare = low in ("status", "monitor", "状态", "监控", "快照")
         return bare or low.startswith(("status ", "monitor ", "监控 ", "快照 "))
 
     @staticmethod
-    def _is_events_cmd(low: str, raw: str) -> bool:
+    def _is_events_cmd(low: str) -> bool:
         bare = low in ("watch", "events", "event", "事件", "watchdog")
         return bare or low.startswith(("watch ", "事件 ", "watchdog "))
 
