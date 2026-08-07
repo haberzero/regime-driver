@@ -1,0 +1,48 @@
+# 改进工作清单与规划（WORK_PLAN 3）— CLI 契约升级
+
+> 日期：2026-08-06 · 状态：待办清单
+> 依据：`docs/DESIGN-god-dialog-carrier.md`（opencode 作载体 + 双路方案，CLI 契约是唯一真源）。
+> 原则：每项完成过质量门 + 全量测试零回归 + code-review + commit。
+
+---
+
+## I. 机器可读输出（--json）
+
+- [ ] **I1. `regime status --json`** — 输出 worker 健康为 JSON。
+- [ ] **I2. `regime sessions --json`** — 输出 session 列表为 JSON（id/title/agent/status/tokens）。
+- [ ] **I3. `regime validate --json`** — 输出校验结果为 JSON。
+- [ ] **I4. `regime run/run-many --json`** — 运行结束输出结果 JSON（不打印 rich 表格）。
+
+## J. 事件流
+
+- [ ] **J1. `regime events --follow [workflow]`** — 尾随 ledger/总线事件，新行输出 JSON 事件；`--once` 只打印当前缓冲。
+- [ ] **J2. 事件源** — 确认 worker 侧有可尾随的事件源（ledger 文件 / 总线 / opencode 事件），无则从 ledger 读。
+
+## K. Session 交互
+
+- [ ] **K1. `regime session <id> send "<msg>"`** — 向指定 session 发消息。
+- [ ] **K2. `regime session <id> reply`（--reply）** — 读取该 session 最新 assistant 回复。
+
+## L. 非阻塞控制确认
+
+- [ ] **L1. 审计** — 盘点所有 CLI 控制命令，确认 submit→handle 分离、无阻塞等待完成；补齐缺失的 async 面。
+
+## M. （A 路）opencode god agent + custom-tool 插件
+
+- [ ] **M1. 做 opencode `god` agent 配置**（权限门禁 + 提示词）。
+- [ ] **M2. regime custom-tool 插件**（把关键命令注册为 opencode 原生工具）。
+- [ ] **M3. 验证** — 用一个 opencode 会话实际驱动 regime 控制。
+
+---
+
+## 优先级
+
+| 优先级 | 项 | 理由 |
+|---|---|---|
+| **P0** | I1–I4（--json）、K1/K2（session send/reply） | 机器可读是唯一真源的基础 |
+| **P1** | J1/J2（events --follow）、L1（async 审计） | 事件感知/非阻塞 |
+| **P2** | M1–M3（A 路 opencode 接入） | 落地验证 |
+
+## 说明
+- `--json` 是给 LLM/程序消费的完整结构化输出；rich 表格保留给人类默认。
+- 事件流优先从 ledger 文件尾随（`Ledger` 已 JSONL append-only）。

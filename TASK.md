@@ -8,7 +8,7 @@
 
 推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **改进工作清单/规划见 `WORK_PLAN.md`**（文档/易用性/可读性/重构/工程化 + 需用户补充决策项）。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。
+> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，进行中）。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
 
 ## 候选清单（按优先级）
 
