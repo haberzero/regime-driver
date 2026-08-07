@@ -8,10 +8,10 @@
 
 ## I. 机器可读输出（--json）
 
-- [ ] **I1. `regime status --json`** — 输出 worker 健康为 JSON。
-- [ ] **I2. `regime sessions --json`** — 输出 session 列表为 JSON（id/title/agent/status/tokens）。
-- [ ] **I3. `regime validate --json`** — 输出校验结果为 JSON。
-- [ ] **I4. `regime run/run-many --json`** — 运行结束输出结果 JSON（不打印 rich 表格）。
+- [x] **I1. `regime status --json`** — 已加：worker 健康 JSON。**（已做）**
+- [x] **I2. `regime sessions --json`** — 已加：session 列表 JSON。**（已做）**
+- [x] **I3. `regime validate --json`** — 已加：校验结果 JSON（含 unreachable flows）。**（已做）**
+- [x] **I4. `regime run/run-many --json`** — 已加：运行结果 JSON（outcome/end/detail/elapsed）。**（已做）**
 
 ## J. 事件流
 

@@ -54,6 +54,11 @@ def _ok(message: str, markup: bool = False) -> None:
     console.print(Text("✓ ", style="bold green") + (Text(message) if not markup else Text.from_markup(message)))
 
 
+def _emit_json(data) -> None:
+    """Print machine-readable JSON (the CLI contract's --json surface)."""
+    console.print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
@@ -72,6 +77,7 @@ def run(
     task_control_dir: Optional[Path] = typer.Option(
         None, "--task-control-dir", help="project dir for task-control docs"
     ),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
 ) -> None:
     """Run a task through the regime flow on a developer session."""
     settings = load_settings(
@@ -85,10 +91,10 @@ def run(
             "task_control_dir": str(task_control_dir) if task_control_dir else None,
         },
     )
-    _run(settings, context, title)
+    _run(settings, context, title, json_out=json_out)
 
 
-def _run(settings: Settings, context: str, title: str) -> None:
+def _run(settings: Settings, context: str, title: str, json_out: bool = False) -> None:
     try:
         sm = load_regime(settings.regime_path)
     except (StateMachineError, FileNotFoundError) as exc:
@@ -135,6 +141,12 @@ def _run(settings: Settings, context: str, title: str) -> None:
     if "res" not in result:
         _fail("run did not complete")
     outcome, end_node, detail = result["res"]
+    if json_out:
+        _emit_json({"outcome": outcome.value, "end": end_node, "detail": detail,
+                    "elapsed_sec": round(time.time()-t0, 1)})
+        if outcome != Outcome.COMPLETE:
+            raise typer.Exit(1)
+        return
     if outcome == Outcome.COMPLETE:
         _ok(f"flow completed at node [bold]{end_node}[/bold] "
             f"in {time.time()-t0:.0f}s", markup=True)
@@ -156,6 +168,7 @@ def run_many(
     deadline: int = typer.Option(None, "--deadline", help="per-segment deadline (sec)"),
     skills_dir: Optional[Path] = typer.Option(
         None, "--skills-dir", help="path to workflow-regime skills dir"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
 ) -> None:
     """Run several tasks as concurrent workflows on one worker."""
     from ..app.statechart_cluster import StatechartCluster
@@ -220,6 +233,13 @@ def run_many(
     if "res" not in result:
         _fail("run-many did not complete")
     results = result["res"]
+    if json_out:
+        _emit_json({"elapsed_sec": round(time.time()-t0, 1), "results": {
+            wid: {"outcome": r[0].value, "end": r[1], "detail": r[2]}
+            for wid, r in results.items()}})
+        if any(r[0] != Outcome.COMPLETE for r in results.values()):
+            raise typer.Exit(1)
+        return
     print(f"\n=== run-many 结果 ({time.time()-t0:.0f}s) ===")
     for wid, r in results.items():
         outcome, end, detail = r
@@ -240,13 +260,26 @@ def validate(
     regime: Optional[Path] = typer.Option(
         None, "--regime", help="path to regime.json (default: packaged descriptor)"
     ),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Validate a regime.json state machine descriptor."""
     try:
         sm = load_regime(regime)
         path = sm.flow_path()
     except (StateMachineError, FileNotFoundError) as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
         _fail(f"INVALID: {exc}")
+
+    flows = list(sm.regime.flows)
+    dead = [name for name in flows if name != sm.flow_name]
+    if json_out:
+        _emit_json({
+            "ok": True, "flow": sm.flow_name, "nodes": len(sm.flow.nodes),
+            "path": path, "flows": flows, "unreachable": dead,
+        })
+        return
 
     table = Table(title="regime descriptor", show_header=False)
     table.add_column("key", style="bold cyan")
@@ -258,12 +291,9 @@ def validate(
     console.print(table)
 
     # report flows that exist but are not the entry (potentially dead config)
-    flows = sm.regime.flows
-    if len(flows) > 1:
-        dead = [name for name in flows if name != sm.flow_name]
-        if dead:
-            console.print("[dim]warning: flows not reachable from entry "
-                          f"(entry='{sm.flow_name}'): {', '.join(dead)}[/dim]")
+    if len(flows) > 1 and dead:
+        console.print("[dim]warning: flows not reachable from entry "
+                      f"(entry='{sm.flow_name}'): {', '.join(dead)}[/dim]")
     _ok("valid regime descriptor")
 
 
@@ -301,10 +331,14 @@ def gate(
 @app.command("status")
 def status(
     base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Check worker health."""
     client = OpenCodeClient(base)
     healthy = client.health()
+    if json_out:
+        _emit_json({"healthy": healthy, "base": base})
+        return
     if healthy:
         _ok(f"worker healthy at [bold]{base}[/bold]", markup=True)
     else:
@@ -319,6 +353,7 @@ def sessions(
     base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
     clean: bool = typer.Option(False, "--clean", help="abort all sessions"),
     kill: Optional[str] = typer.Option(None, "--kill", help="abort a specific session id"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """List all opencode sessions on the worker with their live status."""
     client = OpenCodeClient(base)
@@ -327,6 +362,9 @@ def sessions(
             client.abort_session(kill)
         except Exception as exc:
             _fail(f"abort {kill} failed: {exc}")
+        if json_out:
+            _emit_json({"aborted": kill})
+            return
         _ok(f"aborted session {kill}", markup=False)
         return
     slist = client.list_sessions()
@@ -337,12 +375,21 @@ def sessions(
                 client.abort_session(sid)
             except Exception as exc:
                 console.print(f"[dim]abort {sid} failed: {exc}[/dim]")
+        if json_out:
+            _emit_json({"aborted": len(ids)})
+            return
         _ok(f"aborted {len(ids)} sessions", markup=False)
         return
-    if not slist:
-        _ok("no sessions on the worker", markup=False)
-        return
     busy = client.session_status_map()
+    if json_out:
+        rows = [{
+            "id": s.get("id"), "title": s.get("title"), "agent": s.get("agent"),
+            "status": busy.get(s.get("id")) or "idle",
+            "tokens_in": (s.get("tokens") or {}).get("input") or 0,
+            "tokens_out": (s.get("tokens") or {}).get("output") or 0,
+        } for s in slist]
+        _emit_json({"sessions": rows})
+        return
     table = Table(title="worker sessions", show_header=True)
     table.add_column("session", style="bold cyan")
     table.add_column("title")
