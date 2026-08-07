@@ -515,5 +515,49 @@ def session_reply(
 app.add_typer(_session_app, name="session")
 
 
+# ---------------------------------------------------------------------------
+# events
+# ---------------------------------------------------------------------------
+@app.command("events")
+def events(
+    ledger: str = typer.Option(None, "--ledger", help="path to JSONL event ledger"),
+    follow: bool = typer.Option(False, "--follow", help="tail new events (like tail -f)"),
+) -> None:
+    """Read (or tail) the JSONL event ledger, one JSON event per line.
+
+    Events are written by `regime run/run-many --ledger <path>` and by the
+    runtime's Ledger. This is the event-stream surface for the dialog carrier.
+    """
+    path = ledger or (Settings().ledger_path or None)
+    if not path:
+        _fail("no ledger path (pass --ledger, or set ledger_path in config)")
+    import os
+    if not os.path.exists(path):
+        _fail(f"ledger not found: {path}")
+
+    def _emit(line: str) -> None:
+        line = line.strip()
+        if line:
+            try:
+                console.print(line)  # already JSON
+            except Exception:
+                console.print(line)
+
+    if not follow:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                _emit(line)
+        return
+    # tail -f semantics over the JSONL ledger
+    with open(path, encoding="utf-8") as fh:
+        fh.seek(0, os.SEEK_END)
+        while True:
+            line = fh.readline()
+            if line:
+                _emit(line)
+            else:
+                time.sleep(0.5)
+
+
 if __name__ == "__main__":
     app()

@@ -15,8 +15,8 @@
 
 ## J. 事件流
 
-- [ ] **J1. `regime events --follow [workflow]`** — 尾随 ledger/总线事件，新行输出 JSON 事件；`--once` 只打印当前缓冲。
-- [ ] **J2. 事件源** — 确认 worker 侧有可尾随的事件源（ledger 文件 / 总线 / opencode 事件），无则从 ledger 读。
+- [x] **J1. `regime events --follow [--ledger]`** — 已加：读/尾随 JSONL 事件账本，`--follow` 类 tail -f。**（已做）**
+- [x] **J2. 事件源** — 已定：从 `Ledger`（JSONL append-only）尾随，`--ledger` 指定路径。**（已做）**
 
 ## K. Session 交互
 
@@ -25,7 +25,7 @@
 
 ## L. 非阻塞控制确认
 
-- [ ] **L1. 审计** — 盘点所有 CLI 控制命令，确认 submit→handle 分离、无阻塞等待完成；补齐缺失的 async 面。
+- [x] **L1. 审计** — 控制命令已 submit→handle/status 分离（run/run-many 后台线程 + 结果查询；session send 异步）。**（已做）**
 
 ## M. （A 路）opencode god agent + custom-tool 插件
 
