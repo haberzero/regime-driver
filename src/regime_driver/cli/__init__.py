@@ -398,13 +398,18 @@ def report_cmd(
     wf_id: str = typer.Option(None, "--wf", help="filter by workflow id"),
     history: bool = typer.Option(False, "--history", help="also print journal records"),
     limit: int = typer.Option(50, "--limit", help="max history records"),
+    template: str = typer.Option(
+        None, "--template",
+        help="report template: milestone | blocker | period | activity"),
+    since: float = typer.Option(None, "--since", help="epoch seconds; lower bound for period/activity"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Show the report bus: global rollup board + optional journal history.
 
     Reads a journal written by `regime run ... --reporter <path>`. Rollups are
-    O(1) counters; history is the bounded append-only slice. This is the macro
-    project-management surface for the God Dialog (WORK_PLAN4 III).
+    O(1) counters; history is the bounded append-only slice. Templates produce
+    rule-based formatted reports (milestone/blocker/period/activity). This is the
+    macro project-management surface for the God Dialog (WORK_PLAN4 III).
     """
     from ..app.reporter import Reporter
 
@@ -412,6 +417,10 @@ def report_cmd(
     if journal:
         rep.load()
     rollups = rep.rollup(wf_id=wf_id)
+    if template:
+        _report_template(rep, rollups, template, since=since, wf_id=wf_id,
+                         limit=limit, json_out=json_out)
+        return
     if json_out:
         out = {"rollups": rollups}
         if history:
@@ -437,6 +446,72 @@ def report_cmd(
             console.print(f"  {rec['ts']:.1f} {rec['kind']} "
                           f"wf={rec['wf_id']} node={rec.get('node')} "
                           f"outcome={rec.get('outcome')}")
+
+
+def _report_template(rep, rollups, template, *, since=None, wf_id=None,
+                     limit=None, json_out=False) -> None:
+    """Rule-based formatted report templates (WORK_PLAN4 R-C)."""
+    recs = rep.journal_slice(wf_id=wf_id, since=since, limit=limit)
+    if template == "activity":
+        out = [{"ts": r["ts"], "kind": r["kind"], "wf": r["wf_id"],
+                "node": r.get("node"), "outcome": r.get("outcome"),
+                "detail": r.get("detail")} for r in recs]
+        if json_out:
+            _emit_json({"template": "activity", "records": out})
+        else:
+            console.print(f"[bold]activity log · {len(out)} records[/bold]")
+            for r in out:
+                console.print(f"  {r['ts']:.1f} {r['kind']} wf={r['wf']} "
+                              f"node={r['node']} outcome={r['outcome']}")
+        return
+
+    if template == "milestone":
+        keys = {"advance", "transition", "outcome", "reviewer_verdict"}
+        out = [r for r in recs if r.get("kind") in keys]
+        if json_out:
+            _emit_json({"template": "milestone", "records": out})
+        else:
+            console.print(f"[bold]milestones · {len(out)} key transitions[/bold]")
+            for r in out[-limit or len(out):]:
+                console.print(f"  {r['ts']:.1f} {r['kind']} wf={r['wf_id']} "
+                              f"node={r.get('node')} outcome={r.get('outcome')} "
+                              f"detail={r.get('detail') or ''}")
+        return
+
+    if template == "blocker":
+        bad = {"failed", "blocked", "human", "error", "aborted", "timeout"}
+        out = [r for r in recs
+               if r.get("kind") == "outcome" and r.get("outcome") in bad]
+        if json_out:
+            _emit_json({"template": "blocker", "records": out})
+        else:
+            console.print(f"[bold]blockers · {len(out)}[/bold]")
+            for r in out:
+                console.print(f"  {r['ts']:.1f} wf={r['wf_id']} outcome={r['outcome']} "
+                              f"detail={r.get('detail') or ''}")
+        return
+
+    if template == "period":
+        # aggregate the bounded journal window into counts by kind and outcome
+        by_kind: dict[str, int] = {}
+        by_outcome: dict[str, int] = {}
+        for r in recs:
+            by_kind[r["kind"]] = by_kind.get(r["kind"], 0) + 1
+            oc = r.get("outcome")
+            if oc:
+                by_outcome[oc] = by_outcome.get(oc, 0) + 1
+        out = {"window_records": len(recs), "by_kind": by_kind,
+               "by_outcome": by_outcome, "rollups": rollups}
+        if json_out:
+            _emit_json({"template": "period", **out})
+        else:
+            console.print(f"[bold]period report · {len(recs)} records in window[/bold]")
+            console.print(f"  by_kind: {by_kind}")
+            console.print(f"  by_outcome: {by_outcome}")
+            console.print(f"  rollups: {len(rollups)}")
+        return
+
+    _fail(f"unknown template '{template}' (milestone|blocker|period|activity)", markup=False)
 
 
 # ---------------------------------------------------------------------------
