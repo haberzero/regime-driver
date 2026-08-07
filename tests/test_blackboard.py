@@ -3,7 +3,7 @@
 import threading
 import time
 
-from regime_driver.app.blackboard import Blackboard, CHANGED_EVENT
+from regime_driver.app.blackboard import Blackboard, CHANGED_EVENT, workflow_status
 from regime_driver.app.statechart_runtime import Runtime, ThreadedUnit
 from regime_driver.core.statechart import Bus
 
@@ -68,6 +68,20 @@ def test_runtime_attaches_blackboard_and_publishes():
         pass
     rt.stop()
     assert got and got[0]["value"] == "implement"
+
+
+def test_workflow_status_shared_helper():
+    """The shared workflow_status helper derives per-workflow views from the
+    blackboard (single source of truth for telemetry + god dialog)."""
+    bb = Blackboard()
+    bb.update(**{"w1.node": "design", "w1.state": "running", "w1.node_count": 2,
+                 "w2.node": "implement", "w2.extra": "ignored", "notmetric": 1})
+    status = workflow_status(bb)
+    assert status["w1"]["node"] == "design"
+    assert status["w1"]["state"] == "running"
+    assert status["w2"]["node"] == "implement"
+    assert "extra" not in status["w2"]          # non-metric keys excluded
+    assert "notmetric" not in status            # no workflow prefix -> excluded
 
 
 def test_workflow_writes_metrics_to_blackboard():

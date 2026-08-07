@@ -85,6 +85,28 @@ class OpenCodeClient:
             return entry.get("type")
         return entry if isinstance(entry, str) else None
 
+    def session_status_map(self) -> dict[str, str | None]:
+        """Return the full {session_id: status_type} map from /session/status."""
+        res = self._request("GET", "/session/status", timeout=15.0)
+        if not isinstance(res, dict):
+            return {}
+        out: dict[str, str | None] = {}
+        for sid, entry in res.items():
+            if isinstance(entry, dict):
+                out[sid] = entry.get("type")
+            elif isinstance(entry, str):
+                out[sid] = entry
+            else:
+                out[sid] = None
+        return out
+
+    def list_sessions(self) -> list[dict]:
+        """Return the full list of sessions from GET /session (id/title/tokens/...)."""
+        res = self._request("GET", "/session", timeout=15.0)
+        if not isinstance(res, list):
+            return []
+        return [s for s in res if isinstance(s, dict)]
+
     def session_tokens(self, session_id: str) -> tuple[int, int]:
         """Return (reasoning, output) token counts for a session (0 if unknown)."""
         res = self._request("GET", f"/session/{session_id}", timeout=15.0)

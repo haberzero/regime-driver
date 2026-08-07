@@ -25,16 +25,13 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 from ..core.statechart import Signal, SignalKind
+from .blackboard import WORKFLOW_METRICS, workflow_status
 from .statechart_runtime import ThreadedUnit
 
 # event topics this dialog observes
 TOPIC_BLACKBOARD = "blackboard.changed"
 TOPIC_WATCHDOG = "watchdog_fire"
 TOPIC_GOD_REPLY = "god.reply"
-
-# workflow metrics keys read from the blackboard (mirrors telemetry)
-_METRICS = ("node", "phase", "node_count", "state", "heartbeat",
-            "start_time", "wait_sid", "waiting_s")
 
 
 def _topic_label(topic: str) -> str:
@@ -162,19 +159,9 @@ class GodDialogUnit(ThreadedUnit):
     # -- snapshot -----------------------------------------------------------
 
     def workflow_status(self) -> dict[str, dict]:
-        """Read the shared blackboard and return per-workflow status."""
+        """Read the shared blackboard and return per-workflow status (shared helper)."""
         bb = self.bus.blackboard if self.bus is not None else None
-        if bb is None:
-            return {}
-        out: dict[str, dict] = {}
-        for key in bb.keys():
-            if "." not in key:
-                continue
-            wid, _, metric = key.rpartition(".")
-            if metric not in _METRICS:
-                continue
-            out.setdefault(wid, {})[metric] = bb.get(key)
-        return out
+        return workflow_status(bb)
 
     def render_monitor(self, field: str | None = None) -> str:
         lines = ["=== 上帝对话框 · 实时监控 ==="]
@@ -293,7 +280,7 @@ class GodDialogUnit(ThreadedUnit):
 
     @staticmethod
     def _field_in(text: str) -> str | None:
-        for name in _METRICS:
+        for name in WORKFLOW_METRICS:
             if name in text:
                 return name
         return None

@@ -19,7 +19,7 @@
 
 ## B. 易用性
 
-- [ ] **B1. 加 `regime sessions` 命令** — 列出所有 session 状态（含 busy/idle），god dialog `inspect` 也依赖。
+- [x] **B1. 加 `regime sessions` 命令** — 已加：`OpenCodeClient.list_sessions()`（GET /session）+ `regime sessions`（列所有 session：id/title/agent/status/tokens）。**（已做，实测列出 42 个 session）**
 - [ ] **B2. CLI `dialog --help` 补能力说明** — 顶部列出 dialog 支持的命令。
 - [ ] **B3. 合并 CLI dialog 与 `ops/god_dialog.py` 重复** — 两处几乎相同 REPL + `_make_dialog_llm`（DRY）。统一单一入口。
 - [ ] **B4. 版本升级** — 从 `0.1.0` 随功能升级（重构/对话框/mock）。
@@ -28,7 +28,7 @@
 
 - [ ] **C1. `regime run` 进度可读化** — 现仅 `console.status` 转圈；用 rich 显示节点/阶段/耗时。
 - [ ] **C2. 监控输出语义化** — `state=running node=wrap phase=none hb=1s` 加中文/易懂标签。
-- [ ] **C3. 去重 `workflow_status`** — `telemetry.py:42` 与 `god_dialog.py:164` 重复；提取共享单一事实源。
+- [x] **C3. 去重 `workflow_status`** — 已提取 `blackboard.workflow_status()` + `WORKFLOW_METRICS` 单一事实源，telemetry/god_dialog 复用。**（已做）**
 
 ## D. 代码 / 重构（已知债务）
 
@@ -48,7 +48,7 @@
 
 | 优先级 | 项 | 理由 |
 |---|---|---|
-| **P0** | A1✅、A4✅、A5✅、A6✅、A7✅、A8✅、C3（去重）、B1（sessions） | A 组文档治理已自适配完成；C3/B1 价值高、成本低、无歧义 |
+| **P0** | A1✅、A4✅、A5✅、A6✅、A7✅、A8✅、C3✅、B1✅ | P0 已全部完成 |
 | **P1** | A2、A3、B2、B3、C1、C2、D2、D3 | 需判断/中等成本 |
 | **P2** | B4、D1、D4、E1、E2 | 需用户决策或远期 |
 

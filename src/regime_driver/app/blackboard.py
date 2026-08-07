@@ -18,6 +18,31 @@ from typing import Callable
 # event names emitted on the bus when the blackboard changes
 CHANGED_EVENT = "blackboard.changed"
 
+# workflow metrics keys that form a per-workflow status view (single source of
+# truth shared by telemetry and the god dialog)
+WORKFLOW_METRICS = ("node", "phase", "node_count", "state", "heartbeat",
+                    "start_time", "wait_sid", "waiting_s")
+
+
+def workflow_status(bb: "Blackboard") -> dict[str, dict]:
+    """Derive a per-workflow status map from a blackboard's metric keys.
+
+    Keys are `{workflow_id}.{metric}` (multi-workflow isolation on a shared
+    blackboard). Only `WORKFLOW_METRICS` keys are surfaced. Shared by
+    Telemetry/GodDialog so the view logic lives in exactly one place.
+    """
+    out: dict[str, dict] = {}
+    if bb is None:
+        return out
+    for key in bb.keys():
+        if "." not in key:
+            continue
+        wid, _, metric = key.rpartition(".")
+        if metric not in WORKFLOW_METRICS:
+            continue
+        out.setdefault(wid, {})[metric] = bb.get(key)
+    return out
+
 
 class Blackboard:
     """A lock-protected shared key/value store with optional change events."""

@@ -183,6 +183,40 @@ def status(
 
 
 # ---------------------------------------------------------------------------
+# sessions
+# ---------------------------------------------------------------------------
+@app.command("sessions")
+def sessions(
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+) -> None:
+    """List all opencode sessions on the worker with their live status."""
+    client = OpenCodeClient(base)
+    slist = client.list_sessions()
+    if not slist:
+        _ok("no sessions on the worker", markup=False)
+        return
+    busy = client.session_status_map()
+    table = Table(title="worker sessions", show_header=True)
+    table.add_column("session", style="bold cyan")
+    table.add_column("title")
+    table.add_column("agent")
+    table.add_column("status")
+    table.add_column("tokens")
+    for s in slist:
+        sid = s.get("id", "?")
+        st = busy.get(sid) or "idle"
+        style = "bold yellow" if st == "busy" else "green"
+        toks = s.get("tokens") or {}
+        tin = toks.get("input") or 0
+        tout = toks.get("output") or 0
+        table.add_row(sid, str(s.get("title") or "")[:28],
+                      str(s.get("agent") or ""), Text(st, style=style),
+                      f"{tin}+{tout}")
+    console.print(table)
+    console.print(f"[dim]{len(slist)} sessions[/dim]")
+
+
+# ---------------------------------------------------------------------------
 # dialog
 # ---------------------------------------------------------------------------
 @app.command("dialog")

@@ -60,3 +60,14 @@ def test_timeout_when_no_new_message():
     c = FakeClient([])  # never any message
     with pytest.raises(OpenCodeError):
         c.ask_and_get_text("s1", "p", "reviewer")
+
+
+def test_list_sessions_parses_response():
+    c = FakeClient([])
+    c._list = [{"id": "s1", "title": "t", "agent": "developer",
+                "tokens": {"input": 10, "output": 2}}, "not-a-dict"]
+    c.read_messages = lambda sid: []  # unused here
+    c._request = lambda *a, **k: c._list
+    sessions = c.list_sessions()
+    assert len(sessions) == 1                  # non-dict entries dropped
+    assert sessions[0]["id"] == "s1"

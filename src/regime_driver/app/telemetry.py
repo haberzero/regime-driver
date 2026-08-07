@@ -14,6 +14,7 @@ import time
 from collections import deque
 
 from ..core.statechart import StatechartUnit
+from .blackboard import workflow_status
 
 
 class Telemetry(StatechartUnit):
@@ -40,20 +41,9 @@ class Telemetry(StatechartUnit):
     # -- snapshot ------------------------------------------------------------
 
     def workflow_status(self) -> dict[str, dict]:
-        """Read the blackboard and return per-workflow status."""
+        """Read the blackboard and return per-workflow status (shared helper)."""
         bb = self.bus.blackboard if self.bus is not None else None
-        if bb is None:
-            return {}
-        workflows: dict[str, dict] = {}
-        for key in bb.keys():
-            if "." not in key:
-                continue
-            wid, _, metric = key.rpartition(".")
-            if metric not in ("node", "phase", "node_count", "state", "heartbeat",
-                              "start_time", "wait_sid", "waiting_s"):
-                continue
-            workflows.setdefault(wid, {})[metric] = bb.get(key)
-        return workflows
+        return workflow_status(bb)
 
     def recent_watchdog(self, limit: int = 10) -> list[dict]:
         return [e[2] for e in self.events if e[0] == "watchdog_fire"][-limit:]
