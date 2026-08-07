@@ -8,14 +8,14 @@
 
 ## A. 文档 / 手册完善（最欠，首当其冲）
 
-- [ ] **A1. 重写 `README.md`** — 现严重过时/太薄（0 处提 dialog/mock/statechart）。补：安装→快速上手→架构→命令→调试(mock)→测试→文档索引。
+- [x] **A1. 重写 `README.md`** — 现严重过时/太薄（0 处提 dialog/mock/statechart）。补：安装→快速上手→架构→命令→调试(mock)→测试→文档索引。**（已做：重写含 dialog/mock/测试/文档链接）**
 - [ ] **A2. 加配置示例** — `--config` 支持 JSON/TOML 但无示例文件。加 `config.example.toml`，或 `regime gen-config`。
 - [ ] **A3. 补 env/密钥文档** — `DEEPSEEK_API_KEY` 注入、`REGIME_*` 环境变量过载设置。
-- [ ] **A4. 建 `docs/` 导航页** — doc-governance 要求的"文档导航"，说明 WRITING_GUIDE 是治理尺子 + docs 阅读顺序索引。
-- [ ] **A5. 解决 WRITING_GUIDE 适用范围与 oc-meta 结构不匹配** — 二选一：按 Divio 重组 docs，或适配 WRITING_GUIDE 到扁平命名。**需用户从另一工程取模板/决策**。
-- [ ] **A6. 补 `KNOWN_LIMITS.md`** — 记录已知限制（`_deadline` 恒空、`main_loop` 死配置、free provider 排队等）。
-- [ ] **A7. 确认 doc-governance skill 归属** — 是否同步到顶层 `skills/`。**需用户决策**。
-- [ ] **A8. 补文档体系缺口（How-to/Tutorial 层）** — doc-governance Phase 7；按 WRITING_GUIDE Divio 四分法补操作指南。
+- [x] **A4. 建 `docs/` 导航页** — 已建 `docs/README.md`（声明 WRITING_GUIDE 为尺子 + 读者旅程 + docs 索引 + 书写纪律）。**（已做）**
+- [x] **A5. 解决 WRITING_GUIDE 适用范围与 oc-meta 结构不匹配** — 已适配：改适用范围到扁平命名 + 加 oc-meta 结构映射表 + 读者旅程示例。**（已做，自行适配而非照搬 IBCI）**
+- [x] **A6. 补 `KNOWN_LIMITS.md`** — 已建 `docs/KNOWN_LIMITS.md`（未实现项/行为限制/边界）。**（已做）**
+- [x] **A7. 装配 doc-governance skill** — 已复制到顶层 `skills/doc-governance/`。**（已做）**
+- [x] **A8. 补文档体系缺口（How-to/Tutorial 层）** — 已建 `docs/howto/`（README + run-e2e + debug-with-mock + god-dialog）。**（已做）**
 
 ## B. 易用性
 
@@ -48,13 +48,12 @@
 
 | 优先级 | 项 | 理由 |
 |---|---|---|
-| **P0** | A1（README）、A4（导航）、C3（去重）、B1（sessions） | 价值高、成本低、无歧义 |
-| **P1** | A2、A3、A6（KNOWN_LIMITS）、B2、B3、C1、C2、D2、D3 | 需判断/中等成本 |
-| **P2** | A5、A7、A8、B4、D1、D4、E1、E2 | 需用户决策或远期 |
+| **P0** | A1✅、A4✅、A5✅、A6✅、A7✅、A8✅、C3（去重）、B1（sessions） | A 组文档治理已自适配完成；C3/B1 价值高、成本低、无歧义 |
+| **P1** | A2、A3、B2、B3、C1、C2、D2、D3 | 需判断/中等成本 |
+| **P2** | B4、D1、D4、E1、E2 | 需用户决策或远期 |
 
 ## 需用户从另一工程补充 / 决策
 
-- A5：WRITING_GUIDE 是否适配 oc-meta，或取 IBCI 分目录结构模板。
-- A7：doc-governance skill 是否同步到顶层 `skills/`。
-- A4：是否有可复用的文档导航页模板。
-- A6：是否已有 KNOWN_LIMITS 模板。
+- A2：是否有可复用的 config 示例模板（否则自行生成）。
+- A3：是否有 env/密钥文档模板。
+- （A5/A7 已由本工程自行适配/装配，不再需要外部模板。）

@@ -1,0 +1,14 @@
+# 操作指南（howto）
+
+> 面向有基础的用户，解决具体问题。每篇以问题为题，给步骤与预期结果。
+> 书写遵守 `docs/WRITING_GUIDE.md`。心智模型见 `ARCHITECTURE-*`/`DESIGN-*`，本目录只讲"怎么做"。
+
+## 指南索引
+
+- [跑一次真实 E2E 并解读耗时](run-e2e.md) — 用 `ops/e2e_debug.py` 在真实 worker 上跑完整流程、看每节点耗时构成。
+- [用 mock 离线调试](debug-with-mock.md) — 无网络/无 LLM 下用 `MockClient` 确定性调试状态机/并发/超时。
+- [使用上帝对话框](god-dialog.md) — `regime dialog` 的监控/设计/启动/talk/解释用法。
+
+## 读者旅程
+
+新用户：根 `README.md` → `docs/README.md` → 本目录 →（深入）`ARCHITECTURE-statechart-network.md` → `KNOWN_LIMITS.md`。
