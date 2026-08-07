@@ -58,7 +58,8 @@ class StatechartCluster:
         if workflow_id in self.workflows:
             raise ValueError(f"workflow id '{workflow_id}' already registered")
         wf = WorkflowUnit(
-            settings, state_machine, self.client, self.ledger, roles or default_roles(),
+            settings, state_machine, self.client, self.ledger,
+            roles=roles or default_roles(),
             unit_id=workflow_id, bus=self.runtime.bus,
         )
         self.runtime.register(wf)

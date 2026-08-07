@@ -35,6 +35,7 @@ class StatechartDriver:
         state_machine: StateMachine,
         client: OpenCodeClient,
         ledger: Ledger | None = None,
+        reporter: "Reporter | None" = None,
         roles: RoleRegistry | None = None,
         constitution: ThreadedUnit | None = None,
         enforce_invariants: bool = True,
@@ -46,6 +47,7 @@ class StatechartDriver:
         self.sm = state_machine
         self.client = client
         self.ledger = ledger
+        self.reporter = reporter
         self.roles = roles or default_roles()
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
         self.constitution = constitution or ConstitutionUnit(
@@ -62,7 +64,8 @@ class StatechartDriver:
             # bus so its send()/emit() work (it manages its own subscriptions).
             self.constitution.bus = self.runtime.bus
         self.workflow = WorkflowUnit(
-            settings, state_machine, client, ledger, self.roles,
+            settings, state_machine, client, ledger,
+            reporter=reporter, roles=self.roles,
             unit_id="workflow", bus=self.runtime.bus,
         )
         self.runtime.register(self.constitution)

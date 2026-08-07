@@ -58,6 +58,7 @@ class WorkflowUnit(ThreadedUnit):
         state_machine: StateMachine,
         client: OpenCodeClient,
         ledger: Ledger | None = None,
+        reporter: "Reporter | None" = None,
         roles: RoleRegistry | None = None,
         unit_id: str = "workflow",
         bus=None,
@@ -68,6 +69,7 @@ class WorkflowUnit(ThreadedUnit):
         self.sm = state_machine
         self.client = client
         self.ledger = ledger
+        self.reporter = reporter
         self.roles = roles or default_roles()
         self.poll_sec = poll_sec or settings.poll_sec
         self.segment_parser = SegmentParser(state_machine.regime.meta.work_done_marker)
@@ -141,6 +143,10 @@ class WorkflowUnit(ThreadedUnit):
                         self._result = (Outcome.ERROR, self._node, f"workflow step error: {exc}")
                         break
             if self._state in (_ST_DONE, _ST_ABORTED, _ST_ERROR):
+                if self._result is not None:
+                    self._log("outcome", node=self._result[1],
+                              outcome=self._result[0].value,
+                              detail=self._result[2] or "")
                 break
             time.sleep(min(self.poll_sec, 0.1))
 
@@ -660,6 +666,16 @@ class WorkflowUnit(ThreadedUnit):
     def _log(self, event, **fields) -> None:
         if self.ledger is not None:
             self.ledger.append(event, **fields)
+        if self.reporter is not None:
+            self.reporter.ingest(
+                kind=event,
+                wf_id=self.id,
+                session_id=fields.get("session_id") or self._wait_sid,
+                node=fields.get("node"),
+                outcome=fields.get("outcome"),
+                event_type=event,
+                detail=dict(fields),
+            )
 
     def _with_dispatch_diag(self, detail: str) -> str:
         """Append recent dispatch failures to a result detail for user visibility."""

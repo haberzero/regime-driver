@@ -115,6 +115,9 @@ def run(
     preflight_enabled: bool = typer.Option(
         False, "--preflight", help="run an offline trial of the flow before starting"
     ),
+    reporter: Optional[Path] = typer.Option(
+        None, "--reporter", help="append-only report journal path (report bus)"
+    ),
 ) -> None:
     """Run a task through the regime flow on a developer session."""
     _gate(perm, ["run", context])
@@ -157,19 +160,31 @@ def run(
             *(["--task-control-dir", str(task_control_dir)] if task_control_dir else []),
         ], ledger=str(ledger) if ledger else None, title=title, json_out=json_out)
         return
-    _run(settings, context, title, json_out=json_out)
+    _run(settings, context, title, json_out=json_out, reporter=reporter)
 
 
-def _run(settings: Settings, context: str, title: str, json_out: bool = False) -> None:
+def _run(settings: Settings, context: str, title: str, json_out: bool = False,
+         reporter: Optional[Path] = None) -> None:
     try:
         sm = load_regime(settings.regime_path)
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
 
+    from ..app.reporter import Reporter
+
     client = OpenCodeClient(settings.base_url, model=settings.model,
                             timeout=settings.request_timeout)
     ledger = Ledger(settings.ledger_path) if settings.ledger_path else None
-    driver = StatechartDriver(settings, sm, client, ledger)
+    rep = Reporter(journal_path=reporter) if reporter else None
+    driver = StatechartDriver(settings, sm, client, ledger, reporter=rep)
+    try:
+        _run_impl(driver, ledger, sm, context, title, json_out)
+    finally:
+        if rep:
+            rep.close()
+
+
+def _run_impl(driver, ledger, sm, context, title, json_out) -> None:
 
     # run the driver on a background thread so we can render live progress
     import threading
@@ -372,6 +387,56 @@ def preflight_cmd(
     else:
         _fail(f"preflight FAILED: outcome={res['outcome']} @ {res['end']} "
               f"detail={res['detail']!r}", markup=False)
+
+
+# ---------------------------------------------------------------------------
+# report
+# ---------------------------------------------------------------------------
+@app.command("report")
+def report_cmd(
+    journal: str = typer.Option(None, "--journal", help="path to report journal (JSONL)"),
+    wf_id: str = typer.Option(None, "--wf", help="filter by workflow id"),
+    history: bool = typer.Option(False, "--history", help="also print journal records"),
+    limit: int = typer.Option(50, "--limit", help="max history records"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Show the report bus: global rollup board + optional journal history.
+
+    Reads a journal written by `regime run ... --reporter <path>`. Rollups are
+    O(1) counters; history is the bounded append-only slice. This is the macro
+    project-management surface for the God Dialog (WORK_PLAN4 III).
+    """
+    from ..app.reporter import Reporter
+
+    rep = Reporter(journal_path=journal) if journal else Reporter()
+    if journal:
+        rep.load()
+    rollups = rep.rollup(wf_id=wf_id)
+    if json_out:
+        out = {"rollups": rollups}
+        if history:
+            out["history"] = rep.journal_slice(wf_id=wf_id, limit=limit)
+        _emit_json(out)
+        return
+    if not rollups:
+        console.print("[dim]no report data[/dim]")
+        return
+    table = Table(title="report bus · rollups", show_header=True)
+    for col in ("wf", "outcome", "node", "phase", "entered", "done", "elapsed"):
+        table.add_column(col)
+    for r in rollups:
+        table.add_row(str(r["wf_id"]), str(r["outcome"] or "-"),
+                      str(r["current_node"] or "-"), str(r["current_phase"] or "-"),
+                      str(r["nodes_entered"]), str(r["nodes_done"]),
+                      f"{r['elapsed_sec'] or '-'}s")
+    console.print(table)
+    if history:
+        h = rep.journal_slice(wf_id=wf_id, limit=limit)
+        console.print(f"\n[bold]journal · last {len(h)} records[/bold]")
+        for rec in h:
+            console.print(f"  {rec['ts']:.1f} {rec['kind']} "
+                          f"wf={rec['wf_id']} node={rec.get('node')} "
+                          f"outcome={rec.get('outcome')}")
 
 
 # ---------------------------------------------------------------------------
