@@ -12,11 +12,19 @@ stall (to confirm the constitution backstop) or a reviewer delay (timing).
 
 from __future__ import annotations
 
-from ..core.models import Outcome
+from ..core.models import NodeType, Outcome
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
 from ..testing import MockClient
 from .statechart_driver import StatechartDriver
+
+
+def _reviewer_gate_node(sm) -> str:
+    """Pick a judge/reviewer-role node to fault-inject (defaults to entry start)."""
+    for nid, node in sm.flow.nodes.items():
+        if node.type == NodeType.JUDGE or node.role == "reviewer":
+            return nid
+    return sm.start
 
 
 def preflight(
@@ -32,7 +40,10 @@ def preflight(
     if fault == "stall" and start_node:
         client.rule(sm.node(start_node).role, start_node, stall=True)
     elif fault == "delay":
-        client.rule("reviewer", "design", delay=0.3)
+        # derive the reviewer gate node from the flow (any judge/reviewer-role node),
+        # so the fault applies to an arbitrary user flow, not just `code_workflow`.
+        gate = _reviewer_gate_node(sm)
+        client.rule("reviewer", gate, delay=0.3)
     elif fault is not None:
         return {"ok": False, "outcome": "error", "detail": f"unknown fault '{fault}'"}
 

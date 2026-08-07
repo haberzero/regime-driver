@@ -83,6 +83,16 @@ def test_spine_cycle_detected() -> None:
     assert any("cycle" in e for e in res.errors)
 
 
+def test_branch_rework_loop_warns() -> None:
+    raw = _flow("f", "a", {
+        "a": _node("a", next="b"),
+        "b": _node("b", branches=[{"when": "x", "goto": "a"}]),
+    })
+    res = deep_validate(make_sm(raw))
+    assert res.ok  # rework loop is a warning, not an error
+    assert any("rework loop" in w for w in res.warnings)
+
+
 def test_custom_roles_registry() -> None:
     roles = RoleRegistry().register(
         Role(id="auditor", agent="auditor", policy=developer_policy(), description="a"))

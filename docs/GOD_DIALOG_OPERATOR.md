@@ -26,12 +26,16 @@
 所有命令支持 `--json`（结构化、供程序/你消费）；默认是人类可读 rich 表格。**优先用 `--json`** 以便精确解析。
 执行命令统一：`conda run -n regime-driver regime <cmd> ...`（或已装 `regime` 直接调用）。
 
-### 3.1 校验与诊断
+### 3.1 校验与诊断（含预检）
 | 命令 | 用途 | 关键输出(--json) |
 |---|---|---|
-| `regime validate [--regime p] [--json]` | 校验流程描述 | `{ok, flow, nodes, path, flows, unreachable}` |
+| `regime validate [--regime p] [--deep] [--skills-dir s] [--json]` | 校验流程描述；`--deep` 加语义深检(role/skill/tool/可达性/环) | `{ok, flow, nodes, path, flows, unreachable, deep?}` |
+| `regime preflight [--regime p] [--fault stall\|delay] [--json]` | **离线试跑**整条 flow，验证能否干净 COMPLETE（自写 workflow 启动前先跑） | `{ok, outcome, end, detail}` |
 | `regime gate '<verdict_json>' [--regime p]` | 校验审查者判定 | pass/reject |
 | `regime status [--json]` | worker 健康 | `{healthy, base}` |
+
+> **可用性保障**：opencode 自写 workflow 后先 `validate --deep` + `preflight`，静态错+语义错都在启动前暴露；
+> `run` 也可加 `--preflight` 先试跑再启动。见 `WORK_PLAN4 §I`。
 
 ### 3.2 运行 workflow
 | 命令 | 用途 | 说明 |
@@ -70,7 +74,18 @@
 | `regime session <id> send "<msg>" [--reply] [--json]` | 向某 opencode session 发消息（独立内容交互） |
 | `regime session <id> reply [--json]` | 读其最新回复 |
 
-### 3.6 对话式控制面（可选，程序化）
+### 3.6 宏观汇报台账（Report Bus）
+| 命令 | 用途 |
+|---|---|
+| `regime run ... --reporter <path>` | 运行并把规范化事件写入 append-only journal |
+| `regime report --journal <path> [--wf id] [--json]` | 全局 rollup 看板（O(1) 计数器） |
+| `regime report --journal <path> --history [--limit n] [--json]` | journal 历史切片（可溯源） |
+| `regime report --journal <path> --template milestone\|blocker\|period\|activity [--since ts] [--json]` | 规则化模板报告（关键转折/阻塞/时段/操作日志） |
+
+> 上帝对话框一次 `regime report --json` 拿全量，无需反复 CLI。归属键区分 workflow/session/状态机。
+> 见 `WORK_PLAN4 §III`。
+
+### 3.8 对话式控制面（可选，程序化）
 | 命令 | 用途 |
 |---|---|
 | `regime dialog [--live] [--base url] [--model m]` | 交互式 REPL（设计/启动/监控/talk/解释）。作为替代面 |

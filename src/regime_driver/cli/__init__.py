@@ -414,13 +414,20 @@ def report_cmd(
     from ..app.reporter import Reporter
 
     rep = Reporter(journal_path=journal) if journal else Reporter()
-    if journal:
-        rep.load()
-    rollups = rep.rollup(wf_id=wf_id)
-    if template:
-        _report_template(rep, rollups, template, since=since, wf_id=wf_id,
-                         limit=limit, json_out=json_out)
-        return
+    try:
+        if journal:
+            rep.load()
+        rollups = rep.rollup(wf_id=wf_id)
+        if template:
+            _report_template(rep, rollups, template, since=since, wf_id=wf_id,
+                             limit=limit, json_out=json_out)
+            return
+        _report_board(rep, rollups, history, wf_id, limit, json_out)
+    finally:
+        rep.close()
+
+
+def _report_board(rep, rollups, history, wf_id, limit, json_out) -> None:
     if json_out:
         out = {"rollups": rollups}
         if history:

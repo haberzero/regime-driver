@@ -219,6 +219,8 @@ class Reporter:
         n = 0
         _keys = ReportRecord.__dataclass_fields__.keys()
         with self._lock:
+            # make load() idempotent: rebuild rollups from scratch, not accumulate
+            self._rollups.clear()
             with self.journal_path.open(encoding="utf-8") as fh:
                 for line in fh:
                     line = line.strip()

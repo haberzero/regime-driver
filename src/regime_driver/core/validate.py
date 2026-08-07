@@ -103,6 +103,30 @@ def _check_spine_cycles(sm: StateMachine, out: DeepCheckResult) -> None:
         out.errors.append(str(exc))
 
 
+def _check_branch_cycles(sm: StateMachine, out: DeepCheckResult) -> None:
+    """Warn on branch `goto` back-edges (potential revisit loops).
+
+    A back-edge via a conditional branch is a *legitimate* rework loop in these
+    flows (e.g. test-fail -> design), so it is a warning, not an error. The
+    runtime `max_total_nodes` cap is the anti-runaway backstop.
+    """
+    for node_id in sm.flow.nodes:
+        reachable: set[str] = set()
+        stack = list(sm.successors(node_id))
+        while stack:
+            cur = stack.pop()
+            if cur in reachable or cur == node_id:
+                continue
+            reachable.add(cur)
+            for t in sm.successors(cur):
+                if t == node_id:
+                    out.warnings.append(
+                        f"node '{node_id}' reachable from itself via branches "
+                        f"(rework loop); runtime max_total_nodes caps it")
+                elif t not in reachable:
+                    stack.append(t)
+
+
 def deep_validate(
     sm: StateMachine,
     *,
@@ -118,5 +142,6 @@ def deep_validate(
     _check_tools(sm, out)
     _check_reachability(sm, out)
     _check_spine_cycles(sm, out)
+    _check_branch_cycles(sm, out)
     out.ok = not out.errors
     return out
