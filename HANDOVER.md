@@ -191,7 +191,9 @@
 
 > **2026-08-07 成果**：T3/T4/T5/T7 完成，T6 评估定案，T1/T2 待交互环境。**WORK_PLAN4 已推进**：I1/I2（validate --deep + preflight）✅、E1（SSE event_stream + extras）✅、R-A/R-B/R-C（Reporter 报告总线 + rollup + `regime report` 看板 + 模板化）✅。测试基线 229。分支 `autonomous-2026-08-05`。
 >
-> **WORK_PLAN4 剩余**：R-R3 保留策略 + 统一收敛（oc-task/telemetry/blackboard 合并）、E2 文档收尾、R-R3 报告面补 `--trace`/单对象视图。见 `WORK_PLAN4.md`。
+> **WORK_PLAN4 剩余**：R-D 深合并（telemetry/blackboard/run-ledger 接入 Reporter 统一真源 + SSE 摄入接入运行中 driver）、E2 文档收尾。见 `WORK_PLAN4.md`。
+>
+> **WORK_PLAN4 新增强（本 session）**：`validate --deep` + `preflight`（可用性保障）✅；SSE `event_stream`（含断流重连）+ prompt_async/todo/fork/children/summarize ✅；Reporter 报告总线（归属键 + rollup + journal + load 重放 + retain 保留策略）✅；`regime report`（看板 / `--tasks-dir` oc-task 并轨 / `--trace` 因果链 / 单对象视图 / `--template` milestone|blocker|period|activity / `--prune`）✅；`run --reporter` 接入。测试基线 238。
 
 **历史里程碑（已完成，参考）**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 

@@ -156,6 +156,6 @@
 | **R-E0** | E1 SSE 摄入 + E2 文档校正 | 🟡 E1 完成（`event_stream`+extras）；E2 文档校正部分（KNOWN_LIMITS 已更） |
 | **R-R1** | Reporter 摄入+归属键+journal | ✅ `app/reporter.py` + workflow/statechart 接入 + `run --reporter` |
 | **R-R2** | rollup + `regime report` 看板 | ✅ `regime report`（--journal --wf --history --limit --json） |
-| **R-R3** | 模板化报告 + 保留策略 + 统一收敛 | 🟡 模板化完成（milestone/blocker/period/activity）；保留策略与统一收敛(oc-task/telemetry/blackboard 合并)待办 |
+| **R-R3** | 模板化报告 + 保留策略 + 统一收敛 | ✅ 模板化（milestone/blocker/period/activity）+ 保留策略(`retain`/`--prune`) + oc-task 收敛(`--tasks-dir`) + `--trace`/单对象视图；R-D 剩 telemetry/blackboard/run-ledger 深合并与 SSE 摄入接入运行中 driver 待续 |
 
 > 每完成一项：质量门 + 全量测试零回归 + code-review + commit + 更新本表与 HANDOVER/TASK。
