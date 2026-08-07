@@ -326,6 +326,12 @@ def validate(
     regime: Optional[Path] = typer.Option(
         None, "--regime", help="path to regime.json (default: packaged descriptor)"
     ),
+    deep: bool = typer.Option(
+        False, "--deep", help="run semantic deep checks (roles/skills/tools/reachability)"
+    ),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir (for --deep skill check)"
+    ),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Validate a regime.json state machine descriptor."""
@@ -340,11 +346,27 @@ def validate(
 
     flows = list(sm.regime.flows)
     dead = [name for name in flows if name != sm.flow_name]
+    deep_res = None
+    if deep:
+        from ..core.validate import deep_validate
+        from ..infra.skill_loader import load_skill
+
+        deep_res = deep_validate(
+            sm,
+            load_skill=lambda name: load_skill(name, str(skills_dir) if skills_dir else None),
+        )
+
     if json_out:
-        _emit_json({
+        out = {
             "ok": True, "flow": sm.flow_name, "nodes": len(sm.flow.nodes),
             "path": path, "flows": flows, "unreachable": dead,
-        })
+        }
+        if deep_res is not None:
+            out["deep"] = deep_res.to_dict
+            out["ok"] = out["ok"] and deep_res.ok
+        _emit_json(out)
+        if not out["ok"]:
+            raise typer.Exit(1)
         return
 
     table = Table(title="regime descriptor", show_header=False)
@@ -360,6 +382,16 @@ def validate(
     if len(flows) > 1 and dead:
         console.print("[dim]warning: flows not reachable from entry "
                       f"(entry='{sm.flow_name}'): {', '.join(dead)}[/dim]")
+    if deep_res is not None:
+        console.print("\n[bold]--deep semantic checks[/bold]")
+        if not deep_res.errors and not deep_res.warnings:
+            console.print("  ✓ all deep checks passed")
+        for e in deep_res.errors:
+            console.print(f"  [bold red]✗ {e}[/bold red]")
+        for w in deep_res.warnings:
+            console.print(f"  [dim]⚠ {w}[/dim]")
+        if not deep_res.ok:
+            _fail(f"{len(deep_res.errors)} deep error(s) found", markup=False)
     _ok("valid regime descriptor")
 
 
