@@ -20,8 +20,8 @@
 
 ## K. Session 交互
 
-- [ ] **K1. `regime session <id> send "<msg>"`** — 向指定 session 发消息。
-- [ ] **K2. `regime session <id> reply`（--reply）** — 读取该 session 最新 assistant 回复。
+- [x] **K1. `regime session <id> send "<msg>"`** — 已加：向指定 session 发消息。**（已做）**
+- [x] **K2. `regime session <id> reply`** — 已加：读取最新 assistant 回复（`send --reply` 也支持）。**（已做）**
 
 ## L. 非阻塞控制确认
 

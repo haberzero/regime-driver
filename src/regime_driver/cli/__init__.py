@@ -437,5 +437,83 @@ def dialog(
     run_dialog(base, model, live=live, print_fn=lambda s: console.print(s))
 
 
+# ---------------------------------------------------------------------------
+# session (subcommands: send / reply)
+# ---------------------------------------------------------------------------
+_session_app = typer.Typer(help="Interact with a specific opencode session.")
+
+
+@_session_app.command("send")
+def session_send(
+    session_id: str = typer.Argument(..., help="opencode session id"),
+    message: str = typer.Argument(..., help="message to send to the session"),
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    reply: bool = typer.Option(False, "--reply", help="also print the assistant reply"),
+    agent: str = typer.Option("developer", "--agent", help="agent to send as"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    timeout: float = typer.Option(120.0, "--timeout", help="max wait for reply (s)"),
+) -> None:
+    """Send a message to a specific opencode session (independent interaction)."""
+    client = OpenCodeClient(base, timeout=timeout)
+    client.send_message(session_id, message, agent)
+    if not reply:
+        if json_out:
+            _emit_json({"sent": True, "session": session_id})
+            return
+        _ok(f"sent message to session {session_id}", markup=False)
+        return
+    # wait for the newest assistant reply
+    deadline = time.time() + timeout
+    latest = ""
+    while time.time() < deadline:
+        try:
+            msgs = client.read_messages(session_id)
+        except Exception:
+            msgs = []
+        for m in reversed(msgs):
+            if getattr(m, "role", None) == "assistant" and (m.reply or m.text).strip():
+                latest = (m.reply or m.text).strip()
+                break
+        if latest:
+            break
+        time.sleep(1)
+    if json_out:
+        _emit_json({"sent": True, "session": session_id, "reply": latest})
+        return
+    if latest:
+        _ok(f"sent; reply:\n{latest}", markup=False)
+    else:
+        _fail(f"sent but no reply within {timeout:.0f}s")
+
+
+@_session_app.command("reply")
+def session_reply(
+    session_id: str = typer.Argument(..., help="opencode session id"),
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Print the newest assistant reply of a session."""
+    client = OpenCodeClient(base, timeout=30)
+    try:
+        msgs = client.read_messages(session_id)
+    except Exception as exc:
+        _fail(f"read {session_id} failed: {exc}")
+    latest = ""
+    for m in reversed(msgs):
+        if getattr(m, "role", None) == "assistant" and (m.reply or m.text).strip():
+            latest = (m.reply or m.text).strip()
+            break
+    if json_out:
+        _emit_json({"session": session_id, "reply": latest})
+        return
+    if latest:
+        console.print(latest)
+    else:
+        _ok("no assistant reply yet", markup=False)
+
+
+app.add_typer(_session_app, name="session")
+
+
 if __name__ == "__main__":
     app()
