@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 from ..core.statechart import Signal, SignalKind
-from .blackboard import WORKFLOW_METRICS, workflow_status
+from .blackboard import WORKFLOW_METRICS, status_line, workflow_status
 from .statechart_runtime import ThreadedUnit
 
 # event topics this dialog observes
@@ -114,6 +114,8 @@ class GodDialogUnit(ThreadedUnit):
         # dialog is read-only by default so a confused LLM reply can never
         # trigger a side effect; the human opts in via allow_write.
         self.allow_write = allow_write
+        self.talk_agent = "developer"     # agent used for `talk <sid> <msg>`
+        self.talk_timeout = 120.0         # max seconds to wait for the reply
         self.flows: dict = {}  # name -> StateMachine (user-designed flows)
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
@@ -172,16 +174,10 @@ class GodDialogUnit(ThreadedUnit):
             s = status[wid]
             if field and field not in s:
                 continue
-            hb = s.get("heartbeat") or 0
-            age = f"{time.time() - float(hb):.0f}s" if hb else "n/a"
-            wait = s.get("waiting_s")
-            wait_s = f" wait={wait}s" if wait is not None else ""
-            tail = f" {field}={s.get(field)}" if field else ""
-            lines.append(
-                f"  {wid}: state={s.get('state')} node={s.get('node')} "
-                f"phase={s.get('phase')} nodes={s.get('node_count')} "
-                f"hb={age}{wait_s}{tail} sid={s.get('wait_sid') or ''}"
-            )
+            line = status_line(wid, s)
+            if field:
+                line += f"  {field}={s.get(field)}"
+            lines.append("  " + line)
         return "\n".join(lines)
 
     def render_events(self, limit: int = 10, topic: str | None = None) -> str:
@@ -404,8 +400,8 @@ class GodDialogUnit(ThreadedUnit):
 
     def _run_talk(self, sid: str, msg: str) -> None:
         try:
-            self.session_client.send_message(sid, msg, "developer")
-            deadline = time.time() + 120
+            self.session_client.send_message(sid, msg, self.talk_agent)
+            deadline = time.time() + self.talk_timeout
             while time.time() < deadline:
                 try:
                     msgs = self.session_client.read_messages(sid)

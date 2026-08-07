@@ -13,6 +13,7 @@ Thread safety: all access is guarded by a reentrant lock, so the workflow thread
 from __future__ import annotations
 
 import threading
+import time
 from typing import Callable
 
 # event names emitted on the bus when the blackboard changes
@@ -42,6 +43,27 @@ def workflow_status(bb: "Blackboard") -> dict[str, dict]:
             continue
         out.setdefault(wid, {})[metric] = bb.get(key)
     return out
+
+
+# human-readable labels for the status view (readability, shared by telemetry/dialog)
+STATE_LABELS = {"running": "运行中", "done": "完成", "aborted": "中止",
+                "error": "错误", "idle": "空闲", "blocked": "阻塞"}
+PHASE_LABELS = {"agent_wait": "待执行", "judge_wait": "待审查", "none": "-"}
+
+
+def status_line(wid: str, s: dict, now: float | None = None) -> str:
+    """Render one workflow's status as a human-readable line."""
+    now = now or time.time()
+    hb = s.get("heartbeat") or 0
+    age = f"{now - float(hb):.0f}s" if hb else "n/a"
+    state = (s.get("state") or "idle").lower()
+    phase_raw = s.get("phase")
+    phase = PHASE_LABELS.get(phase_raw, phase_raw or "-")
+    wait = s.get("waiting_s")
+    wait_s = f" 已等{wait:.0f}s" if isinstance(wait, (int, float)) else ""
+    node = s.get("node") or "-"
+    return (f"{wid}: {STATE_LABELS.get(state, state)} @ {node} "
+            f"[{phase}]{wait_s} 心跳{age} 节点数{s.get('node_count', 0)}")
 
 
 class Blackboard:

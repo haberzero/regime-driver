@@ -14,7 +14,7 @@ import time
 from collections import deque
 
 from ..core.statechart import StatechartUnit
-from .blackboard import workflow_status
+from .blackboard import status_line, workflow_status
 
 
 class Telemetry(StatechartUnit):
@@ -54,19 +54,9 @@ class Telemetry(StatechartUnit):
         lines = ["=== workflow status ==="]
         status = self.workflow_status()
         if not status:
-            lines.append("(no workflows reported yet)")
+            lines.append("  (no workflows reported yet)")
         for wid in sorted(status):
-            s = status[wid]
-            hb = s.get("heartbeat") or 0
-            age = f"{time.time() - float(hb):.0f}s ago" if hb else "n/a"
-            wait = s.get("waiting_s")
-            wait_s = f" wait={wait}s" if wait is not None else ""
-            wsid = s.get("wait_sid") or ""
-            lines.append(
-                f"  {wid}: state={s.get('state')} node={s.get('node')} "
-                f"phase={s.get('phase')} nodes={s.get('node_count')}"
-                f" hb={age}{wait_s} sid={wsid}"
-            )
+            lines.append("  " + status_line(wid, status[wid]))
         lines.append("=== recent watchdog_fire ===")
         wd = self.recent_watchdog()
         if not wd:
