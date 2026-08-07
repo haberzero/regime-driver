@@ -6,6 +6,8 @@ import time
 from regime_driver.app.blackboard import Blackboard, CHANGED_EVENT, workflow_status
 from regime_driver.app.statechart_runtime import Runtime, ThreadedUnit
 from regime_driver.core.statechart import Bus
+from regime_driver.infra.regime_loader import load_regime
+from regime_driver.testing import MockClient
 
 
 def test_blackboard_get_set_snapshot():
@@ -93,7 +95,7 @@ def test_workflow_writes_metrics_to_blackboard():
     rt = Runtime(enforce_invariants=False)
     s = Settings(monitor_enabled=False, poll_sec=0.1)
     sm = load_regime()
-    client = _FakeClient()
+    client = MockClient(sm=load_regime())
     unit = WorkflowUnit(s, sm, client, poll_sec=0.1, bus=rt.bus)
     rt.register(unit)
     rt.start()
@@ -104,47 +106,3 @@ def test_workflow_writes_metrics_to_blackboard():
     rt.stop()
     assert rt.bus.blackboard.get("workflow.node") is not None
     assert rt.bus.blackboard.get("workflow.node_count", 0) >= 2
-
-
-class Message:
-    def __init__(self, role, text="", error=None):
-        self.role = role
-        self.text = text
-        self.error = error
-
-
-import json
-import re
-
-
-class _FakeClient:
-    def __init__(self):
-        self.created = 0
-        self.msgs = {}
-
-    def create_session(self, title):
-        self.created += 1
-        return f"ses_{self.created}"
-
-    def send_message(self, sid, text, agent):
-        if agent == "reviewer":
-            m = re.search(r"当前节点：(\w+)", text)
-            node = m.group(1) if m else "design"
-            target = {"design": "implement", "test": "wrap"}.get(node, "wrap")
-            v = {"node": node, "verdict": "advance", "action": "advance",
-                 "next_state": target, "confidence": 0.9, "reason": "ok"}
-            self.msgs[sid] = [Message("assistant", json.dumps(v))]
-        else:
-            self.msgs[sid] = [Message("assistant", "done\n[WORK_DONE]")]
-
-    def read_messages(self, sid):
-        return self.msgs.get(sid, [])
-
-    def session_status(self, sid):
-        return "idle"
-
-    def session_tokens(self, sid):
-        return (0, 0)
-
-    def abort_session(self, sid):
-        pass

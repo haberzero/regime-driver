@@ -6,6 +6,7 @@
 ## 指南索引
 
 - [跑一次真实 E2E 并解读耗时](run-e2e.md) — 用 `ops/e2e_debug.py` 在真实 worker 上跑完整流程、看每节点耗时构成。
+- [并发跑多 workflow 并管理 session](run-many-sessions.md) — `regime run-many` 并发 + `regime sessions --clean/--kill`。
 - [用 mock 离线调试](debug-with-mock.md) — 无网络/无 LLM 下用 `MockClient` 确定性调试状态机/并发/超时。
 - [使用上帝对话框](god-dialog.md) — `regime dialog` 的监控/设计/启动/talk/解释用法。
 

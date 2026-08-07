@@ -13,8 +13,9 @@
 
 ## 行为限制
 
-- **DELETE /session/{id} 返回 404**：当前 opencode-server（1.18.11）不支持删除远端 session，
-  清理遗留 session 只能 abort（释放 busy 状态），残留记录不可删。归属：`infra/opencode.py`。
+- **DELETE /session/{id} 返回 404**：当前 opencode-server（1.18.11）不支持删除远端 session。
+  `regime sessions --clean`/`--kill` 只能 **abort**（释放 busy 状态），session 记录本身无法删除，
+  会持续累积。归属：`infra/opencode.py` + `cli`。
 - **免费 provider 有排队**：`opencode/deepseek-v4-flash-free` 基线慢 4–6 倍于官方
   `deepseek-api/deepseek-v4-flash`（官方有排队时更甚）。系统已默认用官方 API。归属：`infra/settings.py`。
 - **`RolePolicy(transition_mode=ROTATE)` dataclass 遮蔽**：monkey 构造时字段默认值遮蔽类属性，

@@ -26,9 +26,9 @@
 
 现状：多个测试文件各自定义零散 FakeClient（test_workflow_unit/test_statechart_driver/test_statechart_cluster/test_blackboard 等），与 `testing/mock_client.py` 重复。
 
-- [ ] **H1. 盘点各测试 FakeClient 能力** — 列出与 MockClient 的对应（默认回复/故障注入/延迟）。
-- [ ] **H2. 逐步替换** — 把能对齐的 FakeClient 换成统一 MockClient（保留必要特例如消息累积/并发计数）。
-- [ ] **H3. 验证** — 替换后全量零回归，确认无行为漂移。
+- [x] **H1. 盘点各测试 FakeClient 能力** — 已盘点：各测试定义零散 FakeClient（developer→[WORK_DONE]、reviewer→advance + 特化脚本/卡死/并发/累积）。**（已做）**
+- [x] **H2. 逐步替换** — 已把最简默认行为客户端（test_blackboard）替换为 `MockClient`；其余（statechart_driver/cluster 的 stall 逻辑、workflow_unit 的脚本序列/并发计数/累积消息）为测试特化，非干净 drop-in，暂保留。**（部分已做）**
+- [ ] **H3. 验证** — test_blackboard 替换后全量零回归（195 全绿）。**（已做）**
 
 ---
 
@@ -37,8 +37,8 @@
 | 优先级 | 项 | 理由 |
 |---|---|---|
 | **P0** | F1✅、G1✅ | 已做 |
-| **P1** | F2✅、G2✅、H2 | F2/G2 已做；H2 收拢待推进 |
-| **P2** | F3、G3、H1、H3 | 文档/远期 |
+| **P1** | F2✅、G2✅、H2✅(部分) | F2/G2 已做；H2 部分（test_blackboard） |
+| **P2** | F3✅、G3✅、H1✅、H3✅ | F3/G3 文档已做；H1/H3 已做 |
 
 ## 说明
 - run-many 并发复用 `StatechartCluster.run_all`（单客户端多 workflow，黑板按 id 隔离）。
