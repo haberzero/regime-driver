@@ -28,6 +28,7 @@
 | `DESIGN-mock.md` | 解释 | mock 机制（无网络确定性调试） |
 | `DESIGN-god-dialog.md` | 解释 | 上帝对话框设计与可行性定案 |
 | `DESIGN-god-dialog-carrier.md` | 解释 | 上帝对话框载体决策（opencode 作载体 + 双路方案 + CLI 契约） |
+| `GOD_DIALOG_OPERATOR.md` | 指南 | **上帝对话框操作手册**（供 opencode 消费的 CLI 契约全命令 + --json schema + 操作流程） |
 | `RESEARCH-thinking-timeout.md` | 研究 | thinking 超时守护研究结论 |
 | `KNOWN_LIMITS.md` | 参考 | 已知限制与边界（读者必读） |
 | `howto/` | 指南 | 实操指南（如何跑 E2E / 如何 mock 调试 / 如何用上帝对话框） |

@@ -29,9 +29,10 @@
 
 ## M. （A 路）opencode god agent + custom-tool 插件
 
-- [ ] **M1. 做 opencode `god` agent 配置**（权限门禁 + 提示词）。
-- [ ] **M2. regime custom-tool 插件**（把关键命令注册为 opencode 原生工具）。
-- [ ] **M3. 验证** — 用一个 opencode 会话实际驱动 regime 控制。
+- [x] **M4. 操作手册** — 已建 `docs/GOD_DIALOG_OPERATOR.md`（供 opencode 消费：CLI 契约全命令 + --json schema + 操作流程 + 红线）。**（已做）**
+- [x] **M1. 做 opencode `god` agent 配置** — 已建 `.opencode/agent/god.md`（mode primary + 权限门禁 + 系统提示引用手册）。**（已做）**
+- [x] **M2. regime custom-tool 插件** — 已建 `.opencode/plugins/regime-god.js`（status/sessions/events/run/run-many/session send/reply/validate 原生工具）。**（已做，JS 语法通过）**
+- [ ] **M3. 验证** — 用真实 opencode 会话以 god agent 模式驱动 regime。
 
 ---
 
@@ -39,9 +40,9 @@
 
 | 优先级 | 项 | 理由 |
 |---|---|---|
-| **P0** | I1–I4（--json）、K1/K2（session send/reply） | 机器可读是唯一真源的基础 |
-| **P1** | J1/J2（events --follow）、L1（async 审计） | 事件感知/非阻塞 |
-| **P2** | M1–M3（A 路 opencode 接入） | 落地验证 |
+| **P0** | I1–I4✅、K1/K2✅ | 已做 |
+| **P1** | J1/J2✅、L1✅ | 已做 |
+| **P2** | M1✅、M2✅、M4✅；M3（验证） | A 路已装配，M3 待验证 |
 
 ## 说明
 - `--json` 是给 LLM/程序消费的完整结构化输出；rich 表格保留给人类默认。
