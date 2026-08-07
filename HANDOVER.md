@@ -189,7 +189,9 @@
 - [x] **T7. 文档同步**：`docs/howto/god-dialog.md` 更新为 opencode 载体版；`GOD_DIALOG_OPERATOR.md` 随命令变更同步。
 - [ ] **T8. B 路演进**：GodDialogUnit 对运行中 workflow/session 更深交互与回收。
 
-> **2026-08-07 成果**：T3/T4/T5/T7 完成，T6 评估定案，T1/T2 待交互环境。测试基线 207。分支 `autonomous-2026-08-05`。
+> **2026-08-07 成果**：T3/T4/T5/T7 完成，T6 评估定案，T1/T2 待交互环境。**WORK_PLAN4 已推进**：I1/I2（validate --deep + preflight）✅、E1（SSE event_stream + extras）✅、R-A/R-B/R-C（Reporter 报告总线 + rollup + `regime report` 看板 + 模板化）✅。测试基线 229。分支 `autonomous-2026-08-05`。
+>
+> **WORK_PLAN4 剩余**：R-R3 保留策略 + 统一收敛（oc-task/telemetry/blackboard 合并）、E2 文档收尾、R-R3 报告面补 `--trace`/单对象视图。见 `WORK_PLAN4.md`。
 
 **历史里程碑（已完成，参考）**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 
