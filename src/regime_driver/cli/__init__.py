@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -96,16 +97,47 @@ def _run(settings: Settings, context: str, title: str) -> None:
     client = OpenCodeClient(settings.base_url, model=settings.model,
                             timeout=settings.request_timeout)
     ledger = Ledger(settings.ledger_path) if settings.ledger_path else None
-    with console.status(f"[cyan]running flow[/cyan] [bold]{sm.flow_name}[/bold] …"):
+    driver = StatechartDriver(settings, sm, client, ledger)
+
+    # run the driver on a background thread so we can render live progress
+    import threading
+    result = {}
+    def _go():
         try:
-            driver = StatechartDriver(settings, sm, client, ledger)
-            outcome, end_node, detail = driver.run(context, title)
+            result["res"] = driver.run(context, title)
         finally:
             if ledger:
                 ledger.close()
-
+    t = threading.Thread(target=_go, daemon=True)
+    t0 = time.time()
+    t.start()
+    try:
+        from rich.live import Live
+        from rich.table import Table
+        with Live(console=console, refresh_per_second=4) as live:
+            while t.is_alive():
+                table = Table(title=f"flow {sm.flow_name} · {time.time()-t0:.0f}s",
+                              show_header=False)
+                table.add_column(justify="right")
+                table.add_column()
+                wf = getattr(driver, "workflow", None)
+                node = getattr(wf, "_node", None) or "?"
+                phase = getattr(wf, "_phase", None) or "?"
+                state = getattr(wf, "_state", None) or "?"
+                table.add_row("node", node)
+                table.add_row("phase", phase)
+                table.add_row("state", state)
+                live.update(table)
+                time.sleep(0.25)
+    except KeyboardInterrupt:
+        pass
+    t.join(timeout=5)
+    if "res" not in result:
+        _fail("run did not complete")
+    outcome, end_node, detail = result["res"]
     if outcome == Outcome.COMPLETE:
-        _ok(f"flow completed at node [bold]{end_node}[/bold]", markup=True)
+        _ok(f"flow completed at node [bold]{end_node}[/bold] "
+            f"in {time.time()-t0:.0f}s", markup=True)
     else:
         _fail(f"flow {outcome.value} at node [bold]{end_node}[/bold]"
               + (f": {detail}" if detail else ""), markup=True)
@@ -135,6 +167,14 @@ def validate(
     table.add_row("path length", str(len(path)))
     table.add_row("path", " → ".join(path))
     console.print(table)
+
+    # report flows that exist but are not the entry (potentially dead config)
+    flows = sm.regime.flows
+    if len(flows) > 1:
+        dead = [name for name in flows if name != sm.flow_name]
+        if dead:
+            console.print("[dim]warning: flows not reachable from entry "
+                          f"(entry='{sm.flow_name}'): {', '.join(dead)}[/dim]")
     _ok("valid regime descriptor")
 
 
