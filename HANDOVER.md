@@ -191,7 +191,7 @@
 | **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | ✅ **完成（2026-08-05）：真实 worker 全流程 COMPLETE，119 单测** |
 
-**待办（最新候选，见 _HANDOFF.md §4 已并入本件）**：① 上帝对话框演进——自然语言设计 workflow（已做 JSON/NL 编译）、对运行中 workflow/session 更深交互与回收、细粒度权限策略、CLI 多 workflow/可视化接入；② 收敛测试内零散 FakeClient 到 MockClient；③ worker 工作区物理隔离挂载重建（P2）；④ P3 杂项：`_deadline` 字段恒空、`main_loop` flow 死配置；⑤ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。
+**待办（最新候选，见 _HANDOFF.md §4 已并入本件）**：① 上帝对话框演进——自然语言设计 workflow（已做 JSON/NL 编译）、对运行中 workflow/session 更深交互与回收、细粒度权限策略、CLI 多 workflow/可视化接入；② 收敛测试内零散 FakeClient 到 MockClient；③ worker 工作区物理隔离挂载重建（P2）；④ P3 杂项：`main_loop` flow 死配置（已加 validate 警告）；⑤ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
 ## 9. 命令速查
 

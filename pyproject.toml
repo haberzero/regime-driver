@@ -43,5 +43,13 @@ markers = [
     "e2e: end-to-end tests requiring a live worker container",
 ]
 
+[tool.coverage.run]
+source = ["regime_driver"]
+omit = ["*/testing/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
 [tool.hatch.build.targets.sdist]
 include = ["src/regime_driver", "README.md", "pyproject.toml"]
