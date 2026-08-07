@@ -100,6 +100,21 @@ def test_retain_by_age_and_count(tmp_path) -> None:
     assert r2.rollup(wf_id="w1")[0]["nodes_entered"] == 1
 
 
+def test_ingest_after_retain_still_writes(tmp_path) -> None:
+    """After retain() replaces the journal, ingest() must append to the new file."""
+    path = tmp_path / "report.jsonl"
+    r = Reporter(journal_path=path)
+    r.ingest(kind="node_enter", wf_id="w1", ts=1.0)
+    r.ingest(kind="node_enter", wf_id="w1", ts=2.0)
+    removed = r.retain(max_records=1)
+    assert removed == 1
+    r.ingest(kind="outcome", wf_id="w1", outcome="complete", ts=3.0)
+    r.close()
+    r2 = Reporter(journal_path=path)
+    assert len(r2.journal_slice()) == 2
+    assert r2.journal_slice()[-1]["kind"] == "outcome"
+
+
 def test_journal_slice_since_filter(tmp_path) -> None:
     path = tmp_path / "report.jsonl"
     r = Reporter(journal_path=path)

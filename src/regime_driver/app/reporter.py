@@ -270,6 +270,14 @@ class Reporter:
             tmp = self.journal_path.with_suffix(".jsonl.tmp")
             tmp.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
             tmp.replace(self.journal_path)
+            # the old append handle now points at a deleted inode: reopen it so a
+            # subsequent ingest() keeps writing to the (pruned) journal
+            if self._fh is not None:
+                try:
+                    self._fh.close()
+                except Exception:
+                    pass
+                self._fh = self.journal_path.open("a", encoding="utf-8")
             # refresh in-memory rollups to match the pruned journal
             self._rollups.clear()
             for line in kept:

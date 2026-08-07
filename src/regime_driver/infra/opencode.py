@@ -262,7 +262,11 @@ class OpenCodeClient:
             # a clean end is not retried
             if not dropped:
                 break
-            retries = 0  # we reconnected successfully once; count from 1 again
+            retries += 1
+            if max_retries is not None and retries > max_retries:
+                raise OpenCodeError(
+                    f"event_stream stream dropped after {max_retries} retries")
+            time.sleep(backoff_sec * retries)
 
     # -- session extras (WORK_PLAN4 II) -------------------------------------
 
