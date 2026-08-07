@@ -409,6 +409,10 @@ def report_cmd(
         None, "--max-age", help="with --prune: drop records older than this many seconds"),
     max_records: int = typer.Option(
         None, "--max-records", help="with --prune: keep only this many tail records"),
+    object_id: str = typer.Argument(
+        None, help="single-object view: workflow/session id to focus on"),
+    trace: bool = typer.Option(
+        False, "--trace", help="print the per-object causal timeline (journal in order)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Show the report bus: global rollup board + optional journal history.
@@ -433,17 +437,21 @@ def report_cmd(
             else:
                 _ok(f"pruned {removed} record(s) from journal", markup=False)
             return
-        rollups = rep.rollup(wf_id=wf_id)
+        focus = object_id or wf_id
+        rollups = rep.rollup(wf_id=focus)
         tasks = []
         if tasks_dir:
             from ..infra.oc_tasks import load_tasks
 
             tasks = load_tasks(tasks_dir)
+        if focus and trace:
+            _report_trace(rep, focus, limit=limit, json_out=json_out)
+            return
         if template:
-            _report_template(rep, rollups, template, since=since, wf_id=wf_id,
+            _report_template(rep, rollups, template, since=since, wf_id=focus,
                              limit=limit, json_out=json_out)
             return
-        _report_board(rep, rollups, history, wf_id, limit, json_out, tasks=tasks)
+        _report_board(rep, rollups, history, focus, limit, json_out, tasks=tasks)
     finally:
         rep.close()
 
@@ -489,6 +497,19 @@ def _report_board(rep, rollups, history, wf_id, limit, json_out, tasks=None) -> 
             console.print(f"  {rec['ts']:.1f} {rec['kind']} "
                           f"wf={rec['wf_id']} node={rec.get('node')} "
                           f"outcome={rec.get('outcome')}")
+
+
+def _report_trace(rep, focus, limit=None, json_out=False) -> None:
+    """Per-object causal timeline: journal records for an object in order."""
+    recs = rep.journal_slice(wf_id=focus, limit=limit)
+    if json_out:
+        _emit_json({"object": focus, "trace": recs})
+        return
+    console.print(f"[bold]trace · {focus} · {len(recs)} records[/bold]")
+    for rec in recs:
+        console.print(f"  {rec['ts']:.1f} {rec['kind']} node={rec.get('node')} "
+                      f"outcome={rec.get('outcome')} "
+                      f"detail={rec.get('detail') or ''}")
 
 
 def _report_template(rep, rollups, template, *, since=None, wf_id=None,
