@@ -195,7 +195,13 @@
 
 **待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）；`main_loop` flow 死配置（已加 validate 警告，可删）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
-阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
+> **下一阶段方向（2026-08-07 研究定案，见 `WORK_PLAN4.md`）**：① 可用性保障——`validate --deep` +
+> `--preflight`（MockClient 离线试跑，让自写 workflow 启动前暴露语义错误）；② 事件链路接入——经
+> `GET /event` SSE + 插件 `event:` hook（已核实可用，非轮询），摄入层应为 push；③ 宏观汇报台账——
+> 三层 Journal + Report Bus（事件摄入 → append-only journal + rollup → 模板化 `regime report/journal`），
+> 统一归属键区分 workflow/session/状态机，规则化、随取随用、可溯源。详见 `WORK_PLAN4.md`。
+
+阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。**当前主线规划：`WORK_PLAN4.md`**（预检 + 事件链路 + 宏观汇报台账）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（宪法=无智能状态机+根不变量运行时强制）**；**上帝对话框双路：opencode 作载体（A 路）+ GodDialogUnit 程序化面（B 路），共用 CLI 契约**。
 

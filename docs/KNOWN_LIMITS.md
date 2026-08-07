@@ -27,6 +27,11 @@
   应加文件锁或改为每作业独立文件 + 目录扫描。归属：`infra/jobs.py`。
 - **插件工具经 shell 拼接命令**：`.opencode/plugins/regime-god.js` 把参数拼成字符串走 shell；job_id
   等由机器生成的内部 id 拼接，注入风险低，但新参数若来自外部输入需消毒。归属：`.opencode/plugins/regime-god.js`。
+- **事件链路【可】接入（非限制，更正旧表述）**：上帝对话框/摄入层可经 `GET /event`（SSE 流）+
+  插件 `event:` hook 实时接入事件链（`session.*`、`message.part.*`、`tool.execute.*`…），
+  不必反复 CLI 轮询。真正的限制是"无**进程外独立**时钟"：缺事件→停滞检测必须靠独立时钟进程
+  （supervisor），这是唯一无法靠事件链解决的问题。见 `WORK_PLAN4.md §0.2` 与 `DESIGN.md §6.1`。
+  归属：`infra/opencode.py` + 规划 `app/reporter.py`。
 
 ## 边界（设计使然）
 
