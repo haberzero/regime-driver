@@ -25,6 +25,26 @@
 - **模型授权**：仅允许用 `opencode/deepseek-v4-flash-free`（主）+ `deepseek-api/deepseek-v4-flash`（回退）；**token plan 等一律不可用**。
 - opencode 版本：1.18.11（镜像 `opencode-mvp:1.18.11`）。
 
+### 3.x 自主运行配置（下游会话必须遵守）
+
+- **禁 push**：除非明确授权，禁止 `git push`；只本地 commit。
+- **破坏性重构授权**：符合一般工程/架构原则且经分析确实优于既有设计，允许破坏性重构（用户多次指示"彻底重构，不用关心兼容"）。
+- **自主推进偏好**：偏向无人值守，最大限度自我决定；只有确实无法决定才上报。日志纪律："只记录，不断决"。
+- **上报阈值**：`blocked` / `human_escalate` / 架构级方向调整 → 上报；审查发现的 blocker 必须修复后才能标记完成。
+- **工作流**：每任务走 code-workflow + 质量门 + 全量测试零回归（`conda run -n regime-driver python -m pytest -q`）。
+
+**Goal 模板（可直接复制）**：
+```
+【regime-driver · 开发模式】主任务：继续推进 regime-driver 系统。
+一、主线任务（按序）：<从候选清单选一个>（内容+验收标准）→ 下一个候选 ...
+   每完成一个任务用描述性 commit（说明+验证计数），同步更新任务控制文档，然后自动接续下一任务。
+二、自主推进偏好（最高优先）：无人值守，最大限度自我裁定与自我质询分析并尽可能推进，
+   只有穷尽自主手段后仍无法决定才形成阻塞；上报阈值统一为"先穷尽自主手段"。
+三、交付纪律：本地 commit；禁止 push（硬原则）——除非明确授权。
+四、工作流：每任务走 code-workflow + 质量门 + 全量测试零回归。
+五、停止条件：先穷尽自主手段，仅当确实无法自主决定才停止并记录 blocker；硬性定时到达即停止并汇报。
+```
+
 ## 4. 已完成的成果（全部经测试）
 
 ### 4.1 Docker 镜像
@@ -100,8 +120,15 @@
 - **任务模型**：每任务 = 一个独立 supervisor 进程 + `ops/tasks/<id>.json` 记录（含 pid/out/summary）。无 daemon、无 systemd、不污染宿主——可控、可停、可清。
 - **`oc-task.py` CLI**（人类与 opencode 共用）：`submit/list/status/stop/logs/clean` + 可选只读网页 `web start|stop|status`（http://127.0.0.1:8721）。
   - `submit` 把 goal 写临时文件经 `--goal-file` 传入（注入安全）；`--label-prefix <task-id>` 打标会话便于 `stop` 精确定位；`--summary-file` 落机器可读结果；`--pidfile` 记真实 python pid（supervisor 侧 SIGTERM 时先 abort 当前会话再退出）。
-- **git 管理**：`/home/haber/oc-meta` 已 `git init` + 两次提交。`.gitignore` 排除账本/日志/web/pid/任务运行态/`__pycache__`；密钥零入库（deepseek 密钥只从 opencode 全局配置读取）。
+- **git 管理**：`/home/haber/oc-meta` 已 `git init` + 多次提交。`.gitignore` 排除账本/日志/web/pid/任务运行态/`__pycache__`；密钥零入库（deepseek 密钥只从 opencode 全局配置读取）。
 - **interface 供你接手**：直接 `python3 ops/oc-task.py submit "<工程任务>"` 即可跑真实工程任务；或先 `web start` 在浏览器盯状态。
+
+### 4.10 本会话成果（2026-08-05~06，分支 `autonomous-2026-08-05`）
+
+- **P1 排查并修复 E2E 卡顿**：新增 `ops/probe_node_timing.py`（全流程节点耗时剖析）+ `ops/e2e_debug.py`（逐操作计时）+ `ops/probe_judge_stall.py`（并发观察 reasoning/output）。**根因 = 发派线程池饱和**：streaming `POST /message` 晚于 `message.completed`/`[WORK_DONE]` 返回，workflow 提前 advance 发下一 node，前 node POST 仍占线程 → 2 个 trailing POST 占满 `max_workers=2` → judge 发派永久排队 → 宪法误判 stall。修复：`workflow._dispatch` await 前一 POST future（`_await_prior_dispatch`，保持 STOP 响应）。真实 E2E 两次 COMPLETE；judge 长推理 21-60s 确认为长推理非永久卡。
+- **P1 mock 机制**：`src/regime_driver/testing/mock_client.py`（MockClient/MockRule，同接口 drop-in，默认 reviewer advance + developer [WORK_DONE]，规则 `(agent,node)` 二段匹配，delay/stall/error 故障注入，消息累积非替换）。`ops/mock_feasibility.py` 5/5 离线通过。设计见 `docs/DESIGN-mock.md`。
+- **上帝对话框 MVP**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元，role=human，订阅总线实时监控 + 命令路由 status/monitor/start/inspect/watch/talk/design/config/help + 自由文本→LLM worker 线程非阻塞解释 + 权限门控默认只读）。`regime dialog` CLI + `ops/god_dialog.py` 演示。设计/可行性定案见 `docs/DESIGN-god-dialog.md`（结论：**对话框应在状态机体系内**）。
+- **测试基线**：192 单测全绿（含崩坏回归：`test_dispatch_serializes_prior_post`、`test_judge_waits_for_new_reply_not_stale`、`test_god_dialog.py` 等）。
 
 ## 5. 关键决策与踩坑记录
 
@@ -113,14 +140,10 @@
 
 ## 6. 当前运行状态
 
-- `opencode-autopilot` 容器运行中（过渡层/对照，含 goal-plugin + stall-watchdog）。
-- **`opencode-worker` 容器运行中（M-1 已上线）**：端口 4097，`opencode serve --pure` 无插件 headless。
-  - 镜像 `opencode-worker:1.18.11`（基座 opencode-mvp + miniconda python 3.14 + 无插件）。
-  - opencode.json 定义 `developer`(primary) + `reviewer`(只读 subagent)；无 plugin/command。
-  - worker 挂载 `~/.local/share/opencode/auth.json` → 容器凭据；工作区 `workspaces/opencode-worker` → `/root/work`。
-  - 已实测：/config（plugin:[]）、/agent、session 创建、deepseek-api LLM 调用（返回 WORKER_OK）全通。
-- **stall-watchdog 插件已部署运行**（正式 thinkingStallSec=600s）；goal-plugin 同载（旧 autopilot 容器）。
-- 测试工具保留：`ops/fake_reasoner.py`、`ops/fake_silent.py`（故障注入用，不常驻）。
+- **架构已彻底重构为对等多状态机网络**（2026-08-05~06）：`core/statechart.py`（信号协议+总线+主题 pub/sub）+ `app/statechart_runtime.py`（ThreadedUnit 独立线程+队列 + Runtime 异步路由+黑板+根不变量强制）+ `app/workflow_unit.py`（单线程混合循环）+ `app/constitution_unit.py`（宪法=无智能对等状态机）+ `app/statechart_driver.py` / `app/statechart_cluster.py`（单/多 workflow）+ `app/telemetry.py`（遥测可视化）+ `app/blackboard.py`（共享黑板）。旧 `app/driver.py` / `app/monitor.py` / `app/meta_analyzer.py` / `app/segment_runner.py` 已删除。
+- **`opencode-worker` 容器运行中**：端口 4097，`opencode serve --pure` 无插件 headless，镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent）。工作区 `workspaces/opencode-worker` → `/root/work`。
+- **测试基线**：192 单测全绿（conda env `regime-driver`，`python -m pytest`）。真实 worker E2E 多次 COMPLETE；mock 离线可行性 5/5。
+- **上帝对话框 MVP 已实现**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元）+ `regime dialog` CLI 命令 + `ops/god_dialog.py` 演示。
 - 工作区已清理测试产物。
 
 ## 7. 主目录污染清单（已迁移/清理完成）
@@ -154,7 +177,7 @@
 
 **架构 v4（角色通用化，2026-08-04）**：设计见 `docs/ARCHITECTURE-v4.md`。内核**角色无关**：`developer`/`reviewer` 不再是内核概念，是**用户注册的角色实例**（`core/role.py`：Role/RoleRegistry/default_roles）。节点声明 `role`（哪个 session 拥有）+ `type`（agent=工作/judge=判定/tool/route/gate），**节点≠角色**（角色=session 分离，节点=skill 分离）。`models.py` Actor→NodeType + Node.role/type；`session.py` SessionKind→role str；`handoff.py` Role=str + make_inquiry/make_report；`session_manager.py` SessionManager→SessionRegistry（按 role id）；`session_lifecycle.py` policy_for(role_id)；`driver` 按 node.type 分流 + 锚点角色推断（首个 agent 节点角色）。代理审查确认无 blocker，修正 abort_session 用 sessions.abort(role)。97 单测 + 端到端（真实 worker：agent/judge 节点按 role+type 分流，COMPLETE）全绿。
 
-阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `workflow-regime/README.md`。
+阅读顺序：`DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `workflow-regime/README.md`。
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**。
 
@@ -168,7 +191,7 @@
 | **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | ✅ **完成（2026-08-05）：真实 worker 全流程 COMPLETE，119 单测** |
 
-**待办**：tool/route/gate 确定性节点已实现（2026-08-05，`core/branching.py` + `core/tools.py`）；全局状态清单设计（P1）；审查者 session 轮换细则（P2）；多开发者 session（P3）；工作区物理隔离的 worker 挂载重建（P2）。
+**待办（最新候选，见 _HANDOFF.md §4 已并入本件）**：① 上帝对话框演进——自然语言设计 workflow（已做 JSON/NL 编译）、对运行中 workflow/session 更深交互与回收、细粒度权限策略、CLI 多 workflow/可视化接入；② 收敛测试内零散 FakeClient 到 MockClient；③ worker 工作区物理隔离挂载重建（P2）；④ P3 杂项：`_deadline` 字段恒空、`main_loop` flow 死配置；⑤ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。
 
 ## 9. 命令速查
 
