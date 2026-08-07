@@ -144,6 +144,95 @@ def _run(settings: Settings, context: str, title: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# run-many
+# ---------------------------------------------------------------------------
+@app.command("run-many")
+def run_many(
+    contexts: list[str] = typer.Argument(..., help="one or more task contexts (one workflow each)"),
+    base: str = typer.Option(None, "--base", help="worker opencode server URL"),
+    config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
+    regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
+    ledger: Optional[Path] = typer.Option(None, "--ledger", help="JSONL ledger path"),
+    deadline: int = typer.Option(None, "--deadline", help="per-segment deadline (sec)"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+) -> None:
+    """Run several tasks as concurrent workflows on one worker."""
+    from ..app.statechart_cluster import StatechartCluster
+
+    settings = load_settings(
+        config_file=config,
+        overrides={
+            "base_url": base,
+            "regime_path": str(regime) if regime else None,
+            "ledger_path": str(ledger) if ledger else None,
+            "default_deadline_sec": deadline,
+            "skills_dir": str(skills_dir) if skills_dir else None,
+        },
+    )
+    try:
+        sm = load_regime(settings.regime_path)
+    except (StateMachineError, FileNotFoundError) as exc:
+        _fail(f"error loading regime: {exc}")
+
+    client = OpenCodeClient(settings.base_url, model=settings.model,
+                            timeout=settings.request_timeout)
+    cluster = StatechartCluster(client)
+    for i, ctx in enumerate(contexts):
+        cluster.add_workflow(f"w{i+1}", settings, sm)
+    t0 = time.time()
+    # run the cluster in a background thread so we can render live progress
+    import threading
+    result = {}
+    def _go():
+        try:
+            result["res"] = cluster.run_all(
+                {f"w{i+1}": ctx for i, ctx in enumerate(contexts)},
+                timeout_sec=settings.request_timeout)
+        finally:
+            cluster.stop()
+    t = threading.Thread(target=_go, daemon=True)
+    t.start()
+    try:
+        from rich.live import Live
+        from rich.table import Table
+        with Live(console=console, refresh_per_second=4) as live:
+            while t.is_alive():
+                table = Table(title=f"run-many · {time.time()-t0:.0f}s",
+                              show_header=False)
+                table.add_column(justify="right")
+                table.add_column()
+                bb = cluster.runtime.bus.blackboard
+                rows = []
+                for wid in sorted(getattr(cluster, "workflows", {}) or {}):
+                    node = bb.get(f"{wid}.node") or "?"
+                    state = bb.get(f"{wid}.state") or "?"
+                    rows.append((wid, f"{node} ({state})"))
+                if not rows:
+                    rows.append(("(no workflows yet)", ""))
+                for k, v in rows:
+                    table.add_row(k, v)
+                live.update(table)
+                time.sleep(0.25)
+    except KeyboardInterrupt:
+        pass
+    t.join(timeout=5)
+    if "res" not in result:
+        _fail("run-many did not complete")
+    results = result["res"]
+    print(f"\n=== run-many 结果 ({time.time()-t0:.0f}s) ===")
+    for wid, r in results.items():
+        outcome, end, detail = r
+        mark = "✓" if outcome == Outcome.COMPLETE else "✗"
+        console.print(f"  {mark} {wid}: {outcome.value} @ {end}"
+                      + (f" ({detail})" if detail else ""))
+    bad = [wid for wid, r in results.items() if r[0] != Outcome.COMPLETE]
+    if bad:
+        _fail(f"{len(bad)} workflow(s) not complete: {', '.join(bad)}", markup=False)
+    _ok(f"all {len(results)} workflows done", markup=False)
+
+
+# ---------------------------------------------------------------------------
 # validate
 # ---------------------------------------------------------------------------
 @app.command("validate")
@@ -228,10 +317,28 @@ def status(
 @app.command("sessions")
 def sessions(
     base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    clean: bool = typer.Option(False, "--clean", help="abort all sessions"),
+    kill: Optional[str] = typer.Option(None, "--kill", help="abort a specific session id"),
 ) -> None:
     """List all opencode sessions on the worker with their live status."""
     client = OpenCodeClient(base)
+    if kill:
+        try:
+            client.abort_session(kill)
+        except Exception as exc:
+            _fail(f"abort {kill} failed: {exc}")
+        _ok(f"aborted session {kill}", markup=False)
+        return
     slist = client.list_sessions()
+    if clean:
+        ids = [s.get("id") for s in slist if s.get("id")]
+        for sid in ids:
+            try:
+                client.abort_session(sid)
+            except Exception as exc:
+                console.print(f"[dim]abort {sid} failed: {exc}[/dim]")
+        _ok(f"aborted {len(ids)} sessions", markup=False)
+        return
     if not slist:
         _ok("no sessions on the worker", markup=False)
         return

@@ -16,11 +16,13 @@ conda run -n regime-driver pip install -e ".[dev]"
 ## 快速上手
 
 ```bash
-# 校验 / 跑一个任务 / 校验判定 / 查 worker 健康
+# 校验 / 跑一个任务 / 并发跑多任务 / 校验判定 / 查 worker 健康 / 列会话
 regime validate
 regime run "实现 add(x,y) 并写 pytest" --base http://127.0.0.1:4097
+regime run-many "实现 add(x,y)" "实现 mul(x,y)" --base http://127.0.0.1:4097
 regime gate '{"node":"design","verdict":"advance","action":"advance","next_state":"implement","confidence":0.9,"reason":"ok"}'
 regime status --base http://127.0.0.1:4097
+regime sessions [--clean|--kill <id>] --base http://127.0.0.1:4097
 
 # 上帝对话框（唯一对话控制面）
 regime dialog --live --base http://127.0.0.1:4097
