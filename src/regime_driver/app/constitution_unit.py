@@ -17,6 +17,7 @@ import time
 
 from ..core.repetition import RepetitionDetector
 from ..core.statechart import Signal, SignalKind
+from .blackboard import WORKFLOW_METRICS
 from .statechart_runtime import ThreadedUnit
 
 
@@ -130,7 +131,7 @@ class ConstitutionUnit(ThreadedUnit):
         for key in bb.keys():
             if "." in key:
                 wid, _, metric = key.rpartition(".")
-                if metric in ("node", "phase", "node_count", "state", "heartbeat", "start_time"):
+                if metric in WORKFLOW_METRICS:
                     ids.add(wid)
         return sorted(ids)
 

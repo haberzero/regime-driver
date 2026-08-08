@@ -3,13 +3,14 @@
 // Each tool shells out to the regime CLI (conda env) and returns its --json output.
 import { tool } from "@opencode-ai/plugin"
 
-const REGIME = "conda run -n regime-driver regime"
+const REGIME = ["conda", "run", "-n", "regime-driver", "regime"]
 const BASE = "http://127.0.0.1:4097"
 
 // Run a regime command and return trimmed stdout (JSON). Throws on non-zero exit.
+// Each arg is passed as its own shell word via Bun's template-array escaping, so
+// user-controlled context/messages cannot inject shell metacharacters.
 async function run($, args) {
-  const cmd = [REGIME, ...args].join(" ")
-  const proc = await $`${cmd}`.quiet()
+  const proc = await $`${[...REGIME, ...args]}`.quiet()
   if (proc.exitCode !== 0) {
     throw new Error(`regime failed (${proc.exitCode}): ${proc.stderr?.text?.() || ""}`)
   }
