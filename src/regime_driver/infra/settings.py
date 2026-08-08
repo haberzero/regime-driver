@@ -40,6 +40,11 @@ class Settings(BaseModel):
     task_control_dir: str | None = Field(
         default=None, description="project dir for task-control documents (None = off)"
     )
+    # mandatory permission ceiling: write ops are gated against THIS (config/env),
+    # never against a self-declared CLI --perm. --perm can only lower, not raise.
+    permission_ceiling: str = Field(
+        default="clean", description="hard cap on write permission (read<interact<run<clean)"
+    )
     # monitor thread (independent safety guard)
     monitor_enabled: bool = Field(default=True, description="enable the monitor thread")
     monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="monitor poll interval")

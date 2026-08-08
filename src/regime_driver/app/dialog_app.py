@@ -1,8 +1,7 @@
 """God Dialog REPL application (single shared implementation).
 
-Both the `regime dialog` CLI command and `ops/god_dialog.py` demo delegate here,
-so the dialog wiring (cluster + GodDialogUnit + launcher + REPL loop + LLM runner)
-lives in exactly one place.
+The `regime dialog` CLI command delegates here, so the dialog wiring (cluster +
+GodDialogUnit + launcher + REPL loop + LLM runner) lives in exactly one place.
 """
 
 from __future__ import annotations
@@ -46,11 +45,13 @@ def run_dialog(
     live: bool = False,
     timeout: float | None = None,
     print_fn: Callable[[str], None] = print,
+    allow_write: bool = False,
 ) -> int:
     """Build the dialog cluster + GodDialogUnit and run the REPL loop.
 
-    Returns 0 on clean exit. `print_fn` lets a caller route output (e.g. rich
-    console.print); default is builtin print.
+    `allow_write` gates the GodDialogUnit's write operations (start/design/talk);
+    the CLI passes it from the operator's effective permission level (>= run), so
+    write capability is never granted unconditionally. Returns 0 on clean exit.
     """
     settings = Settings(base_url=base_url, model=model,
                         request_timeout=timeout or 240.0)
@@ -65,7 +66,7 @@ def run_dialog(
     cluster = StatechartCluster(client)
     god = cluster.register_unit(GodDialogUnit(
         bus=cluster.runtime.bus, llm=llm, session_client=client if live else None,
-        settings_render=lambda: settings.model_dump().__str__(), allow_write=True))
+        settings_render=lambda: settings.model_dump().__str__(), allow_write=allow_write))
 
     def launcher(ctx, title, flow_sm=None):
         wid = f"god-{len(cluster.workflows) + 1}"

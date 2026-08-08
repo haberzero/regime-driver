@@ -64,12 +64,34 @@ def _emit_json(data) -> None:
     sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
 
 
+def _effective_held(perm: str) -> "PermissionLevel":
+    """The effective held permission: capped by the configured ceiling.
+
+    The ceiling comes from the operator's environment (REGIME_PERMISSION_CEILING,
+    matching the settings env convention), so a self-declared ``--perm`` can
+    never raise above it — only lower.
+    """
+    import os
+
+    from ..infra.permission import PermissionLevel, clamp
+
+    ceiling_value = os.environ.get("REGIME_PERMISSION_CEILING", "clean")
+    ceiling = PermissionLevel(ceiling_value)
+    return clamp(PermissionLevel(perm), ceiling)
+
+
 def _gate(perm: str, argv: list[str]) -> None:
-    """Enforce the uniform permission gate before a (potentially) write command."""
-    from ..infra.permission import PermissionDenied, PermissionLevel, classify, require
+    """Enforce the permission gate before a (potentially) write command.
+
+    The effective held level is **capped by the configured ceiling**
+    (Settings.permission_ceiling, from config/env), never by the self-declared
+    ``--perm``. So an operator cannot self-elevate: passing ``--perm clean`` is
+    inert if the ceiling is lower. ``--perm`` may only lower the held level.
+    """
+    from ..infra.permission import PermissionDenied, classify, require
 
     try:
-        require(PermissionLevel(perm), classify(argv))
+        require(_effective_held(perm), classify(argv))
     except (PermissionDenied, ValueError) as exc:
         _fail(str(exc))
 
@@ -829,7 +851,13 @@ def dialog(
     from ..app.dialog_app import run_dialog
 
     _gate(perm, ["dialog"])
-    run_dialog(base, model, live=live, print_fn=lambda s: console.print(s))
+    from ..infra.permission import PermissionLevel
+
+    # write capability only if the effective held level is at least run;
+    # never unconditional (fixes privilege escalation)
+    can_write = _effective_held(perm) >= PermissionLevel.RUN
+    run_dialog(base, model, live=live, print_fn=lambda s: console.print(s),
+               allow_write=can_write)
 
 
 # ---------------------------------------------------------------------------

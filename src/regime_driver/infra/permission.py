@@ -29,6 +29,15 @@ class PermissionLevel(str, Enum):
     RUN = "run"
     CLEAN = "clean"
 
+    def __lt__(self, other: "PermissionLevel") -> bool:
+        return _ORDER[self] < _ORDER[other]
+
+    def __le__(self, other: "PermissionLevel") -> bool:
+        return _ORDER[self] <= _ORDER[other]
+
+    def __gt__(self, other: "PermissionLevel") -> bool:
+        return _ORDER[self] > _ORDER[other]
+
     def __ge__(self, other: "PermissionLevel") -> bool:
         return _ORDER[self] >= _ORDER[other]
 
@@ -90,3 +99,12 @@ def require(held: PermissionLevel, needed: PermissionLevel) -> None:
 def from_god_dialog(allow_write: bool) -> PermissionLevel:
     """Map the GodDialogUnit.allow_write flag onto a permission level."""
     return PermissionLevel.CLEAN if allow_write else PermissionLevel.READ
+
+
+def clamp(held: PermissionLevel, ceiling: PermissionLevel) -> PermissionLevel:
+    """Cap a (possibly self-declared) held level at a configured ceiling.
+
+    This is the "cannot self-elevate" guarantee: the ceiling comes from config/
+    env, so a caller cannot raise its own held level past it.
+    """
+    return held if held <= ceiling else ceiling

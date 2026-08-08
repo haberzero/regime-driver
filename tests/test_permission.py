@@ -8,6 +8,7 @@ from regime_driver.infra.permission import (
     PermissionDenied,
     PermissionLevel,
     classify,
+    clamp,
     from_god_dialog,
     require,
 )
@@ -53,3 +54,21 @@ def test_require_ordering() -> None:
 def test_from_god_dialog() -> None:
     assert from_god_dialog(False) == PermissionLevel.READ
     assert from_god_dialog(True) == PermissionLevel.CLEAN
+
+
+def test_clamp_cannot_self_elevate() -> None:
+    # ceiling=run: a self-declared clean is clamped down to run
+    assert clamp(PermissionLevel.CLEAN, PermissionLevel.RUN) == PermissionLevel.RUN
+    assert clamp(PermissionLevel.RUN, PermissionLevel.RUN) == PermissionLevel.RUN
+    # lowering within the ceiling is allowed
+    assert clamp(PermissionLevel.READ, PermissionLevel.RUN) == PermissionLevel.READ
+    # full ceiling passes everything
+    assert clamp(PermissionLevel.CLEAN, PermissionLevel.CLEAN) == PermissionLevel.CLEAN
+
+
+def test_ceiling_rejects_run_when_read() -> None:
+    # an operator with ceiling=read cannot run (RUN required), even claiming clean
+    with pytest.raises(PermissionDenied):
+        require(clamp(PermissionLevel.CLEAN, PermissionLevel.READ),
+                classify(["run", "x"]))
+
