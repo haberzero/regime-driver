@@ -1,9 +1,13 @@
 # regime-driver — 架构设计（正式工程版）
 
-> 状态：**v0.1 架构定稿（正式工程化）**
+> ⚠️ **已废弃（历史文档）**：代码已被 `ARCHITECTURE-statechart-network.md` 的
+> 对等多状态机网络彻底重写（本文提到的 driver/monitor 等模块已删除）。**本文不代表当前代码**，
+> 仅作演进脉络参考。当前架构以 `ARCHITECTURE-statechart-network.md` 为准。
+>
+> ---
+>
+> 状态：~~v0.1 架构定稿~~（已废弃）
 > 日期：2026-08-04
-> 依据：`docs/DESIGN-regime-driver.md`（制度机器人 OA 设计）、`workflow-regime/`（制度体系）
-> 定位：**一个将上 PyPI 的正式软件包**，不是运维脚本。本文档是工程蓝图，代码须与之严格一致。
 
 ---
 

@@ -1,6 +1,11 @@
 # regime-driver 重组架构设计（v2）
 
-> 状态：**设计定稿，实施完成（R1-R6）**
+> ⚠️ **已废弃（历史文档）**：已被 `ARCHITECTURE-statechart-network.md`（对等多状态机网络）取代。
+> 当前架构以 statechart-network 为准；本文仅作演进脉络参考。
+>
+> ---
+>
+> 状态：~~设计定稿，实施完成（R1-R6）~~（已废弃）
 > 日期：2026-08-04
 > 背景：v1（`ARCHITECTURE-regime-driver.md`）确立了 cli→app→core/infra 分层与安全监控。
 >   本次 v2 基于对"角色即个体"的深层质询，重构**协作模型**：从"手动转发消息"改为
