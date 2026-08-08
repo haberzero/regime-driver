@@ -82,6 +82,25 @@ class TaskRegistry:
         self._save(rec)
         return rec
 
+    def register(self, *, goal: str = "", deadline: int | None = None,
+                 pid: int | None = None, out_file: str | None = None) -> dict:
+        """Register an in-process task (no subprocess spawned) by its live pid.
+
+        Used by foreground `regime drive` so the running stack is tracked,
+        stoppable and reportable like a background task, without re-spawning
+        itself. The caller is responsible for writing the summary file.
+        """
+        tid = f"task-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}"
+        summary = self.dir / f"{tid}.summary.json"
+        out = out_file or str(self.dir / f"{tid}.out")
+        rec = {
+            "id": tid, "goal": goal, "deadline": deadline, "status": "running",
+            "pid": pid, "summary_file": str(summary), "out_file": out,
+            "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        self._save(rec)
+        return rec
+
     def _save(self, rec: dict) -> None:
         (self.dir / f"{rec['id']}.json").write_text(
             json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -400,6 +401,176 @@ def run_many(
     finally:
         if rep:
             rep.close()
+
+
+# ---------------------------------------------------------------------------
+# drive (one-command self-driving stack: run + supervisor + reporter)
+# ---------------------------------------------------------------------------
+@app.command("drive")
+def drive(
+    context: str = typer.Argument(..., help="task context injected into developer nodes"),
+    base: str = typer.Option(None, "--base", help="worker opencode server URL"),
+    config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
+    regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
+    deadline: int = typer.Option(None, "--deadline", help="global deadline (sec) for the whole drive"),
+    container: str = typer.Option(
+        None, "--container", help="worker docker container name (for L4 restart on T1)"),
+    stall: int = typer.Option(60, "--stall", help="session-stall detection seconds (T2)"),
+    reporter: Optional[Path] = typer.Option(
+        None, "--reporter", help="append-only report journal path (single truth)"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
+    async_run: bool = typer.Option(
+        False, "--async", help="submit as a background supervised task and return a handle"),
+    perm: str = typer.Option("run", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
+    no_preflight: bool = typer.Option(
+        False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"),
+) -> None:
+    """Bring up the whole self-driving stack with one command.
+
+    Runs the workflow executor AND the process-external supervisor (independent
+    clock: T1 health/L4 restart, T2 session stall, deadline, correction ladder)
+    sharing ONE reporter journal, registered as a supervised task. Preflight is
+    mandatory (offline trial) unless --no-preflight. Pass --async to run it as a
+    tracked background task (`regime task list/status`).
+    """
+    _gate(perm, ["drive", context])
+    from ..task import TaskRegistry
+    from ..app.reporter import Reporter
+
+    settings = load_settings(
+        config_file=config,
+        overrides={
+            "base_url": base,
+            "regime_path": str(regime) if regime else None,
+            "default_deadline_sec": deadline,
+            "skills_dir": str(skills_dir) if skills_dir else None,
+        },
+    )
+    if async_run:
+        argv = [
+            "drive", context,
+            *(["--base", base] if base else []),
+            *(["--config", str(config)] if config else []),
+            *(["--regime", str(regime)] if regime else []),
+            *(["--deadline", str(deadline)] if deadline is not None else []),
+            *(["--container", container] if container else []),
+            *(["--stall", str(stall)] if stall != 60 else []),
+            *(["--reporter", str(reporter)] if reporter else []),
+            *(["--tasks-dir", str(tasks_dir)] if tasks_dir else []),
+            *(["--skills-dir", str(skills_dir)] if skills_dir else []),
+            *(["--no-preflight"] if no_preflight else []),
+        ]
+        registry = TaskRegistry(tasks_dir or TaskRegistry().dir)
+        rec = registry.submit(
+            [sys.executable, "-m", "regime_driver.cli", *argv],
+            goal=context, deadline=deadline)
+        if json_out:
+            _emit_json({"submitted": True, "task": rec["id"],
+                        "cmd": "regime task status " + rec["id"]})
+        else:
+            _ok(f"drive task [bold]{rec['id']}[/bold] submitted "
+                f"(pid={rec['pid']})", markup=True)
+            _ok(f"status: regime task status {rec['id']}", markup=False)
+        return
+
+    # mandatory preflight (offline trial) before touching a real worker/session
+    from ..core.state_machine import StateMachineError
+
+    try:
+        sm = load_regime(regime)
+    except (StateMachineError, FileNotFoundError) as exc:
+        _fail(f"error loading regime: {exc}")
+    if not no_preflight:
+        from ..app.preflight import preflight
+
+        res = preflight(sm, timeout_sec=30.0)
+        if not res["ok"]:
+            _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
+        _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
+
+    from ..drive import Drive
+
+    client = OpenCodeClient(settings.base_url, model=settings.model,
+                            timeout=settings.request_timeout)
+    journal = str(reporter) if reporter else None
+    rep = Reporter(journal_path=journal, project_id="drive")
+    # register the running stack as a supervised task (tracked/stoppable/reportable)
+    registry = TaskRegistry(tasks_dir or TaskRegistry().dir)
+    rec = registry.register(goal=context, deadline=deadline,
+                            pid=os.getpid())
+    drv = Drive(
+        settings, sm, client, rep, container=container,
+        deadline_sec=deadline, stall_sec=stall,
+    )
+    try:
+        # render live progress in the foreground
+        import threading
+        result: dict = {}
+        def _go() -> None:
+            try:
+                result["res"] = drv.run(context)
+            finally:
+                rep.close()
+        t = threading.Thread(target=_go, daemon=True)
+        t0 = time.time()
+        t.start()
+        try:
+            from rich.live import Live
+            from rich.table import Table
+            with Live(console=console, refresh_per_second=4) as live:
+                while t.is_alive():
+                    table = Table(title=f"drive · {time.time()-t0:.0f}s · {rec['id']}",
+                                  show_header=False)
+                    table.add_column(justify="right")
+                    table.add_column()
+                    wf = getattr(drv.driver, "workflow", None)
+                    node = getattr(wf, "_node", None) or "?"
+                    state = getattr(wf, "_state", None) or "?"
+                    table.add_row("node", node)
+                    table.add_row("state", state)
+                    table.add_row("session", getattr(drv, "_session_id", None) or "?")
+                    live.update(table)
+                    time.sleep(0.25)
+        except KeyboardInterrupt:
+            pass
+        t.join(timeout=5)
+        if "res" not in result:
+            _fail("drive did not complete")
+        dr = result["res"]
+        # write the supervised-task summary for report/registry completion
+        _write_drive_summary(rec["summary_file"], dr.to_dict())
+        if json_out:
+            _emit_json({"task": rec["id"], **dr.to_dict()})
+            if dr.outcome != Outcome.COMPLETE.value:
+                raise typer.Exit(1)
+            return
+        mark = "✓" if dr.outcome == Outcome.COMPLETE.value else "✗"
+        console.print(f"  {mark} outcome: {dr.outcome} @ {dr.end or '?'} "
+                      f"({dr.elapsed_sec}s)")
+        console.print(f"  supervisor: {dr.supervisor}  session: {dr.session_id or '-'}")
+        if dr.outcome == Outcome.COMPLETE.value:
+            _ok(f"drive task {rec['id']} completed", markup=False)
+        else:
+            _fail(f"drive {dr.outcome} at {dr.end or '?'}"
+                  + (f": {dr.detail}" if dr.detail else ""), markup=True)
+    finally:
+        rep.close()
+
+
+def _write_drive_summary(summary_file: str, data: dict) -> None:
+    """Write the supervised-task summary JSON (marks a task 'done')."""
+    import os
+    try:
+        os.makedirs(os.path.dirname(summary_file), exist_ok=True)
+        with open(summary_file, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(data, ensure_ascii=False))
+    except OSError:
+        pass
 
 
 # ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ from __future__ import annotations
 import subprocess
 import time
 from dataclasses import dataclass
+from typing import Callable
 
 from .app.reporter import Reporter
 from .infra.opencode import OpenCodeClient
@@ -198,15 +199,19 @@ class Supervisor:
 
     # -- run loop (fully wired: ingest + T1 + T2 + deadline + ladder) --------
 
-    def run(self, *, once: bool = False) -> str:
+    def run(self, *, once: bool = False, stop_when: "Callable[[], bool] | None" = None) -> str:
         """Run the watchdog loop with its own clock.
 
         Each pass: ingest SSE events, check T1 health (restart if down), check T2
         session stall (escalate through the ladder with real actions), enforce the
         deadline. With `once=True` it does a single pass (for CLI `--once`/tests);
-        otherwise it loops until the deadline or an L5 human escalation.
+        otherwise it loops until the deadline, an L5 human escalation, or
+        `stop_when()` (a caller-supplied completion check, e.g. the supervised
+        workflow finished) returns True — in which case it returns `"workflow_done"`.
         """
         while True:
+            if stop_when is not None and stop_when():
+                return "workflow_done"
             self.ingest_events()
             if self.session_id is not None and self.client.health():
                 # T2: session stall
