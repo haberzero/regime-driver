@@ -57,3 +57,11 @@ def test_permission_ceiling_blocks_self_elevation(monkeypatch):
     res = runner.invoke(app, ["run", "x", "--perm", "clean", "--no-preflight"])
     assert res.exit_code == 1
     assert "permission denied" in res.output
+
+
+def test_drive_permission_gate_blocks_low_perm(monkeypatch):
+    # drive is a write op; a low held permission must be rejected before any worker
+    monkeypatch.setenv("REGIME_PERMISSION_CEILING", "read")
+    res = runner.invoke(app, ["drive", "x", "--perm", "clean", "--no-preflight"])
+    assert res.exit_code == 1
+    assert "permission denied" in res.output

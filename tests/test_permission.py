@@ -32,13 +32,18 @@ def test_classify_interact() -> None:
 def test_classify_run() -> None:
     assert classify(["run", "task"]) == PermissionLevel.RUN
     assert classify(["run-many", "a", "b"]) == PermissionLevel.RUN
-    # async does not escalate
+    assert classify(["drive", "task"]) == PermissionLevel.RUN
+    assert classify(["task", "submit", "x"]) == PermissionLevel.RUN
     assert classify(["run", "task", "--async"]) == PermissionLevel.RUN
 
 
 def test_classify_clean() -> None:
     assert classify(["sessions", "--clean"]) == PermissionLevel.CLEAN
     assert classify(["sessions", "--kill", "abc"]) == PermissionLevel.CLEAN
+    assert classify(["supervisor"]) == PermissionLevel.CLEAN
+    assert classify(["task", "stop", "x"]) == PermissionLevel.CLEAN
+    assert classify(["task", "clean", "x"]) == PermissionLevel.CLEAN
+    assert classify(["task", "list"]) == PermissionLevel.READ
 
 
 def test_require_ordering() -> None:

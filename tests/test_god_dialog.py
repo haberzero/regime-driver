@@ -49,6 +49,86 @@ def test_command_start_invokes_launcher():
     assert called["ctx"] == "实现 add 函数"
 
 
+class _SC:
+    """Stub session client (session deep-interaction + reclaim)."""
+
+    def __init__(self):
+        self.sessions = [{"id": "s1", "title": "dev"}, {"id": "s2", "title": "rev"}]
+        self.aborted = []
+        self.deleted = []
+
+    def list_sessions(self):
+        return list(self.sessions)
+
+    def session_status_map(self):
+        return {"s1": "busy", "s2": "idle"}
+
+    def abort_session(self, sid):
+        self.aborted.append(sid)
+
+    def delete_session(self, sid):
+        self.deleted.append(sid)
+
+
+def test_command_sessions_lists_with_status():
+    d = GodDialogUnit(session_client=_SC())
+    out = d.command("sessions")
+    assert "s1" in out and "busy" in out
+    assert "s2" in out and "idle" in out
+
+
+def test_command_sessions_busy_filter():
+    d = GodDialogUnit(session_client=_SC())
+    out = d.command("sessions busy")
+    assert "s1" in out
+    assert "s2" not in out
+
+
+def test_command_abort_is_write_gated():
+    sc = _SC()
+    d = GodDialogUnit(session_client=sc, allow_write=False)
+    out = d.command("abort s1")
+    assert "门禁" in out
+    assert sc.aborted == []
+
+
+def test_command_abort_single_session():
+    sc = _SC()
+    d = GodDialogUnit(session_client=sc, allow_write=True)
+    out = d.command("abort s1")
+    assert "abort session s1" in out
+    assert sc.aborted == ["s1"]
+
+
+def test_command_abort_all():
+    sc = _SC()
+    d = GodDialogUnit(session_client=sc, allow_write=True)
+    d.command("abort --all")
+    assert sorted(sc.aborted) == ["s1", "s2"]
+
+
+def test_command_reclaim_aborts_and_deletes():
+    sc = _SC()
+    d = GodDialogUnit(session_client=sc, allow_write=True)
+    out = d.command("reclaim s1")
+    assert "已回收 session s1" in out
+    assert sc.aborted == ["s1"]
+    assert sc.deleted == ["s1"]
+
+
+def test_command_reclaim_all():
+    sc = _SC()
+    d = GodDialogUnit(session_client=sc, allow_write=True)
+    d.command("reclaim --all")
+    assert sorted(sc.aborted) == ["s1", "s2"]
+    assert sorted(sc.deleted) == ["s1", "s2"]
+
+
+def test_command_sessions_requires_client():
+    d = GodDialogUnit(session_client=None)
+    assert "未接入" in d.command("sessions")
+
+
 def test_command_inspect_reads_blackboard():
     rt = Runtime(enforce_invariants=False)
     d = GodDialogUnit(bus=rt.bus)

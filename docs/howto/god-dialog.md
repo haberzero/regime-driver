@@ -36,9 +36,12 @@ regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker +
 - `design myflow <JSON 或自然语言>` — 设计新 workflow
 - `start myflow 做任务` — 非阻塞启动（可用设计流）
 - `inspect god-1` — 查看某 workflow 黑板指标
-- `talk <session_id> 内容` — 与指定 opencode session 独立交互
-- `help` — 全部命令；自由文本 — LLM 解释（`--live` 时）
-- `quit` — 退出
+ - `talk <session_id> 内容` — 与指定 opencode session 独立交互
+ - `sessions [busy]` — 列出 worker 会话及实时状态
+ - `abort <session_id> | abort --all` — 中止运行中会话（写）
+ - `reclaim <session_id> | reclaim --all` — 中止并删除（回收）会话（写，T8）
+ - `help` — 全部命令；自由文本 — LLM 解释（`--live` 时）
+ - `quit` — 退出
 
 ## 预期结果
 

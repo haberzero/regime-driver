@@ -222,6 +222,12 @@ class GodDialogUnit(ThreadedUnit):
             return self._write_gate(t) or self._start(t)
         if self._is_inspect_cmd(low):
             return self._inspect(t)
+        if self._is_sessions_cmd(low):
+            return self._sessions(t)
+        if self._is_abort_cmd(low):
+            return self._write_gate(t) or self._abort(t)
+        if self._is_reclaim_cmd(low):
+            return self._write_gate(t) or self._reclaim(t)
         if self._is_talk_cmd(low):
             return self._write_gate(t) or self._talk(t)
         if self._is_design_cmd(low):
@@ -266,6 +272,19 @@ class GodDialogUnit(ThreadedUnit):
     @staticmethod
     def _is_talk_cmd(low: str) -> bool:
         return low.startswith(("talk", "对话", "message "))
+
+    @staticmethod
+    def _is_sessions_cmd(low: str) -> bool:
+        return low in ("sessions", "会话", "列表") or low.startswith(
+            ("sessions ", "会话 ", "list "))
+
+    @staticmethod
+    def _is_abort_cmd(low: str) -> bool:
+        return low.startswith(("abort", "停止", "kill "))
+
+    @staticmethod
+    def _is_reclaim_cmd(low: str) -> bool:
+        return low.startswith(("reclaim", "回收", "清理 "))
 
     @staticmethod
     def _int_in(text: str, default: int = 10) -> int:
@@ -398,6 +417,100 @@ class GodDialogUnit(ThreadedUnit):
         self._executor.submit(self._run_talk, sid, msg)
         return f"已向 session {sid} 发送消息，等待回复…"
 
+    def _sessions(self, text: str) -> str:
+        """List the worker's opencode sessions with live status (deeper control).
+
+        `sessions` / `sessions --all` lists every session; `sessions busy` lists
+        only busy ones. Requires a session_client that can list + read status.
+        """
+        if self.session_client is None:
+            return "sessions 能力未接入（未提供 session_client）。"
+        low = text.lower()
+        only_busy = "busy" in low
+        try:
+            rows = self.session_client.list_sessions()
+            status_map = self.session_client.session_status_map()
+        except Exception as exc:
+            return f"获取会话失败：{exc}"
+        lines = ["=== sessions ==="]
+        shown = 0
+        for s in rows:
+            sid = s.get("id")
+            st = status_map.get(sid) or "idle"
+            if only_busy and st != "busy":
+                continue
+            shown += 1
+            title = str(s.get("title") or "")[:24]
+            lines.append(f"  {sid} [{st}] {title}")
+        if shown == 0:
+            lines.append("  (无)")
+        lines.append(f"  共 {shown} 个")
+        return "\n".join(lines)
+
+    def _abort(self, text: str) -> str:
+        """Abort a running session (or all with `abort --all`). Write-gated."""
+        if self.session_client is None:
+            return "abort 能力未接入（未提供 session_client）。"
+        low = text.lower()
+        if "--all" in low or "全部" in text:
+            try:
+                sids = [s.get("id") for s in self.session_client.list_sessions()
+                        if s.get("id")]
+            except Exception as exc:
+                return f"abort --all 失败：{exc}"
+            for sid in sids:
+                try:
+                    self.session_client.abort_session(sid)
+                except Exception as exc:
+                    self.replies.append({"text": f"[abort {sid}] {exc}", "kind": "abort",
+                                         "ts": time.time()})
+            return f"已 abort {len(sids)} 个 session。"
+        parts = text.split()
+        if len(parts) < 2:
+            return "用法：abort <session_id> | abort --all"
+        sid = parts[1]
+        try:
+            self.session_client.abort_session(sid)
+        except Exception as exc:
+            return f"abort {sid} 失败：{exc}"
+        return f"已 abort session {sid}。"
+
+    def _reclaim(self, text: str) -> str:
+        """回收（reclaim）: abort + delete a session (or all with `reclaim --all`).
+
+        Frees the worker's brain-capacity by aborting and deleting finished or
+        stuck sessions. Write-gated.
+        """
+        if self.session_client is None:
+            return "reclaim 能力未接入（未提供 session_client）。"
+        low = text.lower()
+        if "--all" in low or "全部" in text:
+            try:
+                sids = [s.get("id") for s in self.session_client.list_sessions()
+                        if s.get("id")]
+            except Exception as exc:
+                return f"reclaim --all 失败：{exc}"
+            removed = 0
+            for sid in sids:
+                try:
+                    self.session_client.abort_session(sid)
+                    self.session_client.delete_session(sid)
+                    removed += 1
+                except Exception as exc:
+                    self.replies.append({"text": f"[reclaim {sid}] {exc}", "kind": "reclaim",
+                                         "ts": time.time()})
+            return f"已回收 {removed} 个 session。"
+        parts = text.split()
+        if len(parts) < 2:
+            return "用法：reclaim <session_id> | reclaim --all"
+        sid = parts[1]
+        try:
+            self.session_client.abort_session(sid)
+            self.session_client.delete_session(sid)
+        except Exception as exc:
+            return f"reclaim {sid} 失败：{exc}"
+        return f"已回收 session {sid}（abort + delete）。"
+
     def _run_talk(self, sid: str, msg: str) -> None:
         try:
             self.session_client.send_message(sid, msg, self.talk_agent)
@@ -449,6 +562,9 @@ class GodDialogUnit(ThreadedUnit):
             "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
             "  start [flow名] <任务上下文> / 启动 ..   —— 非阻塞启动一个 workflow\n"
             "  inspect <workflow_id> / 查看 ..         —— 查看某 workflow 黑板指标\n"
+            "  sessions / 会话 [busy]                    —— 列出 worker 会话及实时状态\n"
+            "  abort <session_id> | abort --all / 停止   —— 中止运行中会话(写)\n"
+            "  reclaim <session_id> | reclaim --all / 回收—— 中止并删除(回收)会话(写)\n"
             "  talk <session_id> <内容> / 对话 ..      —— 与指定 opencode session 独立交互\n"
             "  config / 配置                           —— 当前设置\n"
             "  其它自由文本                            —— 交给 LLM 解释（worker 线程）\n"

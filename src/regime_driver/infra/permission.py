@@ -62,10 +62,15 @@ _COMMAND_LEVEL: dict[str, PermissionLevel] = {
     "session": PermissionLevel.READ,      # subcommand decides (send -> INTERACT)
     "validate": PermissionLevel.READ,
     "gate": PermissionLevel.READ,
+    "preflight": PermissionLevel.READ,    # offline trial, no worker side effects
+    "report": PermissionLevel.READ,
     "job": PermissionLevel.READ,          # job create via run --async is RUN
     "dialog": PermissionLevel.RUN,        # REPL enables write
     "run": PermissionLevel.RUN,
     "run-many": PermissionLevel.RUN,
+    "drive": PermissionLevel.RUN,         # launches the whole self-driving stack
+    "task": PermissionLevel.RUN,          # submit is RUN; stop/clean escalate to CLEAN
+    "supervisor": PermissionLevel.CLEAN,  # abort/restart/human ladder: destructive
 }
 
 
@@ -85,6 +90,13 @@ def classify(argv: list[str]) -> PermissionLevel:
         return PermissionLevel.READ
     if cmd == "job" and "create" in flags:
         return PermissionLevel.RUN
+    if cmd == "task":
+        sub = tokens[1] if len(tokens) > 1 else ""
+        if sub in ("stop", "clean"):
+            return PermissionLevel.CLEAN
+        if sub == "submit":
+            return PermissionLevel.RUN
+        return PermissionLevel.READ
     return base
 
 

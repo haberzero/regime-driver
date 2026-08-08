@@ -17,8 +17,10 @@ GUARDED = {
     "infra/opencode.py": {},
     "supervisor.py": {},
     "task.py": {},
+    "drive.py": {},
     "app/reporter.py": {},
     "app/preflight.py": {},
+    "app/god_dialog.py": {},
 }
 
 
