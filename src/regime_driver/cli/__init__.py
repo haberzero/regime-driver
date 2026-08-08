@@ -630,6 +630,47 @@ def _report_template(rep, rollups, template, *, since=None, wf_id=None,
 
 
 # ---------------------------------------------------------------------------
+# supervisor (process-external watchdog; run on host with its own clock)
+# ---------------------------------------------------------------------------
+@app.command("supervisor")
+def supervisor_cmd(
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    session: str = typer.Option(None, "--session", help="session id to supervise"),
+    container: str = typer.Option(None, "--container", help="docker container for L4 restart"),
+    deadline: int = typer.Option(None, "--deadline", help="deadline seconds (0 = none)"),
+    stall: int = typer.Option(60, "--stall", help="stall detection seconds (T2)"),
+    reporter: Optional[Path] = typer.Option(
+        None, "--reporter", help="report journal path (single truth)"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
+) -> None:
+    """Process-external supervisor: T1 health, T2 stall, deadline, ladder.
+
+    Runs on the HOST (independent clock), supervising a worker session. It
+    consumes the worker SSE event_stream into the Reporter and enforces the
+    correction ladder (abort/restart/fallback/human). This is the first-class
+    replacement for the old M0 supervisor (DESIGN-supervision.md).
+    """
+    from ..app.reporter import Reporter
+    from ..supervisor import Supervisor
+
+    client = OpenCodeClient(base, model=Settings().model)
+    rep = Reporter(journal_path=reporter) if reporter else Reporter(project_id="supervisor")
+    sup = Supervisor(
+        client, rep, container=container, stall_sec=stall,
+        deadline_sec=deadline if deadline else None,
+        session_id=session or None, goal="",
+    )
+    try:
+        outcome = sup.run(iterations=1)
+        if json_out:
+            _emit_json({"outcome": outcome, "session": session})
+        else:
+            _ok(f"supervisor pass: outcome={outcome}", markup=False)
+    finally:
+        rep.close()
+
+
+# ---------------------------------------------------------------------------
 # validate
 # ---------------------------------------------------------------------------
 @app.command("validate")

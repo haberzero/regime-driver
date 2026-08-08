@@ -268,41 +268,6 @@ class OpenCodeClient:
                     f"event_stream stream dropped after {max_retries} retries")
             time.sleep(backoff_sec * retries)
 
-    # -- session extras (WORK_PLAN4 II) -------------------------------------
-
-    def prompt_async(self, session_id: str, text: str, agent: str) -> None:
-        """Send a message asynchronously (POST /session/:id/prompt_async, no wait)."""
-        body: dict = {"agent": agent, "parts": [{"type": "text", "text": text}]}
-        if self.model:
-            body["model"] = _model_obj(self.model)
-        self._request("POST", f"/session/{session_id}/prompt_async", body, timeout=15.0)
-
-    def todo(self, session_id: str) -> list[dict]:
-        """Return the session's todo list (GET /session/:id/todo)."""
-        res = self._request("GET", f"/session/{session_id}/todo", timeout=15.0)
-        return res if isinstance(res, list) else []
-
-    def children(self, session_id: str) -> list[dict]:
-        """Return child sessions (GET /session/:id/children) — session genealogy."""
-        res = self._request("GET", f"/session/{session_id}/children", timeout=15.0)
-        return res if isinstance(res, list) else []
-
-    def fork(self, session_id: str, message_id: str | None = None) -> str:
-        """Fork a session at a message (POST /session/:id/fork). Returns new session id."""
-        body = {"messageID": message_id} if message_id else {}
-        res = self._request("POST", f"/session/{session_id}/fork", body, timeout=15.0)
-        if not isinstance(res, dict) or not res.get("id"):
-            raise OpenCodeError(f"fork returned no id: {res}")
-        return res["id"]
-
-    def summarize(self, session_id: str, model: str | None = None) -> bool:
-        """Request a session summary (POST /session/:id/summarize)."""
-        body = {}
-        if model or self.model:
-            body["modelID"] = (model or self.model).partition("/")[2] or (model or self.model)
-        res = self._request("POST", f"/session/{session_id}/summarize", body, timeout=30.0)
-        return bool(res)
-
     # -- health -------------------------------------------------------------
 
     def health(self) -> bool:

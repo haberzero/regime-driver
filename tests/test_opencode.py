@@ -116,32 +116,15 @@ def test_event_stream_first_is_connected(monkeypatch):
     assert list(c.event_stream())[0]["event"] == "server.connected"
 
 
-def test_prompt_async_and_extras():
-    calls = []
-
-    class C(OpenCodeClient):
-        def _request(self, method, path, body=None, timeout=None):
-            calls.append((method, path, body))
-            if "/todo" in path:
-                return [{"id": "t1"}]
-            if "/children" in path:
-                return [{"id": "child1"}]
-            if "/fork" in path:
-                return {"id": "new-session"}
-            if "/summarize" in path:
-                return True
-            return {}
-
-    c = C("http://x:4097")
-    c.prompt_async("s1", "hi", "developer")
-    assert calls[-1] == ("POST", "/session/s1/prompt_async", {"agent": "developer",
-                                                              "parts": [{"type": "text", "text": "hi"}]})
-    assert c.todo("s1") == [{"id": "t1"}]
-    assert c.children("s1") == [{"id": "child1"}]
-    assert c.fork("s1") == "new-session"
-    assert c.fork("s1", "m1") == "new-session"
-    assert calls[-1][1] == "/session/s1/fork"
-    assert c.summarize("s1") is True
+def test_open_code_client_surface_is_lean():
+    """Guard against dead API creeping back (see tests/test_deadcode.py)."""
+    # only methods actually consumed by the driver/supervisor remain on the client
+    for m in ("create_session", "session_status", "session_status_map", "list_sessions",
+              "session_tokens", "abort_session", "delete_session", "send_message",
+              "ask_and_get_text", "read_messages", "event_stream", "health"):
+        assert hasattr(OpenCodeClient, m)
+    for m in ("prompt_async", "todo", "children", "fork", "summarize"):
+        assert not hasattr(OpenCodeClient, m)
 
 
 def _raw(m: Message) -> dict:
