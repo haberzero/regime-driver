@@ -69,18 +69,98 @@
 
 ---
 
-## 修复优先级（建议）
+## 对 D1 / D2 的复核修正（2026-08-07 审计确认）
+
+- **D1 影响面修正**：STOP 信号路径**会**记 outcome（`_on_stop→_cancel_running` 设 ABORTED，下轮主循环记）。**真实缺口**是 `statechart_driver.py:88` 超时分支直接 `return ERROR`，workflow 未达终态 → **超时运行永不记 outcome**。D1 改为"超时路径无 outcome"。
+- **D2 措辞修正**：`retain()` 实为 `tmp.write_text→tmp.replace`（**本身是原子替换**）。真实风险是 **prune 永久删除、无备份、无 fsync** → "保留策略不可逆且无持久性保障"。D2 改为该措辞。
+
+---
+
+## G. 四路并行审计复核新增（2026-08-07，已逐条 grep/read 核实）
+
+> 来源：4 个并行只读审计（架构健康 / 代码质量十查 / 债单核查 / 体系化）。测试 238 通过。以下为**我此前漏掉、或核实后更严重**的债。
+
+### G1. 归属键在"单次运行"上彻底失效（blocker，比 C1 更伤）
+`workflow_unit.py:672` 用 `wf_id=self.id`，而单跑 `unit_id` 恒为 `"workflow"`（`statechart_driver.py:69`）→ **历次 `regime run` 的 journal 全挤在 `wf_id="workflow"` 一个键下**，`report` 板把多次运行累加为同一个 rollup，无法区分。C1 只提 sm_id 空，漏了 wf_id 常量这个更致命的归属问题。
+
+### G2. `run --async` 静默丢弃 `--reporter` 与 `--preflight`（warning / 接线遗漏）
+`cli/__init__.py:151-161` 重建 async 后台 argv 时漏转发 `--reporter` 和 `--preflight`。`run --async --reporter x` 后台作业**不写报告总线、不跑预检**，且无告警。假能力。
+
+### G3. `run-many` 完全没有 `--reporter`（warning / 接线遗漏）
+`statechart_cluster.py` 全文件无 Reporter；`cli run_many` 无 reporter 参数。报告总线只接了单跑，**并发多工作流无法进报告板**。
+
+### G4. `Telemetry` 生产零消费者（blocker / 死代码）
+`app/telemetry.py` 仅被 `ops/demo_cluster.py` 与测试引用，`StatechartDriver/Cluster/CLI` 均未挂载。demo 用、生产不用。
+
+### G5. 权限门禁=可完全绕过 + 权限提升（blocker / 假安全）
+- `_gate` 用操作者**自声明** `--perm`，服务端/配置**零强制**；`--perm clean` 即全通。
+- `dialog_app.py:68` `allow_write=True` **无条件硬编码**；dialog 内部 `_write_gate` 只查该布尔，**从不查 `PermissionLevel`**（`permission.py` 整层对 dialog 空转）。→ **RUN 持有人进 dialog 即可做 CLEAN 级操作 = 权限提升**。
+- `permission.from_god_dialog()` 生产零消费者（半接通）。
+
+### G6. 整仓双通道：新 `regime_driver` 包 vs 旧 M0 系统（blocker / 系统级分叉）
+`ops/supervisor.py`、`oc-run.sh`、`oc-task.py`、`run-ledger.jsonl`、`policy.json`、`stall-watchdog.js` 是**独立旧 M0 执行/监控真源**，与 regime-driver 包并存。HANDOVER 明言 supervisor"已被 oc-task 取代"且 regime-driver"未整合"。两套"regime"同仓 = 双通道。需明确**合并或删除**其一，不能"顺手保留"。
+
+### G7. oc-task 派生逻辑双写真相（warning）
+`ops/oc-task.py:66-83` 的 `derive()` 与 `src/regime_driver/infra/oc_tasks.py:29-47` 的 `_derive()` 是两份几乎相同的"pid 存活 + summary→outcome"逻辑，独立演化必漂移。
+
+### G8. 多处掩盖型静默兜底（warning，违红线 1 / fail-fast）
+- `workflow_unit.py:565-571` `_report_to_constitution`：对 `session_status/session_tokens` 异常 `return`、`read_messages` 异常 `pass` → **REPORT 静默丢失**，宪法 watchdog 失明，stall/死循环检测失效。
+- `workflow_unit.py:644` `_apply_transition` 吞 transition/policy 错误后继续。
+- `workflow_unit.py:662` `_check_session_capacity` 吞容量评估错误 → 伪装成"无需轮换"。
+- `self_assess.py:79` `_usage` 异常返回 `0.0` → 上下文占用算 0 → 会话永不轮换。
+- `reviewer.py:98-99` skill 缺失用 `(skill unavailable)` 占位继续评审。
+- `cli/__init__.py:981-987` `try: print except: print` 恒真双分支（死代码+兜底）。
+- `statechart_runtime.py:75-77`、`workflow_unit.py:162-163` 单元 handler 错误被 `except Exception: pass` 吞且**零日志**。
+
+### G9. 旧/半成品 API 双通道残留（warning）
+- `reviewer.py:151-191` `judge()`（阻塞式）仅测试消费，生产走 `prompt_for+parse_reply`（异步）——旧路径滞留未删。
+- `json_utils.py:32-42` `latest_assistant_text` 零消费者，docstring 却自称集中了跨 app 逻辑。
+- `workflow_unit.py` 三个"取最新 assistant"helper（`_latest_agent_done`/`_latest_text`/`_latest_assistant`）语义各有差异。
+
+### G10. 常量/状态名单点真理缺失（warning）
+- `blackboard.py:24` `WORKFLOW_METRICS` 与 `constitution_unit.py:133`、`workflow_unit.py:692-701`、`cli/__init__.py:320-321` **同一事实四处维护**。
+- `workflow_unit.py:48-49` 状态常量与 `blackboard.py:49-51` `STATE_LABELS/PHASE_LABELS` 人工镜像同步。
+- 超时字面量散落：`opencode.py` 15.0/30.0/240.0、cli 120.0、settings 600.0。
+
+### G11. 死脚本 + 魔法绝对路径（nit）
+`ops/mock_feasibility.py`（`sys.path.insert("/home/haber/oc-meta/src")`，功能已被单测覆盖）、`demo_cluster.py`、`e2e_debug.py`、`god_dialog.py`、`probe_*.py` 硬编码绝对路径，不可移植；部分与单测重复。
+
+### G12. 文档漂移 / 双主线（warning/nit）
+- **`TECH_DEBT.md` 没登记进 `docs/README.md`**——最重要的"问题清单"文档不在导航，新 session 会错过。
+- `ARCHITECTURE-regime-driver.md` 头部仍自称"工程蓝图、代码须与之一致"，但代码已被 statechart-network 彻底重写（v1 的 driver/monitor 已删）——最危险的历史误导；v1-v3 未就地标"已废弃"。
+- `HANDOVER.md §8` **同时存在两条"当前主线"**（A 路 T1/T2 vs WORK_PLAN4）——读者无法确定当前方向。
+- `TASK.md` 头部只提 WORK_PLAN/2/3，没提 WORK_PLAN4，但正文自省全是 WORK_PLAN4。
+- `GOD_DIALOG_OPERATOR.md:85` 宣称"归属键区分 workflow/session/状态机"，与 G1/C1 矛盾。
+- **skill 双树**：顶层 `skills/` 与 `workflow-regime/skills/` 并存（含重复的 code-review/doc-governance），归属未决。
+
+### G13. `regime-god.js` 默认持高位权限 + shell 注入风险被低估（warning）
+`.opencode/plugins/regime-god.js:35` `regime_sessions` 默认 `perm="clean"`，run/send 默认 run/interact——god 载体不显式降权即恒持最高权限。且 `:11` 把含**用户可控上下文/消息**的 args `.join(" ")` 后走 shell `$\`${cmd}\`` 解析，`session send` 的 message 含空格/分号即可注入。KNOWN_LIMITS 记为"注入风险低"（仅指机器 id），**低估了用户可控输入的风险**。
+
+### G14. 验证缺口实锤 + 缺死代码守卫（warning）
+- 无任何 **CLI 命令级测试**（run/run-many/report/dialog/job/events/sessions 零覆盖）。
+- 测试为死能力背书：`test_opencode.py` 测 `event_stream`/extras、`test_reporter.py` 测 `ingest_worker_event`、`test_reviewer.py` 测 `judge()`——**全是零生产消费者路径**，造成"功能完备"假象。
+- **缺"死代码守卫测试"**：无任何测试断言"每个公开 API 都有生产消费方"，导致 A1/A2/A3 这类壳能力反复出现。建议加守卫，让假能力结构性不再复发。
+
+---
+
+## 修复优先级（建议，含审计新增）
 
 | 优先级 | 项 | 理由 |
 |---|---|---|
-| **P0** | A1/A2 把 SSE 接入运行中 driver（Reporter 实时消费）+ C1 填归属键（sm_id/session_id 精确化） | 兑现"实时随取随用"核心承诺；消灭最大假能力 |
-| **P0** | B1 修 skill_loader 默认路径（parents[3]） | 真 bug，修即可，低风险 |
-| **P0** | C3 把 preflight/深检设为**默认强制**（或至少 run 默认先跑） | 保障必须是强制门禁 |
-| **P1** | B2/D1 统一 ledger→reporter（消灭双写）+ outcome 兜底（stop 也记） | 消除双真源与数据缺口 |
-| **P1** | D2 retain 改为安全替换（备份/原子） | 防保留策略丢数据 |
-| **P1** | C4 权限：把 --perm 升级为不可绕过的授权（服务端强制/配置门禁） | 否则安全主张不成立 |
-| **P2** | A3 接真需要再启用（不要留死 API）；C2 持久化 rollup 快照 | 减少假能力；O(1) 兑现 |
-| **P2** | C2/E1 真实 worker E2E 验证 + D3 修 bool | 消除验证缺口 |
+| **P0** | G1 修 wf_id 归属（每次运行唯一 id）+ A1/A2 接 SSE→Reporter + 填 sm_id | 兑现"实时随取随用/可区分"核心承诺；消灭最大假能力 |
+| **P0** | G6 整仓双通道定案：**合并或删除旧 M0 系统**（supervisor/oc-run/oc-task/run-ledger） | 系统级分叉，红线 3 要求非合即删，不能顺手保留 |
+| **P0** | G5 权限升级为不可绕过门禁 + 修 dialog 权限提升 | 否则"权限/安全"主张不成立，且现为权限提升漏洞 |
+| **P0** | B1 修 skill_loader 默认路径（parents[3]） | 真 bug，低风险 |
+| **P0** | C3 把 preflight/深检设为**默认强制** | 保障必须是强制门禁 |
+| **P1** | G8 修三处静默兜底（_report_to_constitution/_apply_transition/_check_session_capacity/self_assess） | watchdog 失明 + fail-fast 失效，掩盖型兜底最危险 |
+| **P1** | G2/G3 补 run --async/run-many 的 reporter 接线 | 消除接线遗漏假能力 |
+| **P1** | B2/G7 统一真源：ledger→reporter + oc-task 派生单一化 | 消双写真相 |
+| **P1** | D1 修超时无 outcome + D2 保留策略加备份 | 数据完整性 |
+| **P1** | G9/G11 删除死 API（judge/latest_assistant_text/三 helper）与死脚本 | 消历史包袱/双通道 |
+| **P2** | G10 常量单点真理 + G13 插件降权/消毒 + G12 文档单点真理收口 + G14 死代码守卫与 CLI 测试 | 防复发与误导 |
+| **P2** | E1 真实 worker E2E 验证 | 消除验证缺口 |
+
+> 涉及**破坏性/架构取舍**的项（G6 合并或删除 M0、G5 门禁升级、G9 删除 API、C3 强制化）须由用户定夺方向后再动手，不自作主张。其余按 code-quality 原则（删兜底→追根因→修根因）执行。
 
 ---
 

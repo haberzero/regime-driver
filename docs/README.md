@@ -10,6 +10,7 @@
 - **理解最终架构**：`ARCHITECTURE-statechart-network.md`（对等多状态机网络）→ `DESIGN-god-dialog.md`（上帝对话框）→ `DESIGN-mock.md`（mock 调试）。
 - **理解演进脉络**：`ARCHITECTURE-regime-driver.md`（v1 分层）→ `ARCHITECTURE-v2/v3/v4.md`（交接/工作区/角色通用化）→ `ARCHITECTURE-BOUNDARY.md`（宪法与用户特化边界）。
 - **排查 / 开发**：`RESEARCH-thinking-timeout.md`（超时研究）→ `ARCHITECTURE-REVIEW.md`（早期诊断）。
+- **健康 / 治理**：`TECH_DEBT.md`（**技术债，先读**）→ `KNOWN_LIMITS.md`（边界）→ `WRITING_GUIDE.md`（书写准则）。
 
 ## 文档清单
 
@@ -31,6 +32,7 @@
 | `GOD_DIALOG_OPERATOR.md` | 指南 | **上帝对话框操作手册**（供 opencode 消费的 CLI 契约全命令 + --json schema + 操作流程） |
 | `RESEARCH-thinking-timeout.md` | 研究 | thinking 超时守护研究结论 |
 | `KNOWN_LIMITS.md` | 参考 | 已知限制与边界（读者必读） |
+| `TECH_DEBT.md` | 参考 | **技术债登记（问题清单，禁止 tricky/兼容层立场）——开发前必读** |
 | `howto/` | 指南 | 实操指南（如何跑 E2E / 如何 mock 调试 / 如何用上帝对话框） |
 
 ## 书写纪律
