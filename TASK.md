@@ -82,7 +82,8 @@
 
 ## 自省记录
 
-- [REFLECT] 2026-08-05 | progress: 里程碑1(tool/route/gate+工作区+流转修复,119测试) + M-4真实任务试跑COMPLETE | risk: reviewer LLM judge 瞬时停顿曾触发 monitor abort(安全系统按设计工作,非代码缺陷) | next: 更新交接/规划文档反映新状态 | escalate: no
+- [REFLECT] 2026-08-08 | progress: P0#1一键drive(P0级,258)+P0#2真实E2E/卡死恢复/元分析接真实模型(266+3真实E2E) 全绿, 分支干净 | risk: 真实T2 busy-stall难以确定性诱发, 阶梯真实执行以L4重启+真实模型meta+真实abort覆盖(判定逻辑单测); docker_restart用sg fallback(环境旧组, 生产用docker组可直连) | next: P1#3 god容器镜像固化+一键起栈, P1#4 CI接真实E2E, P2#5 B路演进 | escalate: no
+- [DONE] P1#3 god容器镜像固化+一键起栈 | verified: ops/up.sh worker/god/all 实跑(重启+等健康) + god A路健康/回话真实验证 | 新增 ops/up.sh(一键构建+拉起+等健康, 自动sg docker fallback, key从env或~/.regime/keys/deepseek.key, --rebuild强制重建固化镜像) | 镜像已固化(Dockerfile.god COPY god.md+regime-god.js+god配置, 不再需docker cp+restart) | docs/howto/god-window.md 更新一键用法 | 说明: god A路工具调用turn慢(真实LLM+工具), 探测需>90s timeout, 非镜像缺陷
 - [REFLECT] 2026-08-08 | progress: 交接前收口——测试架构闭环(T-A E2E系统化 + T-B god专用容器 + T-C god A路HTTP驱动打通 + T-E交接收口)；修regime-god插件3真bug + validate深检skill门控；技术债G1-G14全清 + M0系统化收编全完成；测试基线255 | risk: 真实E2E纠正阶梯(卡死恢复)与元分析接模型未系统验证(记入HANDOVER优先级表); --perm进程级不可绕过为固有边界已如实记录 | next: 书写HANDOVER交接文档(优先级表+命令速查+当前状态), 等待下一session按P0(#1一键入口+#2真实E2E/卡死恢复)推进 | escalate: no
 - [REFLECT] 2026-08-05 | progress: 分支求值/工具健壮性(+2)、状态机配置校验(+4)、meta recent_events接入、ROTATE端到端实跑 decision=rotate | risk: 无 blocker | next: 收尾质量门+汇报 | escalate: no
 - [REFLECT] 2026-08-05 | progress: 架构方向研究(宪法层→对等多状态机,监督控制理论) + 阶段1(statechart原始)+阶段2(线程运行时)+阶段3(宪法单元能力等价) 全部零回归 146测试 | risk: 阶段4 接入真实 driver/替换 monitor 属侵入性生产改动 | next: 汇报阶段1-3,确认阶段4方案与风险 | escalate: no(方案已获用户确认,阶段4为侵入性集成,先汇报再动)

@@ -12,13 +12,25 @@ HTTP API（= regime-driver 驱动 worker 那套）。所以可**建一个专用 
 
 ## 步骤
 
-### 1. 构建专用 god 镜像
+### 1. 一键起栈（推荐）— `ops/up.sh`
+```bash
+cd /home/haber/oc-meta
+ops/up.sh all          # 构建(如缺)+拉起 worker+god, 等健康
+ops/up.sh god          # 只起 god 容器
+ops/up.sh all --rebuild   # 强制重建镜像(插件/agent 固化进镜像后再起)
+```
+- 自动处理旧组 shell 的 `sg docker -c` 包装、`--network host`、端口与模型 key
+  （`DEEPSEEK_API_KEY` 环境变量或 `~/.regime/keys/deepseek.key`）。
+- 插件/agent 已**固化进镜像**（Dockerfile.god COPY god.md + regime-god.js + god 配置），
+  不再需要 `docker cp`+restart；改插件后 `--rebuild` 重建即可。
+
+### 2. 手动构建与运行（原始方式）
 ```bash
 cd /home/haber/oc-meta
 sg docker -c 'docker build -f docker/Dockerfile.god -t opencode-god:1.18.11 .'
 ```
 
-### 2. 运行（--network host 使 127.0.0.1:4097 直达宿主的 worker；传模型 key）
+### 3. 运行（--network host 使 127.0.0.1:4097 直达宿主的 worker；传模型 key）
 ```bash
 sg docker -c 'docker run -d --name opencode-god --network host \
   -e DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" -e OPENCODE_PORT=4098 \
