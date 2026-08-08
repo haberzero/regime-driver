@@ -983,6 +983,86 @@ app.add_typer(_session_app, name="session")
 
 
 # ---------------------------------------------------------------------------
+# task (subcommands: submit / list / status / stop / logs / clean)
+# ---------------------------------------------------------------------------
+_task_app = typer.Typer(help="Supervised-task registry (replaces ops/oc-task.py).")
+
+
+@_task_app.command("list")
+def task_list(
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """List supervised tasks with live status (single derive)."""
+    from ..task import TaskRegistry
+
+    tasks = TaskRegistry().list()
+    if json_out:
+        _emit_json({"tasks": tasks})
+        return
+    for t in tasks:
+        st = t["status"]
+        style = "bold yellow" if st == "running" else (
+            "green" if st == "done" else "bold red")
+        console.print(f"  {t['id']} [{style}]{st}[/{style}] "
+                      f"outcome={t.get('outcome')} goal={(t.get('goal') or '')[:40]}")
+
+
+@_task_app.command("status")
+def task_status(
+    task_id: str = typer.Argument(..., help="task id"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Show one task's status and summary."""
+    from ..task import TaskRegistry
+
+    rec = TaskRegistry().get(task_id)
+    if rec is None:
+        _fail(f"unknown task: {task_id}")
+    if json_out:
+        _emit_json(rec)
+        return
+    console.print(f"task {task_id} · status={rec['status']} outcome={rec.get('outcome')}")
+    console.print(f"  goal: {rec.get('goal') or '-'}")
+
+
+@_task_app.command("logs")
+def task_logs(
+    task_id: str = typer.Argument(..., help="task id"),
+) -> None:
+    """Print a task's captured output."""
+    from ..task import TaskRegistry
+
+    console.print(TaskRegistry().logs(task_id))
+
+
+@_task_app.command("stop")
+def task_stop(
+    task_id: str = typer.Argument(..., help="task id"),
+) -> None:
+    """Stop a running task (SIGTERM its supervisor)."""
+    from ..task import TaskRegistry
+
+    if TaskRegistry().stop(task_id):
+        _ok(f"stopped {task_id}", markup=False)
+    else:
+        _fail(f"unknown task: {task_id}")
+
+
+@_task_app.command("clean")
+def task_clean(
+    task_id: str = typer.Argument(..., help="task id"),
+) -> None:
+    """Delete a task's records (json/out/summary)."""
+    from ..task import TaskRegistry
+
+    TaskRegistry().clean(task_id)
+    _ok(f"cleaned {task_id}", markup=False)
+
+
+app.add_typer(_task_app, name="task")
+
+
+# ---------------------------------------------------------------------------
 # job (subcommands: list / status) — async job registry
 # ---------------------------------------------------------------------------
 _job_app = typer.Typer(help="Query background async jobs (run/run-many --async).")
