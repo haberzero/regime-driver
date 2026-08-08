@@ -31,6 +31,13 @@ monitor_poll_sec = 3.0                       # 监控轮询间隔
 stall_sec = 120                              # busy 且无输出增长超过此秒 -> 判卡死
 on_stall = "abort"                           # abort | report_user | none
 
+# --- 权限门禁 ---
+# permission_ceiling = "clean"                # 写操作权限硬上限 read<interact<run<clean
+#                                             # 也读 REGIME_PERMISSION_CEILING。
+#                                             # 注意：本地 CLI 中此上限由进程环境控制，
+#                                             # 任何能控制进程环境者可自行设 clean（本地
+#                                             # CLI 无法做到进程级不可绕过），详见 TECH_DEBT G5。
+
 # --- session 生命周期 ---
 context_limit_tokens = 120_000               # session token 上限（算用量分数）
 

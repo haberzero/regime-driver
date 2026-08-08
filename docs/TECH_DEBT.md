@@ -37,7 +37,7 @@
 | C1 | **归属键区分 workflow / session / 状态机** | **`sm_id` 从未被填充**（grep：全生产代码无一处传 `sm_id`）；`session_id` 多数时候是 `_wait_sid`（近似值，非精确归属）。 | "区分三个观察面"是点3 的核心设计，**只实现了 schema，没实现数据**。是半吊子。 |
 | C2 | **"O(1) 随取随用 rollup"** | rollup 只在**内存**；持久化后 `regime report` 必须 `load()` **重放整本 journal（O(n)）**重建。 | "随取随用"只在 live 成立；对已持久化的历史是重放。且进程一死，内存 rollup 全丢。 |
 | C3 | **"可用性保障"** | `--deep`、`--preflight` 都**默认关、可选**（`default=False`）。 | 用户要的是"保障"，我给了"一个可选开关"。不主动传就无保障；不是强制门禁。 |
-| C4 | **`--perm` 权限门禁** | **自声明**：任何人不传 `--perm` 或传 `--perm clean` 即绕过。 | 不是授权/安全边界，只是"操作者自限"开关。防君子不防小人。 |
+| C4 | **`--perm` 权限门禁** | ✅ 已升级为配置 ceiling 不可自提权（G5）。**剩余技术不可控项（如实记录）**：本地 CLI 的 ceiling 由进程环境控制，能控制进程环境者可设 `clean`；本地 CLI 无法进程级不可绕过（须真服务端授权）。**属平台/部署固有边界，非 bug**，用户已确认非大问题。 | 见 `config.example.toml` 权限段 |
 
 ---
 
@@ -148,7 +148,7 @@
 | 优先级 | 项 | 理由 |
 |---|---|---|
 | **P0** | G1 修 wf_id 归属（每次运行唯一 id）+ A1/A2 接 SSE→Reporter + 填 sm_id | 兑现"实时随取随用/可区分"核心承诺；消灭最大假能力 |
-| **P0** | G6 整仓双通道定案：**系统化收编 M0**（按 `DESIGN-supervision.md`：建 `regime_driver.supervisor`+`regime_driver.task` 吸收功能→真实验证→退役容器→删 M0）。**核实 M0 是活生产控制面（opencode-autopilot 挂载 ops→/root/control），非死代码，不可盲删** | ✅ A/B 完成、C-代码级已删；**C-部署级待执行**（退役运行容器后删 supervisor/stall-watchdog/policy 三件套） |
+| **P0** | G6 整仓双通道定案：**系统化收编 M0**（按 `DESIGN-supervision.md`：建 `regime_driver.supervisor`+`regime_driver.task` 吸收功能→真实验证→退役容器→删 M0）。**核实 M0 是活生产控制面（opencode-autopilot 挂载 ops→/root/control），非死代码，不可盲删** | ✅ **全部完成**：A/B 建好且真接线；C-代码级删 oc-task/oc-run/run-ledger/tasks；C-部署级——核实旧监督**未在运行**（无 host supervisor 进程、stall-watchdog 未注册进容器 config），删部署三件套 supervisor/stall-watchdog/policy；D-真实 worker E2E（`regime supervisor --once` 对 opencode-worker 成功 ingest SSE + 看门狗 pass）+ 零残留 grep 通过 |
 | **P0** | G5 权限升级为不可绕过门禁 + 修 dialog 权限提升 | 否则"权限/安全"主张不成立，且现为权限提升漏洞 |
 | **P0** | B1 修 skill_loader 默认路径（parents[3]） | 真 bug，低风险 |
 | **P0** | C3 把 preflight/深检设为**默认强制** | 保障必须是强制门禁 |

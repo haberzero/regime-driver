@@ -124,7 +124,7 @@
 | **A** `regime_driver.supervisor`（T1/T2/deadline/ladder/meta + 接 SSE event_stream） | ✅ 已建 + 单测（`src/regime_driver/supervisor.py`、`regime supervisor` CLI） |
 | **B** `regime_driver.task`（收编 oc-task，单一 derive） | ✅ 已建 + 单测（`src/regime_driver/task.py`、`regime task` CLI、report 单真源） |
 | **C-代码级** 删除被取代 M0 产物（oc-task.py/oc-run.sh/run-ledger/tasks） | ✅ 已删 |
-| **C-部署级（待执行）** 退役运行容器旧监督 → 删部署三件套 | ⏳ **保留** `ops/supervisor.py`/`ops/stall-watchdog.js`/`ops/policy.json`——它们被运行中 `opencode-autopilot` 容器挂载使用（ops→/root/control）。**须先真实验证 `regime supervisor` 可用、再退役容器、最后删三件套**，不可盲删（DESIGN §4 护栏） |
-| **D** 零残留 grep + 真实进程外 E2E | ⏳ 待 C-部署级后执行 |
+| **C-部署级** 退役运行容器旧监督 → 删部署三件套 | ✅ 核实旧监督**未在运行**（无 host supervisor 进程、stall-watchdog 未注册进容器 config）→ 删 `ops/supervisor.py`/`ops/stall-watchdog.js`/`ops/policy.json`，ops/ 已清空 |
+| **D** 零残留 grep + 真实进程外 E2E | ✅ `regime supervisor --once` 对真实 worker(opencode-worker:4097) 成功 ingest SSE(server.connected/heartbeat)→Reporter + 看门狗 pass；代码零 M0 残留引用 |
 
 > 部署级退役是运维动作（影响运行中容器），须真实验证新 supervisor 后再执行。
