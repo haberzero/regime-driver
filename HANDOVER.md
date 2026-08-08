@@ -168,31 +168,37 @@
 
 ### 当前状态速览（2026-08-08）
 
-- **测试基线 255 passed（+2 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 275 passed（+5 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，执行器）、
   `opencode-autopilot`（4096，web，M0 遗产已退役监督）。
-- **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0）+ `task` 注册表 +
-  `Reporter` 报告总线 + god 双路。
+- **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
+  `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈**。
+- **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild）。
 - **技术债**：G1–G14 全清（`docs/TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
-- **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控）+ 死代码守卫 `test_deadcode.py` +
+- **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
+  T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/god_dialog）+
   CLI 命令级测试 `test_cli.py`。
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| **P0** | **一键自驱动入口**：把 run+supervisor+reporter 合成一个命令/入口 | 易用性最高 | 现跑一个自驱动任务要分调多 CLI；统一成一个"起一栈"，顺带接线监督/报告。见 `DESIGN-testing-architecture.md` |
-| **P0** | **真实 E2E + supervisor 真实卡死恢复验证** | 架构健康/长远最高 | 纠正阶梯（卡死→abort→回退→重启）是最核心价值却最未验证；补真实场景 + 元分析接真实模型。见 `DESIGN-supervision.md` |
-| **P1** | **god 容器镜像固化 + 一键起栈** | 易用性/可复现 | 现改插件要 `docker cp`+restart；固化进镜像+一条命令拉起。`docs/howto/god-window.md` |
-| **P1** | **CI 接入真实 E2E** | 架构健康 | 让真实链路成为回归门槛，防未验证链静默漂移 |
-| **P2** | **测试金字塔/死代码守卫扩展 + B 路演进（T8）** | 健康/演进 | GodDialogUnit 对运行中 workflow/session 更深交互与回收 |
+| ~~P0~~ | ~~一键自驱动入口~~ | ✅ 已完 | `regime drive <task>`（执行器+supervisor+reporter 一栈共享 journal + 受监管任务），见 `DESIGN-drive.md` |
+| ~~P0~~ | ~~真实 E2E + supervisor 卡死恢复~~ | ✅ 已完 | 真实 drive/supervisor 无假停滞 + 真实 T1→L4 重启恢复 + 元分析接真实模型（`--meta`），见 `DESIGN-supervision.md` §6 |
+| ~~P1~~ | ~~god 容器固化 + 一键起栈~~ | ✅ 已完 | `ops/up.sh` + 镜像固化（插件/agent/配置进镜像），见 `howto/god-window.md` |
+| ~~P1~~ | ~~CI 接入真实 E2E~~ | ✅ 已完 | `ci.yml` e2e-real job（secret 门控），真实执行链成回归门槛 |
+| ~~P2~~ | ~~测试金字塔/守卫扩展 + B 路 T8~~ | ✅ 已完 | 死代码守卫扩 drive/god_dialog；GodDialog `sessions/abort/reclaim`；**修权限 classify 洞**（drive/task/supervisor 原绕过写门禁） |
+| **P2** | **worker 工作区物理隔离挂载重建** | 架构 | 现所有 workflow 共用容器 `WORKDIR /root/work`，并发 drive/run-many 会文件碰撞；需 worker 重建按 workflow 隔离挂载（`workspace_for` 已注入指令，物理挂载待重建） |
+| **P3** | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转 MockClient（非 drop-in，防漂移）；如需统一另建轻量脚本化 fake |
+| **P3** | 移除 `main_loop` 死流程配置 | 卫生 | validate 已警告；可删 |
 
-> 若只做一件：选 **#2（真实 E2E + supervisor 卡死恢复）**，把系统从"结构健康"推向"运行可信"。
-> 建议顺序：#1（一键入口，快、易用）→ #2（可信度）→ #3/#4。
+> 若只做一件：选 **worker 工作区物理隔离**（并发 self-driving 的基石）。
+> 建议：先按 `docs/DESIGN-drive.md`/`DESIGN-supervision.md` 熟悉新 `drive` 与 `--meta`，再做工作区隔离。
 
 ### 已完成主线（历史，参考）
 
-- **T1/T2 A 路验证** ✅：经专用 god 容器 + HTTP 驱动打通（绕开交互 TUI 挂起）；修 regime-god.js 三个真 bug。
+- **P0#1/P0#2/P1#3/P1#4/P2#5** ✅：见本表上方（本轮 session 完成）。
+- **T1/T2 A 路验证** ✅：经专用 god 容器 + HTTP 驱动打通；修 regime-god.js 三个真 bug。
 - **T3/T4/T5/T7/T6** ✅：非阻塞作业、插件 job 工具、权限策略、文档同步、FakeClient 评估定案。
 - **WORK_PLAN4** ✅：I1/I2 保障、E1 SSE 摄入+重连、R-A/R-B/R-C（Reporter 报告总线 + `regime report` 看板 + 模板 + 保留策略）。
 - **技术债治理** ✅：G1–G14 全清（含 G6 M0 系统化收编、死代码守卫、静默兜底修复、权限强制、文档单点真理）。
@@ -216,7 +222,7 @@
 | **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | ✅ **完成（2026-08-05）：真实 worker 全流程 COMPLETE，119 单测** |
 
-**待办（最新候选，见 _HANDOFF.md §4 已并入本件）**：① 上帝对话框演进——自然语言设计 workflow（已做 JSON/NL 编译）、对运行中 workflow/session 更深交互与回收、细粒度权限策略、CLI 多 workflow/可视化接入；② 收敛测试内零散 FakeClient 到 MockClient；③ worker 工作区物理隔离挂载重建（P2）；④ P3 杂项：`main_loop` flow 死配置（已加 validate 警告）；⑤ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
+**待办（最新候选）**：① worker 工作区物理隔离挂载重建（P2，并发 self-driving 基石——现所有 workflow 共用容器 `/root/work`）；② 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；③ P3 杂项：`main_loop` flow 死配置（已加 validate 警告，可删）；④ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
 ## 9. 命令速查
 
@@ -235,6 +241,13 @@ conda run -n regime-driver regime run-many "t1" "t2" --base http://127.0.0.1:409
 conda run -n regime-driver regime run "<任务>" --async --reporter /tmp/rep.jsonl   # 非阻塞
 conda run -n regime-driver regime job list|status <id> --json
 
+# 一键自驱动栈（P0#1: 执行器+supervisor+reporter 一栈, 受监管任务）
+conda run -n regime-driver regime drive "<任务>" --base http://127.0.0.1:4097 \
+  --container opencode-worker --deadline 1800 --reporter /tmp/rep.jsonl [--meta]
+conda run -n regime-driver regime drive "<任务>" --async --container opencode-worker --reporter /tmp/rep.jsonl
+conda run -n regime-driver regime task status <task-id>      # 跟踪受监管任务
+conda run -n regime-driver regime task stop <task-id>        # 停止
+
 # 报告总线（宏观看板 / 因果链 / 模板 / 保留）
 conda run -n regime-driver regime report --journal /tmp/rep.jsonl [--wf id] [--tasks-dir] [--json]
 conda run -n regime-driver regime report <object> --trace --journal /tmp/rep.jsonl
@@ -249,7 +262,11 @@ conda run -n regime-driver regime dialog --live --base http://127.0.0.1:4097 --p
 conda run -n regime-driver regime task list|status|logs|stop|clean <task-id> [--json]
 
 # 进程外监督（收编 supervisor；宿主独立时钟 + docker 控制）
-conda run -n regime-driver regime supervisor --base http://127.0.0.1:4097 --session <id> --container opencode-worker --reporter /tmp/sup.jsonl [--once]
+conda run -n regime-driver regime supervisor --base http://127.0.0.1:4097 --session <id> --container opencode-worker --reporter /tmp/sup.jsonl [--meta] [--once]
+
+# 一键起栈（P1#3: worker/god 容器构建+拉起+等健康）
+ops/up.sh all          # worker+god
+ops/up.sh god --rebuild   # 强制重建固化镜像再起
 
 # 单测 / E2E（E2E 门控: REGIME_E2E=1 且 worker 健康）
 conda run -n regime-driver python -m pytest

@@ -31,6 +31,16 @@ monitor_poll_sec = 3.0                       # 监控轮询间隔
 stall_sec = 120                              # busy 且无输出增长超过此秒 -> 判卡死
 on_stall = "abort"                           # abort | report_user | none
 
+# --- 元分析（进程外 supervisor --meta / drive --meta 的智能判verdict）---
+meta_analyze_enabled = false                 # 默认关；开则独立模型判停滞（确定性门兜底）
+meta_model = "deepseek-api/deepseek-v4-flash"# 元分析模型
+meta_max_context_msgs = 20                   # 喂给元分析的会话最近消息数
+
+# --- 一键自驱动栈（regime drive）---
+# deadline 用 --deadline <sec>（全局期限，执行器+supervisor 共享）
+# 容器名用 --container <name>（T1 失联时 L4 docker restart 的对象）
+# 报告单一真源用 --reporter <journal>；受监管任务进 TaskRegistry（regime task / report --tasks-dir）
+
 # --- 权限门禁 ---
 # permission_ceiling = "clean"                # 写操作权限硬上限 read<interact<run<clean
 #                                             # 也读 REGIME_PERMISSION_CEILING。
