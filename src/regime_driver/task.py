@@ -109,7 +109,7 @@ class TaskRegistry:
         status, outcome = derive(rec)
         return {**rec, "status": status, "outcome": outcome}
 
-    def stop(self, tid: str) -> bool:
+    def stop(self, tid: str, wait_sec: float = 3.0) -> bool:
         rec = self.get(tid)
         if rec is None:
             return False
@@ -117,6 +117,12 @@ class TaskRegistry:
         if pid:
             try:
                 os.kill(int(pid), 15)
+                # give it a moment, then escalate to SIGKILL if it ignores SIGTERM
+                end = time.time() + wait_sec
+                while time.time() < end and _pid_alive(pid):
+                    time.sleep(0.2)
+                if _pid_alive(pid):
+                    os.kill(int(pid), 9)
             except (OSError, ValueError, TypeError):
                 pass
         rec["status"] = "stopped"
@@ -137,6 +143,11 @@ class TaskRegistry:
         return "(no logs)"
 
     def clean(self, tid: str) -> None:
+        """Delete a task's records. Refuses to clean a still-running process."""
+        rec = self.get(tid)
+        if rec is not None and rec.get("pid") and _pid_alive(rec.get("pid")):
+            raise RuntimeError(
+                f"task {tid} still running (pid {rec.get('pid')}); stop it first")
         for suffix in (".json", ".out", ".summary.json"):
             p = self.dir / f"{tid}{suffix}"
             if p.exists():
