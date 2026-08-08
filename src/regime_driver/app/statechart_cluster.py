@@ -29,12 +29,14 @@ class StatechartCluster:
         self,
         client: OpenCodeClient,
         ledger: Ledger | None = None,
+        reporter: "Reporter | None" = None,
         constitution: ThreadedUnit | None = None,
         enforce_invariants: bool = True,
         **constitution_kwargs,
     ) -> None:
         self.client = client
         self.ledger = ledger
+        self.reporter = reporter
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
         self.constitution = constitution or ConstitutionUnit(
             unit_id="constitution", control_dst="*", bus=self.runtime.bus,
@@ -59,7 +61,7 @@ class StatechartCluster:
             raise ValueError(f"workflow id '{workflow_id}' already registered")
         wf = WorkflowUnit(
             settings, state_machine, self.client, self.ledger,
-            roles=roles or default_roles(),
+            reporter=self.reporter, roles=roles or default_roles(),
             unit_id=workflow_id, bus=self.runtime.bus,
         )
         self.runtime.register(wf)

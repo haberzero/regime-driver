@@ -112,8 +112,8 @@ def run(
     ),
     perm: str = typer.Option("run", "--perm", help="held permission level "
                              "(read|interact|run|clean); gates write ops"),
-    preflight_enabled: bool = typer.Option(
-        False, "--preflight", help="run an offline trial of the flow before starting"
+    no_preflight: bool = typer.Option(
+        False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"
     ),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="append-only report journal path (report bus)"
@@ -121,7 +121,38 @@ def run(
 ) -> None:
     """Run a task through the regime flow on a developer session."""
     _gate(perm, ["run", context])
-    if preflight_enabled:
+    settings = load_settings(
+        config_file=config,
+        overrides={
+            "base_url": base,
+            "regime_path": str(regime) if regime else None,
+            "ledger_path": str(ledger) if ledger else None,
+            "default_deadline_sec": deadline,
+            "skills_dir": str(skills_dir) if skills_dir else None,
+            "task_control_dir": str(task_control_dir) if task_control_dir else None,
+        },
+    )
+    if async_run:
+        # preflight runs inside the background subprocess (its own default is ON),
+        # so async stays non-blocking; only forward an explicit opt-out.
+        job_argv = [
+            "run", context,
+            *(["--base", base] if base else []),
+            *(["--config", str(config)] if config else []),
+            *(["--regime", str(regime)] if regime else []),
+            *(["--ledger", str(ledger)] if ledger else []),
+            *(["--deadline", str(deadline)] if deadline is not None else []),
+            *(["--title", title] if title != "regime-driver" else []),
+            *(["--skills-dir", str(skills_dir)] if skills_dir else []),
+            *(["--task-control-dir", str(task_control_dir)] if task_control_dir else []),
+            *(["--no-preflight"] if no_preflight else []),
+            *(["--reporter", str(reporter)] if reporter else []),
+        ]
+        _submit_job("run", job_argv, ledger=str(ledger) if ledger else None,
+                    title=title, json_out=json_out)
+        return
+    # mandatory preflight (offline trial) before touching a real worker/session
+    if not no_preflight:
         from ..app.preflight import preflight
         from ..core.state_machine import StateMachineError
 
@@ -136,30 +167,6 @@ def run(
             _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
         else:
             _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
-    settings = load_settings(
-        config_file=config,
-        overrides={
-            "base_url": base,
-            "regime_path": str(regime) if regime else None,
-            "ledger_path": str(ledger) if ledger else None,
-            "default_deadline_sec": deadline,
-            "skills_dir": str(skills_dir) if skills_dir else None,
-            "task_control_dir": str(task_control_dir) if task_control_dir else None,
-        },
-    )
-    if async_run:
-        _submit_job("run", [
-            "run", context,
-            *(["--base", base] if base else []),
-            *(["--config", str(config)] if config else []),
-            *(["--regime", str(regime)] if regime else []),
-            *(["--ledger", str(ledger)] if ledger else []),
-            *(["--deadline", str(deadline)] if deadline is not None else []),
-            *(["--title", title] if title != "regime-driver" else []),
-            *(["--skills-dir", str(skills_dir)] if skills_dir else []),
-            *(["--task-control-dir", str(task_control_dir)] if task_control_dir else []),
-        ], ledger=str(ledger) if ledger else None, title=title, json_out=json_out)
-        return
     _run(settings, context, title, json_out=json_out, reporter=reporter)
 
 
@@ -255,10 +262,17 @@ def run_many(
     ),
     perm: str = typer.Option("run", "--perm", help="held permission level "
                              "(read|interact|run|clean); gates write ops"),
+    no_preflight: bool = typer.Option(
+        False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"
+    ),
+    reporter: Optional[Path] = typer.Option(
+        None, "--reporter", help="append-only report journal path (report bus)"
+    ),
 ) -> None:
     """Run several tasks as concurrent workflows on one worker."""
     _gate(perm, ["run-many", *contexts])
     from ..app.statechart_cluster import StatechartCluster
+    from ..app.reporter import Reporter
 
     settings = load_settings(
         config_file=config,
@@ -279,6 +293,8 @@ def run_many(
             *(["--ledger", str(ledger)] if ledger else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--skills-dir", str(skills_dir)] if skills_dir else []),
+            *(["--no-preflight"] if no_preflight else []),
+            *(["--reporter", str(reporter)] if reporter else []),
         ], ledger=str(ledger) if ledger else None, title=f"run-many×{len(contexts)}",
             json_out=json_out)
         return
@@ -287,9 +303,18 @@ def run_many(
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
 
+    if not no_preflight:
+        from ..app.preflight import preflight
+
+        res = preflight(sm, timeout_sec=30.0)
+        if not res["ok"]:
+            _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
+        _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
+
     client = OpenCodeClient(settings.base_url, model=settings.model,
                             timeout=settings.request_timeout)
-    cluster = StatechartCluster(client)
+    rep = Reporter(journal_path=reporter) if reporter else None
+    cluster = StatechartCluster(client, reporter=rep)
     for i, ctx in enumerate(contexts):
         cluster.add_workflow(f"w{i+1}", settings, sm)
     t0 = time.time()
@@ -332,23 +357,27 @@ def run_many(
     if "res" not in result:
         _fail("run-many did not complete")
     results = result["res"]
-    if json_out:
-        _emit_json({"elapsed_sec": round(time.time()-t0, 1), "results": {
-            wid: {"outcome": r[0].value, "end": r[1], "detail": r[2]}
-            for wid, r in results.items()}})
-        if any(r[0] != Outcome.COMPLETE for r in results.values()):
-            raise typer.Exit(1)
-        return
-    print(f"\n=== run-many 结果 ({time.time()-t0:.0f}s) ===")
-    for wid, r in results.items():
-        outcome, end, detail = r
-        mark = "✓" if outcome == Outcome.COMPLETE else "✗"
-        console.print(f"  {mark} {wid}: {outcome.value} @ {end}"
-                      + (f" ({detail})" if detail else ""))
-    bad = [wid for wid, r in results.items() if r[0] != Outcome.COMPLETE]
-    if bad:
-        _fail(f"{len(bad)} workflow(s) not complete: {', '.join(bad)}", markup=False)
-    _ok(f"all {len(results)} workflows done", markup=False)
+    try:
+        if json_out:
+            _emit_json({"elapsed_sec": round(time.time()-t0, 1), "results": {
+                wid: {"outcome": r[0].value, "end": r[1], "detail": r[2]}
+                for wid, r in results.items()}})
+            if any(r[0] != Outcome.COMPLETE for r in results.values()):
+                raise typer.Exit(1)
+            return
+        print(f"\n=== run-many 结果 ({time.time()-t0:.0f}s) ===")
+        for wid, r in results.items():
+            outcome, end, detail = r
+            mark = "✓" if outcome == Outcome.COMPLETE else "✗"
+            console.print(f"  {mark} {wid}: {outcome.value} @ {end}"
+                          + (f" ({detail})" if detail else ""))
+        bad = [wid for wid, r in results.items() if r[0] != Outcome.COMPLETE]
+        if bad:
+            _fail(f"{len(bad)} workflow(s) not complete: {', '.join(bad)}", markup=False)
+        _ok(f"all {len(results)} workflows done", markup=False)
+    finally:
+        if rep:
+            rep.close()
 
 
 # ---------------------------------------------------------------------------
@@ -587,7 +616,8 @@ def validate(
         None, "--regime", help="path to regime.json (default: packaged descriptor)"
     ),
     deep: bool = typer.Option(
-        False, "--deep", help="run semantic deep checks (roles/skills/tools/reachability)"
+        True, "--deep/--no-deep",
+        help="run semantic deep checks (roles/skills/tools/reachability); ON by default"
     ),
     skills_dir: Optional[Path] = typer.Option(
         None, "--skills-dir", help="path to workflow-regime skills dir (for --deep skill check)"
