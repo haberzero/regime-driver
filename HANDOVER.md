@@ -168,11 +168,14 @@
 
 ### 主线任务（按优先级，我的建议排布）
 
-**P0 — A 路验证收尾（M3）**
-- [ ] **T1. 交互式验证 god agent**：在可交互环境用 `opencode`（god agent）实际驱动 regime——
-      status → run → monitor(sessions/events) → session send 全链路，确认插件工具 + 权限门禁 + 手册可用。
-      （**2026-08-07：本环境 `opencode run` 挂起，无法做交互验证，留待交互环境**）
-- [ ] **T2. 依验证修**：修正 `.opencode/agent/god.md` 提示词 / `.opencode/plugins/regime-god.js` 工具的偏差。
+**P0 — A 路验证收尾（M3）✅**
+- [x] **T1. 交互式验证 god agent**：✅ **经专用 god 容器 + HTTP 程序化驱动打通**（绕开交互 TUI 挂起）。
+      `docker/Dockerfile.god` + `opencode-god` 容器(端口4098, --network host) → HTTP 建 god 会话 →
+      god 调用 `regime_status` 插件工具返回真实 worker 健康 → god 结构化报告。见 `docs/howto/god-window.md`。
+- [x] **T2. 依验证修**：✅ 修 `.opencode/plugins/regime-god.js` 三个真 bug
+      （null-args 崩溃 → `A(args)` null安全；`conda run` 输出在工具子进程丢失 → 直接调 env 的
+      `regime` 二进制；`.text()` 不捕获 → `await proc.text()`）+ `validate --deep` 无 skills-dir 时
+      硬失败 → skill 检查仅当显式 `--skills-dir`。
 
 **P1 — 上帝对话框非阻塞作业管理（契约红线）✅**
 - [x] **T3. `regime run/run-many --async`**：submit 立即返回 handle → `regime job status <id>` / `regime job list`

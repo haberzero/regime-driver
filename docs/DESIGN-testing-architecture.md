@@ -87,13 +87,16 @@ regime run <flow>  ──HTTP──▶  worker 容器(:4097)  真正干任务
 
 ## 5. 任务分解（待实施，按序）
 
-| # | 任务 | 产出 | 验证 |
-|---|---|---|---|
-| T-A | **E2E 系统化**：把真实 worker HTTP 驱动整理成可回归的 E2E 测试 | `tests/test_e2e_worker.py`（skip 若无 worker） | 真实 worker COMPLETE |
-| T-B | **god 配置进容器**：把 `god.md`+`regime-god.js`+regime-driver env 装入一个 opencode 实例（worker 或新建 god 容器） | 容器内 god 可用 | 容器内 `regime --help` 可跑 |
-| T-C | **god A 路 HTTP 驱动 E2E**：用 HTTP 建 god 会话，跑 status→run→monitor→send→report 全链路 | `tests/test_god_e2e.py`（HTTP） | god 经插件工具真实控制 |
-| T-D | **regime-driver 容器化（可选，你的思路）**：把包装进容器实现自洽 | 容器内 `regime` | 容器内跑通 E2E |
-| T-E | **文档/交接收口**：更新 HANDOVER/TECH_DEBT 标记 T1/T2/E2E 缺口已补 | 文档 | 单点真理 |
+| # | 任务 | 状态 |
+|---|---|---|
+| T-A | **E2E 系统化**：把真实 worker HTTP 驱动整理成可回归的 E2E 测试 | ✅ `tests/test_e2e_worker.py`（REGIME_E2E 门控，真实 worker COMPLETE） |
+| T-B | **god 配置进容器**：建 `Dockerfile.god` + `docker/god-config/`，装 regime-driver + god.md + regime-god 插件，非 --pure，端口 4098 | ✅ `opencode-god` 容器运行（--network host） |
+| T-C | **god A 路 HTTP 驱动 E2E**：HTTP 建 god 会话，god 调用插件工具真实控制 | ✅ 打通（regime_status 返回真实 worker 健康，god 结构化报告） |
+| T-D | **regime-driver 容器化（可选，你的思路）** | ⏳ 可选；当前宿主驱动已够 |
+| T-E | **文档/交接收口**：更新 HANDOVER/TECH_DEBT 标记 T1/T2/E2E 缺口已补 | 本文件 + HANDOVER |
+
+> 注：T-C 打通过程暴露并修复 regime-god.js 三个真 bug（null-args 崩溃、conda run 输出丢失、
+> `.text()` 不捕获）与 `validate --deep` 在无 skills-dir 时硬失败的过度默认。详见 TASK.md。
 
 ---
 
