@@ -1,0 +1,10 @@
+.git
+.gitignore
+workspaces
+node_modules
+__pycache__
+*.pyc
+.pytest_cache
+*.jsonl
+ops
+/tmp

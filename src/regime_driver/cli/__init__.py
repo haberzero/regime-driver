@@ -708,9 +708,13 @@ def validate(
         from ..core.validate import deep_validate
         from ..infra.skill_loader import load_skill
 
+        # the skill-loadability check is only meaningful when a skills dir is
+        # provided; without it we cannot verify skills (e.g. a deployed container
+        # without the repo tree) so we skip that check rather than hard-fail.
         deep_res = deep_validate(
             sm,
-            load_skill=lambda name: load_skill(name, str(skills_dir) if skills_dir else None),
+            load_skill=(lambda name: load_skill(name, str(skills_dir)))
+            if skills_dir else None,
         )
 
     if json_out:

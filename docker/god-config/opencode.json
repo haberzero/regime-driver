@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "developer": {
+      "description": "Pure execution worker. Runs instructed tasks, no institutional process, no self-review.",
+      "mode": "primary"
+    },
+    "reviewer": {
+      "description": "Independent read-only reviewer. Audits changes without modifying files.",
+      "mode": "subagent"
+    },
+    "god": {
+      "description": "God Dialog: single conversational control/monitor surface for regime-driver.",
+      "mode": "primary"
+    }
+  },
+  "plugin": [
+    "file:///root/.config/opencode/plugins/regime-god.js"
+  ],
+  "provider": {
+    "deepseek-api": {
+      "models": {
+        "deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash"
+        },
+        "deepseek-v4-pro": {
+          "name": "DeepSeek V4 Pro"
+        }
+      },
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "{env:DEEPSEEK_API_KEY}",
+        "baseURL": "https://api.deepseek.com/v1",
+        "setCacheKey": true
+      }
+    }
+  }
+}

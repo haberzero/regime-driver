@@ -3,42 +3,56 @@
 // Each tool shells out to the regime CLI (conda env) and returns its --json output.
 import { tool } from "@opencode-ai/plugin"
 
-const REGIME = ["conda", "run", "-n", "regime-driver", "regime"]
+// Invoke the regime CLI entry point DIRECTLY (no `conda run` wrapper): conda run's
+// subprocess output capture is lost when spawned from the tool process, which makes
+// the tool return empty. The env's `regime` binary streams output reliably.
+const REGIME = ["/opt/miniconda3/envs/regime-driver/bin/regime"]
 const BASE = "http://127.0.0.1:4097"
 
-// Run a regime command and return trimmed stdout (JSON). Throws on non-zero exit.
+// Run a regime command and return trimmed output (JSON). Throws on non-zero exit.
 // Each arg is passed as its own shell word via Bun's template-array escaping, so
 // user-controlled context/messages cannot inject shell metacharacters.
+// Bun's `$` proc: `await proc.text()` returns the captured stdout string.
 async function run($, args) {
   const proc = await $`${[...REGIME, ...args]}`.quiet()
   if (proc.exitCode !== 0) {
-    throw new Error(`regime failed (${proc.exitCode}): ${proc.stderr?.text?.() || ""}`)
+    const err = await proc.text().catch(() => "")
+    throw new Error(`regime failed (${proc.exitCode}): ${String(err).trim()}`)
   }
-  return (proc.stdout?.text?.() || "").trim()
+  return String(await proc.text()).trim()
 }
+
+// Null-safe arg accessor: an all-optional tool may be invoked with null args,
+// so execute() must never deref args.* directly.
+function A(args) { return args || {} }
 
 export const RegimeGod = async ({ $ }) => {
   return {
     tool: {
       regime_status: tool({
         description: "Check the regime-driver worker health. Returns {healthy, base} JSON.",
-        args: { base: tool.schema.string().optional().default(BASE) },
-        async execute(args) { return await run($, ["status", "--json", "--base", args.base]) },
+        args: { base: tool.schema.string().optional() },
+        async execute(args) {
+          const a = A(args)
+          return await run($, ["status", "--json", "--base", a.base ?? BASE])
+        },
       }),
 
       regime_sessions: tool({
         description: "List all opencode sessions with {id,title,agent,status,tokens}. " +
                      "Options: clean=abort all, kill=abort a session id.",
         args: {
-          base: tool.schema.string().optional().default(BASE),
-          clean: tool.schema.boolean().optional().default(false),
+          base: tool.schema.string().optional(),
+          clean: tool.schema.boolean().optional(),
           kill: tool.schema.string().optional(),
-          perm: tool.schema.string().optional().default("clean"),
+          perm: tool.schema.string().optional(),
         },
         async execute(args) {
-          const opts = ["sessions", "--json", "--base", args.base, "--perm", args.perm]
-          if (args.clean) opts.push("--clean")
-          if (args.kill) opts.push("--kill", args.kill)
+          const a = A(args)
+          const opts = ["sessions", "--json", "--base", a.base ?? BASE,
+                        "--perm", a.perm ?? "clean"]
+          if (a.clean) opts.push("--clean")
+          if (a.kill) opts.push("--kill", a.kill)
           return await run($, opts)
         },
       }),
@@ -46,10 +60,11 @@ export const RegimeGod = async ({ $ }) => {
       regime_events: tool({
         description: "Read the JSONL event ledger (node_enter/node_done/reviewer_verdict...). " +
                      "Returns one JSON event per line. follow=false reads what exists.",
-        args: { ledger: tool.schema.string(), follow: tool.schema.boolean().optional().default(false) },
+        args: { ledger: tool.schema.string(), follow: tool.schema.boolean().optional() },
         async execute(args) {
-          const opts = ["events", "--ledger", args.ledger]
-          if (args.follow) opts.push("--follow")
+          const a = A(args)
+          const opts = ["events", "--ledger", a.ledger]
+          if (a.follow) opts.push("--follow")
           return await run($, opts)
         },
       }),
@@ -60,15 +75,17 @@ export const RegimeGod = async ({ $ }) => {
                      "Set async=true to submit as a background job and return a handle immediately.",
         args: {
           context: tool.schema.string(),
-          base: tool.schema.string().optional().default(BASE),
+          base: tool.schema.string().optional(),
           ledger: tool.schema.string().optional(),
-          async: tool.schema.boolean().optional().default(false),
-          perm: tool.schema.string().optional().default("run"),
+          async: tool.schema.boolean().optional(),
+          perm: tool.schema.string().optional(),
         },
         async execute(args) {
-          const opts = ["run", args.context, "--json", "--base", args.base, "--perm", args.perm]
-          if (args.ledger) opts.push("--ledger", args.ledger)
-          if (args.async) opts.push("--async")
+          const a = A(args)
+          const opts = ["run", a.context, "--json", "--base", a.base ?? BASE,
+                        "--perm", a.perm ?? "run"]
+          if (a.ledger) opts.push("--ledger", a.ledger)
+          if (a.async) opts.push("--async")
           return await run($, opts)
         },
       }),
@@ -79,13 +96,15 @@ export const RegimeGod = async ({ $ }) => {
                      "Set async=true to submit as a background job and return a handle immediately.",
         args: {
           contexts: tool.schema.array(tool.schema.string()),
-          base: tool.schema.string().optional().default(BASE),
-          async: tool.schema.boolean().optional().default(false),
-          perm: tool.schema.string().optional().default("run"),
+          base: tool.schema.string().optional(),
+          async: tool.schema.boolean().optional(),
+          perm: tool.schema.string().optional(),
         },
         async execute(args) {
-          const opts = ["run-many", ...args.contexts, "--json", "--base", args.base, "--perm", args.perm]
-          if (args.async) opts.push("--async")
+          const a = A(args)
+          const opts = ["run-many", ...(a.contexts || []), "--json", "--base", a.base ?? BASE,
+                        "--perm", a.perm ?? "run"]
+          if (a.async) opts.push("--async")
           return await run($, opts)
         },
       }),
@@ -93,10 +112,11 @@ export const RegimeGod = async ({ $ }) => {
       regime_job_list: tool({
         description: "List submitted background jobs (run/run-many --async) with their live status. " +
                      "running=true lists only running jobs. Returns {jobs:[...]} JSON.",
-        args: { running: tool.schema.boolean().optional().default(false) },
+        args: { running: tool.schema.boolean().optional() },
         async execute(args) {
+          const a = A(args)
           const opts = ["job", "list", "--json"]
-          if (args.running) opts.push("--running")
+          if (a.running) opts.push("--running")
           return await run($, opts)
         },
       }),
@@ -106,7 +126,8 @@ export const RegimeGod = async ({ $ }) => {
                      "Returns {id,type,status,pid,result,...} JSON. status is running|done|failed.",
         args: { job_id: tool.schema.string() },
         async execute(args) {
-          return await run($, ["job", "status", args.job_id, "--json"])
+          const a = A(args)
+          return await run($, ["job", "status", a.job_id, "--json"])
         },
       }),
 
@@ -116,22 +137,26 @@ export const RegimeGod = async ({ $ }) => {
         args: {
           session_id: tool.schema.string(),
           message: tool.schema.string(),
-          reply: tool.schema.boolean().optional().default(false),
-          base: tool.schema.string().optional().default(BASE),
-          perm: tool.schema.string().optional().default("interact"),
+          reply: tool.schema.boolean().optional(),
+          base: tool.schema.string().optional(),
+          perm: tool.schema.string().optional(),
         },
         async execute(args) {
-          const opts = ["session", "send", args.session_id, args.message, "--json", "--base", args.base, "--perm", args.perm]
-          if (args.reply) opts.push("--reply")
+          const a = A(args)
+          const opts = ["session", "send", a.session_id, a.message, "--json",
+                        "--base", a.base ?? BASE, "--perm", a.perm ?? "interact"]
+          if (a.reply) opts.push("--reply")
           return await run($, opts)
         },
       }),
 
       regime_session_reply: tool({
         description: "Read a session's newest assistant reply.",
-        args: { session_id: tool.schema.string(), base: tool.schema.string().optional().default(BASE) },
+        args: { session_id: tool.schema.string(), base: tool.schema.string().optional() },
         async execute(args) {
-          return await run($, ["session", "reply", args.session_id, "--json", "--base", args.base])
+          const a = A(args)
+          return await run($, ["session", "reply", a.session_id, "--json",
+                               "--base", a.base ?? BASE])
         },
       }),
 
@@ -139,8 +164,9 @@ export const RegimeGod = async ({ $ }) => {
         description: "Validate the regime flow descriptor. Returns {ok, flow, nodes, path, flows, unreachable} JSON.",
         args: { regime: tool.schema.string().optional() },
         async execute(args) {
+          const a = A(args)
           const opts = ["validate", "--json"]
-          if (args.regime) opts.push("--regime", args.regime)
+          if (a.regime) opts.push("--regime", a.regime)
           return await run($, opts)
         },
       }),
