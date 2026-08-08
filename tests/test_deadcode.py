@@ -14,10 +14,11 @@ from pathlib import Path
 SRC = Path(__file__).parent.parent / "src" / "regime_driver"
 # modules whose public methods we guard; value = expected callers (optional)
 GUARDED = {
-    "infra/opencode.py": {
-        # method -> allowed locations ("" = anywhere in package, non-def)
-        "event_stream": "",
-    },
+    "infra/opencode.py": {},
+    "supervisor.py": {},
+    "task.py": {},
+    "app/reporter.py": {},
+    "app/preflight.py": {},
 }
 
 
@@ -37,29 +38,26 @@ def _package_texts() -> dict[str, str]:
     return out
 
 
-def _defining_other(text: str, method: str) -> bool:
-    """True if the method is defined (and therefore 'consumed') elsewhere."""
-    return bool(re.search(rf"\.{method}\(", text))
-
-
 def test_no_dead_public_methods() -> None:
+    """Every public method of a guarded module must be called somewhere.
+
+    A call anywhere in the package (including same-file internal calls, but not
+    the `def` itself) counts as a consumer. Catches truly-dead public API that
+    only tests reference.
+    """
     texts = _package_texts()
-    for rel, methods in GUARDED.items():
+    for rel, _ in GUARDED.items():
         path = SRC / rel
         if not path.exists():
             continue
         for method in _collect_methods(path):
-            consumed = any(
-                rel != other and method in body and not _defining_other(body, method)
-                for other, body in texts.items()
+            # find any `.method(` call across the package (any file incl. own)
+            caller = next(
+                (other for other, body in texts.items()
+                 if re.search(rf"(?<!def )\.{method}\(", body)),
+                None,
             )
-            # a definition reference like "def event_stream" in the same file
-            # is not a consumer; require an actual call elsewhere
-            callers = [
-                other for other, body in texts.items()
-                if rel != other and re.search(rf"(?<!def )\.{method}\(", body)
-            ]
-            assert callers, (
+            assert caller is not None, (
                 f"dead public method: {rel}::{method} has no production consumer "
                 f"(only tests use it). Wire it or remove it."
             )

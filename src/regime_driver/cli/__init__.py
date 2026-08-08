@@ -641,14 +641,18 @@ def supervisor_cmd(
     stall: int = typer.Option(60, "--stall", help="stall detection seconds (T2)"),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="report journal path (single truth)"),
+    once: bool = typer.Option(
+        False, "--once", help="do a single watchdog pass then exit (for tests/CI)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
 ) -> None:
     """Process-external supervisor: T1 health, T2 stall, deadline, ladder.
 
     Runs on the HOST (independent clock), supervising a worker session. It
     consumes the worker SSE event_stream into the Reporter and enforces the
-    correction ladder (abort/restart/fallback/human). This is the first-class
-    replacement for the old M0 supervisor (DESIGN-supervision.md).
+    correction ladder (abort/restart/fallback/human). Runs continuously until
+    the deadline, a container restart, or an L5 human escalation (use --once for
+    a single pass). This is the first-class replacement for the old M0 supervisor
+    (DESIGN-supervision.md).
     """
     from ..app.reporter import Reporter
     from ..supervisor import Supervisor
@@ -661,7 +665,7 @@ def supervisor_cmd(
         session_id=session or None, goal="",
     )
     try:
-        outcome = sup.run(iterations=1)
+        outcome = sup.run(once=once)
         if json_out:
             _emit_json({"outcome": outcome, "session": session})
         else:

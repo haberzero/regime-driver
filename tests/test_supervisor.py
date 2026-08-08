@@ -58,6 +58,13 @@ def test_choose_action_restart_not_repeated_escalates_to_human():
     assert choose_action("error", L4_RESTART, 0.8, state) == L5_HUMAN
 
 
+def test_session_watch_first_observe_establishes_baseline():
+    # first observe must never false-stall (last_message_ts starts at 0)
+    w = SessionWatch()
+    assert w.observe(now=100.0, busy=True, output=0) is False
+    assert w.last_message_ts == 100.0
+
+
 def test_session_watch_stall_detection():
     w = SessionWatch(last_output=5, last_message_ts=100.0)
     # same output, no new message, past stall window -> stalled
@@ -70,6 +77,13 @@ def test_session_watch_stall_detection():
 def test_session_watch_not_stalled_when_idle():
     w = SessionWatch(last_output=5, last_message_ts=100.0)
     assert w.is_stalled(now=200.0, stall_sec=60.0, busy=False, output=5) is False
+
+
+def test_verdict_for_stall_escalates():
+    from regime_driver.supervisor import _verdict_for_stall
+    assert _verdict_for_stall(1) == ("stalled", L2_ABORT, 0.6)
+    assert _verdict_for_stall(3) == ("error", L4_RESTART, 0.8)
+    assert _verdict_for_stall(4) == ("escalate", L5_HUMAN, 0.9)
 
 
 def test_supervisor_ingests_events(monkeypatch):
@@ -102,7 +116,7 @@ def test_supervisor_ingests_events(monkeypatch):
 
     rep = Reporter(project_id="supervisor")
     sup = Supervisor(OpenCodeClient("http://x:4097"), rep, session_id="s1")
-    n = sup.ingest_events(n=2, timeout=5)
+    n = sup.ingest_events(max_events=2, stream_timeout=5)
     assert n == 2
     recs = rep.journal_slice()
     assert len(recs) == 2 if rep.journal_path else True  # in-memory ingestion works

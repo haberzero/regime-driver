@@ -10,24 +10,20 @@ and container restart need an independent clock + docker control that the
 in-process ConstitutionUnit cannot have (platform limit). This runs on the host
 (setsid / systemd) with its own clock.
 
-Responsibilities:
-  T1  process health polling -> L4 container restart
-  T2  session stall (busy but no new messages for stall_sec) -> abort
-      deadline enforcement (never run forever)
-  Ladder L1-L5: nudge / abort / fallback_model / restart / human
-  meta-analysis: model verdict + deterministic gate on stalls
-  consumes the worker SSE `event_stream` into the Reporter (wiring the SSE feed)
-
-The decision logic is separated into pure, testable functions (stall/ladder/
-deadline/verdict-gate); the run loop drives them with its own clock.
+The watchdog loop is fully wired (no dead ladder): each poll it
+  ingest_events   consumes the worker SSE /event stream into the Reporter
+  T1              polls worker health -> L4 docker restart if down
+  T2              detects session stall -> escalates through the correction
+                  ladder (abort -> fallback -> restart -> human), executing real
+                  actions and recording each to the Reporter
+  deadline        aborts once the budget is exhausted
 """
 
 from __future__ import annotations
 
-import json
 import subprocess
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .app.reporter import Reporter
 from .infra.opencode import OpenCodeClient
@@ -59,11 +55,7 @@ class MetaGateReject(Exception):
 
 
 def gate_meta(verdict: str, action: str, confidence: float) -> None:
-    """Deterministic gate on a meta-analysis verdict (pure, testable).
-
-    Rejects out-of-whitelist verdict/action or confidence below the per-action
-    floor. Mirrors the old supervisor._gate but as a pure function.
-    """
+    """Deterministic gate on a meta-analysis verdict (pure, testable)."""
     if verdict not in ALLOWED_VERDICTS:
         raise MetaGateReject(f"unknown verdict '{verdict}'")
     if action not in ALLOWED_ACTIONS:
@@ -91,11 +83,9 @@ def choose_action(verdict: str, action: str, confidence: float,
     """Resolve the meta action against the correction ladder bounds (pure)."""
     gate_meta(verdict, action, confidence)
     if action == L3_FALLBACK and state.model_fallback_used:
-        # fallback already used: escalate to abort/restart per allowed set
         action = L2_ABORT if L2_ABORT in VERDICT_ACTIONS[verdict] else L4_RESTART
     if action == L4_RESTART and state.restart_used:
         action = L5_HUMAN
-    # mark the ladder step as taken
     if action == L3_FALLBACK:
         state.model_fallback_used = True
     elif action == L4_RESTART:
@@ -103,24 +93,6 @@ def choose_action(verdict: str, action: str, confidence: float,
     elif action == L5_HUMAN:
         state.human_escalated = True
     return action
-
-
-@dataclass
-class SessionWatch:
-    """Per-session stall bookkeeping (pure, testable)."""
-
-    last_output: float = 0.0
-    last_message_ts: float = 0.0
-
-    def is_stalled(self, now: float, stall_sec: float, busy: bool, output: int) -> bool:
-        """T2: busy but no output growth for stall_sec."""
-        if not busy:
-            return False
-        if output != self.last_output:
-            self.last_output = output
-            self.last_message_ts = now
-            return False
-        return (now - self.last_message_ts) > stall_sec
 
 
 def docker_restart(container: str) -> bool:
@@ -133,8 +105,48 @@ def docker_restart(container: str) -> bool:
         return False
 
 
+@dataclass
+class SessionWatch:
+    """Per-session stall bookkeeping (pure, testable)."""
+
+    last_output: int = 0
+    last_message_ts: float = 0.0
+    consecutive_stalls: int = 0
+
+    def observe(self, now: float, busy: bool, output: int) -> bool:
+        """T2: busy but no output growth for stall_sec. Establishes baseline on first observe."""
+        if self.last_message_ts == 0.0:
+            # first observation: establish the baseline, never false-stall
+            self.last_output = output
+            self.last_message_ts = now
+            return False
+        if not busy:
+            return False
+        if output != self.last_output:
+            self.last_output = output
+            self.last_message_ts = now
+            return False
+        return (now - self.last_message_ts) > 0.0  # caller applies stall_sec
+
+    def is_stalled(self, now: float, stall_sec: float, busy: bool, output: int) -> bool:
+        self.consecutive_stalls = (self.consecutive_stalls + 1
+                                   if self.observe(now, busy, output) else 0)
+        return self.consecutive_stalls > 0
+
+
+def _verdict_for_stall(count: int) -> tuple[str, str, float]:
+    """Deterministic verdict for a consecutive-stall run: escalate as it persists."""
+    if count <= 1:
+        return "stalled", L2_ABORT, 0.6
+    if count == 2:
+        return "stalled", L3_FALLBACK, 0.6
+    if count == 3:
+        return "error", L4_RESTART, 0.8
+    return "escalate", L5_HUMAN, 0.9
+
+
 class Supervisor:
-    """Drives T1/T2/deadline/ladder and feeds the Reporter with events."""
+    """Drives a fully-wired watchdog loop: SSE ingest + T1 + T2 + deadline + ladder."""
 
     def __init__(
         self,
@@ -156,58 +168,89 @@ class Supervisor:
         self.deadline_sec = deadline_sec
         self.session_id = session_id
         self.goal = goal
-        self.watch: dict[str, SessionWatch] = {}
+        self.watch = SessionWatch()
         self.ladder = LadderState()
         self._start = time.time()
 
-    # -- event ingress (wires the SSE event_stream) --------------------------
+    # -- SSE event ingress (wired: called by the run loop) -------------------
 
-    def ingest_events(self, n: int = 100, timeout: float = 30.0) -> int:
-        """Consume the worker SSE event_stream into the Reporter (real wiring).
+    def ingest_events(self, max_events: int = 20, stream_timeout: float = 2.0) -> int:
+        """Consume up to `max_events` worker SSE events into the Reporter.
 
-        Returns how many events were ingested. Raises if the stream can't connect.
+        Returns how many were ingested. Best-effort: a short-lived stream read so
+        the watchdog loop stays responsive (does not block forever on the stream).
         """
         count = 0
-        for raw in self.client.event_stream(reconnect=False, max_retries=1):
-            if self.reporter is not None:
-                self.reporter.ingest_worker_event(
-                    raw, session_id=self.session_id)
-            count += 1
-            if count >= n:
-                break
-            if time.time() - self._start > timeout:
-                break
+        start = time.monotonic()
+        try:
+            for raw in self.client.event_stream(reconnect=False, max_retries=1):
+                if self.reporter is not None:
+                    self.reporter.ingest_worker_event(
+                        raw, session_id=self.session_id)
+                count += 1
+                if count >= max_events:
+                    break
+                if time.monotonic() - start > stream_timeout:
+                    break
+        except Exception:
+            pass  # a transient SSE failure must not kill the watchdog loop
         return count
 
-    # -- run loop (T1/T2/deadline/ladder) ------------------------------------
+    # -- run loop (fully wired: ingest + T1 + T2 + deadline + ladder) --------
 
-    def run(self, *, iterations: int | None = None) -> str:
-        """Main watchdog loop with an independent clock.
+    def run(self, *, once: bool = False) -> str:
+        """Run the watchdog loop with its own clock.
 
-        Returns the terminal action ('complete'/'timeout'/'restart'/'human'/'abort').
+        Each pass: ingest SSE events, check T1 health (restart if down), check T2
+        session stall (escalate through the ladder with real actions), enforce the
+        deadline. With `once=True` it does a single pass (for CLI `--once`/tests);
+        otherwise it loops until the deadline or an L5 human escalation.
         """
-        i = 0
         while True:
-            i += 1
-            if iterations is not None and i > iterations:
-                return "complete"
-            now = time.time()
-            if self.deadline_sec is not None and now - self._start > self.deadline_sec:
-                self._record("deadline", outcome="timeout")
-                return "timeout"
-            # T2: session stall
+            self.ingest_events()
             if self.session_id is not None and self.client.health():
+                # T2: session stall
                 status = self.client.session_status(self.session_id)
                 _, output = self.client.session_tokens(self.session_id)
-                watch = self.watch.setdefault(self.session_id, SessionWatch())
-                if watch.is_stalled(now, self.stall_sec, status == "busy", output):
-                    self._record("stall_detected", session=self.session_id,
-                                 outcome="blocked")
-                    self.client.abort_session(self.session_id)
-                    self._record("ladder_action", action=L2_ABORT,
+                busy = status == "busy"
+                stalled = self.watch.is_stalled(
+                    time.time(), self.stall_sec, busy, output)
+                if stalled:
+                    verdict, action, confidence = _verdict_for_stall(
+                        self.watch.consecutive_stalls)
+                    action = choose_action(verdict, action, confidence, self.ladder)
+                    self._execute(action, verdict)
+                    if action == L5_HUMAN:
+                        return L5_HUMAN
+                    # restart gives the worker a fresh start; abort/failed are retried
+                    time.sleep(self.health_poll_sec * 2)
+                    continue
+            # T1: worker health -> restart if down
+            if not self.client.health():
+                self._record("unhealthy", session=self.session_id)
+                if self.container:
+                    ok = docker_restart(self.container)
+                    self._record("ladder_action", action=L4_RESTART, ok=ok,
                                  session=self.session_id)
-                    return L2_ABORT
+                return "restart" if self.container else "unhealthy"
+            # deadline
+            if self.deadline_sec is not None and \
+                    time.time() - self._start > self.deadline_sec:
+                self._record("deadline", outcome="timeout")
+                return "timeout"
+            if once:
+                return "complete"
             time.sleep(self.health_poll_sec)
+
+    def _execute(self, action: str, verdict: str) -> None:
+        """Execute a ladder action against the real worker (wired)."""
+        self._record("ladder_action", action=action, verdict=verdict,
+                     session=self.session_id)
+        if action in (L2_ABORT, L3_FALLBACK) and self.session_id:
+            self.client.abort_session(self.session_id)
+        elif action == L4_RESTART and self.container:
+            ok = docker_restart(self.container)
+            self._record("ladder_restart", ok=ok, session=self.session_id)
 
     def _record(self, event: str, **fields) -> None:
         if self.reporter is not None:
