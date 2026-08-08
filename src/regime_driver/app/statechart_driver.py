@@ -42,6 +42,7 @@ class StatechartDriver:
         global_deadline_sec: float | None = None,
         max_global_nodes: int | None = None,
         heartbeat_stale_sec: float | None = None,
+        run_id: str | None = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -49,6 +50,7 @@ class StatechartDriver:
         self.ledger = ledger
         self.reporter = reporter
         self.roles = roles or default_roles()
+        self.run_id = run_id or self._gen_run_id()
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
         self.constitution = constitution or ConstitutionUnit(
             unit_id="constitution",
@@ -66,10 +68,17 @@ class StatechartDriver:
         self.workflow = WorkflowUnit(
             settings, state_machine, client, ledger,
             reporter=reporter, roles=self.roles,
-            unit_id="workflow", bus=self.runtime.bus,
+            unit_id="workflow", run_id=self.run_id, bus=self.runtime.bus,
         )
         self.runtime.register(self.constitution)
         self.runtime.register(self.workflow)
+
+    @staticmethod
+    def _gen_run_id() -> str:
+        """A stable-per-process unique run id for report-bus attribution."""
+        import uuid
+
+        return f"run-{uuid.uuid4().hex[:8]}"
 
     def run(self, context: str, title: str = "regime-workflow",
             timeout_sec: float | None = None) -> tuple:

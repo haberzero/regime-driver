@@ -61,10 +61,15 @@ class WorkflowUnit(ThreadedUnit):
         reporter: "Reporter | None" = None,
         roles: RoleRegistry | None = None,
         unit_id: str = "workflow",
+        run_id: str | None = None,
         bus=None,
         poll_sec: float | None = None,
     ) -> None:
         super().__init__(unit_id, bus)
+        # run_id distinguishes THIS run in the report bus from prior runs, so a
+        # single `regime run` does not accumulate under a constant wf_id.
+        # Defaults to the unit id (e.g. per-workflow ids in a cluster).
+        self.run_id = run_id or self.id
         self.settings = settings
         self.sm = state_machine
         self.client = client
@@ -669,7 +674,8 @@ class WorkflowUnit(ThreadedUnit):
         if self.reporter is not None:
             self.reporter.ingest(
                 kind=event,
-                wf_id=self.id,
+                wf_id=self.run_id,
+                sm_id=self.sm.flow_name,
                 session_id=fields.get("session_id") or self._wait_sid,
                 node=fields.get("node"),
                 outcome=fields.get("outcome"),
