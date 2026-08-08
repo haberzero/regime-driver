@@ -140,12 +140,12 @@
 
 ## 6. 当前运行状态
 
-- **架构已彻底重构为对等多状态机网络**（2026-08-05~06）：`core/statechart.py`（信号协议+总线+主题 pub/sub）+ `app/statechart_runtime.py`（ThreadedUnit 独立线程+队列 + Runtime 异步路由+黑板+根不变量强制）+ `app/workflow_unit.py`（单线程混合循环）+ `app/constitution_unit.py`（宪法=无智能对等状态机）+ `app/statechart_driver.py` / `app/statechart_cluster.py`（单/多 workflow）+ `app/telemetry.py`（遥测可视化）+ `app/blackboard.py`（共享黑板）。旧 `app/driver.py` / `app/monitor.py` / `app/meta_analyzer.py` / `app/segment_runner.py` 已删除。
-- **`opencode-worker` 容器运行中**：端口 4097，`opencode serve --pure` 无插件 headless，镜像 `opencode-worker:1.18.11`（miniconda + 无插件 + reviewer 只读 agent）。工作区 `workspaces/opencode-worker` → `/root/work`。
-- **测试基线**：195 单测全绿（conda env `regime-driver`，`python -m pytest`）。真实 worker E2E 多次 COMPLETE；mock 离线可行性 5/5。
-- **CLI 契约已就绪**：`regime` 命令集 `run/run-many/validate/gate/status/sessions/dialog/events/session` 全部支持 `--json`（机器可读，raw stdout 防换行破坏）+ 非阻塞（run/run-many 后台线程）。
-- **上帝对话框 A 路（opencode 作载体）已装配**：`docs/GOD_DIALOG_OPERATOR.md`（操作手册）+ `.opencode/agent/god.md`（god agent，权限门禁）+ `.opencode/plugins/regime-god.js`（8 个原生工具）。命令级验证通过；完整交互式会话验证待做。
-- **上帝对话框 B 路（程序化面）**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元）+ `regime dialog` CLI 命令 + `ops/god_dialog.py` 演示。
+- **架构：对等多状态机网络**（宪法=无智能状态机+根不变量运行时强制 I1/I2/I3）+ **进程外 `supervisor`**（T1/T2/deadline/纠正阶梯，收编 M0）+ **`task` 注册表** + **`Reporter` 报告总线** + god 双路。旧 `app/telemetry.py`/`monitor.py`/`meta_analyzer.py`/`segment_runner.py` 已删除；旧 `ops/supervisor.py`/`oc-task.py`/`oc-run.sh`/`stall-watchdog.js` 已收编删除。
+- **`opencode-worker` 容器**：端口 4097，`serve --pure` 无插件执行器，镜像 `opencode-worker:1.18.11`。
+- **`opencode-god` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + god.md + regime-god 插件，非 `--pure`。见 `docs/howto/god-window.md`。
+- **测试基线**：255 passed（+2 skip E2E 门控）。真实 worker E2E 已打通（REGIME_E2E=1）+ god A 路 HTTP 驱动打通。死代码守卫 + CLI 命令级测试已加。
+- **CLI 契约**：`regime` 命令集 `run/run-many/validate --deep/preflight/gate/status/sessions/session/events/dialog/job/report/task/supervisor` 全部 `--json` + 权限门禁（`--perm`，配置 ceiling 不可自提权）。
+- **技术债治理完成**：G1–G14 全清（`docs/TECH_DEBT.md`）；权限/保障默认强制；文档单点真理收口。
 - 工作区已清理测试产物。
 
 ## 7. 主目录污染清单（已迁移/清理完成）
@@ -162,52 +162,45 @@
 
 ## 8. 下一步（下一 session 主线任务）
 
-> **当前主线（唯一指针）**：`WORK_PLAN4.md`（可用性保障 + 事件链路 + 宏观汇报台账）
-> + **技术债治理**（`docs/TECH_DEBT.md`，用户高优先、禁止 tricky/兼容层）。
-> 上帝对话框 A 路收尾（T1/T2，见下）是 A 路遗留，但**当前推进以 WORK_PLAN4 + 治理为准**。
+> **当前主线（唯一指针，2026-08-08）**：完成技术债治理（G1–G14 全清）+ 测试架构闭环
+> （E2E / god 容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
+> 见下方"下一 session 主线任务（优先级表）"。
 
-### 主线任务（按优先级，我的建议排布）
+### 当前状态速览（2026-08-08）
 
-**P0 — A 路验证收尾（M3）✅**
-- [x] **T1. 交互式验证 god agent**：✅ **经专用 god 容器 + HTTP 程序化驱动打通**（绕开交互 TUI 挂起）。
-      `docker/Dockerfile.god` + `opencode-god` 容器(端口4098, --network host) → HTTP 建 god 会话 →
-      god 调用 `regime_status` 插件工具返回真实 worker 健康 → god 结构化报告。见 `docs/howto/god-window.md`。
-- [x] **T2. 依验证修**：✅ 修 `.opencode/plugins/regime-god.js` 三个真 bug
-      （null-args 崩溃 → `A(args)` null安全；`conda run` 输出在工具子进程丢失 → 直接调 env 的
-      `regime` 二进制；`.text()` 不捕获 → `await proc.text()`）+ `validate --deep` 无 skills-dir 时
-      硬失败 → skill 检查仅当显式 `--skills-dir`。
+- **测试基线 255 passed（+2 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，执行器）、
+  `opencode-autopilot`（4096，web，M0 遗产已退役监督）。
+- **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0）+ `task` 注册表 +
+  `Reporter` 报告总线 + god 双路。
+- **技术债**：G1–G14 全清（`docs/TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
+- **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控）+ 死代码守卫 `test_deadcode.py` +
+  CLI 命令级测试 `test_cli.py`。
 
-**P1 — 上帝对话框非阻塞作业管理（契约红线）✅**
-- [x] **T3. `regime run/run-many --async`**：submit 立即返回 handle → `regime job status <id>` / `regime job list`
-      （作业注册表：文件/进程），让控制命令真正"非阻塞"（DESIGN-god-dialog-carrier §5.2 红线）。
-      实现：`infra/jobs.py`（JobRegistry）+ CLI `--async` + `job list/status`；真实冒烟通过。
-- [x] **T4. 插件加 `regime_job_status` / `regime_job_list`** 工具；手册补 async 用法。
+### 下一 session 主线任务（优先级表，我的判断）
 
-**P2 — 细粒度权限策略 ✅**
-- [x] **T5. 权限策略层**：写操作分级（read/run/interact/clean），CLI 与对话框统一门禁（对接 allow_write）。
-      实现：`infra/permission.py`（PermissionLevel + classify + require）+ CLI `--perm` + 插件 perm 参数。
+| # | 任务 | 视角 | 说明 |
+|---|---|---|---|
+| **P0** | **一键自驱动入口**：把 run+supervisor+reporter 合成一个命令/入口 | 易用性最高 | 现跑一个自驱动任务要分调多 CLI；统一成一个"起一栈"，顺带接线监督/报告。见 `DESIGN-testing-architecture.md` |
+| **P0** | **真实 E2E + supervisor 真实卡死恢复验证** | 架构健康/长远最高 | 纠正阶梯（卡死→abort→回退→重启）是最核心价值却最未验证；补真实场景 + 元分析接真实模型。见 `DESIGN-supervision.md` |
+| **P1** | **god 容器镜像固化 + 一键起栈** | 易用性/可复现 | 现改插件要 `docker cp`+restart；固化进镜像+一条命令拉起。`docs/howto/god-window.md` |
+| **P1** | **CI 接入真实 E2E** | 架构健康 | 让真实链路成为回归门槛，防未验证链静默漂移 |
+| **P2** | **测试金字塔/死代码守卫扩展 + B 路演进（T8）** | 健康/演进 | GodDialogUnit 对运行中 workflow/session 更深交互与回收 |
 
-**P3 — 收尾 / 演进**
-- [x] **T6. WORK_PLAN2 H2 收拢**：评估后**决定不转** FakeClient → MockClient（MockClient 非单测 fakes 的
-      drop-in，防行为漂移；理由记 TASK.md）。`test_blackboard` 已用 MockClient。
-- [x] **T7. 文档同步**：`docs/howto/god-dialog.md` 更新为 opencode 载体版；`GOD_DIALOG_OPERATOR.md` 随命令变更同步。
-- [ ] **T8. B 路演进**：GodDialogUnit 对运行中 workflow/session 更深交互与回收。
+> 若只做一件：选 **#2（真实 E2E + supervisor 卡死恢复）**，把系统从"结构健康"推向"运行可信"。
+> 建议顺序：#1（一键入口，快、易用）→ #2（可信度）→ #3/#4。
 
-> **2026-08-07 成果**：T3/T4/T5/T7 完成，T6 评估定案，T1/T2 待交互环境。**WORK_PLAN4 已推进**：I1/I2（validate --deep + preflight）✅、E1（SSE event_stream + extras）✅、R-A/R-B/R-C（Reporter 报告总线 + rollup + `regime report` 看板 + 模板化）✅。测试基线 229。分支 `autonomous-2026-08-05`。
->
-> **WORK_PLAN4 剩余**：R-D 深合并（telemetry/blackboard/run-ledger 接入 Reporter 统一真源 + SSE 摄入接入运行中 driver）、E2 文档收尾。见 `WORK_PLAN4.md`。
->
-> **WORK_PLAN4 新增强（本 session）**：`validate --deep` + `preflight`（可用性保障）✅；SSE `event_stream`（含断流重连）+ prompt_async/todo/fork/children/summarize ✅；Reporter 报告总线（归属键 + rollup + journal + load 重放 + retain 保留策略）✅；`regime report`（看板 / `--tasks-dir` oc-task 并轨 / `--trace` 因果链 / 单对象视图 / `--template` milestone|blocker|period|activity / `--prune`）✅；`run --reporter` 接入。测试基线 238。
+### 已完成主线（历史，参考）
 
-**历史里程碑（已完成，参考）**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
+- **T1/T2 A 路验证** ✅：经专用 god 容器 + HTTP 驱动打通（绕开交互 TUI 挂起）；修 regime-god.js 三个真 bug。
+- **T3/T4/T5/T7/T6** ✅：非阻塞作业、插件 job 工具、权限策略、文档同步、FakeClient 评估定案。
+- **WORK_PLAN4** ✅：I1/I2 保障、E1 SSE 摄入+重连、R-A/R-B/R-C（Reporter 报告总线 + `regime report` 看板 + 模板 + 保留策略）。
+- **技术债治理** ✅：G1–G14 全清（含 G6 M0 系统化收编、死代码守卫、静默兜底修复、权限强制、文档单点真理）。
+- **测试架构** ✅：T-A E2E 系统化、T-B god 容器、T-C A 路打通、T-E 交接收口。
 
-**待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）；`main_loop` flow 死配置（已加 validate 警告，可删）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
+**历史里程碑**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 
-> **下一阶段方向（2026-08-07 研究定案，见 `WORK_PLAN4.md`）**：① 可用性保障——`validate --deep` +
-> `--preflight`（MockClient 离线试跑，让自写 workflow 启动前暴露语义错误）；② 事件链路接入——经
-> `GET /event` SSE + 插件 `event:` hook（已核实可用，非轮询），摄入层应为 push；③ 宏观汇报台账——
-> 三层 Journal + Report Bus（事件摄入 → append-only journal + rollup → 模板化 `regime report/journal`），
-> 统一归属键区分 workflow/session/状态机，规则化、随取随用、可溯源。详见 `WORK_PLAN4.md`。
+**待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已规避）；`main_loop` flow 死配置（validate 已警告，可删）。历时超时模型：`default_deadline_sec` + `global_deadline_sec`。
 
 阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。**当前主线规划：`WORK_PLAN4.md`**（预检 + 事件链路 + 宏观汇报台账）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
@@ -228,54 +221,49 @@
 ## 9. 命令速查
 
 ```bash
-# 提交一个自主任务（任务注册表模型，每任务独立 supervisor 进程）
-python3 /home/haber/oc-meta/ops/oc-task.py submit "<goal>" [--deadline 30]
-
-# 任务控制（接收接口，人类与 opencode 共用）
-python3 /home/haber/oc-meta/ops/oc-task.py list
-python3 /home/haber/oc-meta/ops/oc-task.py status <task-id>
-python3 /home/haber/oc-meta/ops/oc-task.py logs <task-id>
-python3 /home/haber/oc-meta/ops/oc-task.py stop <task-id>
-python3 /home/haber/oc-meta/ops/oc-task.py clean <task-id>
-
-# 只读网页状态页（可选，起停可控）
-python3 /home/haber/oc-meta/ops/oc-task.py web start   # http://127.0.0.1:8721
-python3 /home/haber/oc-meta/ops/oc-task.py web stop
-
-# 单次直接运行（不走任务注册表）
-bash /home/haber/oc-meta/ops/oc-run.sh '<goal>' [deadline_min]
-
-# 容器状态 / 重启
-sg docker -c 'docker ps --filter name=opencode-autopilot'
-sg docker -c 'docker restart opencode-autopilot'
-
-# worker 容器 (M-1, 无插件开发执行面)
-sg docker -c 'docker ps --filter name=opencode-worker'
-sg docker -c 'docker restart opencode-worker'
-# worker 镜像构建 (改动 docker/worker-config 后需重建)
-sg docker -c 'docker build -f docker/Dockerfile.worker -t opencode-worker:1.18.11 .'
-# worker API 冒烟测试
-curl -s http://127.0.0.1:4097/config
-
-# regime-driver (M-2/M-3, 正式工程包, cli->app->core/infra 分层)
-# 开发环境: conda 环境 regime-driver (python 3.12); 本地已 pip install -e .
+# 环境
 source ~/miniconda3/etc/profile.d/conda.sh
-conda run -n regime-driver regime validate          # 校验状态机
-conda run -n regime-driver regime gate '<verdict-json>'  # 校验审查者判定
-conda run -n regime-driver regime status --base http://127.0.0.1:4097
-conda run -n regime-driver regime run "<任务上下文>" --base http://127.0.0.1:4097 --ledger /tmp/regime-ledger.jsonl
-conda run -n regime-driver python -m pytest           # 单测 (45 项)
 
-# 核心代码: src/regime_driver/{core,infra,app,cli}; 架构: docs/ARCHITECTURE-regime-driver.md
-# 状态机: src/regime_driver/data/regime.json (打包默认); 开发期可 --regime 指定
-# 审查者判定: app/reviewer.py (严格 JSON + 重试反馈 + 确定性门); skill 注入: infra/skill_loader.py
-# 任务控制文档: infra/task_control.py (WORKLOG/NEXT_STEPS/PENDING_TASKS), 由 --task-control-dir 启用
-# 安全监控: app/monitor.py (独立线程) + core/repetition.py (死循环检测)
-#   监控参数: --monitor-enabled/--monitor-poll-sec/--stall-sec/--on-stall (abort|report_user|none)
-#   监控由 config 或 env: REGIME_MONITOR_ENABLED/REGIME_POLL_SEC/REGIME_STALL_SEC 等控制
+# 校验 / 预检（保障默认强制）
+conda run -n regime-driver regime validate [--deep/--no-deep] [--skills-dir workflow-regime/skills] --json
+conda run -n regime-driver regime preflight [--fault stall|delay] --json   # 离线试跑
+conda run -n regime-driver regime gate '<verdict-json>'
 
-# 看账本（插件 + supervisor 共享）
-tail -f /home/haber/oc-meta/ops/run-ledger.jsonl
+# 运行（单跑/并发/异步，preflight 默认强制）
+conda run -n regime-driver regime run "<任务>" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl [--no-preflight]
+conda run -n regime-driver regime run-many "t1" "t2" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl
+conda run -n regime-driver regime run "<任务>" --async --reporter /tmp/rep.jsonl   # 非阻塞
+conda run -n regime-driver regime job list|status <id> --json
+
+# 报告总线（宏观看板 / 因果链 / 模板 / 保留）
+conda run -n regime-driver regime report --journal /tmp/rep.jsonl [--wf id] [--tasks-dir] [--json]
+conda run -n regime-driver regime report <object> --trace --journal /tmp/rep.jsonl
+conda run -n regime-driver regime report --journal /tmp/rep.jsonl --template milestone|blocker|period|activity
+conda run -n regime-driver regime report --journal /tmp/rep.jsonl --prune --max-records 500
+
+# 会话 / 事件 / 上帝对话框
+conda run -n regime-driver regime sessions|session <id> send|reply|events --ledger ... --json
+conda run -n regime-driver regime dialog --live --base http://127.0.0.1:4097 --perm run
+
+# 任务注册表（收编 oc-task）
+conda run -n regime-driver regime task list|status|logs|stop|clean <task-id> [--json]
+
+# 进程外监督（收编 supervisor；宿主独立时钟 + docker 控制）
+conda run -n regime-driver regime supervisor --base http://127.0.0.1:4097 --session <id> --container opencode-worker --reporter /tmp/sup.jsonl [--once]
+
+# 单测 / E2E（E2E 门控: REGIME_E2E=1 且 worker 健康）
+conda run -n regime-driver python -m pytest
+REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+
+# 容器
+sg docker -c 'docker ps --format "{{.Names}} {{.Status}}"'
+sg docker -c 'docker restart opencode-worker'
+sg docker -c 'docker build -f docker/Dockerfile.worker -t opencode-worker:1.18.11 .'
+
+# 上帝对话框 A 路验证窗（opencode-god 容器, host 网络, 4098）— 见 docs/howto/god-window.md
+sg docker -c 'docker build -f docker/Dockerfile.god -t opencode-god:1.18.11 .'
+sg docker -c 'docker rm -f opencode-god; docker run -d --name opencode-god --network host -e DEEPSEEK_API_KEY="$(cat /tmp/dk.txt)" -e OPENCODE_PORT=4098 opencode-god:1.18.11'
+curl -s http://127.0.0.1:4098/global/health
 
 # 启动监督器（旧方式，容器内；现已被 oc-task 取代）
 docker exec -d opencode-autopilot python3 /root/control/supervisor.py \
