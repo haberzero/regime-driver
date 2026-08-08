@@ -454,7 +454,7 @@ def report_cmd(
         help="report template: milestone | blocker | period | activity"),
     since: float = typer.Option(None, "--since", help="epoch seconds; lower bound for period/activity"),
     tasks_dir: str = typer.Option(
-        None, "--tasks-dir", help="oc-task registry dir (ops/tasks) to merge into the board"),
+        None, "--tasks-dir", help="supervised-task registry dir to merge into the board"),
     prune: bool = typer.Option(False, "--prune", help="prune the journal (retention)"),
     max_age: float = typer.Option(
         None, "--max-age", help="with --prune: drop records older than this many seconds"),
