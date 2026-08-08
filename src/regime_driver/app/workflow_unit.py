@@ -164,8 +164,9 @@ class WorkflowUnit(ThreadedUnit):
                 break
             try:
                 self.on_signal(sig)
-            except Exception:
-                pass
+            except Exception as exc:
+                # never kill the loop, but never swallow silently either: audit it
+                self._log("signal_handler_error", kind=str(sig.kind), err=str(exc))
 
     # -- control handlers -----------------------------------------------------
 
@@ -561,23 +562,32 @@ class WorkflowUnit(ThreadedUnit):
     # -- helpers --------------------------------------------------------------
 
     def _report_to_constitution(self) -> None:
-        """Feed the alive session's state to the constitution as a REPORT."""
+        """Feed the alive session's state to the constitution as a REPORT.
+
+        A REPORT must always be sent; a read failure must never silently drop it
+        (that would blind the watchdog into a false stall/loop verdict). Failures
+        are recorded as auditable events and surfaced in the REPORT payload.
+        """
         if self.bus is None or self._wait_sid is None:
             return
+        payload: dict = {"session_id": self._wait_sid, "status": None,
+                         "output": 0, "latest_text": "", "report_error": None}
         try:
-            status = self.client.session_status(self._wait_sid)
-            reasoning, output = self.client.session_tokens(self._wait_sid)
-        except Exception:
-            return
-        latest_text = ""
+            payload["status"] = self.client.session_status(self._wait_sid)
+            _, output = self.client.session_tokens(self._wait_sid)
+            payload["output"] = output
+        except Exception as exc:
+            payload["report_error"] = f"status/tokens: {exc}"
+            self._log("report_error", session=self._wait_sid, err=str(exc))
         try:
-            latest_text = self._latest_text(self.client.read_messages(self._wait_sid))
-        except Exception:
-            pass
-        self.send("constitution", SignalKind.REPORT, {
-            "session_id": self._wait_sid, "status": status,
-            "output": output, "latest_text": latest_text,
-        })
+            payload["latest_text"] = self._latest_text(
+                self.client.read_messages(self._wait_sid))
+        except Exception as exc:
+            payload["report_error"] = (
+                (payload["report_error"] + "; " if payload["report_error"] else "")
+                + f"read: {exc}")
+            self._log("report_error", session=self._wait_sid, err=str(exc))
+        self.send("constitution", SignalKind.REPORT, payload)
 
     def _get_reviewer(self, role_id: str) -> Reviewer:
         if role_id not in self.reviewers:
@@ -636,18 +646,22 @@ class WorkflowUnit(ThreadedUnit):
         self.task_control.append("worklog", f"节点 {node_id} 完成。\n{report or ''}")
 
     def _apply_transition(self, prev_node, next_node) -> None:
-        try:
-            prev_role = self.sm.node(prev_node).role
-            policy = self.roles.get(prev_role).policy
-            decision = policy.on_node_transition(prev_node, next_node, self._env)
-            self._log("transition", from_node=prev_node, to_node=next_node,
-                      role=prev_role, decision=decision.value)
-            if decision == TransitionDecision.ROTATE:
+        # the transition DECISION is a deterministic invariant: a failure here is a
+        # config/policy bug and must fail the run visibly (fail-fast), not be
+        # swallowed. The rotate/handover that follows is best-effort and logged.
+        prev_role = self.sm.node(prev_node).role
+        policy = self.roles.get(prev_role).policy
+        decision = policy.on_node_transition(prev_node, next_node, self._env)
+        self._log("transition", from_node=prev_node, to_node=next_node,
+                  role=prev_role, decision=decision.value)
+        if decision == TransitionDecision.ROTATE:
+            try:
                 self.session_rotator.rotate_with_handover(
                     prev_role, summary=f"节点 {prev_node} 完成，流转到 {next_node}。",
                     handoff_kind="normal")
-        except Exception as exc:
-            self._log("transition_error", from_node=prev_node, to_node=next_node, err=str(exc))
+            except Exception as exc:
+                self._log("transition_rotate_error", from_node=prev_node,
+                          to_node=next_node, err=str(exc))
 
     def _check_session_capacity(self, dev, node_id) -> bool:
         try:

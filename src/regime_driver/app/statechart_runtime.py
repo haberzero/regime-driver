@@ -14,9 +14,12 @@ into the real run is stage 3.
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 from functools import partial
+
+_LOG = logging.getLogger("regime_driver.runtime")
 
 from ..core.statechart import Bus, Signal, SignalKind, StatechartUnit
 
@@ -72,9 +75,10 @@ class ThreadedUnit(StatechartUnit):
                 continue
             try:
                 self.on_signal(signal)
-            except Exception:
-                # a unit-level handler error must not kill the runtime
-                pass
+            except Exception as exc:
+                # a unit-level handler error must not kill the runtime, but must
+                # not vanish silently either: log it for auditability
+                _LOG.warning("unit %s handler error: %s", getattr(self, "id", "?"), exc)
 
 
 class Runtime:

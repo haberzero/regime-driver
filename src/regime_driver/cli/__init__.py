@@ -1039,10 +1039,7 @@ def events(
     def _emit(line: str) -> None:
         line = line.strip()
         if line:
-            try:
-                console.print(line)  # already JSON
-            except Exception:
-                console.print(line)
+            console.print(line)  # already JSON
 
     if not follow:
         with open(path, encoding="utf-8") as fh:

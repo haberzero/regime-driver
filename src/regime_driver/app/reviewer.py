@@ -22,7 +22,7 @@ from ..core.json_utils import extract_json
 from ..core.models import GateResult, ReviewerVerdict
 from ..core.state_machine import StateMachine
 from ..infra.opencode import OpenCodeClient
-from ..infra.skill_loader import SkillNotFoundError, load_skill
+from ..infra.skill_loader import load_skill
 
 SYSTEM_PROMPT = (
     "You are the independent reviewer (L0) in an institutional-process robot. "
@@ -92,10 +92,10 @@ class Reviewer:
         skill_text = ""
         skill = node.skill
         if skill:
-            try:
-                skill_text = load_skill(skill, self.skills_dir)
-            except SkillNotFoundError as exc:
-                skill_text = f"(skill {skill} unavailable: {exc})"
+            # a node's required skill must be loadable; a missing skill is a config
+            # error (guarded by mandatory preflight --deep) and must fail loudly,
+            # not degrade the review with a placeholder.
+            skill_text = load_skill(skill, self.skills_dir)
 
         parts = [
             f"当前节点：{node_id} — {node.desc}",

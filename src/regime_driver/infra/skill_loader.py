@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 # Default skills directory (workflow-regime is a sibling of the package repo).
-DEFAULT_SKILLS_DIR = Path(__file__).resolve().parents[2] / "workflow-regime" / "skills"
+DEFAULT_SKILLS_DIR = Path(__file__).resolve().parents[3] / "workflow-regime" / "skills"
 
 _FRONTMATTER_RE = re.compile(r"^---\s*\n.*?\n---\s*\n?", re.DOTALL)
 

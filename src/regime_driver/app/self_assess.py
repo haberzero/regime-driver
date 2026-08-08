@@ -71,13 +71,13 @@ class SelfAssessor:
                     pass
 
     def _usage(self, state: SessionState) -> float:
-        try:
-            reasoning, output = self.client.session_tokens(state.session_id or "")
-            total = reasoning + output
-            limit = self.settings.context_limit_tokens
-            return total / limit if limit else 0.0
-        except Exception:
-            return 0.0
+        # do not swallow a token-read failure into "0 usage" (that would silently
+        # disable rotation and mask the fault); let it surface to the caller's
+        # capacity check, which logs it.
+        reasoning, output = self.client.session_tokens(state.session_id or "")
+        total = reasoning + output
+        limit = self.settings.context_limit_tokens
+        return total / limit if limit else 0.0
 
     def _build_prompt(self, state: SessionState, usage: float) -> str:
         return (
