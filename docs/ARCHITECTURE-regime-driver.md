@@ -126,7 +126,7 @@ app → infra（infra 依赖 core 的模型，不依赖 app）
 class Regime(BaseModel):
     version: str
     meta: RegimeMeta                  # session_turn_check, work_done_marker
-    flows: dict[str, Flow]            # 命名 flow（code_workflow / main_loop / goal_lifecycle）
+    flows: dict[str, Flow]            # 命名 flow（code_workflow）
     entry: FlowEntry                  # 默认 flow + start_node
 
 class Node(BaseModel):

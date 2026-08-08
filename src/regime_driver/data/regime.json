@@ -2,33 +2,66 @@
   "version": "0.3",
   "description": "Compiled institutional process (code-workflow). Nodes declare a role (which user-registered session owns it) and a type (agent=work, judge=judgement). Roles developer/reviewer are user-specialized instances; the kernel is role-agnostic.",
   "meta": {
-    "source": ["workflow-regime/task-control/07_goal_mechanism.md", "workflow-regime/task-control/08_autonomous_loop.md", "workflow-regime/skills/code-workflow/SKILL.md"],
+    "source": [
+      "workflow-regime/task-control/07_goal_mechanism.md",
+      "workflow-regime/task-control/08_autonomous_loop.md",
+      "workflow-regime/skills/code-workflow/SKILL.md"
+    ],
     "session_turn_check": 5,
     "work_done_marker": "[WORK_DONE]"
   },
   "flows": {
     "code_workflow": {
       "nodes": {
-        "understand": {"id": "understand", "desc": "理解任务上下文", "role": "developer", "type": "agent", "next": "read_code"},
-        "read_code": {"id": "read_code", "desc": "理解代码上下文", "role": "developer", "type": "agent", "next": "design"},
-        "design": {"id": "design", "desc": "方案设计", "role": "reviewer", "type": "judge", "skill": "design-philosophy", "next": "implement"},
-        "implement": {"id": "implement", "desc": "实现", "role": "developer", "type": "agent", "next": "test"},
-        "test": {"id": "test", "desc": "测试与验证", "role": "reviewer", "type": "judge", "skill": "code-review", "next": "wrap"},
-        "wrap": {"id": "wrap", "desc": "收尾与清理", "role": "developer", "type": "agent", "next": null}
-      }
-    },
-    "main_loop": {
-      "nodes": {
-        "understand": {"id": "understand", "desc": "理解任务", "role": "developer", "type": "agent", "next": "design_grill"},
-        "design_grill": {"id": "design_grill", "desc": "设计质询", "role": "reviewer", "type": "judge", "skill": "design-philosophy", "next": "decide"},
-        "decide": {"id": "decide", "desc": "自主决策", "role": "developer", "type": "agent", "next": "implement"},
-        "implement": {"id": "implement", "desc": "实现", "role": "developer", "type": "agent", "next": "self_verify"},
-        "self_verify": {"id": "self_verify", "desc": "自反馈验证", "role": "reviewer", "type": "judge", "skill": "code-review", "next": "self_correct"},
-        "self_correct": {"id": "self_correct", "desc": "自主纠错", "role": "developer", "type": "agent", "next": "deliver_check"},
-        "deliver_check": {"id": "deliver_check", "desc": "交付自查", "role": "reviewer", "type": "judge", "skill": "code-quality", "next": "wrap_up"},
-        "wrap_up": {"id": "wrap_up", "desc": "收尾", "role": "developer", "type": "agent", "next": null}
+        "understand": {
+          "id": "understand",
+          "desc": "理解任务上下文",
+          "role": "developer",
+          "type": "agent",
+          "next": "read_code"
+        },
+        "read_code": {
+          "id": "read_code",
+          "desc": "理解代码上下文",
+          "role": "developer",
+          "type": "agent",
+          "next": "design"
+        },
+        "design": {
+          "id": "design",
+          "desc": "方案设计",
+          "role": "reviewer",
+          "type": "judge",
+          "skill": "design-philosophy",
+          "next": "implement"
+        },
+        "implement": {
+          "id": "implement",
+          "desc": "实现",
+          "role": "developer",
+          "type": "agent",
+          "next": "test"
+        },
+        "test": {
+          "id": "test",
+          "desc": "测试与验证",
+          "role": "reviewer",
+          "type": "judge",
+          "skill": "code-review",
+          "next": "wrap"
+        },
+        "wrap": {
+          "id": "wrap",
+          "desc": "收尾与清理",
+          "role": "developer",
+          "type": "agent",
+          "next": null
+        }
       }
     }
   },
-  "entry": {"flow": "code_workflow", "start_node": "understand"}
+  "entry": {
+    "flow": "code_workflow",
+    "start_node": "understand"
+  }
 }

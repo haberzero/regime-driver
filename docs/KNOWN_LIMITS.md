@@ -5,11 +5,10 @@
 
 ## 未实现 / 恒空项
 
-- **`main_loop` flow 为死配置**：`data/regime.json` 中存在 `main_loop` 流程，但 `entry` 仅指向
-  `code_workflow`，`main_loop` 不可达。`regime validate` 现已警告非入口不可达 flow。归属：`data/regime.json`。
-
-> 注：旧架构的 `_deadline` 字段（meta 研判 deadline）已在 R1-R5 重构中随 monitor/meta_analyzer 删除，
-> 不再存在。当前超时模型为 `default_deadline_sec`（每节点，settings）+ `global_deadline_sec`（整轮，constitution）。
+> `main_loop` flow 死配置已于 2026-08-08 移除（`data/regime.json` 现仅 `code_workflow`），
+> 该项已清。旧架构的 `_deadline` 字段（meta 研判 deadline）已在 R1-R5 重构中随
+> monitor/meta_analyzer 删除，不再存在。当前超时模型为 `default_deadline_sec`
+> （每节点，settings）+ `global_deadline_sec`（整轮，constitution）。
 
 ## 行为限制
 

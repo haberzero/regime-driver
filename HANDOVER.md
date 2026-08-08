@@ -190,10 +190,9 @@
 | ~~P2~~ | ~~测试金字塔/守卫扩展 + B 路 T8~~ | ✅ 已完 | 死代码守卫扩 drive/god_dialog；GodDialog `sessions/abort/reclaim`；**修权限 classify 洞**（drive/task/supervisor 原绕过写门禁） |
 | **P2** | **worker 工作区物理隔离挂载重建** | 架构 | 现所有 workflow 共用容器 `WORKDIR /root/work`，并发 drive/run-many 会文件碰撞；需 worker 重建按 workflow 隔离挂载（`workspace_for` 已注入指令，物理挂载待重建） |
 | **P3** | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转 MockClient（非 drop-in，防漂移）；如需统一另建轻量脚本化 fake |
-| **P3** | 移除 `main_loop` 死流程配置 | 卫生 | validate 已警告；可删 |
 
 > 若只做一件：选 **worker 工作区物理隔离**（并发 self-driving 的基石）。
-> 建议：先按 `docs/DESIGN-drive.md`/`DESIGN-supervision.md` 熟悉新 `drive` 与 `--meta`，再做工作区隔离。
+> 建议：先按 `docs/DESIGN-drive.md`/`DESIGN-supervision.md` 熟悉新 `drive` 与 `--meta`，再做工作区隔离。`main_loop` 死 flow 已于 2026-08-08 移除。
 
 ### 已完成主线（历史，参考）
 
@@ -206,7 +205,7 @@
 
 **历史里程碑**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 
-**待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已规避）；`main_loop` flow 死配置（validate 已警告，可删）。历时超时模型：`default_deadline_sec` + `global_deadline_sec`。
+**待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已规避）。历时超时模型：`default_deadline_sec` + `global_deadline_sec`。
 
 阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。**当前主线规划：`WORK_PLAN4.md`**（预检 + 事件链路 + 宏观汇报台账）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
@@ -222,7 +221,7 @@
 | **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | ✅ **完成（2026-08-05）：真实 worker 全流程 COMPLETE，119 单测** |
 
-**待办（最新候选）**：① worker 工作区物理隔离挂载重建（P2，并发 self-driving 基石——现所有 workflow 共用容器 `/root/work`；**可行性已探明**：opencode HTTP create_session 的 `directory` 字段是 project 级、被忽略（实测恒 `/root/work`），无法按 session 设 cwd → 须 worker 重建按 project 挂载或另法，勿用"软指令请到某目录"这类易被 LLM 忽略的 trick）；② 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；③ P3 杂项：`main_loop` flow 死配置（已加 validate 警告，可删）；④ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
+**待办（最新候选）**：① worker 工作区物理隔离挂载重建（P2，并发 self-driving 基石——现所有 workflow 共用容器 `/root/work`；**可行性已探明**：opencode HTTP create_session 的 `directory` 字段是 project 级、被忽略（实测恒 `/root/work`），无法按 session 设 cwd → 须 worker 重建按 project 挂载或另法，勿用"软指令请到某目录"这类易被 LLM 忽略的 trick）；② 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；③ P3 杂项：`main_loop` flow 死配置（已于 2026-08-08 移除）；④ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
 ## 9. 命令速查
 
