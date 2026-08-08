@@ -222,7 +222,7 @@
 | **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | ✅ **完成（2026-08-05）：真实 worker 全流程 COMPLETE，119 单测** |
 
-**待办（最新候选）**：① worker 工作区物理隔离挂载重建（P2，并发 self-driving 基石——现所有 workflow 共用容器 `/root/work`）；② 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；③ P3 杂项：`main_loop` flow 死配置（已加 validate 警告，可删）；④ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
+**待办（最新候选）**：① worker 工作区物理隔离挂载重建（P2，并发 self-driving 基石——现所有 workflow 共用容器 `/root/work`；**可行性已探明**：opencode HTTP create_session 的 `directory` 字段是 project 级、被忽略（实测恒 `/root/work`），无法按 session 设 cwd → 须 worker 重建按 project 挂载或另法，勿用"软指令请到某目录"这类易被 LLM 忽略的 trick）；② 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；③ P3 杂项：`main_loop` flow 死配置（已加 validate 警告，可删）；④ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
 ## 9. 命令速查
 
