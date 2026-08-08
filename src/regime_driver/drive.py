@@ -76,6 +76,8 @@ class Drive:
         stall_sec: float = 60.0,
         health_poll_sec: float = 10.0,
         session_discovery_timeout: float = 60.0,
+        meta_enabled: bool = False,
+        meta_model: str | None = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -86,6 +88,8 @@ class Drive:
         self.stall_sec = stall_sec
         self.health_poll_sec = health_poll_sec
         self.session_discovery_timeout = session_discovery_timeout
+        self.meta_enabled = meta_enabled
+        self.meta_model = meta_model
         self.driver: StatechartDriver | None = None
         self._session_id: str | None = None
         self._result: dict = {}
@@ -142,6 +146,7 @@ class Drive:
             self.client, self.reporter, container=self.container,
             stall_sec=self.stall_sec, health_poll_sec=self.health_poll_sec,
             deadline_sec=self.deadline_sec, session_id=session_id, goal=context,
+            meta_enabled=self.meta_enabled, meta_model=self.meta_model,
         )
         sup_outcome = sup.run(stop_when=lambda: "res" in self._result)
         t.join(timeout=5)

@@ -416,6 +416,10 @@ def drive(
     container: str = typer.Option(
         None, "--container", help="worker docker container name (for L4 restart on T1)"),
     stall: int = typer.Option(60, "--stall", help="session-stall detection seconds (T2)"),
+    meta: bool = typer.Option(
+        False, "--meta", help="enable intelligent meta-analysis (real model judges a stall)"),
+    meta_model: str = typer.Option(
+        Settings().model, "--meta-model", help="model for meta-analysis"),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="append-only report journal path (single truth)"),
     tasks_dir: Optional[Path] = typer.Option(
@@ -506,6 +510,7 @@ def drive(
     drv = Drive(
         settings, sm, client, rep, container=container,
         deadline_sec=deadline, stall_sec=stall,
+        meta_enabled=meta, meta_model=meta_model,
     )
     try:
         # render live progress in the foreground
@@ -812,6 +817,10 @@ def supervisor_cmd(
     stall: int = typer.Option(60, "--stall", help="stall detection seconds (T2)"),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="report journal path (single truth)"),
+    meta: bool = typer.Option(
+        False, "--meta", help="enable intelligent meta-analysis (real model judges the stall)"),
+    meta_model: str = typer.Option(
+        Settings().model, "--meta-model", help="model for meta-analysis"),
     once: bool = typer.Option(
         False, "--once", help="do a single watchdog pass then exit (for tests/CI)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
@@ -823,7 +832,8 @@ def supervisor_cmd(
     correction ladder (abort/restart/fallback/human). Runs continuously until
     the deadline, a container restart, or an L5 human escalation (use --once for
     a single pass). This is the first-class replacement for the old M0 supervisor
-    (DESIGN-supervision.md).
+    (DESIGN-supervision.md). Pass --meta to let a real model judge a stall
+    (deterministically gated); otherwise the ladder is fully deterministic.
     """
     from ..app.reporter import Reporter
     from ..supervisor import Supervisor
@@ -834,6 +844,7 @@ def supervisor_cmd(
         client, rep, container=container, stall_sec=stall,
         deadline_sec=deadline if deadline else None,
         session_id=session or None, goal="",
+        meta_enabled=meta, meta_model=meta_model,
     )
     try:
         outcome = sup.run(once=once)

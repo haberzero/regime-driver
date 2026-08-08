@@ -122,6 +122,7 @@
 | 阶段 | 状态 |
 |---|---|
 | **A** `regime_driver.supervisor`（T1/T2/deadline/ladder/meta + 接 SSE event_stream） | ✅ 已建 + 单测（`src/regime_driver/supervisor.py`、`regime supervisor` CLI） |
+| **A+** 智能元分析接真实模型（P0#2） | ✅ `Supervisor.meta_analyze()`：独立模型读会话上下文→严格 JSON verdict→确定性门 `gate_meta`→阶梯；失败/门拒绝回退确定性 `_verdict_for_stall`；`--meta` 可开；真实模型 E2E 通过 |
 | **B** `regime_driver.task`（收编 oc-task，单一 derive） | ✅ 已建 + 单测（`src/regime_driver/task.py`、`regime task` CLI、report 单真源） |
 | **C-代码级** 删除被取代 M0 产物（oc-task.py/oc-run.sh/run-ledger/tasks） | ✅ 已删 |
 | **C-部署级** 退役运行容器旧监督 → 删部署三件套 | ✅ 核实旧监督**未在运行**（无 host supervisor 进程、stall-watchdog 未注册进容器 config）→ 删 `ops/supervisor.py`/`ops/stall-watchdog.js`/`ops/policy.json`，ops/ 已清空 |

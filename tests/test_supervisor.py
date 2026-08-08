@@ -15,6 +15,7 @@ from regime_driver.supervisor import (
     Supervisor,
     choose_action,
     gate_meta,
+    _parse_meta_verdict,
 )
 
 
@@ -77,6 +78,90 @@ def test_session_watch_stall_detection():
 def test_session_watch_not_stalled_when_idle():
     w = SessionWatch(last_output=5, last_message_ts=100.0)
     assert w.is_stalled(now=200.0, stall_sec=60.0, busy=False, output=5) is False
+
+
+# -- meta-analysis (real model judges verdict, deterministic-gated) -----------
+
+
+def test_parse_meta_verdict_valid():
+    data = _parse_meta_verdict(
+        '{"verdict":"looping","confidence":0.8,"recommended_action":"abort",'
+        '"reason":"looping"}')
+    assert data["verdict"] == "looping"
+    assert data["recommended_action"] == "abort"
+    assert data["confidence"] == 0.8
+
+
+def test_parse_meta_verdict_tolerates_fence_and_prose():
+    data = _parse_meta_verdict(
+        'Here is my analysis.\n```json\n'
+        '{"verdict":"stalled","confidence":0.6,"recommended_action":"abort",'
+        '"reason":"no output"}\n```\nDone.')
+    assert data["verdict"] == "stalled"
+
+
+def test_parse_meta_verdict_missing_key_raises():
+    import pytest
+    with pytest.raises(ValueError):
+        _parse_meta_verdict('{"verdict":"stalled","confidence":0.6}')
+
+
+def test_parse_meta_verdict_no_json_raises():
+    import pytest
+    with pytest.raises(ValueError):
+        _parse_meta_verdict("I cannot provide a structured answer.")
+
+
+class _MetaClient:
+    """Stub client: returns a scripted meta reply and records the call."""
+
+    def __init__(self, reply="", fail=False):
+        self.reply = reply
+        self.fail = fail
+        self.calls = 0
+        self.reads = []
+
+    def create_session(self, title):
+        return "meta-session"
+
+    def ask_and_get_text(self, sid, prompt, agent, model=None):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("model down")
+        return self.reply
+
+    def read_messages(self, sid):
+        self.reads.append(sid)
+        return []
+
+
+def test_meta_analyze_disabled_returns_none():
+    sup = Supervisor(_MetaClient(), session_id="s1", meta_enabled=False)
+    assert sup.meta_analyze() is None
+
+
+def test_meta_analyze_valid_verdict_passes_gate():
+    client = _MetaClient(reply='{"verdict":"looping","confidence":0.8,'
+                                 '"recommended_action":"abort","reason":"looping"}')
+    sup = Supervisor(client, session_id="s1", meta_enabled=True, meta_model="m")
+    verdict, action, confidence = sup.meta_analyze()
+    assert (verdict, action) == ("looping", "abort")
+    assert confidence == 0.8
+
+
+def test_meta_analyze_bad_verdict_rejected_falls_back_none():
+    # action not allowed for verdict -> gate rejects -> None (deterministic fallback)
+    client = _MetaClient(reply='{"verdict":"normal","confidence":0.9,'
+                               '"recommended_action":"abort","reason":"?"}')
+    sup = Supervisor(client, session_id="s1", meta_enabled=True, meta_model="m")
+    assert sup.meta_analyze() is None
+
+
+def test_meta_analyze_model_error_returns_none():
+    sup = Supervisor(_MetaClient(fail=True), session_id="s1",
+                     meta_enabled=True, meta_model="m")
+    assert sup.meta_analyze() is None
+
 
 
 def test_verdict_for_stall_escalates():

@@ -21,6 +21,8 @@ The watchdog loop is fully wired (no dead ladder): each poll it
 
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -97,13 +99,24 @@ def choose_action(verdict: str, action: str, confidence: float,
 
 
 def docker_restart(container: str) -> bool:
-    """L4: restart the worker container. Returns success. (Host-side, docker.)"""
-    try:
-        proc = subprocess.run(
-            ["docker", "restart", container], capture_output=True, timeout=60)
-        return proc.returncode == 0
-    except Exception:
-        return False
+    """L4: restart the worker container. Returns success. (Host-side, docker.)
+
+    Handles the common host where the invoking shell is in a pre-docker-group
+    session: tries plain `docker`, then falls back to `sg docker -c` (the wrapper
+    required when the shell's group list is stale).
+    """
+    candidates = [
+        ["docker", "restart", container],
+        ["sg", "docker", "-c", f"docker restart {container}"],
+    ]
+    for cmd in candidates:
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=60)
+            if proc.returncode == 0:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 @dataclass
@@ -146,6 +159,44 @@ def _verdict_for_stall(count: int) -> tuple[str, str, float]:
     return "escalate", L5_HUMAN, 0.9
 
 
+# -- intelligent meta-analysis (real model judges verdict, deterministic-gated) --
+
+_META_SYSTEM = (
+    "You are the independent meta-reviewer of an institutional-process robot. "
+    "A worker session appears stalled (busy but producing no new output). "
+    "Judge the situation from the goal, the deadline, and the session's recent "
+    "messages, and reply with STRICT JSON only (no prose, no markdown):\n"
+    '{"verdict":"normal|stalled|looping|blocked|error|escalate",'
+    '"confidence":0.0,"recommended_action":"none|nudge|abort|fallback_model|restart|human",'
+    '"reason":"1-2 sentences"}\n'
+    "Rules: verdict 'normal' => action 'none'. A genuinely stuck/looping session "
+    "=> 'looping' with abort/fallback_model. A hard block needing a human => "
+    "'blocked'/'escalate' with human. Never fabricate; use the evidence."
+)
+
+
+def _parse_meta_verdict(reply: str) -> dict:
+    """Parse the strict-JSON meta verdict from a model reply (pure, testable).
+
+    Raises ValueError if no usable JSON object is found.
+    """
+    text = reply.strip()
+    # tolerate surrounding prose/markdown fences by extracting the first {...}
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        raise ValueError(f"no JSON object in meta reply: {text[:200]!r}")
+    try:
+        data = json.loads(m.group(0))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"meta reply JSON invalid: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("meta reply is not a JSON object")
+    for key in ("verdict", "recommended_action", "confidence"):
+        if key not in data:
+            raise ValueError(f"meta reply missing '{key}'")
+    return data
+
+
 class Supervisor:
     """Drives a fully-wired watchdog loop: SSE ingest + T1 + T2 + deadline + ladder."""
 
@@ -160,6 +211,10 @@ class Supervisor:
         deadline_sec: float | None = None,
         session_id: str | None = None,
         goal: str = "",
+        meta_enabled: bool = False,
+        meta_model: str | None = None,
+        agent_reviewer: str = "reviewer",
+        meta_max_context_msgs: int = 20,
     ) -> None:
         self.client = client
         self.reporter = reporter
@@ -169,9 +224,14 @@ class Supervisor:
         self.deadline_sec = deadline_sec
         self.session_id = session_id
         self.goal = goal
+        self.meta_enabled = meta_enabled
+        self.meta_model = meta_model
+        self.agent_reviewer = agent_reviewer
+        self.meta_max_context_msgs = meta_max_context_msgs
         self.watch = SessionWatch()
         self.ladder = LadderState()
         self._start = time.time()
+        self._meta_sid: str | None = None
 
     # -- SSE event ingress (wired: called by the run loop) -------------------
 
@@ -197,6 +257,71 @@ class Supervisor:
             pass  # a transient SSE failure must not kill the watchdog loop
         return count
 
+    # -- intelligent meta-analysis (real model judges the verdict) ------------
+
+    def _session_context(self, max_msgs: int) -> str:
+        """Render recent messages of the supervised session as analysis evidence."""
+        try:
+            msgs = self.client.read_messages(self.session_id)
+        except Exception as exc:
+            self._record("meta_error", err=str(exc))
+            return "(could not read session messages)"
+        lines = []
+        for m in msgs[-max_msgs:]:
+            role = m.role or "?"
+            text = (m.reply or m.text or "").strip()
+            if text:
+                lines.append(f"[{role}] {text[:400]}")
+        return "\n".join(lines[-max_msgs:]) or "(no messages)"
+
+    def meta_analyze(self) -> tuple[str, str, float] | None:
+        """Ask an independent model to judge the stall; return a gated verdict.
+
+        Returns ``(verdict, action, confidence)`` only if the model reply parses
+        to strict JSON AND passes the deterministic gate; otherwise records the
+        failure and returns None (the caller falls back to the deterministic
+        ladder). This is the real-model rung kept honest by ``gate_meta``.
+        """
+        if self.session_id is None or not self.meta_enabled:
+            return None
+        if self._meta_sid is None:
+            try:
+                self._meta_sid = self.client.create_session("regime-meta")
+            except Exception as exc:
+                self._record("meta_error", err=f"create session: {exc}")
+                return None
+        context = self._session_context(self.meta_max_context_msgs)
+        prompt = (
+            f"{_META_SYSTEM}\n\n"
+            f"GOAL: {self.goal or '(not provided)'}\n"
+            f"DEADLINE_SEC: {self.deadline_sec}\n"
+            f"SESSION: {self.session_id}\n"
+            f"RECENT MESSAGES:\n{context}\n\n"
+            "Verdict JSON:"
+        )
+        try:
+            reply = self.client.ask_and_get_text(
+                self._meta_sid, prompt, self.agent_reviewer, model=self.meta_model)
+        except Exception as exc:
+            self._record("meta_error", err=str(exc))
+            return None
+        try:
+            data = _parse_meta_verdict(reply)
+            verdict = str(data["verdict"])
+            action = str(data["recommended_action"])
+            confidence = float(data["confidence"])
+        except (ValueError, TypeError) as exc:
+            self._record("meta_error", err=f"parse: {exc}")
+            return None
+        try:
+            gate_meta(verdict, action, confidence)
+        except MetaGateReject as exc:
+            self._record("meta_gate_reject", reason=str(exc))
+            return None
+        self._record("meta_verdict", verdict=verdict, action=action,
+                     confidence=confidence, session=self.session_id)
+        return verdict, action, confidence
+
     # -- run loop (fully wired: ingest + T1 + T2 + deadline + ladder) --------
 
     def run(self, *, once: bool = False, stop_when: "Callable[[], bool] | None" = None) -> str:
@@ -221,8 +346,16 @@ class Supervisor:
                 stalled = self.watch.is_stalled(
                     time.time(), self.stall_sec, busy, output)
                 if stalled:
-                    verdict, action, confidence = _verdict_for_stall(
-                        self.watch.consecutive_stalls)
+                    if self.meta_enabled:
+                        meta = self.meta_analyze()
+                    else:
+                        meta = None
+                    if meta is not None:
+                        verdict, action, confidence = meta
+                    else:
+                        # deterministic fallback (or no meta model available)
+                        verdict, action, confidence = _verdict_for_stall(
+                            self.watch.consecutive_stalls)
                     action = choose_action(verdict, action, confidence, self.ladder)
                     self._execute(action, verdict)
                     if action == L5_HUMAN:
