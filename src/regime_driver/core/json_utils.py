@@ -1,15 +1,13 @@
 """Shared pure helpers for LLM-reply parsing (core, no I/O).
 
 Centralizes logic that is otherwise duplicated across app modules: extracting a
-JSON object from an LLM's free-text reply, and extracting the latest assistant
-text from a message list.
+JSON object from an LLM's free-text reply.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
 
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 
@@ -27,16 +25,3 @@ def extract_json(text: str | None) -> dict | None:
         return json.loads(m.group(0))
     except json.JSONDecodeError:
         return None
-
-
-def latest_assistant_text(messages: Sequence[object]) -> str:
-    """The text of the newest assistant message, or '' if none.
-
-    Accepts any sequence of objects exposing ``.role`` and ``.text`` (duck-typed
-    so core stays free of infra imports).
-    """
-    for m in reversed(messages or []):
-        role = getattr(m, "role", None)
-        if role == "assistant":
-            return getattr(m, "text", "") or ""
-    return ""

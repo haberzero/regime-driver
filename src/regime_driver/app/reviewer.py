@@ -11,7 +11,6 @@ and L0.
 
 from __future__ import annotations
 
-import threading
 from dataclasses import dataclass
 
 from ..core.contract import (
@@ -22,7 +21,7 @@ from ..core.contract import (
 from ..core.json_utils import extract_json
 from ..core.models import GateResult, ReviewerVerdict
 from ..core.state_machine import StateMachine
-from ..infra.opencode import OpenCodeClient, OpenCodeError
+from ..infra.opencode import OpenCodeClient
 from ..infra.skill_loader import SkillNotFoundError, load_skill
 
 SYSTEM_PROMPT = (
@@ -147,48 +146,6 @@ class Reviewer:
         if valid_targets is None:
             valid_targets = set(self.state_machine.successors(node_id))
         return self._parse(text, node_id, valid_targets)
-
-    def judge(
-        self,
-        node_id: str,
-        context: str,
-        developer_report: str | None = None,
-        extra_context: str | None = None,
-        valid_targets: set[str] | None = None,
-        cancel_event: threading.Event | None = None,
-    ) -> ReviewerResult:
-        """Call the reviewer, parse + gate the reply, retrying with feedback.
-
-        valid_targets: the set of node ids the reviewer may advance to (the
-        current node's successors). If None, defaults to the current node's
-        successors (never the full node set, to prevent backward/self advance).
-
-        Returns the first gated verdict, or a ReviewerResult carrying the last
-        error/rejection reason.
-        """
-        if valid_targets is None:
-            valid_targets = set(self.state_machine.successors(node_id))
-        retry_feedback: str | None = None
-        last_failure: ReviewerResult | None = None
-        for attempt in range(self.max_retries + 1):
-            if cancel_event is not None and cancel_event.is_set():
-                return ReviewerResult(error="cancelled by monitor")
-            prompt = self._build_prompt(
-                node_id, context, developer_report, extra_context, retry_feedback, valid_targets
-            )
-            try:
-                text = self.client.ask_and_get_text(
-                    self.session_id, SYSTEM_PROMPT + "\n\n" + prompt, self.agent
-                )
-            except OpenCodeError as exc:
-                last_failure = ReviewerResult(error=str(exc))
-                break
-            result = self._parse(text, node_id, valid_targets)
-            if result.ok:
-                return result
-            last_failure = result
-            retry_feedback = result.error or (result.gate.reason if result.gate else "unknown")
-        return last_failure or ReviewerResult(error="reviewer failed")
 
     def _parse(self, text: str, node_id: str, valid_targets: set[str] | None = None) -> ReviewerResult:
         raw = extract_json(text)

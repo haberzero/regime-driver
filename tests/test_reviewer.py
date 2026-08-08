@@ -17,18 +17,6 @@ REGIME = Path(__file__).parent.parent / "src" / "regime_driver" / "data" / "regi
 SKILLS = Path(__file__).parent.parent / "workflow-regime" / "skills"
 
 
-class FakeClient:
-    """Minimal fake OpenCodeClient for reviewer tests."""
-
-    def __init__(self, reply: str):
-        self.reply = reply
-        self.calls = []
-
-    def ask_and_get_text(self, session_id, prompt, agent, model=None):
-        self.calls.append((session_id, agent))
-        return self.reply
-
-
 def make_sm():
     return StateMachine.from_dict(REGIME.read_text(encoding="utf-8"))
 
@@ -62,48 +50,43 @@ def test_extract_json_none():
     assert extract_json("no json here") is None
 
 
-def test_reviewer_judge_ok():
+def test_reviewer_parse_ok():
     sm = make_sm()
-    client = FakeClient(json.dumps(good_verdict()))
-    reviewer = Reviewer(client, "s1", "reviewer", sm, skills_dir=str(SKILLS))
-    result = reviewer.judge("design", "ctx")
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict()), "design")
     assert result.ok
     assert result.verdict.action == "advance"
 
 
-def test_reviewer_judge_node_mismatch():
+def test_reviewer_parse_node_mismatch():
     sm = make_sm()
-    client = FakeClient(json.dumps(good_verdict(node="wrong")))
-    reviewer = Reviewer(client, "s1", "reviewer", sm, skills_dir=str(SKILLS))
-    result = reviewer.judge("design", "ctx")
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict(node="wrong")), "design")
     assert not result.ok
     assert "node mismatch" in result.error
 
 
-def test_reviewer_judge_bad_next_state():
+def test_reviewer_parse_bad_next_state():
     sm = make_sm()
-    client = FakeClient(json.dumps(good_verdict(next_state="nope")))
-    reviewer = Reviewer(client, "s1", "reviewer", sm, skills_dir=str(SKILLS))
-    result = reviewer.judge("design", "ctx")
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict(next_state="nope")), "design")
     assert not result.ok
     assert "next_state" in result.gate.reason
 
 
-def test_reviewer_judge_no_json():
+def test_reviewer_parse_no_json():
     sm = make_sm()
-    client = FakeClient("no json")
-    reviewer = Reviewer(client, "s1", "reviewer", sm)
-    result = reviewer.judge("design", "ctx")
+    reviewer = Reviewer(None, "s1", "reviewer", sm)
+    result = reviewer.parse_reply("no json", "design")
     assert not result.ok
     assert "no JSON" in result.error
 
 
-def test_reviewer_injects_skill():
+def test_reviewer_prompt_injects_skill():
     sm = make_sm()
-    client = FakeClient(json.dumps(good_verdict()))
-    reviewer = Reviewer(client, "s1", "reviewer", sm, skills_dir=str(SKILLS))
-    result = reviewer.judge("design", "ctx")  # design has skill=design-philosophy
-    assert result.ok
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    prompt = reviewer.prompt_for("design", "ctx")  # design has skill=design-philosophy
+    assert "设计哲学" in prompt
 
 
 # --- skill loader -----------------------------------------------------------
@@ -158,9 +141,8 @@ def test_task_control_append_preserves(tmp_path):
 def test_advance_target_is_used():
     """Advance must return the reviewer's chosen target, not the static next."""
     sm = make_sm()
-    client = FakeClient(json.dumps(good_verdict()))
-    reviewer = Reviewer(client, "s1", "reviewer", sm, skills_dir=str(SKILLS))
-    result = reviewer.judge("design", "ctx")
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict()), "design")
     assert result.ok
     assert result.verdict.next_state == "implement"
 
@@ -171,8 +153,7 @@ def test_successors_restricts_advance():
     assert sm.successors("design") == ["implement"]
     assert sm.successors("test") == ["wrap"]
     # backward advance must be rejected
-    client = FakeClient(json.dumps(good_verdict(next_state="read_code")))
-    reviewer = Reviewer(client, "s1", "reviewer", sm, skills_dir=str(SKILLS))
-    result = reviewer.judge("design", "ctx")
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict(next_state="read_code")), "design")
     assert not result.ok
     assert "not in state machine" in result.gate.reason

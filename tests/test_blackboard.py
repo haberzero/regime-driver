@@ -74,7 +74,7 @@ def test_runtime_attaches_blackboard_and_publishes():
 
 def test_workflow_status_shared_helper():
     """The shared workflow_status helper derives per-workflow views from the
-    blackboard (single source of truth for telemetry + god dialog)."""
+    blackboard (single source of truth for god dialog + report)."""
     bb = Blackboard()
     bb.update(**{"w1.node": "design", "w1.state": "running", "w1.node_count": 2,
                  "w2.node": "implement", "w2.extra": "ignored", "notmetric": 1})
