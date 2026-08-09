@@ -19,6 +19,7 @@ GUARDED = {
     "task.py": {},
     "drive.py": {},
     "worker.py": {},
+    "fleet.py": {},
     "app/reporter.py": {},
     "app/preflight.py": {},
     "app/god_dialog.py": {},

@@ -78,10 +78,12 @@ class _FakeDocker:
             import json as _json
             return CompletedProcess(args, 0, _json.dumps(ports).encode(), b"")
         if cmd == "run":
-            n = args[args.index("--name") + 1]
-            self.containers[n] = "running"
-            if "-p" in args:
-                self.ports[n] = int(args[args.index("-p") + 1].split(":")[0])
+            # worker launch has --name; the chown cleanup helper does not
+            if "--name" in args:
+                n = args[args.index("--name") + 1]
+                self.containers[n] = "running"
+                if "-p" in args:
+                    self.ports[n] = int(args[args.index("-p") + 1].split(":")[0])
             from subprocess import CompletedProcess
             return CompletedProcess(args, 0, b"", b"")
         if cmd == "rm":

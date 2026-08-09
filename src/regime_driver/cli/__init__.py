@@ -596,9 +596,9 @@ def _write_drive_summary(summary_file: str, data: dict) -> None:
 @app.command("drive-many")
 def drive_many(
     contexts: list[str] = typer.Argument(..., help="one task context per fleet member"),
-    workspaces: list[str] = typer.Option(
-        None, "--workspaces", "-w", help="workspace per task (auto-assigned if fewer; "
-        "each task runs in its own isolated worker instance)"),
+    workspaces: str = typer.Option(
+        None, "--workspaces", "-w", help="comma-separated workspaces, one per task "
+        "(auto-assigned if fewer; each task runs in its own isolated worker instance)"),
     workers: int = typer.Option(
         None, "--workers", help="max concurrent fleet members (default: all at once)"),
     base: str = typer.Option(None, "--base", help="ignored when --workspaces used"),
@@ -652,7 +652,8 @@ def drive_many(
         _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
 
     task_ids = [f"w{i + 1}" for i in range(len(contexts))]
-    ws = Fleet.auto_workspaces(task_ids, list(workspaces or []))
+    requested = [w.strip() for w in (workspaces or "").split(",") if w.strip()]
+    ws = Fleet.auto_workspaces(task_ids, requested)
     tasks = [FleetTask(task_ids[i], contexts[i], ws[i])
              for i in range(len(contexts))]
     journal = str(reporter) if reporter else None

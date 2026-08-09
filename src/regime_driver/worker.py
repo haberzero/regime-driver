@@ -265,8 +265,14 @@ class WorkerPool:
         key = self._resolve_key(self.api_key)
         if not key:
             raise DockerError("no DEEPSEEK_API_KEY to launch a worker instance")
+        # The worker MUST run as root: its home is /root and opencode needs to
+        # write there; running as a non-root user breaks session creation (HTTP
+        # 500). Consequence: workspace files written by the container are
+        # root-owned. To keep them host-manageable, `remove()`/`clean()` chown
+        # the workspace back to the host uid:gid via a throwaway root container.
         self._run_docker([
-            "run", "-d", "--name", name, "-p", f"{port}:4097",
+            "run", "-d", "--name", name,
+            "-p", f"{port}:4097",
             "-v", f"{work_dir}:/root/work",
             "-e", f"DEEPSEEK_API_KEY={key}",
             self.image,
@@ -282,15 +288,35 @@ class WorkerPool:
         raise DockerError(f"worker instance {name} did not become healthy in 120s")
 
     def remove(self, workspace: str) -> bool:
-        """Stop + remove the instance for a workspace. Returns True if removed."""
+        """Stop + remove the instance for a workspace. Returns True if removed.
+
+        Before removing, chowns the (root-owned) workspace back to the host
+        uid:gid via a throwaway root container, so the host user can manage/clean
+        the workspace files afterwards.
+        """
         name = self.container_for(workspace)
         if self._container_status(name) is None:
             return False
         try:
             self._run_docker(["rm", "-f", name], timeout=60)
-            return True
         except DockerError:
             return False
+        self._chown_workspace(workspace)
+        return True
+
+    def _chown_workspace(self, workspace: str) -> None:
+        """Best-effort: chown the workspace to the host uid:gid via root container."""
+        work_dir = self.work_dir_for(workspace)
+        if not work_dir.exists():
+            return
+        try:
+            self._run_docker([
+                "run", "--rm", "--entrypoint", "/bin/chown",
+                "-v", f"{work_dir}:/w",
+                self.image, "-R", f"{os.getuid()}:{os.getgid()}", "/w",
+            ], timeout=120)
+        except DockerError:
+            pass  # best-effort; workspace stays root-owned if chown fails
 
     def list(self) -> list[WorkerInstance]:
         return [self.get(ws) for ws in self.list_workspaces() if self.get(ws) is not None]
