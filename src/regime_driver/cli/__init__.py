@@ -591,6 +591,101 @@ def _write_drive_summary(summary_file: str, data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# drive-many (concurrent isolated fleet: N full-stack drives, one per workspace)
+# ---------------------------------------------------------------------------
+@app.command("drive-many")
+def drive_many(
+    contexts: list[str] = typer.Argument(..., help="one task context per fleet member"),
+    workspaces: list[str] = typer.Option(
+        None, "--workspaces", "-w", help="workspace per task (auto-assigned if fewer; "
+        "each task runs in its own isolated worker instance)"),
+    workers: int = typer.Option(
+        None, "--workers", help="max concurrent fleet members (default: all at once)"),
+    base: str = typer.Option(None, "--base", help="ignored when --workspaces used"),
+    config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
+    regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
+    deadline: int = typer.Option(None, "--deadline", help="global deadline (sec) per fleet member"),
+    reporter: Optional[Path] = typer.Option(
+        None, "--reporter", help="append-only report journal path (single truth for the fleet)"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    meta: bool = typer.Option(
+        False, "--meta", help="enable intelligent meta-analysis (real model judges a stall)"),
+    meta_model: str = typer.Option(
+        Settings().model, "--meta-model", help="model for meta-analysis"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
+    perm: str = typer.Option("run", "--perm", help="held permission level "
+                             "(read|interact|run|clean); gates write ops"),
+    no_preflight: bool = typer.Option(
+        False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"),
+) -> None:
+    """Run a fleet of isolated full-stack drives in parallel.
+
+    Each task runs in its OWN workspace worker instance (physical isolation via
+    the multi-instance WorkerPool), sharing ONE reporter journal. This is the
+    concurrent-self-driving entry: multiple tasks can run simultaneously without
+    clobbering each other's files.
+    """
+    _gate(perm, ["drive-many", *contexts])
+    from ..app.preflight import preflight
+    from ..app.reporter import Reporter
+    from ..core.state_machine import StateMachineError
+    from ..fleet import Fleet, FleetTask
+
+    settings = load_settings(
+        config_file=config,
+        overrides={
+            "base_url": base,
+            "regime_path": str(regime) if regime else None,
+            "default_deadline_sec": deadline,
+            "skills_dir": str(skills_dir) if skills_dir else None,
+        },
+    )
+    try:
+        sm = load_regime(regime)
+    except (StateMachineError, FileNotFoundError) as exc:
+        _fail(f"error loading regime: {exc}")
+    if not no_preflight:
+        res = preflight(sm, timeout_sec=30.0)
+        if not res["ok"]:
+            _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
+        _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
+
+    task_ids = [f"w{i + 1}" for i in range(len(contexts))]
+    ws = Fleet.auto_workspaces(task_ids, list(workspaces or []))
+    tasks = [FleetTask(task_ids[i], contexts[i], ws[i])
+             for i in range(len(contexts))]
+    journal = str(reporter) if reporter else None
+    rep = Reporter(journal_path=journal, project_id="fleet")
+    fleet = Fleet(
+        settings, sm, rep, deadline_sec=deadline,
+        meta_enabled=meta, meta_model=meta_model,
+    )
+    try:
+        _ok(f"fleet of {len(tasks)} starting: {', '.join(f'{t.task_id}@{t.workspace}' for t in tasks)}",
+            markup=False)
+        results = fleet.run(tasks, worker_count=workers)
+        if json_out:
+            _emit_json({"results": {tid: dr.to_dict() for tid, dr in results.items()}})
+            if any(dr.outcome != Outcome.COMPLETE.value for dr in results.values()):
+                raise typer.Exit(1)
+            return
+        print(f"\n=== drive-many fleet 结果 ({len(results)} tasks) ===")
+        ws_by_id = {t.task_id: t.workspace for t in tasks}
+        for tid, dr in results.items():
+            mark = "✓" if dr.outcome == Outcome.COMPLETE.value else "✗"
+            console.print(f"  {mark} {tid} @ {ws_by_id.get(tid, '?')}: {dr.outcome} "
+                          f"({dr.elapsed_sec}s) supervisor={dr.supervisor}")
+        bad = [tid for tid, dr in results.items()
+               if dr.outcome != Outcome.COMPLETE.value]
+        if bad:
+            _fail(f"{len(bad)} fleet member(s) not complete: {', '.join(bad)}", markup=False)
+        _ok(f"all {len(results)} fleet members done", markup=False)
+    finally:
+        rep.close()
+
+
+# ---------------------------------------------------------------------------
 # preflight
 # ---------------------------------------------------------------------------
 @app.command("preflight")
