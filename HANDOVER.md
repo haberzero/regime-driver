@@ -275,11 +275,22 @@ ops/up.sh god --rebuild   # 强制重建固化镜像再起
 
 # 多 opencode 实例工作区隔离（P2: 每工作区一个实例, 无重复, 角色用session）
 export REGIME_WORKSPACE_ROOT=~/oc-meta/workspaces   # 工作区根(默认)
+export REGIME_WORKER_MAX_INSTANCES=8                # 可选: 舰队实例上限
 conda run -n regime-driver regime worker up <ws>     # 起/复用工作区实例(不重复)
 conda run -n regime-driver regime worker list        # 列实例+健康
 conda run -n regime-driver regime worker base <ws>   # 工作区实例 base_url
-conda run -n regime-driver regime worker down <ws>   # 停止并移除实例
+conda run -n regime-driver regime worker down <ws>   # 停止并移除实例(含chown回宿主)
+conda run -n regime-driver regime worker prune [--dry-run] [--max-instances N]  # 回收空闲实例/设上限
 conda run -n regime-driver regime drive "<任务>" --workspace <ws> --container opencode-worker-<ws> --reporter /tmp/rep.jsonl   # 在隔离工作区跑整套栈
+
+# 并发隔离舰队（P2: N个任务各自工作区并行全栈）
+conda run -n regime-driver regime drive-many "t1" "t2" "t3" \
+  --workspaces "wsA,wsB,wsC" --workers 2 --deadline 600 --reporter /tmp/fleet.jsonl
+
+# 混沌/故障演练（P2）
+conda run -n regime-driver regime chaos list                              # 场景列表
+conda run -n regime-driver regime chaos inject kill <ws>                  # 注入单故障
+conda run -n regime-driver regime chaos scenario worker-crash-recovery <ws>  # 崩溃恢复场景
 
 # 单测 / E2E（E2E 门控: REGIME_E2E=1 且 worker 健康）
 conda run -n regime-driver python -m pytest
