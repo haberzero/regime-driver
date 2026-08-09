@@ -168,13 +168,14 @@
 
 ### 当前状态速览（2026-08-08）
 
-- **测试基线 285 passed（+5 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 299 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、
   以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker` 管理，物理隔离）、
   `opencode-autopilot`（4096，web，M0 遗产已退役监督）。
 - **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
   `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈** +
-  **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）。
+  **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）+
+  **`Fleet` 并发隔离舰队** + **`chaos` 故障注入/恢复演练**。
 - **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild）。
 - **技术债**：G1–G14 全清（`docs/TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
 - **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
@@ -191,6 +192,9 @@
 | ~~P1~~ | ~~CI 接入真实 E2E~~ | ✅ 已完 | `ci.yml` e2e-real job（secret 门控），真实执行链成回归门槛 |
 | ~~P2~~ | ~~测试金字塔/守卫扩展 + B 路 T8~~ | ✅ 已完 | 死代码守卫扩 drive/god_dialog；GodDialog `sessions/abort/reclaim`；**修权限 classify 洞**（drive/task/supervisor 原绕过写门禁） |
 | ~~P2~~ | ~~worker 工作区物理隔离~~ | ✅ 已完 | 转"多 opencode 实例，每工作区一个"（用户指令）：`regime_driver.worker.WorkerPool` + `regime worker up/down/list/base` + `drive --workspace`；真实 E2E 隔离验证通过，见 `DESIGN-worker-isolation.md` |
+| ~~P2~~ | ~~并发隔离舰队~~ | ✅ 已完 | `regime_driver.fleet.Fleet` + `regime drive-many --workspaces`：并行全栈 Drive 每工作区一实例，共享一 reporter；`DESIGN-fleet.md` |
+| ~~P2~~ | ~~舰队控制面~~ | ✅ 已完 | `WorkerPool.max_instances`(env REGIME_WORKER_MAX_INSTANCES) + `regime worker prune`(回收无会话空闲实例) + GodDialog `fleet` 舰队视图 |
+| ~~P2~~ | ~~混沌/故障演练~~ | ✅ 已完 | `regime_driver.chaos.FaultInjector` + `regime chaos list/inject/scenario`（worker-crash-recovery 真实恢复验证）；`DESIGN-chaos.md` |
 | **P3** | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转 MockClient（非 drop-in，防漂移）；如需统一另建轻量脚本化 fake |
 
 > 若只做一件：选 **worker 工作区隔离**（已按用户指令以"多实例每工作区一个"完成，见 `DESIGN-worker-isolation.md`）。

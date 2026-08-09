@@ -1466,6 +1466,81 @@ app.add_typer(_worker_app, name="worker")
 
 
 # ---------------------------------------------------------------------------
+# chaos (fault injection + recovery verification)
+# ---------------------------------------------------------------------------
+_chaos_app = typer.Typer(
+    help="Chaos: inject faults into worker instances and verify recovery.")
+
+
+@_chaos_app.command("list")
+def chaos_list(json_out: bool = typer.Option(False, "--json")) -> None:
+    """List available chaos scenarios."""
+    from ..chaos import FaultInjector
+
+    if json_out:
+        _emit_json({"scenarios": list(FaultInjector.SCENARIOS)})
+        return
+    _ok("scenarios: " + ", ".join(FaultInjector.SCENARIOS), markup=False)
+
+
+@_chaos_app.command("inject")
+def chaos_inject(
+    fault: str = typer.Argument(..., help="kill | stop | start | restart"),
+    workspace: str = typer.Argument(..., help="workspace id"),
+    json_out: bool = typer.Option(False, "--json"),
+) -> None:
+    """Inject a single fault / recovery action on a workspace instance."""
+    from ..chaos import FaultInjector
+
+    inj = FaultInjector()
+    if fault == "kill":
+        res = inj.kill(workspace)
+    elif fault == "stop":
+        res = inj.stop(workspace)
+    elif fault == "start":
+        res = inj.start(workspace)
+    elif fault == "restart":
+        res = inj.restart(workspace)
+    else:
+        _fail(f"unknown fault '{fault}' (kill|stop|start|restart)")
+    if json_out:
+        _emit_json(res.to_dict())
+        return
+    (console.print("✓", style="bold green") if res.ok else console.print("✗", style="bold red"))
+    console.print(f"  {res.fault} {res.workspace}: {res.detail or 'ok'}")
+
+
+@_chaos_app.command("scenario")
+def chaos_scenario(
+    scenario: str = typer.Argument(..., help="scenario name (worker-crash-recovery)"),
+    workspace: str = typer.Argument(..., help="workspace id (must already exist)"),
+    json_out: bool = typer.Option(False, "--json"),
+) -> None:
+    """Run a recovery scenario: inject fault, observe, recover, verify healthy."""
+    from ..chaos import FaultInjector
+
+    inj = FaultInjector()
+    log = inj.run_scenario(scenario, workspace)
+    ok = all(l.ok for l in log)
+    if json_out:
+        _emit_json({"scenario": scenario, "workspace": workspace,
+                    "ok": ok, "log": [l.to_dict() for l in log]})
+        if not ok:
+            raise typer.Exit(1)
+        return
+    for l in log:
+        mark = "✓" if l.ok else "✗"
+        console.print(f"  {mark} {l.fault} {l.workspace} {l.detail or ''}")
+    if ok:
+        _ok(f"scenario '{scenario}' passed (worker recovered)", markup=False)
+    else:
+        _fail(f"scenario '{scenario}' failed (worker did not recover)")
+
+
+app.add_typer(_chaos_app, name="chaos")
+
+
+# ---------------------------------------------------------------------------
 # job (subcommands: list / status) — async job registry
 # ---------------------------------------------------------------------------
 _job_app = typer.Typer(help="Query background async jobs (run/run-many --async).")

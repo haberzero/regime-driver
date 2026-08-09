@@ -1,0 +1,39 @@
+# 混沌演练（DESIGN-chaos）
+
+> 目的：把纠正阶梯从"能演示"推进到"系统性注入故障并验证恢复"。状态：已实施（2026-08-09）。
+> 依据：HANDOVER 下一步 #2（混沌/故障演练）。测试：`tests/test_chaos.py`（4）+ 真实场景。
+
+## 问题
+
+纠正阶梯（卡死→abort→回退→重启）已真实（P0#2），但没有一个**可重复的故障注入 + 恢复验证**
+的编排。混沌演练把"在坏条件下系统仍收敛"变成可回归的保证（抗扰动），而不只是演示。
+
+## 架构
+
+```
+regime_driver.chaos.FaultInjector        —— 对 worker 实例注入/恢复故障（docker）
+  ├─ kill(ws) / stop(ws) / start(ws) / restart(ws)   —— 单动作
+  ├─ healthy(ws)                                      —— 实例 opencode 健康
+  └─ run_scenario(scenario, ws)                       —— 编排一个恢复场景
+       worker-crash-recovery: start(确保起) → kill(崩溃) → observe_down →
+                              start(恢复) → observe_recovered
+CLI: regime chaos list | inject <fault> <ws> | scenario <name> <ws>
+```
+
+- 场景先 `start` 确保容器在跑（幂等，容忍已停），再 `kill` 模拟硬崩溃，观察 down，
+  再 `start` 恢复，等待健康——全程记录动作日志 `FaultResult`。
+- docker 交互经 `WorkerPool._run_docker`（sg 回退），可用 fake 离线单测。
+
+## 验证
+
+1. 单测：`test_chaos.py`（4）——场景列表、未知场景报错、崩溃恢复全 ok、单动作。
+2. 真实场景：`regime chaos scenario worker-crash-recovery chw1` →
+   `start → kill → observe_down → start → observe_recovered` 全 ✓，worker 恢复。✅
+3. 与既有 `test_real_supervisor_t1_restart_recovery`（监督器 L4 重启恢复）互补：
+   前者验证 supervisor 反应，后者是独立可重复的故障编排工具。
+
+## 边界
+
+- 故障注入作用于**已有实例**（需先 `regime worker up <ws>`）。
+- `kill` 是 SIGKILL（硬崩溃）；`stop` 是优雅停。恢复用 `docker start`/`restart`。
+- 真实恢复验证依赖 worker 容器可被 docker 控制（宿主权限）。
