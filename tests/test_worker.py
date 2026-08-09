@@ -131,8 +131,8 @@ def test_ensure_requires_key(tmp_path):
     fake = _FakeDocker()
     pool = WorkerPool(workspace_root=tmp_path, api_key=None)
     pool._run_docker = fake
-    # force key resolution to be empty (independent of the host's key file/env)
-    pool._resolve_key = lambda api_key: ""
+    # force key resolution to be empty (independent of the host's key files/env)
+    pool._resolve_keys = lambda: {}
     with pytest.raises(DockerError):
         pool.ensure("algo")
 

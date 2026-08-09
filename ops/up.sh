@@ -31,15 +31,17 @@ else
 fi
 
 # --- key ---------------------------------------------------------------
-require_key() {
-  if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
-    local kf="$HOME/.regime/keys/deepseek.key"
-    if [[ -f "$kf" ]]; then
-      DEEPSEEK_API_KEY="$(tr -d '[:space:]' < "$kf")"
-    fi
+read_key() { # $1=env_name $2=key_file ; sets the env var
+  local name="$1" file="$2"
+  if [[ -z "${!name:-}" && -f "$HOME/.regime/keys/$file" ]]; then
+    export "$name"="$(tr -d '[:space:]' < "$HOME/.regime/keys/$file")"
   fi
-  if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
-    echo "✗ 未找到 DEEPSEEK_API_KEY (设环境变量或写 $HOME/.regime/keys/deepseek.key)" >&2
+}
+require_key() {
+  read_key DEEPSEEK_API_KEY deepseek.key
+  read_key OPENCODE_GO_API_KEY opencode-go.key
+  if [[ -z "${DEEPSEEK_API_KEY:-}" && -z "${OPENCODE_GO_API_KEY:-}" ]]; then
+    echo "✗ 未找到模型 API key (设 DEEPSEEK_API_KEY/OPENCODE_GO_API_KEY 或写 ~/.regime/keys/*.key)" >&2
     exit 1
   fi
 }
@@ -57,9 +59,12 @@ up_worker() {
   fi
   require_key
   echo "== 启动 $name (端口 $WORKER_PORT) =="
+  local extra=()
+  [[ -n "${OPENCODE_GO_API_KEY:-}" ]] && extra+=(-e OPENCODE_GO_API_KEY="$OPENCODE_GO_API_KEY")
   dx run -d --name "$name" \
     -p "${WORKER_PORT}:4097" \
     -e DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+    "${extra[@]}" \
     "$img" >/dev/null
   wait_health "http://127.0.0.1:${WORKER_PORT}/global/health" "$name"
 }
@@ -80,6 +85,7 @@ up_god() {
   # --network host 使容器内 127.0.0.1:<worker_port> 直达宿主的 worker
   dx run -d --name "$name" --network host \
     -e DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+    -e OPENCODE_GO_API_KEY="$OPENCODE_GO_API_KEY" \
     -e OPENCODE_PORT="$GOD_PORT" \
     "$img" >/dev/null
   wait_health "http://127.0.0.1:${GOD_PORT}/global/health" "$name"

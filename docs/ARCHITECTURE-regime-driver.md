@@ -211,7 +211,7 @@ class SegmentReport(BaseModel):
 ```python
 class Settings(BaseModel):
     base_url: str = "http://127.0.0.1:4097"
-    model: str = "deepseek-api/deepseek-v4-flash"
+    model: str = "my-opencode-go/deepseek-v4-flash"
     agent_developer: str = "developer"
     agent_reviewer: str = "reviewer"
     default_deadline_sec: int = 600

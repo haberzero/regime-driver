@@ -242,17 +242,32 @@ class WorkerPool:
             return False
 
     @staticmethod
-    def _resolve_key(api_key: str | None) -> str:
-        """Resolve the model key: explicit arg > env > ~/.regime/keys/deepseek.key."""
-        if api_key:
-            return api_key
-        env = os.environ.get("DEEPSEEK_API_KEY")
-        if env:
-            return env
-        kf = Path.home() / ".regime" / "keys" / "deepseek.key"
+    def _read_key_file(name: str) -> str:
+        kf = Path.home() / ".regime" / "keys" / name
         if kf.exists():
-            return kf.read_text(encoding="utf-8").strip()
+            try:
+                return kf.read_text(encoding="utf-8").strip()
+            except OSError:
+                return ""
         return ""
+
+    @classmethod
+    def _resolve_keys(cls) -> dict[str, str]:
+        """Resolve model API keys for a launched worker.
+
+        Sources (per key): explicit env var > `~/.regime/keys/<name>.key`. This
+        keeps keys OUT of configs/images (never committed): the container only
+        receives them as env vars at runtime.
+        """
+        out: dict[str, str] = {}
+        for env_name, file_name in (
+            ("DEEPSEEK_API_KEY", "deepseek.key"),
+            ("OPENCODE_GO_API_KEY", "opencode-go.key"),
+        ):
+            val = os.environ.get(env_name) or cls._read_key_file(file_name)
+            if val:
+                out[env_name] = val
+        return out
 
     def ensure(self, workspace: str) -> WorkerInstance:
         """Return the instance for a workspace, creating it if absent.
@@ -271,19 +286,24 @@ class WorkerPool:
         work_dir = self.work_dir_for(workspace)
         work_dir.mkdir(parents=True, exist_ok=True)
         port = self._free_port()
-        key = self._resolve_key(self.api_key)
-        if not key:
-            raise DockerError("no DEEPSEEK_API_KEY to launch a worker instance")
+        keys = self._resolve_keys()
+        if not keys:
+            raise DockerError(
+                "no model API key to launch a worker instance (set DEEPSEEK_API_KEY / "
+                "OPENCODE_GO_API_KEY or write ~/.regime/keys/*.key)")
         # The worker MUST run as root: its home is /root and opencode needs to
         # write there; running as a non-root user breaks session creation (HTTP
         # 500). Consequence: workspace files written by the container are
         # root-owned. To keep them host-manageable, `remove()`/`clean()` chown
         # the workspace back to the host uid:gid via a throwaway root container.
+        env_args: list[str] = []
+        for env_name, val in keys.items():
+            env_args += ["-e", f"{env_name}={val}"]
         self._run_docker([
             "run", "-d", "--name", name,
             "-p", f"{port}:4097",
             "-v", f"{work_dir}:/root/work",
-            "-e", f"DEEPSEEK_API_KEY={key}",
+            *env_args,
             self.image,
         ])
         # wait for health (bounded)

@@ -6,7 +6,8 @@
 
 # --- worker / 模型 ---
 base_url = "http://127.0.0.1:4097"          # worker opencode server URL
-model = "deepseek-api/deepseek-v4-flash"    # 所有 session 的模型
+model = "my-opencode-go/deepseek-v4-flash"  # 所有 session 的模型（默认 OpenCode Go）
+# 备选官方模型（回退）: deepseek-api/deepseek-v4-flash；需要 provider + key 见 DESIGN-usability.md
 request_timeout = 600.0                      # 每个 message POST 的流式超时(秒)（慢 judge 需较大值）
 agent_reviewer = "reviewer"                  # 审查者 agent 名
 
@@ -33,7 +34,7 @@ on_stall = "abort"                           # abort | report_user | none
 
 # --- 元分析（进程外 supervisor --meta / drive --meta 的智能判verdict）---
 meta_analyze_enabled = false                 # 默认关；开则独立模型判停滞（确定性门兜底）
-meta_model = "deepseek-api/deepseek-v4-flash"# 元分析模型
+meta_model = "my-opencode-go/deepseek-v4-flash"# 元分析模型
 meta_max_context_msgs = 20                   # 喂给元分析的会话最近消息数
 
 # --- 一键自驱动栈（regime drive）---

@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "my-opencode-go/deepseek-v4-flash",
   "agent": {
     "developer": {
       "description": "Pure execution worker. Runs instructed tasks, no institutional process, no self-review.",
@@ -11,6 +12,23 @@
     }
   },
   "provider": {
+    "my-opencode-go": {
+      "models": {
+        "deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash"
+        },
+        "deepseek-v4-pro": {
+          "name": "DeepSeek V4 Pro"
+        }
+      },
+      "name": "OpenCode Go",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "{env:OPENCODE_GO_API_KEY}",
+        "baseURL": "https://opencode.ai/zen/go/v1",
+        "setCacheKey": true
+      }
+    },
     "deepseek-api": {
       "models": {
         "deepseek-v4-flash": {
