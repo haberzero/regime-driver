@@ -55,5 +55,7 @@ conda run -n regime-driver pytest
 
 **环境变量覆盖**：任意 Settings 字段可用 `REGIME_<大写字段>` 覆盖，如 `REGIME_MODEL`、`REGIME_STALL_SEC`、`REGIME_POLL_SEC`。
 
-**模型密钥**：worker 从 `~/.local/share/opencode/auth.json`（挂载进容器）读取凭据，**不通过 REGIME_* 注入**。
-当前用 `deepseek-api/deepseek-v4-flash`（官方）；`DEEPSEEK_API_KEY` 按 opencode 全局配置注入，密钥零入库。
+**模型密钥**：默认模型 `my-opencode-go/deepseek-v4-flash`（OpenCode Go）。密钥零入库：
+- worker/god 容器经 `OPENCODE_GO_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/opencode-go.key` 读，或自设 env）。
+- 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
+- 详见 `docs/DESIGN-usability.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。

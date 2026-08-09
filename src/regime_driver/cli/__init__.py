@@ -687,6 +687,82 @@ def drive_many(
 
 
 # ---------------------------------------------------------------------------
+# doctor (usability self-check: model/key/worker readiness + guidance)
+# ---------------------------------------------------------------------------
+@app.command("doctor")
+def doctor(
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Self-check readiness: worker health, model config, API key presence.
+
+    Read-only. Reports whether the configured model + key are likely usable and
+    prints context-appropriate next steps (containerized worker vs host opencode).
+    Never prints API keys — only presence.
+    """
+    import os as _os
+    from pathlib import Path as _Path
+
+    from ..infra.settings import Settings
+
+    settings = Settings(base_url=base)
+    model = settings.model
+    provider = model.split("/")[0] if "/" in model else model
+    checks: list[dict] = []
+
+    # 1) worker health
+    try:
+        healthy = OpenCodeClient(base, timeout=5).health()
+    except Exception:
+        healthy = False
+    checks.append({"check": "worker health", "ok": healthy, "base": base})
+
+    # 2) key readiness (presence only, never the value)
+    def _key_file(name: str) -> bool:
+        return _Path.home().joinpath(".regime", "keys", name).exists()
+
+    env_map = {"my-opencode-go": ("OPENCODE_GO_API_KEY", "opencode-go.key"),
+               "deepseek-api": ("DEEPSEEK_API_KEY", "deepseek.key")}
+    env_name, file_name = env_map.get(provider, (None, None))
+    if env_name:
+        has_env = bool(_os.environ.get(env_name))
+        has_file = _key_file(file_name)
+        checks.append({"check": f"key for {provider}", "ok": has_env or has_file,
+                       "env": has_env, "key_file": has_file})
+    auth_has_go = False
+    try:
+        auth = json.loads(_Path.home().joinpath(
+            ".local", "share", "opencode", "auth.json").read_text(encoding="utf-8"))
+        auth_has_go = "opencode-go" in auth or "my-opencode-go" in auth
+    except Exception:
+        pass
+    checks.append({"check": "opencode auth.json has key", "ok": auth_has_go})
+
+    all_ok = all(c["ok"] for c in checks)
+    if json_out:
+        _emit_json({"model": model, "provider": provider, "ok": all_ok,
+                    "checks": checks})
+        if not all_ok:
+            raise typer.Exit(1)
+        return
+
+    console.print(f"[bold]regime doctor[/bold] · model={model}")
+    for c in checks:
+        mark = "✓" if c["ok"] else "✗"
+        detail = " ".join(f"{k}={v}" for k, v in c.items() if k not in ("check", "ok"))
+        console.print(f"  {mark} {c['check']} {detail}")
+    if not all_ok:
+        console.print("\n[bold]建议：[/bold]")
+        if not healthy:
+            console.print("  · 容器化：`ops/up.sh all`（构建+起 worker/god）")
+            console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
+        if provider == "my-opencode-go" and not checks[1]["ok"]:
+            console.print("  · 设 OPENCODE_GO_API_KEY 或写 ~/.regime/keys/opencode-go.key")
+        raise typer.Exit(1)
+    console.print("\n✓ 配置就绪：可用 `regime run/drive`（默认模型 opencode-go）")
+
+
+# ---------------------------------------------------------------------------
 # preflight
 # ---------------------------------------------------------------------------
 @app.command("preflight")
