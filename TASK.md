@@ -8,15 +8,17 @@
 
 推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`（当前主线：可用性保障 + 事件链路 + 宏观汇报台账）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
+> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`（当前主线：流程热编译/热加载基础设施 + 长期运行用 opencode-go）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
 
-## 候选清单（按优先级）
+## 候选清单（按优先级，见 WORK_PLAN5）
 
-- [ ] P1 M-4 真实工程任务试跑（regime run 真实任务，验证多轮质询/脑容量交接/角色流转）
-- [ ] P1 自定义角色 ROTATE 流转策略端到端验证（当前仅单测）
-- [ ] P2 工作区物理隔离（开发者 code/ vs 审查者 work 根）
-- [ ] P3 工具节点 tool/route/gate 确定性执行
-- [ ] P3 上帝对话框演进（远期）
+- [ ] P0 热编译/热校验：统一校验入口 + `regime flow validate`（--watch 编辑即校验）+ preflight 挂钩（F1–F3）
+- [ ] P0 热加载/热重载：`FlowRegistry`（命名 flow 单一真源，归并 god self.flows）+ 原子替换/快照 + 文件监视重载（F4–F6）
+- [ ] P1 CLI+dialog 交互：`regime flow list/validate/load/reload/rm/inspect` + god A/B 路接入（F7/F8）
+- [ ] P1 长期运行（耐久性，opencode-go）：2h+ drive/fleet，观测资源/泄漏/恢复 + 资源治理收尾（L1–L3）
+- [ ] P2 安全反循环：load/reload 门禁 + 版本/快照 + 环检测（F9–F11）
+- [ ] P2 微调：覆盖率基线(pytest-cov) / doctor 接入 god 与 web / opencode-go 延迟调优 / 主机模式 agent 模板（C1–C4）
+- [ ] P3 收敛测试内零散 FakeClient（T6 已评估不转，如需统一另建轻量脚本化 fake）
 
 ## 验证记录
 
@@ -82,7 +84,7 @@
 
 ## 自省记录
 
-- [REFLECT] 2026-08-09 | progress: 按用户指令推进HANDOVER下一步#1/#2/#3——#1并发隔离舰队(Fleet+drive-many, 并行全栈Drive每工作区一实例) #2混沌演练(FaultInjector+chaos CLI, worker-crash-recovery真实恢复) #3舰队控制面(WorkerPool max_instances+prune空闲GC+GodDialog fleet视图); 另修worker root文件chown回宿主/down清理 + drive-many逗号工作区解析 + 死代码守卫扩fleet/chaos; 基线285→299 | risk: 真实模型judge节点慢/停滞使舰队成员可能超时(非舰队缺陷, 各成员靠deadline/supervisor兜底); worker容器须root运行(非root无法建session HTTP500)→工作区文件root所有, down时chown回宿主 | next: 剩余P3(收敛FakeClient已定不转; monkey dataclass已规避)低价值; 可停止汇报 | escalate: no
+- [REFLECT] 2026-08-09 | progress: 按用户三个方向收口交接——①长期运行授权用 opencode-go ②主线转向"流程热编译/热加载基础设施"(WRITE WORK_PLAN5: FlowRegistry/热校验/CLI+dialog/反循环/长期运行/微调) ③其余按工程判断微调; 同步 HANDOVER §8 主线+优先级表、TASK 候选、测试基线300 | risk: 真实模型(opencode-go) judge 慢/停滞使舰队成员可能超时(系统以 deadline/supervisor 兜底); worker 须 root→工作区 root 文件(down chown); 覆盖率数值未测(pytest-cov 未装, C1 待办) | next: 交接文档已更新, 分支干净300全绿, 待下 session 按 WORK_PLAN5 从 F1-F4(FlowRegistry+热校验) 开工 | escalate: no
 - [DONE] worker工作区隔离——转"多opencode实例每工作区一个"(用户指令) | verified: 285 passed(275+10) + 真实E2E隔离验证 | 新增 src/regime_driver/worker.py(WorkerPool: slugify/instance_name/work_dir_for纯函数 + get/ensure/list/remove docker持久映射 + no-duplicate不变量 + _run_docker sg回退(shlex.quote修多词format) + _resolve_key env/key文件回退) + `regime worker` CLI(list/up/base/down) + `regime drive --workspace <ws>`(解析工作区实例base_url) + tests/test_worker.py(10) + docs/DESIGN-worker-isolation.md + HANDOVER/config同步 | 真实E2E: up ws-algo→复用不重复(同端口)→up ws-infra独立→drive --workspace ws-algo 真实任务COMPLETE(119.6s)→产物ws_nine.py仅在该工作区(ws-infra与默认worker均无)=物理隔离成立 | 修: test_ensure_requires_key因新增key文件回退读到真key→health-wait 120s慢, 改mock _resolve_key="" (测试从78s回归)
 - [REVIEW] worker多实例隔离 | 1 warning(测试慢,已修) | blockers: 0 | warnings: 0 | 核心不变量(每工作区一实例, 无重复)经docker持久保证; _run_docker用shlex.quote修sg多词format(此前get/list查不到容器); 隔离真实性经真实E2E验证(产物仅落该工作区); 权限: worker up/down为docker写操作, drive --workspace经drive门禁; 285全绿78s | 说明: 每实例一容器资源线性增; down会删容器(挂载目录宿主机保留)
 - [DONE] P1#3 god容器镜像固化+一键起栈 | verified: ops/up.sh worker/god/all 实跑(重启+等健康) + god A路健康/回话真实验证 | 新增 ops/up.sh(一键构建+拉起+等健康, 自动sg docker fallback, key从env或~/.regime/keys/deepseek.key, --rebuild强制重建固化镜像) | 镜像已固化(Dockerfile.god COPY god.md+regime-god.js+god配置, 不再需docker cp+restart) | docs/howto/god-window.md 更新一键用法 | 说明: god A路工具调用turn慢(真实LLM+工具), 探测需>90s timeout, 非镜像缺陷

@@ -166,43 +166,48 @@
 > （E2E / god 容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
 > 见下方"下一 session 主线任务（优先级表）"。
 
-### 当前状态速览（2026-08-08）
+### 当前状态速览（2026-08-09）
 
-- **测试基线 299 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 300 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **模型**：默认 `my-opencode-go/deepseek-v4-flash`（OpenCode Go），主机+worker/god 全统一；
+  key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、
+  `opencode-setup`（4105，web 配置窗，挂载顶层 config/auth）、
   以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker` 管理，物理隔离）、
   `opencode-autopilot`（4096，web，M0 遗产已退役监督）。
 - **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
   `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈** +
   **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）+
   **`Fleet` 并发隔离舰队** + **`chaos` 故障注入/恢复演练**。
-- **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild）。
+- **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild，注入 opencode-go key）。
 - **技术债**：G1–G14 全清（`docs/TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
 - **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
-  T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/god_dialog）+
+  T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/god_dialog/worker/fleet/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
+> **当前主线（唯一指针，2026-08-09）**：**流程热编译/热加载基础设施**（WORK_PLAN5）
+> ——围绕"可自我修改元系统"愿景的流程定义生命周期：热校验、FlowRegistry 热重载、CLI/dialog 交互、
+> 反循环安全；并做 **长期运行（耐久性，用 opencode-go）**。详见 `WORK_PLAN5.md`。
+
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| ~~P0~~ | ~~一键自驱动入口~~ | ✅ 已完 | `regime drive <task>`（执行器+supervisor+reporter 一栈共享 journal + 受监管任务），见 `DESIGN-drive.md` |
-| ~~P0~~ | ~~真实 E2E + supervisor 卡死恢复~~ | ✅ 已完 | 真实 drive/supervisor 无假停滞 + 真实 T1→L4 重启恢复 + 元分析接真实模型（`--meta`），见 `DESIGN-supervision.md` §6 |
-| ~~P1~~ | ~~god 容器固化 + 一键起栈~~ | ✅ 已完 | `ops/up.sh` + 镜像固化（插件/agent/配置进镜像），见 `howto/god-window.md` |
-| ~~P1~~ | ~~CI 接入真实 E2E~~ | ✅ 已完 | `ci.yml` e2e-real job（secret 门控），真实执行链成回归门槛 |
-| ~~P2~~ | ~~测试金字塔/守卫扩展 + B 路 T8~~ | ✅ 已完 | 死代码守卫扩 drive/god_dialog；GodDialog `sessions/abort/reclaim`；**修权限 classify 洞**（drive/task/supervisor 原绕过写门禁） |
-| ~~P2~~ | ~~worker 工作区物理隔离~~ | ✅ 已完 | 转"多 opencode 实例，每工作区一个"（用户指令）：`regime_driver.worker.WorkerPool` + `regime worker up/down/list/base` + `drive --workspace`；真实 E2E 隔离验证通过，见 `DESIGN-worker-isolation.md` |
-| ~~P2~~ | ~~并发隔离舰队~~ | ✅ 已完 | `regime_driver.fleet.Fleet` + `regime drive-many --workspaces`：并行全栈 Drive 每工作区一实例，共享一 reporter；`DESIGN-fleet.md` |
-| ~~P2~~ | ~~舰队控制面~~ | ✅ 已完 | `WorkerPool.max_instances`(env REGIME_WORKER_MAX_INSTANCES) + `regime worker prune`(回收无会话空闲实例) + GodDialog `fleet` 舰队视图 |
-| ~~P2~~ | ~~混沌/故障演练~~ | ✅ 已完 | `regime_driver.chaos.FaultInjector` + `regime chaos list/inject/scenario`（worker-crash-recovery 真实恢复验证）；`DESIGN-chaos.md` |
-| **P3** | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转 MockClient（非 drop-in，防漂移）；如需统一另建轻量脚本化 fake |
+| **P0** | **热编译/热校验**：统一校验入口 + `regime flow validate`（可 --watch 编辑即校验）+ preflight 挂钩 | 元系统闭环 | F1–F3 |
+| **P0** | **热加载/热重载**：`FlowRegistry`（命名 flow 单一真源，归并 god `self.flows`）+ 原子替换/快照（运行中 workflow 不受影响）+ 文件监视重载 | 元系统闭环 | F4–F6 |
+| **P1** | **CLI + dialog 交互**：`regime flow list/validate/load/reload/rm/inspect` + god A/B 路接入 | 易用性 | F7/F8 |
+| **P1** | **长期运行（耐久性，opencode-go）**：2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾（prune/保留策略） | 运行可信 | L1–L3 |
+| **P2** | **安全反循环**：load/reload 门禁（deep_validate+preflight）+ 版本/快照 + 环检测 | 健康 | F9–F11 |
+| **P2** | **微调**：覆盖率基线(pytest-cov) / `regime doctor` 接入 god 与 web / opencode-go 模型延迟调优 / 主机模式 agent 模板 | 健康/易用 | C1–C4 |
+| P3 | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转（非 drop-in） |
 
-> 若只做一件：选 **worker 工作区隔离**（已按用户指令以"多实例每工作区一个"完成，见 `DESIGN-worker-isolation.md`）。
-> 建议：先按 `docs/DESIGN-usability.md`（模型/密钥/安装）→ `DESIGN-drive.md`/`DESIGN-supervision.md`/`DESIGN-worker-isolation.md` 熟悉新 `drive`/`--meta`/`--workspace`。`main_loop` 死 flow 已于 2026-08-08 移除。
+> 建议顺序：F1–F4（基础）→ F5/F6（原子替换+watch）→ F7/F8（CLI+dialog）→ F9–F11（安全）→
+> L1–L3（长期运行）→ C1–C4（微调）。若只做一件：**FlowRegistry 热重载（F4–F6）**。
 
 ### 已完成主线（历史，参考）
 
-- **P0#1/P0#2/P1#3/P1#4/P2#5** ✅：见本表上方（本轮 session 完成）。
+- **P0#1/P0#2/P1#3/P1#4/P2#5** ✅：见上方表格。
+- **worker 工作区隔离 / 舰队 / 混沌 / 舰队控制面 / 模型统一 / 易用性** ✅：见上方表格 + `DESIGN-*.md`。
 - **T1/T2 A 路验证** ✅：经专用 god 容器 + HTTP 驱动打通；修 regime-god.js 三个真 bug。
 - **T3/T4/T5/T7/T6** ✅：非阻塞作业、插件 job 工具、权限策略、文档同步、FakeClient 评估定案。
 - **WORK_PLAN4** ✅：I1/I2 保障、E1 SSE 摄入+重连、R-A/R-B/R-C（Reporter 报告总线 + `regime report` 看板 + 模板 + 保留策略）。
@@ -213,7 +218,7 @@
 
 **待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已规避）。历时超时模型：`default_deadline_sec` + `global_deadline_sec`。
 
-阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-usability.md`（模型/密钥/安装，新）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。**当前主线规划：`WORK_PLAN4.md`**（预检 + 事件链路 + 宏观汇报台账）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
+阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-usability.md`（模型/密钥/安装，新）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。**当前主线规划：`WORK_PLAN5.md`**（流程热编译/热加载 + 长期运行）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（宪法=无智能状态机+根不变量运行时强制）**；**上帝对话框双路：opencode 作载体（A 路）+ GodDialogUnit 程序化面（B 路），共用 CLI 契约**。
 
