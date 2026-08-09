@@ -146,6 +146,64 @@ def test_real_supervisor_meta_analyze_real_model():
 
 
 @pytest.mark.skipif(
+    os.environ.get("REGIME_E2E_WORKER") != "1",
+    reason="real multi-instance workspace isolation: set REGIME_E2E_WORKER=1 (launches a worker container)",
+)
+def test_real_worker_workspace_isolation(tmp_path):
+    """Multi opencode instance: one per workspace, no duplicate, physical isolation.
+
+    Launches a real per-workspace worker instance (own mounted dir + port), runs a
+    real task, verifies the artifact lands ONLY in that workspace, and that a second
+    ensure() reuses the same instance (no duplicate). Cleans up in finally.
+    """
+    import subprocess
+    import shutil
+
+    from regime_driver.infra.opencode import OpenCodeClient
+    from regime_driver.app.statechart_driver import StatechartDriver
+    from regime_driver.infra.regime_loader import load_regime
+    from regime_driver.infra.settings import Settings
+    from regime_driver.worker import WorkerPool
+
+    ws_root = tmp_path / "ws"
+    pool = WorkerPool(workspace_root=ws_root)
+    inst = pool.ensure("e2e-ws")
+    try:
+        # no-duplicate: ensure again returns the SAME instance
+        inst2 = pool.ensure("e2e-ws")
+        assert inst2.container == inst.container
+        assert inst2.port == inst.port
+
+        # run a real task on the isolated instance (retry once on a transient
+        # first-call model error — fresh containers can be slow to warm up)
+        base = inst.base_url
+        assert OpenCodeClient(base, timeout=15).health()
+        settings = Settings(base_url=base, monitor_enabled=False, poll_sec=2.0,
+                            stall_sec=180, request_timeout=240)
+        client = OpenCodeClient(base, model=settings.model, timeout=240)
+        outcome = end = None
+        for _ in range(2):
+            driver = StatechartDriver(settings, load_regime(), client)
+            outcome, end, _ = driver.run(
+                "写一个Python函数 iso(x)=x*11 保存到 iso_eleven.py 并运行确认",
+                timeout_sec=300)
+            if outcome == Outcome.COMPLETE:
+                break
+        assert outcome == Outcome.COMPLETE, f"outcome={outcome.value} @ {end}"
+        assert end == "wrap"
+
+        # the artifact landed ONLY in this workspace's mounted dir
+        found = [str(p) for p in ws_root.rglob("iso_eleven.py")]
+        assert found, "artifact not found in the workspace"
+        for p in found:
+            assert str(p).startswith(str(ws_root / "e2e-ws")), (
+                f"artifact escaped the workspace: {p}")
+    finally:
+        pool.remove("e2e-ws")
+        shutil.rmtree(ws_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(
     os.environ.get("REGIME_E2E_RESTART") != "1",
     reason="real container restart: set REGIME_E2E_RESTART=1 (disruptive)",
 )
