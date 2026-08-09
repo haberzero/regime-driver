@@ -40,6 +40,7 @@ DEFAULT_WORKSPACE_ROOT = os.environ.get(
     "REGIME_WORKSPACE_ROOT", str(Path.home() / "oc-meta" / "workspaces"))
 DEFAULT_IMAGE = os.environ.get("REGIME_WORKER_IMAGE", "opencode-worker:1.18.11")
 DEFAULT_PORT_BASE = int(os.environ.get("REGIME_WORKER_PORT_BASE", "4200"))
+DEFAULT_MAX_INSTANCES = os.environ.get("REGIME_WORKER_MAX_INSTANCES")
 
 
 def slugify(workspace: str) -> str:
@@ -126,12 +127,16 @@ class WorkerPool:
         port_base: int = DEFAULT_PORT_BASE,
         api_key: str | None = None,
         health_poll_sec: float = 2.0,
+        max_instances: int | None = None,
     ) -> None:
         self.workspace_root = Path(workspace_root)
         self.image = image
         self.port_base = port_base
         self.api_key = api_key
         self.health_poll_sec = health_poll_sec
+        self.max_instances = (int(max_instances) if max_instances is not None
+                              else (int(DEFAULT_MAX_INSTANCES)
+                                    if DEFAULT_MAX_INSTANCES else None))
 
     # -- docker dispatch (method so tests can substitute a fake) -------------
 
@@ -258,6 +263,10 @@ class WorkerPool:
         existing = self.get(workspace)
         if existing is not None:
             return existing
+        if self.max_instances is not None and len(self.list()) >= self.max_instances:
+            raise DockerError(
+                f"max_instances={self.max_instances} reached ({len(self.list())} running); "
+                f"prune idle instances (`regime worker prune`) or raise the cap")
         name = self.container_for(workspace)
         work_dir = self.work_dir_for(workspace)
         work_dir.mkdir(parents=True, exist_ok=True)
@@ -320,3 +329,27 @@ class WorkerPool:
 
     def list(self) -> list[WorkerInstance]:
         return [self.get(ws) for ws in self.list_workspaces() if self.get(ws) is not None]
+
+    def gc_idle(self, max_idle_sec: float = 300.0, dry_run: bool = False) -> list[str]:
+        """Reclaim idle instances: healthy instances with NO sessions at all.
+
+        An instance that has no opencode sessions (nothing running, nothing to
+        resume) is considered idle and can be reclaimed to bound resource growth
+        of the fleet. With `dry_run=True` only reports (does not remove). Returns
+        the workspaces reclaimed.
+        """
+        reclaimed = []
+        for ws in self.list_workspaces():
+            inst = self.get(ws)
+            if inst is None or not inst.healthy:
+                continue
+            try:
+                sessions = OpenCodeClient(inst.base_url, timeout=10).list_sessions()
+            except Exception:
+                continue
+            if sessions:
+                continue  # still has sessions -> not idle
+            if not dry_run:
+                self.remove(ws)
+            reclaimed.append(ws)
+        return reclaimed

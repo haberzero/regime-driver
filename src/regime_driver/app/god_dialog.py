@@ -100,6 +100,7 @@ class GodDialogUnit(ThreadedUnit):
         launcher: Callable[[str, str], dict] | None = None,
         session_client=None,
         settings_render: Callable[[], str] | None = None,
+        worker_pool=None,
         max_events: int = 200,
         allow_write: bool = False,
     ) -> None:
@@ -108,6 +109,7 @@ class GodDialogUnit(ThreadedUnit):
         self.launcher = launcher
         self.session_client = session_client
         self.settings_render = settings_render
+        self.worker_pool = worker_pool
         self.max_events = max_events
         # permission gate (L0/L1 boundary, PLANNING §3.3): write operations
         # (start / design / talk) are disabled unless explicitly allowed. The
@@ -222,6 +224,8 @@ class GodDialogUnit(ThreadedUnit):
             return self._write_gate(t) or self._start(t)
         if self._is_inspect_cmd(low):
             return self._inspect(t)
+        if self._is_fleet_cmd(low):
+            return self._fleet(t)
         if self._is_sessions_cmd(low):
             return self._sessions(t)
         if self._is_abort_cmd(low):
@@ -277,6 +281,10 @@ class GodDialogUnit(ThreadedUnit):
     def _is_sessions_cmd(low: str) -> bool:
         return low in ("sessions", "会话", "列表") or low.startswith(
             ("sessions ", "会话 ", "list "))
+
+    @staticmethod
+    def _is_fleet_cmd(low: str) -> bool:
+        return low in ("fleet", "舰队") or low.startswith(("fleet ", "舰队 "))
 
     @staticmethod
     def _is_abort_cmd(low: str) -> bool:
@@ -447,6 +455,28 @@ class GodDialogUnit(ThreadedUnit):
         lines.append(f"  共 {shown} 个")
         return "\n".join(lines)
 
+    def _fleet(self, text: str) -> str:
+        """Fleet view: list every workspace's worker instance + health.
+
+        Requires a worker_pool (multi-instance pool). This is the whole-fleet
+        control-plane view — how many isolated instances, per-workspace health.
+        """
+        if self.worker_pool is None:
+            return "fleet 能力未接入（未提供 worker_pool）。"
+        try:
+            instances = self.worker_pool.list()
+        except Exception as exc:
+            return f"获取舰队失败：{exc}"
+        lines = ["=== fleet (每工作区一个实例) ==="]
+        if not instances:
+            lines.append("  (无 per-workspace 实例；用 `regime worker up <ws>` 起)")
+        for i in sorted(instances, key=lambda x: x.workspace):
+            mark = "✓" if i.healthy else "✗"
+            lines.append(f"  {mark} {i.workspace} @ {i.base_url} "
+                         f"(container={i.container})")
+        lines.append(f"  共 {len(instances)} 个实例")
+        return "\n".join(lines)
+
     def _abort(self, text: str) -> str:
         """Abort a running session (or all with `abort --all`). Write-gated."""
         if self.session_client is None:
@@ -562,6 +592,7 @@ class GodDialogUnit(ThreadedUnit):
             "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
             "  start [flow名] <任务上下文> / 启动 ..   —— 非阻塞启动一个 workflow\n"
             "  inspect <workflow_id> / 查看 ..         —— 查看某 workflow 黑板指标\n"
+            "  fleet / 舰队                           —— 全部工作区实例 + 健康（舰队视图）\n"
             "  sessions / 会话 [busy]                    —— 列出 worker 会话及实时状态\n"
             "  abort <session_id> | abort --all / 停止   —— 中止运行中会话(写)\n"
             "  reclaim <session_id> | reclaim --all / 回收—— 中止并删除(回收)会话(写)\n"

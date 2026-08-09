@@ -129,6 +129,32 @@ def test_command_sessions_requires_client():
     assert "未接入" in d.command("sessions")
 
 
+class _FakePool:
+    def list(self):
+        from regime_driver.worker import WorkerInstance
+        return [
+            WorkerInstance("algo", "opencode-worker-algo", 4200,
+                           "http://127.0.0.1:4200", "opencode-worker-algo",
+                           "/ws/algo", True),
+            WorkerInstance("infra", "opencode-worker-infra", 4201,
+                           "http://127.0.0.1:4201", "opencode-worker-infra",
+                           "/ws/infra", False),
+        ]
+
+
+def test_command_fleet_requires_pool():
+    d = GodDialogUnit(worker_pool=None)
+    assert "未接入" in d.command("fleet")
+
+
+def test_command_fleet_lists_instances():
+    d = GodDialogUnit(worker_pool=_FakePool())
+    out = d.command("fleet")
+    assert "algo" in out and "infra" in out
+    assert "2 个实例" in out
+    assert "✓" in out and "✗" in out  # healthy vs unhealthy marks
+
+
 def test_command_inspect_reads_blackboard():
     rt = Runtime(enforce_invariants=False)
     d = GodDialogUnit(bus=rt.bus)

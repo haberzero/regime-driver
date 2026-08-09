@@ -64,8 +64,11 @@ def run_dialog(
         llm = None
 
     cluster = StatechartCluster(client)
+    from ..worker import WorkerPool
+
     god = cluster.register_unit(GodDialogUnit(
         bus=cluster.runtime.bus, llm=llm, session_client=client if live else None,
+        worker_pool=WorkerPool() if live else None,
         settings_render=lambda: settings.model_dump().__str__(), allow_write=allow_write))
 
     def launcher(ctx, title, flow_sm=None):

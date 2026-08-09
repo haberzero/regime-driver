@@ -68,7 +68,11 @@ class _FakeDocker:
                     continue
                 if prefix is not None and not n.startswith(prefix):
                     continue
-                lines.append(f"{n} {st}")
+                fmt = args[args.index("--format") + 1] if "--format" in args else "{{.Names}}"
+                if "{{.Status}}" in fmt:
+                    lines.append(f"{n} {st}")
+                else:
+                    lines.append(n)
             from subprocess import CompletedProcess
             return CompletedProcess(args, 0, ("\n".join(lines) + "\n").encode(), b"")
         if cmd == "inspect":
@@ -150,3 +154,63 @@ def test_get_returns_instance_only_if_exists(tmp_path):
     pool.ensure("algo")
     got = pool.get("algo")
     assert got is not None and got.workspace == "algo"
+
+
+def test_max_instances_cap_blocks_new(tmp_path):
+    fake = _FakeDocker()
+    pool = WorkerPool(workspace_root=tmp_path, api_key="k", max_instances=1)
+    pool._run_docker = fake
+    pool._is_healthy = lambda base, timeout=5: True
+    pool.ensure("algo")
+    # second distinct workspace exceeds the cap -> raise
+    with pytest.raises(DockerError):
+        pool.ensure("infra")
+    # reusing the existing workspace still works (no new instance)
+    assert pool.ensure("algo").workspace == "algo"
+
+
+def test_gc_idle_reclaims_no_session_instances(tmp_path):
+    fake = _FakeDocker()
+    pool = _pool(tmp_path, fake)
+
+    class _FakeClient:
+        def __init__(self, sessions):
+            self._s = sessions
+        def list_sessions(self):
+            return list(self._s)
+
+    # override OpenCodeClient construction to return a stub with no sessions
+    import regime_driver.worker as worker_mod
+    orig = worker_mod.OpenCodeClient
+    try:
+        def fake_client(base, timeout=10):
+            return _FakeClient([])
+        worker_mod.OpenCodeClient = fake_client
+        pool.ensure("algo")
+        # dry-run does not remove
+        assert pool.gc_idle(dry_run=True) == ["algo"]
+        assert "opencode-worker-algo" in fake.containers
+        # real run removes
+        assert pool.gc_idle() == ["algo"]
+        assert fake.containers == {}
+    finally:
+        worker_mod.OpenCodeClient = orig
+
+
+def test_gc_idle_keeps_instances_with_sessions(tmp_path):
+    fake = _FakeDocker()
+    pool = _pool(tmp_path, fake)
+
+    class _Busy:
+        def list_sessions(self):
+            return [{"id": "s1"}]
+
+    import regime_driver.worker as worker_mod
+    orig = worker_mod.OpenCodeClient
+    try:
+        worker_mod.OpenCodeClient = lambda base, timeout=10: _Busy()
+        pool.ensure("algo")
+        assert pool.gc_idle() == []  # has sessions -> not idle
+        assert "opencode-worker-algo" in fake.containers
+    finally:
+        worker_mod.OpenCodeClient = orig

@@ -1433,6 +1433,35 @@ def worker_down(
         _fail(f"no instance for workspace '{workspace}'")
 
 
+@_worker_app.command("prune")
+def worker_prune(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="report idle instances without removing them"),
+    max_instances: int = typer.Option(
+        None, "--max-instances", help="hard cap on concurrent instances (for up)"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Reclaim idle worker instances (no sessions) to bound fleet resource growth.
+
+    Also accepts --max-instances to set the fleet cap enforced by `worker up`.
+    """
+    from ..worker import WorkerPool
+
+    pool = WorkerPool(max_instances=max_instances)
+    reclaimed = pool.gc_idle(dry_run=dry_run)
+    if json_out:
+        _emit_json({"reclaimed": reclaimed, "dry_run": dry_run,
+                    "cap": max_instances})
+        return
+    if dry_run:
+        _ok(f"idle instances to reclaim: {reclaimed or '(none)'}", markup=False)
+    else:
+        _ok(f"reclaimed {len(reclaimed)} idle instance(s): {reclaimed or '(none)'}",
+            markup=False)
+        if max_instances is not None:
+            _ok(f"fleet instance cap set to {max_instances}", markup=False)
+
+
 app.add_typer(_worker_app, name="worker")
 
 
