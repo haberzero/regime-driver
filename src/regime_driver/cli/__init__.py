@@ -426,6 +426,9 @@ def drive(
         None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
     skills_dir: Optional[Path] = typer.Option(
         None, "--skills-dir", help="path to workflow-regime skills dir"),
+    workspace: str = typer.Option(
+        None, "--workspace", help="run in a dedicated per-workspace worker instance "
+        "(created/reused; physical isolation from other workspaces)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON result"),
     async_run: bool = typer.Option(
         False, "--async", help="submit as a background supervised task and return a handle"),
@@ -440,7 +443,8 @@ def drive(
     clock: T1 health/L4 restart, T2 session stall, deadline, correction ladder)
     sharing ONE reporter journal, registered as a supervised task. Preflight is
     mandatory (offline trial) unless --no-preflight. Pass --async to run it as a
-    tracked background task (`regime task list/status`).
+    tracked background task (`regime task list/status`). Pass --workspace <ws> to
+    run in a dedicated per-workspace worker instance (physical isolation).
     """
     _gate(perm, ["drive", context])
     from ..task import TaskRegistry
@@ -467,6 +471,7 @@ def drive(
             *(["--reporter", str(reporter)] if reporter else []),
             *(["--tasks-dir", str(tasks_dir)] if tasks_dir else []),
             *(["--skills-dir", str(skills_dir)] if skills_dir else []),
+            *(["--workspace", workspace] if workspace else []),
             *(["--no-preflight"] if no_preflight else []),
         ]
         registry = TaskRegistry(tasks_dir or TaskRegistry().dir)
@@ -499,6 +504,13 @@ def drive(
 
     from ..drive import Drive
 
+    # resolve the worker base: a dedicated per-workspace instance (if requested)
+    # gives physical isolation; otherwise fall back to the configured --base.
+    if workspace:
+        from ..worker import WorkerPool
+        wi = WorkerPool().ensure(workspace)
+        settings = settings.model_copy(update={"base_url": wi.base_url})
+        _ok(f"workspace '{workspace}' instance: {wi.base_url}", markup=False)
     client = OpenCodeClient(settings.base_url, model=settings.model,
                             timeout=settings.request_timeout)
     journal = str(reporter) if reporter else None
@@ -1250,6 +1262,82 @@ def task_clean(
 
 
 app.add_typer(_task_app, name="task")
+
+
+# ---------------------------------------------------------------------------
+# worker (subcommands: list / up / down / base) — multi opencode instance pool
+# ---------------------------------------------------------------------------
+_worker_app = typer.Typer(
+    help="Worker instance pool (one opencode instance per workspace).")
+
+
+@_worker_app.command("list")
+def worker_list(
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """List worker instances (one per workspace)."""
+    from ..worker import WorkerPool
+
+    instances = WorkerPool().list()
+    if json_out:
+        _emit_json({"instances": [i.to_dict() for i in instances]})
+        return
+    if not instances:
+        _ok("no per-workspace worker instances (use `regime worker up <ws>`)", markup=False)
+        return
+    table = Table(title="worker instances", show_header=True)
+    for col in ("workspace", "container", "port", "healthy"):
+        table.add_column(col)
+    for i in instances:
+        style = "green" if i.healthy else "bold red"
+        table.add_row(i.workspace, i.container, str(i.port),
+                      Text("yes" if i.healthy else "no", style=style))
+    console.print(table)
+
+
+@_worker_app.command("up")
+def worker_up(
+    workspace: str = typer.Argument(..., help="workspace id"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Ensure an opencode instance for a workspace (reuse if exists, no duplicate)."""
+    from ..worker import WorkerPool
+
+    instance = WorkerPool().ensure(workspace)
+    if json_out:
+        _emit_json(instance.to_dict())
+        return
+    _ok(f"workspace '{workspace}' instance ready: {instance.base_url} "
+        f"(container={instance.container})", markup=False)
+
+
+@_worker_app.command("base")
+def worker_base(
+    workspace: str = typer.Argument(..., help="workspace id"),
+) -> None:
+    """Print the base URL of a workspace's instance (or exit 1 if absent)."""
+    from ..worker import WorkerPool
+
+    instance = WorkerPool().get(workspace)
+    if instance is None:
+        _fail(f"no instance for workspace '{workspace}' (run `regime worker up {workspace}`)")
+    console.print(instance.base_url)
+
+
+@_worker_app.command("down")
+def worker_down(
+    workspace: str = typer.Argument(..., help="workspace id"),
+) -> None:
+    """Stop and remove a workspace's worker instance."""
+    from ..worker import WorkerPool
+
+    if WorkerPool().remove(workspace):
+        _ok(f"removed workspace '{workspace}' instance", markup=False)
+    else:
+        _fail(f"no instance for workspace '{workspace}'")
+
+
+app.add_typer(_worker_app, name="worker")
 
 
 # ---------------------------------------------------------------------------

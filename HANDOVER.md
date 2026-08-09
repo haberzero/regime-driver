@@ -168,11 +168,13 @@
 
 ### 当前状态速览（2026-08-08）
 
-- **测试基线 275 passed（+5 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
-- **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，执行器）、
+- **测试基线 285 passed（+5 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、
+  以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker` 管理，物理隔离）、
   `opencode-autopilot`（4096，web，M0 遗产已退役监督）。
 - **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
-  `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈**。
+  `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈** +
+  **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）。
 - **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild）。
 - **技术债**：G1–G14 全清（`docs/TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
 - **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
@@ -188,11 +190,11 @@
 | ~~P1~~ | ~~god 容器固化 + 一键起栈~~ | ✅ 已完 | `ops/up.sh` + 镜像固化（插件/agent/配置进镜像），见 `howto/god-window.md` |
 | ~~P1~~ | ~~CI 接入真实 E2E~~ | ✅ 已完 | `ci.yml` e2e-real job（secret 门控），真实执行链成回归门槛 |
 | ~~P2~~ | ~~测试金字塔/守卫扩展 + B 路 T8~~ | ✅ 已完 | 死代码守卫扩 drive/god_dialog；GodDialog `sessions/abort/reclaim`；**修权限 classify 洞**（drive/task/supervisor 原绕过写门禁） |
-| **P2** | **worker 工作区物理隔离挂载重建** | 架构 | 现所有 workflow 共用容器 `WORKDIR /root/work`，并发 drive/run-many 会文件碰撞；需 worker 重建按 workflow 隔离挂载（`workspace_for` 已注入指令，物理挂载待重建） |
+| ~~P2~~ | ~~worker 工作区物理隔离~~ | ✅ 已完 | 转"多 opencode 实例，每工作区一个"（用户指令）：`regime_driver.worker.WorkerPool` + `regime worker up/down/list/base` + `drive --workspace`；真实 E2E 隔离验证通过，见 `DESIGN-worker-isolation.md` |
 | **P3** | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转 MockClient（非 drop-in，防漂移）；如需统一另建轻量脚本化 fake |
 
-> 若只做一件：选 **worker 工作区物理隔离**（并发 self-driving 的基石）。
-> 建议：先按 `docs/DESIGN-drive.md`/`DESIGN-supervision.md` 熟悉新 `drive` 与 `--meta`，再做工作区隔离。`main_loop` 死 flow 已于 2026-08-08 移除。
+> 若只做一件：选 **worker 工作区隔离**（已按用户指令以"多实例每工作区一个"完成，见 `DESIGN-worker-isolation.md`）。
+> 建议：先按 `docs/DESIGN-drive.md`/`DESIGN-supervision.md`/`DESIGN-worker-isolation.md` 熟悉新 `drive`/`--meta`/`--workspace`。`main_loop` 死 flow 已于 2026-08-08 移除。
 
 ### 已完成主线（历史，参考）
 
@@ -221,7 +223,7 @@
 | **M-4 前置** | 安全监控与紧急停止（独立监控线程 + 死循环检测 + abort 上报） | ✅ **完成，45 单测 + 端到端全绿** |
 | M-4 | 试跑真实工程任务 + 故障演练 | ✅ **完成（2026-08-05）：真实 worker 全流程 COMPLETE，119 单测** |
 
-**待办（最新候选）**：① worker 工作区物理隔离挂载重建（P2，并发 self-driving 基石——现所有 workflow 共用容器 `/root/work`；**可行性已探明**：opencode HTTP create_session 的 `directory` 字段是 project 级、被忽略（实测恒 `/root/work`），无法按 session 设 cwd → 须 worker 重建按 project 挂载或另法，勿用"软指令请到某目录"这类易被 LLM 忽略的 trick）；② 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；③ P3 杂项：`main_loop` flow 死配置（已于 2026-08-08 移除）；④ 技术待决：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
+**待办（最新候选）**：① 收敛测试内零散 FakeClient 到 MockClient（T6 已评估不转，如需统一另建轻量脚本化 fake）；② P3 杂项：技术待决——monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已用构造参数规避）。历时超时模型：`default_deadline_sec`（每节点）+ `global_deadline_sec`（整轮）。
 
 ## 9. 命令速查
 
@@ -266,6 +268,14 @@ conda run -n regime-driver regime supervisor --base http://127.0.0.1:4097 --sess
 # 一键起栈（P1#3: worker/god 容器构建+拉起+等健康）
 ops/up.sh all          # worker+god
 ops/up.sh god --rebuild   # 强制重建固化镜像再起
+
+# 多 opencode 实例工作区隔离（P2: 每工作区一个实例, 无重复, 角色用session）
+export REGIME_WORKSPACE_ROOT=~/oc-meta/workspaces   # 工作区根(默认)
+conda run -n regime-driver regime worker up <ws>     # 起/复用工作区实例(不重复)
+conda run -n regime-driver regime worker list        # 列实例+健康
+conda run -n regime-driver regime worker base <ws>   # 工作区实例 base_url
+conda run -n regime-driver regime worker down <ws>   # 停止并移除实例
+conda run -n regime-driver regime drive "<任务>" --workspace <ws> --container opencode-worker-<ws> --reporter /tmp/rep.jsonl   # 在隔离工作区跑整套栈
 
 # 单测 / E2E（E2E 门控: REGIME_E2E=1 且 worker 健康）
 conda run -n regime-driver python -m pytest

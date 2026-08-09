@@ -40,6 +40,12 @@ meta_max_context_msgs = 20                   # 喂给元分析的会话最近消
 # deadline 用 --deadline <sec>（全局期限，执行器+supervisor 共享）
 # 容器名用 --container <name>（T1 失联时 L4 docker restart 的对象）
 # 报告单一真源用 --reporter <journal>；受监管任务进 TaskRegistry（regime task / report --tasks-dir）
+# 并发隔离用 --workspace <ws>（每工作区一个 opencode 实例，见 DESIGN-worker-isolation.md）
+
+# --- 多 opencode 实例工作区隔离（regime worker）---
+# 环境变量：REGIME_WORKSPACE_ROOT（默认 ~/oc-meta/workspaces）、REGIME_WORKER_PORT_BASE（默认 4200）、
+#           REGIME_WORKER_IMAGE（默认 opencode-worker:1.18.11）
+# 密钥：DEEPSEEK_API_KEY 或 ~/.regime/keys/deepseek.key
 
 # --- 权限门禁 ---
 # permission_ceiling = "clean"                # 写操作权限硬上限 read<interact<run<clean
