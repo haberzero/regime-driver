@@ -200,20 +200,22 @@
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
-> **当前主线（唯一指针，2026-08-10）**：**WORK_PLAN5 F1–F11 已完成**（热编译/热校验 +
-> FlowRegistry 热重载 + CLI/dialog 交互 + 安全反循环）。**下一主线：L1–L3 长期运行（耐久性，
-> 用 opencode-go）**，随后 C1–C4 微调。详见 `WORK_PLAN5.md`。
+> **当前主线（唯一指针，2026-08-10）**：**发布就绪 / 对外宣传准备（WORK_PLAN6）**——
+> 依据 2026-08-10 复盘：内部地基与核心功能（WORK_PLAN5 F1–F11）已完整且检验通过，但**尚不足以对外
+> 发布**。重点：I 长期运行耐久性真实验证(2h+) → II 真实 CI 跑通 → III 可配置化/去硬编码 →
+> IV 文档事实一致性清理 → V 发布准备(README/许可/自检清单)。详见 `WORK_PLAN6.md`。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| **P1** | **长期运行（耐久性，opencode-go）**：2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾（prune/保留策略） | 运行可信 | L1–L3 |
-| **P2** | **微调**：覆盖率基线(pytest-cov) / `regime doctor` 接入 god 与 web / opencode-go 模型延迟调优 / 主机模式 agent 模板 | 健康/易用 | C1–C4 |
-| P3 | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转（非 drop-in） |
-| P3 | F6 后半：运行中 workflow 的自动 reload-on-change（现已有 `flow validate --watch` 校验监视；自动换入注册表待并轨） | 元系统闭环 | F6b |
+| **P0** | **长期运行耐久性真实验证**：opencode-go 2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾；耐久报告 + 更新 KNOWN_LIMITS | 运行可信 | WORK_PLAN6 I |
+| **P0** | **真实 CI 跑通**：本地 E2E 与 CI 行为对齐（REGIME_E2E=1 全量），开 push 即绿；覆盖门以实测为准 | 可信 | WORK_PLAN6 II |
+| **P0** | **可配置化/去硬编码**：god 插件 regime 路径、模型 provider 默认、端口/路径、打包安装、opencode 版本耦合护栏 | 可移植 | WORK_PLAN6 III |
+| **P1** | **文档事实一致性清理**：统一测试计数（255/329/333 冲突）、清 HANDOVER 遗留段落 | 可信 | WORK_PLAN6 IV |
+| **P1** | **对外发布准备**：README 中英重写、CONTRIBUTING/SECURITY/KNOWN_LIMITS、license、发布自检清单 | 发布 | WORK_PLAN6 V |
+| P3 | 承接：C3 延迟调优 / F6b reload-on-change / P3 FakeClient 收敛 | 健康/闭环 | WORK_PLAN5 遗留 |
 
-> 已完成：**F1–F11 热编译/热加载基础设施 ✅（2026-08-10，329 测试全绿）**——`FlowRegistry` 单一真源
-> （原子替换/旧快照/持久 store）+ `regime flow list/validate --watch/load/reload/rm/inspect`
-> （权限门禁）+ god A/B 路接入 + 反循环门禁。若只做一件：**L1 长期运行（opencode-go 2h+）**。
+> 已完成：**WORK_PLAN5 F1–F11 ✅（2026-08-10）+ C1/C2/C4 ✅ + L1 预演 async-drive 修复 ✅（333 测试）**。
+> 若只做一件：**I 长期运行耐久性真实验证（opencode-go 2h+）**。
 
 ### 已完成主线（历史，参考）
 

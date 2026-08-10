@@ -8,7 +8,7 @@
 
 推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`（当前主线：流程热编译/热加载基础设施 + 长期运行用 opencode-go）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
+> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`**（F1–F11 + C1/C2/C4 已完成；遗留 L1–L3/C3/F6b/P3）。**`WORK_PLAN6.md`（当前主线：发布就绪/对外宣传准备——耐久验证、真实CI、去硬编码、文档一致、发布准备）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
 
 ## 候选清单（按优先级，见 WORK_PLAN5）
 
