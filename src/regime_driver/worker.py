@@ -286,7 +286,12 @@ class WorkerPool:
         work_dir = self.work_dir_for(workspace)
         work_dir.mkdir(parents=True, exist_ok=True)
         port = self._free_port()
+        # explicit constructor key wins; otherwise fall back to env/key files.
+        # (fixes the dead `api_key` param and makes launch hermetic in CI, where
+        # there is no host ~/.regime/keys file.)
         keys = self._resolve_keys()
+        if self.api_key:
+            keys.setdefault("OPENCODE_GO_API_KEY", self.api_key)
         if not keys:
             raise DockerError(
                 "no model API key to launch a worker instance (set DEEPSEEK_API_KEY / "
