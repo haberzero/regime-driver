@@ -77,11 +77,21 @@
 
 > 现状：文档存在过时计数与遗留段落。
 
-- **C-D1**：统一测试计数——HANDOVER 同文出现 255/329/333 冲突；WORK_PLAN5 写 329 实际 333。
-  建立"单一真源"（以 TASK.md 最新 verified 为准），清理所有 `passed` 引用。
-- **C-D2**：清理 HANDOVER §4.4/4.8 等遗留段落仍引用已"收编删除"的 `ops/supervisor.py`、
-  `stall-watchdog.js`——过时段落要么标注历史、要么移除，与 §6"已删除"自洽。
-- **C-D3**：文档治理走 `docs/WRITING_GUIDE.md` + `skills/doc-governance/SKILL.md`（尺子+流程）。
+### 2026-08-10 治理轮（general agent 全量审计 + P0 修复）✅
+- **审计产出**：按 `doc-governance` 流程 Phase1-5 全量健康检查，产出结构化违规报告（P0/P1/P2）。
+- **P0 已修**：① 尺子 `WRITING_GUIDE` 去 IBCI 路径、适配 oc-meta 扁平结构（§A.3/§A.7/§B.1 死路径）；
+  ② 活跃 how-to 断链（`run-e2e`/`debug-with-mock` 改现行 `preflight`/`REGIME_E2E`/`report --trace`）；
+  ③ 测试计数矛盾（DESIGN-drive 258、statechart-network 153 → 现行表述）；
+  ④ 最终架构文档 `statechart-network` 改引用现行模块（去已删 monitor/meta_analyzer/telemetry）；
+  ⑤ 索引补齐（7 篇 DESIGN-* 入 `docs/README`，2 篇入 `howto/README`）。
+- **C-D1**：✅ 计数统一为 333（HANDOVER/WORK_PLAN5 已改）；docs/ 内过时计数已清。
+- **C-D2**：✅ HANDOVER M0 遗留段加"已收编删除"标注；活跃 how-to 已删脚本引用已清。
+
+### 剩余 P1（下轮治理）
+- 约 15 篇**已废弃架构/早期设计文档**（v2/v3/v4/regime-driver/BOUNDARY/REVIEW、DESIGN-regime-driver、
+  DESIGN-supervision、DESIGN.md 等）仍含日期戳/里程碑(M-1..)/测试计数/历史演变/M0 叙述。
+  按尺子 §E 应**移入 `tasks_docs/`**（历史档案区）而非"已废弃"标注；此为大结构性改动，留待专门治理轮。
+- **C-D3**：✅ 文档治理已走尺子+流程（本轮即按 `doc-governance` 执行）。
 
 ## V. 对外发布准备（P1，宣传前必做）
 
