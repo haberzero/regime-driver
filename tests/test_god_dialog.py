@@ -345,6 +345,24 @@ def test_flow_reload_is_write_gated():
     assert "门禁" in d.command("flow reload x")
 
 
+def test_doctor_self_check():
+    d = GodDialogUnit()
+    out = d.command("doctor")
+    assert "自检" in out
+    assert "离线模式" in out          # no session_client -> offline worker check
+    assert "已注册 flow" in out
+    assert "只读" in out               # allow_write=False default
+
+
+def test_doctor_with_client_reports_health():
+    class _SCHealth:
+        def health(self):
+            return True
+    d = GodDialogUnit(session_client=_SCHealth())
+    out = d.command("doctor")
+    assert "✓ 健康" in out
+
+
 def test_design_rejects_deep_invalid_spec():
     d = GodDialogUnit(allow_write=True)
     # unknown role passes structural compile but fails deep validation (F9)

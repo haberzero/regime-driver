@@ -195,6 +195,8 @@ class GodDialogUnit(ThreadedUnit):
             return self._write_gate(t) or self._design(t)
         if self._is_flow_cmd(low):
             return self._flow(t)
+        if self._is_doctor_cmd(low):
+            return self._doctor()
         # free-form -> LLM explain on a worker thread (non-blocking)
         return self._explain(t)
 
@@ -231,6 +233,10 @@ class GodDialogUnit(ThreadedUnit):
     @staticmethod
     def _is_flow_cmd(low: str) -> bool:
         return low.startswith("flow ") or low.startswith("流程 ")
+
+    @staticmethod
+    def _is_doctor_cmd(low: str) -> bool:
+        return low in ("doctor", "自检", "体检", "检查")
 
     @staticmethod
     def _is_inspect_cmd(low: str) -> bool:
@@ -395,6 +401,26 @@ class GodDialogUnit(ThreadedUnit):
             return (f"✓ 已热重载 flow '{name}' → v{entry.version} "
                     f"(运行中 workflow 保持旧快照)")
         return "用法：flow list | flow validate <file> | flow reload <name>"
+
+    def _doctor(self) -> str:
+        """Self-check (non-monitoring): worker health + flow registry + LLM.
+
+        This is a readiness/self-check, distinct from the live `status` monitor.
+        Read-only, always available.
+        """
+        lines = ["=== 上帝对话框 · 自检 (doctor) ==="]
+        if self.session_client is not None:
+            try:
+                healthy = bool(self.session_client.health())
+            except Exception:
+                healthy = False
+            lines.append(f"  worker health: {'✓ 健康' if healthy else '✗ 异常'}")
+        else:
+            lines.append("  worker health: (未接入 session_client → 离线模式)")
+        lines.append(f"  已注册 flow: {len(self.flow_registry.list())} 个")
+        lines.append(f"  LLM 解释: {'已接入' if self.llm is not None else '未接入'}")
+        lines.append(f"  写权限门禁: {'已启用' if self.allow_write else '只读'}")
+        return "\n".join(lines)
 
     def _inspect(self, text: str) -> str:
         bb = self.bus.blackboard if self.bus is not None else None
@@ -603,6 +629,7 @@ class GodDialogUnit(ThreadedUnit):
             "  flow list / 流程 列表             —— 列出已注册 flow\n"
             "  flow validate <regime.json> / 校验 —— 热校验一个 flow 文件\n"
             "  flow reload <flow名> / 重载       —— 原子热重载(运行中workflow不受影响)(写)\n"
+            "  doctor / 自检 / 体检               —— 自检(worker健康/flow/LLM/权限)\n"
             "  status / monitor [字段] / 状态        —— 实时 workflow 快照（可只查 node/state/…）\n"
             "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
             "  start [flow名] <任务上下文> / 启动 ..   —— 非阻塞启动一个 workflow\n"

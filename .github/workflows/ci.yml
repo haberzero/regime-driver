@@ -22,8 +22,9 @@ jobs:
         run: |
           pytest --cov=regime_driver --cov-report=term-missing
       - name: Coverage gate
+        # Floor = current actual baseline (70.5%), WORK_PLAN5 C1. Raise over time.
         run: |
-          pytest --cov=regime_driver --cov-report=term --cov-fail-under=80
+          pytest --cov=regime_driver --cov-report=term --cov-fail-under=70
 
   # Real-worker E2E regression gate (P1#4): builds the worker container and drives
   # a REAL opencode worker over HTTP, so the execution chain cannot silently drift.

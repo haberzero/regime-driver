@@ -36,7 +36,7 @@
 若用户想直接用自己机器上跑的 opencode（例如 `opencode serve` 或交互实例）作为执行器：
 - 在 `~/.config/opencode/opencode.json` 配置 `my-opencode-go` provider + 默认模型（或经 `/connect` 存 key 到 auth.json）。
 - 把 `regime run/drive --base http://127.0.0.1:<端口>` 指向该实例；`regime` 的 `Settings.model` 默认已是 `my-opencode-go/deepseek-v4-flash`。
-- **注意 agent**：regime 用 `developer`/`reviewer` agent；若你的顶层配置 `agents` 为空（默认只用 `build`），需补上 `developer`/`reviewer` 定义，否则 regime 会报 500。仓库 `docker/worker-config` 已内置这两个 agent（worker 用它），顶层 personal 配置需自行补（用户当前已是手动配置，无需改）。
+- **注意 agent**：regime 用 `developer`/`reviewer` agent；若你的顶层配置 `agents` 为空（默认只用 `build`），需补上 `developer`/`reviewer` 定义，否则 regime 会报 500。仓库 `docker/worker-config` 已内置这两个 agent（worker 用它），顶层 personal 配置需自行补（用户当前已是手动配置，无需改）。**可复制模板见 `docs/howto/host-mode-agents.md`（C4）。**
 
 ---
 

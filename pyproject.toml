@@ -50,6 +50,9 @@ omit = ["*/testing/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+# Coverage floor = current actual (70.5%), set as the honest regression baseline
+# (WORK_PLAN5 C1). Raise it as coverage improves; never silently drop below.
+fail_under = 70
 
 [tool.hatch.build.targets.sdist]
 include = ["src/regime_driver", "README.md", "pyproject.toml"]
