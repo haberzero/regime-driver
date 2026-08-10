@@ -31,3 +31,7 @@ docker/worker-config/.local.*
 # editor
 .vscode/
 .idea/
+
+# coverage data (WORK_PLAN5 C1)
+.coverage
+htmlcov/
