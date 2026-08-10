@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from regime_driver.task import TaskRegistry, derive
 
@@ -38,6 +39,41 @@ def test_registry_list_and_status(tmp_path) -> None:
     assert tasks[0]["id"] == "task-a"
     assert tasks[0]["status"] == "done"  # derived from summary, not the stale record
     assert reg.get("task-a")["outcome"] == "complete"
+
+
+def test_register_reuses_task_id_for_async_child(tmp_path) -> None:
+    """Async drive child reuses the parent's task id (no duplicate record)."""
+    reg = TaskRegistry(tmp_path)
+    parent = reg.register(goal="g", deadline=60, pid=111, out_file=str(tmp_path / "p.out"))
+    # the child re-enters `regime drive` with REGIME_TASK_ID set and re-registers
+    child = reg.register(goal="g", deadline=60, pid=222,
+                         task_id=parent["id"])
+    assert child["id"] == parent["id"]
+    assert child["summary_file"] == parent["summary_file"]
+    # only ONE record in the registry
+    assert len(reg.list()) == 1
+    # writing the summary under the shared id marks the single task done
+    (tmp_path / f"{parent['id']}.summary.json").write_text(
+        json.dumps({"outcome": "complete"}), encoding="utf-8")
+    assert reg.get(parent["id"])["status"] == "done"
+
+
+def test_submit_sets_regime_task_id_env(tmp_path) -> None:
+    """submit() exports REGIME_TASK_ID so the async child reuses the task id."""
+    reg = TaskRegistry(tmp_path)
+    # a tiny child that echoes the env var, so we can assert it was propagated
+    import sys
+    rec = reg.submit([sys.executable, "-c",
+                      "import os,sys; sys.stderr.write(os.environ.get('REGIME_TASK_ID',''))"],
+                     goal="g")
+    import time
+    for _ in range(50):
+        if not __import__("regime_driver.task", fromlist=["_pid_alive"])._pid_alive(rec["pid"]):
+            break
+        time.sleep(0.1)
+    text = Path(rec["out_file"]).read_text(encoding="utf-8", errors="replace") if Path(
+        rec["out_file"]).exists() else ""
+    assert rec["id"] in text
 
 
 def test_registry_clean_removes_all_files(tmp_path) -> None:

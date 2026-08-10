@@ -517,8 +517,11 @@ def drive(
     rep = Reporter(journal_path=journal, project_id="drive")
     # register the running stack as a supervised task (tracked/stoppable/reportable)
     registry = TaskRegistry(tasks_dir or TaskRegistry().dir)
+    # an async-launched drive re-enters here: reuse the parent's task id so the
+    # run reports under ONE record (no duplicate task / orphaned "crashed").
     rec = registry.register(goal=context, deadline=deadline,
-                            pid=os.getpid())
+                            pid=os.getpid(),
+                            task_id=os.environ.get("REGIME_TASK_ID"))
     drv = Drive(
         settings, sm, client, rep, container=container,
         deadline_sec=deadline, stall_sec=stall,

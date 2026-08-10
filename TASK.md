@@ -82,6 +82,8 @@
 
 - [DONE] WORK_PLAN5 C1/C2/C4 微调 | verified: 331 passed(329+2) | C1 覆盖率基线: 实测70.5%, pyproject [tool.coverage.report] fail_under=70 + CI gate 80→70(原80高于实际=潜在CI断裂, 修正为诚实基线) | C2 god B路 doctor自检命令(worker健康/flow数/LLM/权限, 非监控) + tests | C4 主机模式 agent 模板 docs/howto/host-mode-agents.md(developer/reviewer, 方式B复制即用) + DESIGN-usability 引用 | C3(opencode-go延迟调优) 待 L1 长时间观测后做
 
+- [DONE] L1 预演中发现并修复: async drive 双注册任务缺陷 | verified: 333 passed(331+2) + 真实E2E | 根因: `regime drive --async` 经 TaskRegistry.submit 起子进程跑 foreground drive, 子进程再次 register() 生成第二个任务记录(同pid), 仅子任务写 summary → 父任务无 summary 且 pid 死 → 成功也报 crashed(任务孤儿/资源治理污染) | 修复: submit 向子进程注入 REGIME_TASK_ID env, TaskRegistry.register 支持 task_id 复用父记录id+summary路径, CLI drive foreground 据此复用(不新建) | 真实E2E: async drive 单任务id、status=done、outcome=complete、supervisor=workflow_done(209s) | tests: test_task(+2 register复用/submit env)
+
 ## 阻塞
 
 （无）

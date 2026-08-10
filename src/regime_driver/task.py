@@ -75,24 +75,39 @@ class TaskRegistry:
             "pid": None, "summary_file": str(summary), "out_file": out,
             "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
         }
+        # tell the child which task record it owns, so an async-launched command
+        # (e.g. `regime drive` re-entering the foreground path) reuses THIS task
+        # id + summary instead of double-registering a duplicate record.
+        child_env = dict(os.environ)
+        child_env["REGIME_TASK_ID"] = tid
         with open(out, "w", encoding="utf-8") as out_fh:
             proc = subprocess.Popen(argv, stdout=out_fh, stderr=subprocess.STDOUT,
-                                    start_new_session=True)
+                                    start_new_session=True, env=child_env)
         rec["pid"] = proc.pid
         self._save(rec)
         return rec
 
     def register(self, *, goal: str = "", deadline: int | None = None,
-                 pid: int | None = None, out_file: str | None = None) -> dict:
+                 pid: int | None = None, out_file: str | None = None,
+                 task_id: str | None = None) -> dict:
         """Register an in-process task (no subprocess spawned) by its live pid.
 
         Used by foreground `regime drive` so the running stack is tracked,
         stoppable and reportable like a background task, without re-spawning
         itself. The caller is responsible for writing the summary file.
+
+        When `task_id` is given (async-launched child), it reuses that existing
+        record's id + paths instead of creating a duplicate — so the parent
+        async task and its child share one summary and report correctly.
         """
-        tid = f"task-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}"
-        summary = self.dir / f"{tid}.summary.json"
-        out = out_file or str(self.dir / f"{tid}.out")
+        if task_id:
+            tid = task_id
+            summary = self.dir / f"{tid}.summary.json"
+            out = out_file or str(self.dir / f"{tid}.out")
+        else:
+            tid = f"task-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}"
+            summary = self.dir / f"{tid}.summary.json"
+            out = out_file or str(self.dir / f"{tid}.out")
         rec = {
             "id": tid, "goal": goal, "deadline": deadline, "status": "running",
             "pid": pid, "summary_file": str(summary), "out_file": out,
