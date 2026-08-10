@@ -86,12 +86,13 @@
 ## V. 对外发布准备（P1，宣传前必做）
 
 - **C-R1**：README——✅ 顶部已加"开发中/未发布"警告 + Status + MIT License + 免责声明（2026-08-10）；
-  中英双语/安装/架构/路线图重写待正式发布前。
+  ✅ 新增 `README.en.md` 英文版（对外宣传）+ README.md 顶部语言链接（2026-08-10）。
 - **C-R2**：✅ 已新增 `SECURITY.md`（密钥处理+报告流程+dev 状态）与 `CONTRIBUTING.md`（工作流/约定/测试）
-  （2026-08-10）；KNOWN_LIMITS 面向外部版待做。
+  （2026-08-10）；✅ KNOWN_LIMITS 面向外部版（对外发布前须知摘要）已加（2026-08-10）。
 - **C-R3**：✅ license 已定为 MIT（`LICENSE`，2026-08-10）；`.gitignore` 复核（密钥/运行态/账本已排除）。
 - **C-R4**：发布前自检清单（checklist）：CI 绿 ✅ / 耐久报告 ⬜(L1) / 去硬编码 ✅(C-P1) / 文档一致 ✅(IV) /
-  README+许可 ✅ / SECURITY+CONTRIBUTING ✅。剩余：KNOW_LIMITS 外部版、README 双语重写、L1 耐久报告。
+  README 中英 ✅ / 许可 ✅ / SECURITY+CONTRIBUTING ✅ / KNOWN_LIMITS 外部版 ✅。剩余：L1 耐久报告、
+  README 完整双语正文校对、发布后 CI 密钥激活。
 
 ---
 
