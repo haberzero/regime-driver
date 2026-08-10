@@ -25,8 +25,12 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 from ..core.statechart import Signal, SignalKind
+from ..flow import FlowError, FlowRegistry, compile_spec, validate_sm
 from .blackboard import WORKFLOW_METRICS, status_line, workflow_status
 from .statechart_runtime import ThreadedUnit
+
+# backward-compat alias: the unified compile entry now lives in flow.py (F1).
+compile_flow = compile_spec
 
 # event topics this dialog observes
 TOPIC_BLACKBOARD = "blackboard.changed"
@@ -37,56 +41,6 @@ TOPIC_GOD_REPLY = "god.reply"
 def _topic_label(topic: str) -> str:
     """Short label for an event topic (e.g. 'blackboard.changed' -> 'blackboard')."""
     return topic.split(".")[-1]
-
-
-def compile_flow(flow_name: str, spec_text: str) -> "object":
-    """Compile a workflow spec (JSON) into a validated StateMachine.
-
-    Accepts either a full regime dict (has "flows"/"entry") or a compact flow
-    spec `{"entry": "start_id", "nodes": [{id, desc, role, type, next, ...}]}`.
-    Raises on invalid/malformed input so the caller can surface a clean error.
-    """
-    import json
-
-    from ..core.state_machine import StateMachine
-
-    spec = json.loads(spec_text)
-    if not isinstance(spec, dict):
-        raise ValueError("workflow 规格必须是 JSON 对象")
-    if "flows" in spec:
-        regime = dict(spec)
-        flows = regime["flows"]
-        if flow_name not in flows:
-            raise ValueError(f"flows 中找不到 '{flow_name}'")
-        entry = regime.get("entry") or {"flow": flow_name,
-                                        "start_node": next(iter(flows[flow_name]["nodes"]))}
-        entry["flow"] = flow_name
-        regime["entry"] = entry
-        raw = json.dumps(regime)
-    else:
-        nodes_raw = spec.get("nodes")
-        entry_id = spec.get("entry")
-        if not isinstance(nodes_raw, list) or not nodes_raw:
-            raise ValueError("紧凑规格需含非空 ['nodes'] 列表")
-        if not entry_id:
-            raise ValueError("紧凑规格需含 ['entry'] 起始节点")
-        nodes: dict = {}
-        for n in nodes_raw:
-            if not isinstance(n, dict) or "id" not in n:
-                raise ValueError("每个 node 需含 'id'")
-            node = {k: n[k] for k in ("id", "desc", "role", "type") if k in n}
-            for extra in ("next", "skill", "tool", "tool_args", "branches"):
-                if n.get(extra) is not None:
-                    node[extra] = n[extra]
-            nodes[n["id"]] = node
-        regime = {
-            "version": "0.design",
-            "meta": {"work_done_marker": "[WORK_DONE]"},
-            "flows": {flow_name: {"nodes": nodes}},
-            "entry": {"flow": flow_name, "start_node": entry_id},
-        }
-        raw = json.dumps(regime)
-    return StateMachine.from_dict(raw)
 
 
 class GodDialogUnit(ThreadedUnit):
@@ -101,6 +55,7 @@ class GodDialogUnit(ThreadedUnit):
         session_client=None,
         settings_render: Callable[[], str] | None = None,
         worker_pool=None,
+        flow_registry: FlowRegistry | None = None,
         max_events: int = 200,
         allow_write: bool = False,
     ) -> None:
@@ -118,7 +73,9 @@ class GodDialogUnit(ThreadedUnit):
         self.allow_write = allow_write
         self.talk_agent = "developer"     # agent used for `talk <sid> <msg>`
         self.talk_timeout = 120.0         # max seconds to wait for the reply
-        self.flows: dict = {}  # name -> StateMachine (user-designed flows)
+        # the named-flow single source of truth (F4): god designed/loaded flows
+        # and the builtin flow all live here. `self.flows` is a read-only view.
+        self.flow_registry = flow_registry or FlowRegistry()
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="god-llm")
@@ -236,6 +193,8 @@ class GodDialogUnit(ThreadedUnit):
             return self._write_gate(t) or self._talk(t)
         if self._is_design_cmd(low):
             return self._write_gate(t) or self._design(t)
+        if self._is_flow_cmd(low):
+            return self._flow(t)
         # free-form -> LLM explain on a worker thread (non-blocking)
         return self._explain(t)
 
@@ -268,6 +227,10 @@ class GodDialogUnit(ThreadedUnit):
     @staticmethod
     def _is_design_cmd(low: str) -> bool:
         return low.startswith(("design", "设计")) or "新建流程" in low
+
+    @staticmethod
+    def _is_flow_cmd(low: str) -> bool:
+        return low.startswith("flow ") or low.startswith("流程 ")
 
     @staticmethod
     def _is_inspect_cmd(low: str) -> bool:
@@ -331,10 +294,10 @@ class GodDialogUnit(ThreadedUnit):
                 break
         if not ctx:
             return "用法：start [flow_name] <任务上下文>"
-        # a leading token matching a designed flow -> run that flow
+        # a leading token matching a registered flow -> run that flow
         first = ctx.split()[0] if ctx.split() else ""
-        if first in self.flows:
-            flow_sm = self.flows[first]
+        if self.flow_registry.sm(first) is not None:
+            flow_sm = self.flow_registry.sm(first)
             ctx = ctx[len(first):].strip()
         if not ctx:
             ctx = first if flow_sm is None else "（默认任务）"
@@ -356,10 +319,11 @@ class GodDialogUnit(ThreadedUnit):
         if spec.strip().startswith("{") or spec.strip().startswith("["):
             try:
                 sm = compile_flow(name, spec)
-            except Exception as exc:
+                entry = self.flow_registry.register(name, sm, validate=True)
+            except FlowError as exc:
                 return f"设计失败：{exc}"
-            self.flows[name] = sm
-            return f"已设计并注册 workflow '{name}'：路径={' → '.join(sm.flow_path()) or '(空)'}"
+            return (f"已设计并注册 workflow '{name}'："
+                    f"路径={' → '.join(entry.sm.flow_path()) or '(空)'}")
         if self.llm is None:
             return "自然语言设计需接入 LLM；当前请提供 JSON 规格。"
         self._executor.submit(self._run_design_nl, name, spec)
@@ -376,13 +340,61 @@ class GodDialogUnit(ThreadedUnit):
             )
             raw = self.llm(prompt, "")
             sm = compile_flow(name, raw)
-            self.flows[name] = sm
+            entry = self.flow_registry.register(name, sm, validate=True)
             self.replies.append({"text": f"已用 LLM 设计并注册 workflow '{name}'："
-                                         f"路径={' → '.join(sm.flow_path())}",
+                                         f"路径={' → '.join(entry.sm.flow_path())}",
                                  "kind": "design", "ts": time.time()})
         except Exception as exc:
             self.replies.append({"text": f"LLM 设计 workflow '{name}' 失败：{exc}",
                                  "kind": "design", "ts": time.time()})
+
+    def _flow(self, text: str) -> str:
+        """`flow list` / `flow validate <file>` / `flow reload <name>` (F7/F8).
+
+        list/validate are read-only; reload is a write op (re-compiles + gates
+        before swap), so it honours the write gate. Operates on the shared
+        FlowRegistry (single source of truth).
+        """
+        parts = text.split(maxsplit=2)
+        sub = parts[1] if len(parts) > 1 else ""
+        if sub in ("list", "ls", "列表"):
+            lines = ["=== flow registry ==="]
+            entries = self.flow_registry.list()
+            if not entries:
+                lines.append("  (无注册 flow；用 design/load 添加)")
+            for e in entries:
+                lines.append(f"  v{e.version} {e.name} [{e.source}] "
+                             f"({len(e.sm.flow.nodes)} nodes)")
+            lines.append(f"  共 {len(entries)} 个")
+            return "\n".join(lines)
+        if sub in ("validate", "校验"):
+            if len(parts) < 3:
+                return "用法：flow validate <regime.json>"
+            from ..flow import load_regime as _lr
+            path = parts[2]
+            try:
+                sm = _lr(path)
+                res = validate_sm(sm)
+            except Exception as exc:
+                return f"校验失败：{exc}"
+            if res.ok:
+                return (f"✓ flow '{sm.flow_name}' 校验通过 "
+                        f"({len(sm.flow.nodes)} nodes)")
+            return "校验失败:\n  " + "\n  ".join(res.errors)
+        if sub in ("reload", "重载"):
+            if len(parts) < 3:
+                return "用法：flow reload <name>"
+            gate = self._write_gate("flow reload")
+            if gate:
+                return gate
+            name = parts[2]
+            try:
+                entry = self.flow_registry.reload(name)
+            except FlowError as exc:
+                return f"重载失败：{exc}"
+            return (f"✓ 已热重载 flow '{name}' → v{entry.version} "
+                    f"(运行中 workflow 保持旧快照)")
+        return "用法：flow list | flow validate <file> | flow reload <name>"
 
     def _inspect(self, text: str) -> str:
         bb = self.bus.blackboard if self.bus is not None else None
@@ -588,6 +600,9 @@ class GodDialogUnit(ThreadedUnit):
         return (
             "可用命令（中英文皆可）：\n"
             "  design <flow名> <JSON|自然语言>   —— 设计并注册新 workflow\n"
+            "  flow list / 流程 列表             —— 列出已注册 flow\n"
+            "  flow validate <regime.json> / 校验 —— 热校验一个 flow 文件\n"
+            "  flow reload <flow名> / 重载       —— 原子热重载(运行中workflow不受影响)(写)\n"
             "  status / monitor [字段] / 状态        —— 实时 workflow 快照（可只查 node/state/…）\n"
             "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
             "  start [flow名] <任务上下文> / 启动 ..   —— 非阻塞启动一个 workflow\n"

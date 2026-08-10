@@ -64,6 +64,7 @@ _COMMAND_LEVEL: dict[str, PermissionLevel] = {
     "gate": PermissionLevel.READ,
     "preflight": PermissionLevel.READ,    # offline trial, no worker side effects
     "report": PermissionLevel.READ,
+    "flow": PermissionLevel.READ,         # load/reload/rm escalate to RUN (write)
     "job": PermissionLevel.READ,          # job create via run --async is RUN
     "dialog": PermissionLevel.RUN,        # REPL enables write
     "run": PermissionLevel.RUN,
@@ -95,6 +96,11 @@ def classify(argv: list[str]) -> PermissionLevel:
         if sub in ("stop", "clean"):
             return PermissionLevel.CLEAN
         if sub == "submit":
+            return PermissionLevel.RUN
+        return PermissionLevel.READ
+    if cmd == "flow":
+        sub = tokens[1] if len(tokens) > 1 else ""
+        if sub in ("load", "reload", "rm"):
             return PermissionLevel.RUN
         return PermissionLevel.READ
     return base

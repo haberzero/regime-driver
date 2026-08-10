@@ -1,6 +1,7 @@
 # 改进工作清单与规划（WORK_PLAN 5）— 流程热编译/热加载基础设施 + 长期运行
 
-> 日期：2026-08-09 · 状态：规划（待下 session 实施）
+> 日期：2026-08-09 · 状态：**F1–F11 已完成（2026-08-10，329 测试全绿）**；
+> 剩余 L1–L3（长期运行耐久性）+ C1–C4（微调）
 > 依据：用户方向——①长期运行用 OpenCode Go（刚配好的供应商）；②原始愿景层面，重点考虑
 > **workflow 热编译检查与热加载**相关基础设施（含 CLI 等交互操作）；③其余由我按工程经验判断微调。
 > 原则：每项过质量门 + 全量测试零回归 + code-review + commit，并同步 HANDOVER/TASK/WORK_PLAN。
@@ -70,12 +71,12 @@
 
 ## 验收标准（下 session 主线）
 
-1. `regime flow list/validate/load/reload/rm/inspect` 可用，`--json` + 权限门禁。
-2. 编辑/重载 flow 即时校验；非法/带环 flow 被拒且原因清晰。
-3. 运行中 `regime run` 不受 `flow reload` 影响（原子替换 + 旧快照继续）。
-4. god A/B 路都能设计/校验/重载/启动 flow。
-5. 长期运行（opencode-go）2h+ 无泄漏性增长；资源治理收尾生效。
-6. 全量测试零回归；HANDOVER/TASK/WORK_PLAN 同步。
+1. `regime flow list/validate/load/reload/rm/inspect` 可用，`--json` + 权限门禁。✅
+2. 编辑/重载 flow 即时校验；非法/带环 flow 被拒且原因清晰。✅（`--watch` 编辑即校验）
+3. 运行中 `regime run` 不受 `flow reload` 影响（原子替换 + 旧快照继续）。✅（旧 SM 不原地 mutate）
+4. god A/B 路都能设计/校验/重载/启动 flow。✅
+5. 长期运行（opencode-go）2h+ 无泄漏性增长；资源治理收尾生效。⬜（L1–L3 待下 session）
+6. 全量测试零回归；HANDOVER/TASK/WORK_PLAN 同步。✅（329 passed）
 
 > 建议顺序：F1–F4（基础注册表+校验）→ F5/F6（原子替换+watch）→ F7/F8（CLI+dialog）→
 > F9–F11（安全）→ L1–L3（长期运行）→ C1–C4（微调）。

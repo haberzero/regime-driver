@@ -170,6 +170,38 @@ export const RegimeGod = async ({ $ }) => {
           return await run($, opts)
         },
       }),
+
+      regime_flow_list: tool({
+        description: "List named flows in the FlowRegistry (builtin + designed + loaded). " +
+                     "Returns {flows:[{name,version,source,nodes,path}]} JSON.",
+        args: {},
+        async execute(args) {
+          return await run($, ["flow", "list", "--json"])
+        },
+      }),
+
+      regime_flow_validate: tool({
+        description: "Hot-validate a flow file (compile + structural + deep checks). " +
+                     "Returns {ok, flow, nodes, errors, warnings} JSON. " +
+                     "Rejects bad roles/cycles/tools BEFORE touching a worker.",
+        args: { regime: tool.schema.string(), skills_dir: tool.schema.string().optional() },
+        async execute(args) {
+          const a = A(args)
+          const opts = ["flow", "validate", a.regime, "--json"]
+          if (a.skills_dir) opts.push("--skills-dir", a.skills_dir)
+          return await run($, opts)
+        },
+      }),
+
+      regime_flow_reload: tool({
+        description: "Atomically hot-reload a file-backed named flow (deep-validated before swap). " +
+                     "Running workflows keep their old snapshot. Returns {ok, name, version, ...} JSON.",
+        args: { name: tool.schema.string(), perm: tool.schema.string().optional() },
+        async execute(args) {
+          const a = A(args)
+          return await run($, ["flow", "reload", a.name, "--json", "--perm", a.perm ?? "run"])
+        },
+      }),
     },
   }
 }

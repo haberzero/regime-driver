@@ -24,6 +24,7 @@ GUARDED = {
     "app/reporter.py": {},
     "app/preflight.py": {},
     "app/god_dialog.py": {},
+    "flow.py": {},
 }
 
 

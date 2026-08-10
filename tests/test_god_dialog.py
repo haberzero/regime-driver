@@ -275,14 +275,14 @@ def test_design_compiles_and_registers_flow():
     out = d.command(f"design myflow {DESIGN_SPEC}")
     assert "myflow" in out
     assert "understand" in out and "implement" in out
-    assert "myflow" in d.flows
+    assert d.flow_registry.sm("myflow") is not None
 
 
 def test_design_invalid_spec_reports_error():
     d = GodDialogUnit(allow_write=True)
     out = d.command('design bad {"entry": "a"}')
     assert "设计失败" in out
-    assert "bad" not in d.flows
+    assert d.flow_registry.sm("bad") is None
 
 
 def test_write_gate_blocks_write_ops_by_default():
@@ -301,7 +301,7 @@ def test_start_uses_designed_flow():
     d.command(f"design myflow {DESIGN_SPEC}")
     d.command("start myflow 做任务")
     assert launched["ctx"].strip() == "做任务"
-    assert launched["flow"] is d.flows["myflow"]
+    assert launched["flow"] is d.flow_registry.sm("myflow")
 
 
 def test_compile_flow_full_regime_dict():
@@ -311,3 +311,45 @@ def test_compile_flow_full_regime_dict():
             '"entry": {"flow": "f", "start_node": "a"}}')
     sm = compile_flow("f", full)
     assert sm.flow_path() == ["a"]
+
+
+def test_flow_list_lists_designed_and_builtin():
+    d = GodDialogUnit(allow_write=True)
+    d.command(f"design myflow {DESIGN_SPEC}")
+    out = d.command("flow list")
+    assert "myflow" in out
+    assert "design" in out
+
+
+def test_flow_validate_file(tmp_path):
+    from regime_driver.app.god_dialog import GodDialogUnit as G
+    d = G()
+    p = tmp_path / "f.json"
+    p.write_text(
+        '{"version": "t", "flows": {"f": {"nodes": {'
+        '"a": {"id": "a", "desc": "d", "role": "developer", "type": "agent", "next": null}}}}, '
+        '"entry": {"flow": "f", "start_node": "a"}}', encoding="utf-8")
+    out = d.command(f"flow validate {p}")
+    assert "校验通过" in out
+    bad = tmp_path / "bad.json"
+    bad.write_text(
+        '{"version": "t", "flows": {"f": {"nodes": {'
+        '"a": {"id": "a", "desc": "d", "role": "ghost", "type": "agent", "next": null}}}}, '
+        '"entry": {"flow": "f", "start_node": "a"}}', encoding="utf-8")
+    out = d.command(f"flow validate {bad}")
+    assert "校验失败" in out
+
+
+def test_flow_reload_is_write_gated():
+    d = GodDialogUnit()  # read-only by default
+    assert "门禁" in d.command("flow reload x")
+
+
+def test_design_rejects_deep_invalid_spec():
+    d = GodDialogUnit(allow_write=True)
+    # unknown role passes structural compile but fails deep validation (F9)
+    out = d.command('design bad {"entry": "a", "nodes": [{"id": "a", "desc": "d",'
+                    '"role": "ghost", "type": "agent", "next": null}]}')
+    assert "设计失败" in out
+    assert "deep validation" in out
+    assert d.flow_registry.sm("bad") is None

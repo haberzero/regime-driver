@@ -27,6 +27,9 @@
 
 ### 3.x 自主运行配置（下游会话必须遵守）
 
+- **代码审查必须用 `general` task agent（只读、不改文件）；严禁使用 `reviewer` task agent。**
+  用户硬性决定（同仓库根 `AGENTS.md`）。每完成里程碑/阶段即用 `general` 独立只读 review，
+  修复其 blocker/warning 后方可标记完成并 commit。
 - **禁 push**：除非明确授权，禁止 `git push`；只本地 commit。
 - **破坏性重构授权**：符合一般工程/架构原则且经分析确实优于既有设计，允许破坏性重构（用户多次指示"彻底重构，不用关心兼容"）。
 - **自主推进偏好**：偏向无人值守，最大限度自我决定；只有确实无法决定才上报。日志纪律："只记录，不断决"。
@@ -166,9 +169,14 @@
 > （E2E / god 容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
 > 见下方"下一 session 主线任务（优先级表）"。
 
-### 当前状态速览（2026-08-09）
+### 当前状态速览（2026-08-10）
 
-- **测试基线 300 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 329 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
+  `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
+  持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/
+  reload/rm/inspect`（权限门禁）+ god A/B 路接入（B 路 `flow list/validate/reload` 命令、A 路
+  plugin `regime_flow_*` 工具）。god 原 `self.flows` 冗余第二真源已归并删除。
 - **模型**：默认 `my-opencode-go/deepseek-v4-flash`（OpenCode Go），主机+worker/god 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、
@@ -187,22 +195,20 @@
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
-> **当前主线（唯一指针，2026-08-09）**：**流程热编译/热加载基础设施**（WORK_PLAN5）
-> ——围绕"可自我修改元系统"愿景的流程定义生命周期：热校验、FlowRegistry 热重载、CLI/dialog 交互、
-> 反循环安全；并做 **长期运行（耐久性，用 opencode-go）**。详见 `WORK_PLAN5.md`。
+> **当前主线（唯一指针，2026-08-10）**：**WORK_PLAN5 F1–F11 已完成**（热编译/热校验 +
+> FlowRegistry 热重载 + CLI/dialog 交互 + 安全反循环）。**下一主线：L1–L3 长期运行（耐久性，
+> 用 opencode-go）**，随后 C1–C4 微调。详见 `WORK_PLAN5.md`。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| **P0** | **热编译/热校验**：统一校验入口 + `regime flow validate`（可 --watch 编辑即校验）+ preflight 挂钩 | 元系统闭环 | F1–F3 |
-| **P0** | **热加载/热重载**：`FlowRegistry`（命名 flow 单一真源，归并 god `self.flows`）+ 原子替换/快照（运行中 workflow 不受影响）+ 文件监视重载 | 元系统闭环 | F4–F6 |
-| **P1** | **CLI + dialog 交互**：`regime flow list/validate/load/reload/rm/inspect` + god A/B 路接入 | 易用性 | F7/F8 |
 | **P1** | **长期运行（耐久性，opencode-go）**：2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾（prune/保留策略） | 运行可信 | L1–L3 |
-| **P2** | **安全反循环**：load/reload 门禁（deep_validate+preflight）+ 版本/快照 + 环检测 | 健康 | F9–F11 |
 | **P2** | **微调**：覆盖率基线(pytest-cov) / `regime doctor` 接入 god 与 web / opencode-go 模型延迟调优 / 主机模式 agent 模板 | 健康/易用 | C1–C4 |
 | P3 | 收敛测试内零散 FakeClient | 健康 | T6 已评估不转（非 drop-in） |
+| P3 | F6 后半：运行中 workflow 的自动 reload-on-change（现已有 `flow validate --watch` 校验监视；自动换入注册表待并轨） | 元系统闭环 | F6b |
 
-> 建议顺序：F1–F4（基础）→ F5/F6（原子替换+watch）→ F7/F8（CLI+dialog）→ F9–F11（安全）→
-> L1–L3（长期运行）→ C1–C4（微调）。若只做一件：**FlowRegistry 热重载（F4–F6）**。
+> 已完成：**F1–F11 热编译/热加载基础设施 ✅（2026-08-10，329 测试全绿）**——`FlowRegistry` 单一真源
+> （原子替换/旧快照/持久 store）+ `regime flow list/validate --watch/load/reload/rm/inspect`
+> （权限门禁）+ god A/B 路接入 + 反循环门禁。若只做一件：**L1 长期运行（opencode-go 2h+）**。
 
 ### 已完成主线（历史，参考）
 
@@ -257,6 +263,14 @@ conda run -n regime-driver regime drive "<任务>" --base http://127.0.0.1:4097 
 conda run -n regime-driver regime drive "<任务>" --async --container opencode-worker --reporter /tmp/rep.jsonl
 conda run -n regime-driver regime task status <task-id>      # 跟踪受监管任务
 conda run -n regime-driver regime task stop <task-id>        # 停止
+
+# 流程热编译/热加载（WORK_PLAN5; 命名 flow 单一真源, 跨进程持久于 REGIME_FLOW_STORE, 默认 ~/.regime/flows）
+conda run -n regime-driver regime flow list [--json]                       # 列出已注册 flow
+conda run -n regime-driver regime flow validate <regime.json> [--watch] [--json]  # 热校验(可 --watch 编辑即校验)
+conda run -n regime-driver regime flow load <regime.json> [--name <n>] [--json]   # 加载+深检+注册 (写)
+conda run -n regime-driver regime flow reload <name> [--json]              # 原子热重载, 运行中workflow保持旧快照 (写)
+conda run -n regime-driver regime flow rm <name> [--json]                  # 移除 (写)
+conda run -n regime-driver regime flow inspect <name> [--json]
 
 # 报告总线（宏观看板 / 因果链 / 模板 / 保留）
 conda run -n regime-driver regime report --journal /tmp/rep.jsonl [--wf id] [--tasks-dir] [--json]

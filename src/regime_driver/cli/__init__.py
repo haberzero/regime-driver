@@ -1437,6 +1437,254 @@ app.add_typer(_task_app, name="task")
 
 
 # ---------------------------------------------------------------------------
+# flow (subcommands: list / validate / load / reload / rm / inspect)
+#   hot flow-definition lifecycle (WORK_PLAN5 F1-F11)
+# ---------------------------------------------------------------------------
+_flow_app = typer.Typer(
+    help="FlowRegistry: hot compile/validate/load/reload of named flows.")
+
+# Lazily-seeded shared registry, scoped to THIS process (a fresh regime process
+# gets its own registry; each `regime flow` invocation re-derives from disk).
+# Not shared with the god-dialog process — see dialog_app which seeds its own.
+_flow_registry = None
+
+
+def _default_registry():
+    global _flow_registry
+    if _flow_registry is None:
+        from ..flow import FlowRegistry, default_store_dir
+        # persistent named-flow store (single truth across CLI invocations)
+        _flow_registry = FlowRegistry.from_default(store_dir=default_store_dir())
+    return _flow_registry
+
+
+def _reset_flow_registry() -> None:
+    """Drop the cached registry (used by tests to isolate flow mutations)."""
+    global _flow_registry
+    _flow_registry = None
+
+
+@_flow_app.command("list")
+def flow_list(
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """List named flows in the registry (builtin + designed + loaded)."""
+    from ..flow import FlowRegistry
+
+    reg = _default_registry()
+    if json_out:
+        _emit_json({"flows": [e.to_dict() for e in reg.list()]})
+        return
+    entries = reg.list()
+    if not entries:
+        _ok("no flows registered", markup=False)
+        return
+    table = Table(title="flow registry", show_header=True)
+    for col in ("version", "name", "source", "nodes"):
+        table.add_column(col)
+    for e in entries:
+        table.add_row(str(e.version), e.name, e.source, str(len(e.sm.flow.nodes)))
+    console.print(table)
+    console.print(f"[dim]{len(entries)} flows[/dim]")
+
+
+@_flow_app.command("validate")
+def flow_validate(
+    regime: Path = typer.Argument(..., help="path to a regime.json file"),
+    deep: bool = typer.Option(
+        True, "--deep/--no-deep", help="run semantic deep checks; ON by default"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    watch: bool = typer.Option(
+        False, "--watch", help="re-validate on file change (edit-while-validate)"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Hot-validate a flow file (F2): compile + structural + deep checks.
+
+    `--watch` polls the file and re-runs validation on every change, printing
+    ok/err — the "edit-while-validate" loop. No registry mutation.
+    """
+    from ..flow import validate_sm, compile_spec
+    from ..core.state_machine import StateMachineError
+
+    def _once() -> dict:
+        try:
+            raw = regime.read_text(encoding="utf-8")
+            sm = compile_spec(_name_from(raw) or "flow", raw)
+            res = validate_sm(sm, skills_dir=skills_dir) if deep else None
+            return {"ok": res.ok if res is not None else True,
+                    "flow": sm.flow_name, "nodes": len(sm.flow.nodes),
+                    "errors": res.errors if res else [],
+                    "warnings": res.warnings if res else []}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "errors": [str(exc)],
+                    "warnings": []}
+
+    if not watch:
+        data = _once()
+        if json_out:
+            _emit_json(data)
+            if not data["ok"]:
+                raise typer.Exit(1)
+            return
+        if data["ok"]:
+            _ok(f"flow '{data['flow']}' valid ({data['nodes']} nodes)", markup=False)
+        else:
+            _fail("; ".join(data.get("errors") or [data.get("error", "invalid")]))
+        return
+
+    # --watch: poll mtime, re-validate on change
+    import os
+    import time as _time
+
+    last = 0.0
+    while True:
+        try:
+            mtime = os.path.getmtime(regime)
+        except FileNotFoundError:
+            mtime = -1
+        if mtime != last:
+            last = mtime
+            data = _once()
+            stamp = _time.strftime("%H:%M:%S")
+            if data["ok"]:
+                _ok(f"[{stamp}] flow '{data['flow']}' valid "
+                    f"({data['nodes']} nodes)", markup=False)
+            else:
+                # watch mode must NOT raise (a temporarily-invalid edit is the
+                # normal editing state); print errors and keep polling until
+                # Ctrl-C. `_fail` would exit(1) and break the loop.
+                for e in data.get("errors") or []:
+                    console.print(Text(f"✗ [{stamp}] {e}", style="bold red"))
+                console.print(f"[dim][{stamp}] {regime} invalid, "
+                              "keep editing… (Ctrl-C to quit)[/dim]")
+        _time.sleep(1.0)
+
+
+def _name_from(raw: str) -> str | None:
+    """Best-effort: the flow name from a regime JSON body (for display)."""
+    import json as _json
+    try:
+        spec = _json.loads(raw)
+        if isinstance(spec, dict) and "entry" in spec:
+            return spec["entry"].get("flow")
+    except Exception:
+        pass
+    return None
+
+
+@_flow_app.command("load")
+def flow_load(
+    regime: Path = typer.Argument(..., help="path to a regime.json file"),
+    name: str = typer.Option(None, "--name", help="register under this flow name"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    preflight: bool = typer.Option(
+        False, "--preflight", help="also run an offline preflight trial"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Load + deep-validate + register a flow file into the registry (F4/F9)."""
+    _gate(perm, ["flow", "load"])
+    from ..flow import FlowRegistry, FlowError
+
+    reg = _default_registry()
+    try:
+        entry = reg.load(regime, name=name, skills_dir=skills_dir,
+                         preflight=preflight)
+    except FlowError as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
+        _fail(f"load FAILED: {exc}")
+    if json_out:
+        _emit_json({"ok": True, **entry.to_dict()})
+        return
+    _ok(f"loaded flow [bold]{entry.name}[/bold] (v{entry.version}, "
+        f"{len(entry.sm.flow.nodes)} nodes, source={entry.source})", markup=True)
+
+
+@_flow_app.command("reload")
+def flow_reload(
+    name: str = typer.Argument(..., help="flow name to reload"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    preflight: bool = typer.Option(
+        False, "--preflight", help="also run an offline preflight trial"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Atomically hot-reload a file-backed flow (F5/F10). Running workflows keep
+    their old StateMachine snapshot; the registry swaps to the new version."""
+    _gate(perm, ["flow", "reload"])
+    from ..flow import FlowError
+
+    reg = _default_registry()
+    try:
+        entry = reg.reload(name, skills_dir=skills_dir, preflight=preflight)
+    except FlowError as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
+        _fail(f"reload FAILED: {exc}")
+    if json_out:
+        _emit_json({"ok": True, **entry.to_dict()})
+        return
+    _ok(f"hot-reloaded flow [bold]{entry.name}[/bold] → v{entry.version} "
+        f"(running workflows keep old snapshot)", markup=True)
+
+
+@_flow_app.command("rm")
+def flow_rm(
+    name: str = typer.Argument(..., help="flow name to remove"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Remove a named flow from the registry (running workflows unaffected)."""
+    _gate(perm, ["flow", "rm"])
+    reg = _default_registry()
+    if not reg.remove(name):
+        if json_out:
+            _emit_json({"ok": False, "error": f"unknown flow '{name}'"})
+            raise typer.Exit(1)
+        _fail(f"unknown flow: {name}")
+    if json_out:
+        _emit_json({"ok": True, "removed": name})
+        return
+    _ok(f"removed flow [bold]{name}[/bold]", markup=True)
+
+
+@_flow_app.command("inspect")
+def flow_inspect(
+    name: str = typer.Argument(..., help="flow name"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Show a named flow's descriptor summary (nodes + path)."""
+    reg = _default_registry()
+    entry = reg.get(name)
+    if entry is None:
+        if json_out:
+            _emit_json({"ok": False, "error": f"unknown flow '{name}'"})
+            raise typer.Exit(1)
+        _fail(f"unknown flow: {name}")
+    d = entry.to_dict()
+    if json_out:
+        _emit_json(d)
+        return
+    table = Table(title=f"flow {name}", show_header=False)
+    table.add_column("key", style="bold cyan")
+    table.add_column("value")
+    table.add_row("version", str(d["version"]))
+    table.add_row("source", d["source"])
+    table.add_row("nodes", str(d["nodes"]))
+    table.add_row("path", " → ".join(d["path"] or ["(cycle)"]))
+    console.print(table)
+
+
+app.add_typer(_flow_app, name="flow")
+
+
+# ---------------------------------------------------------------------------
 # worker (subcommands: list / up / down / base) — multi opencode instance pool
 # ---------------------------------------------------------------------------
 _worker_app = typer.Typer(

@@ -12,11 +12,11 @@
 
 ## 候选清单（按优先级，见 WORK_PLAN5）
 
-- [ ] P0 热编译/热校验：统一校验入口 + `regime flow validate`（--watch 编辑即校验）+ preflight 挂钩（F1–F3）
-- [ ] P0 热加载/热重载：`FlowRegistry`（命名 flow 单一真源，归并 god self.flows）+ 原子替换/快照 + 文件监视重载（F4–F6）
-- [ ] P1 CLI+dialog 交互：`regime flow list/validate/load/reload/rm/inspect` + god A/B 路接入（F7/F8）
+- [x] P0 热编译/热校验：统一校验入口 + `regime flow validate`（--watch 编辑即校验）+ preflight 挂钩（F1–F3）| 2026-08-10 F1-F3 done
+- [x] P0 热加载/热重载：`FlowRegistry`（命名 flow 单一真源，归并 god self.flows）+ 原子替换/快照 + 文件监视重载（F4–F6）| 2026-08-10 F4/F5 done; F6 的 validate --watch 完成，运行中自动 reload-on-change 待 L 期并轨
+- [x] P1 CLI+dialog 交互：`regime flow list/validate/load/reload/rm/inspect` + god A/B 路接入（F7/F8）| 2026-08-10 F7/F8 done
 - [ ] P1 长期运行（耐久性，opencode-go）：2h+ drive/fleet，观测资源/泄漏/恢复 + 资源治理收尾（L1–L3）
-- [ ] P2 安全反循环：load/reload 门禁 + 版本/快照 + 环检测（F9–F11）
+- [x] P2 安全反循环：load/reload 门禁 + 版本/快照 + 环检测（F9–F11）| 2026-08-10 done
 - [ ] P2 微调：覆盖率基线(pytest-cov) / doctor 接入 god 与 web / opencode-go 延迟调优 / 主机模式 agent 模板（C1–C4）
 - [ ] P3 收敛测试内零散 FakeClient（T6 已评估不转，如需统一另建轻量脚本化 fake）
 
@@ -78,12 +78,15 @@
 - [DONE] P0#2 真实E2E + supervisor真实卡死恢复 + 元分析接真实模型 | verified: 266 passed(258+8, 5 skip) + 真实worker E2E | (1) 智能元分析: Supervisor.meta_analyze()(独立模型读会话上下文→严格JSON verdict→确定性门gate_meta→阶梯; 失败/门拒回退确定性_verdict_for_stall) + _parse_meta_verdict(容忍围栏/散文) + cli supervisor/drive --meta + tests/test_supervisor.py(8) | (2) 真实E2E(test_e2e_worker): real drive+supervisor无假停滞(全栈COMPLETE+共享journal含worker事件+supervisor=workflow_done) + real T1→L4重启恢复(停容器→supervisor检测unhealthy→docker restart→worker恢复, REGIME_E2E_RESTART门控) + real meta真实模型(返回门控verdict) | (3) docker_restart修stale-shell权限: 平docker失败回退`sg docker -c`(本shell旧组必需)
 - [REVIEW] P0#2 meta+真实E2E | 0 issues | blockers: 0 | warnings: 0 | meta_analyze用独立meta会话+严格JSON+门gate_meta; 真实E2E覆盖: 无假停滞/重启恢复/真实模型; docker_restart双候选(plain→sg); 已验证266测试全绿 + 3真实E2E通过 | 说明: 真实T2 busy-stall难以确定性诱发(坏模型HTTP500快失败、真实推理快), 故T2阶梯的真实执行以L4重启+真实模型meta+真实abort执行覆盖, T2判定逻辑由单测覆盖(诚实记录)
 
+- [DONE] WORK_PLAN5 F1-F11 流程热编译/热加载基础设施 | verified: 329 passed(324+5) | 新增 src/regime_driver/flow.py(FlowRegistry: 命名flow单一真源 + compile_spec统一编译入口 + validate_sm深检门 + register/load/reload 原子替换/旧快照 + 持久store(REGIME_FLOW_STORE可配, 跨CLI调用单一真源) + 反循环) | 归并 god_dialog self.flows→flow_registry(删冗余flows属性, dead-code守卫强制), god design 走深检门(F9) | `regime flow` CLI(list/validate --watch/load/reload/rm/inspect, 权限门禁 load/reload/rm=RUN) | permission.py 登记 flow | god A路 plugin 加 regime_flow_list/validate/reload | dialog_app 注入 from_default 内置流 | tests: test_flow.py(14)+test_cli(+7, autouse隔离flowstore)+test_god_dialog(+5) | 真实CLI冒烟: load→list/inspect 跨进程可见→rm 移除 | 说明: 运行中自动 reload-on-change(F6后半)与 L1-L3 长期运行、C1-C4 微调 留待下session
+
 ## 阻塞
 
 （无）
 
 ## 自省记录
 
+- [REFLECT] 2026-08-10 | progress: WORK_PLAN5 F1-F11 全落地——FlowRegistry(compile_spec/深检门/原子替换旧快照/持久store单一真源) + `regime flow` CLI(list/validate --watch/load/reload/rm/inspect, 权限门禁) + god A/B路接入 + 反循环; 归并 god self.flows 第二真源; 329测试全绿 + 真实CLI跨进程持久验证 | risk: FlowRegistry 单一真源为每进程作用域(CLI跨进程靠 disk store 统一; god/drive 各持实例), 运行中 workflow 依赖"不原地mutate"约定(已由不变量保证); F6 后半(运行中自动 reload-on-change)未做 | next: L1-L3 长期运行耐久性(opencode-go 2h+) / C1-C4 微调 | escalate: no
 - [REFLECT] 2026-08-09 | progress: 按用户三个方向收口交接——①长期运行授权用 opencode-go ②主线转向"流程热编译/热加载基础设施"(WRITE WORK_PLAN5: FlowRegistry/热校验/CLI+dialog/反循环/长期运行/微调) ③其余按工程判断微调; 同步 HANDOVER §8 主线+优先级表、TASK 候选、测试基线300 | risk: 真实模型(opencode-go) judge 慢/停滞使舰队成员可能超时(系统以 deadline/supervisor 兜底); worker 须 root→工作区 root 文件(down chown); 覆盖率数值未测(pytest-cov 未装, C1 待办) | next: 交接文档已更新, 分支干净300全绿, 待下 session 按 WORK_PLAN5 从 F1-F4(FlowRegistry+热校验) 开工 | escalate: no
 - [DONE] worker工作区隔离——转"多opencode实例每工作区一个"(用户指令) | verified: 285 passed(275+10) + 真实E2E隔离验证 | 新增 src/regime_driver/worker.py(WorkerPool: slugify/instance_name/work_dir_for纯函数 + get/ensure/list/remove docker持久映射 + no-duplicate不变量 + _run_docker sg回退(shlex.quote修多词format) + _resolve_key env/key文件回退) + `regime worker` CLI(list/up/base/down) + `regime drive --workspace <ws>`(解析工作区实例base_url) + tests/test_worker.py(10) + docs/DESIGN-worker-isolation.md + HANDOVER/config同步 | 真实E2E: up ws-algo→复用不重复(同端口)→up ws-infra独立→drive --workspace ws-algo 真实任务COMPLETE(119.6s)→产物ws_nine.py仅在该工作区(ws-infra与默认worker均无)=物理隔离成立 | 修: test_ensure_requires_key因新增key文件回退读到真key→health-wait 120s慢, 改mock _resolve_key="" (测试从78s回归)
 - [REVIEW] worker多实例隔离 | 1 warning(测试慢,已修) | blockers: 0 | warnings: 0 | 核心不变量(每工作区一实例, 无重复)经docker持久保证; _run_docker用shlex.quote修sg多词format(此前get/list查不到容器); 隔离真实性经真实E2E验证(产物仅落该工作区); 权限: worker up/down为docker写操作, drive --workspace经drive门禁; 285全绿78s | 说明: 每实例一容器资源线性增; down会删容器(挂载目录宿主机保留)

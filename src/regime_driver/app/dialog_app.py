@@ -11,6 +11,7 @@ from typing import Callable
 
 from .god_dialog import GodDialogUnit
 from .statechart_cluster import StatechartCluster
+from ..flow import FlowRegistry
 from ..infra.opencode import OpenCodeClient
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
@@ -69,6 +70,7 @@ def run_dialog(
     god = cluster.register_unit(GodDialogUnit(
         bus=cluster.runtime.bus, llm=llm, session_client=client if live else None,
         worker_pool=WorkerPool() if live else None,
+        flow_registry=FlowRegistry.from_default(),
         settings_render=lambda: settings.model_dump().__str__(), allow_write=allow_write))
 
     def launcher(ctx, title, flow_sm=None):
