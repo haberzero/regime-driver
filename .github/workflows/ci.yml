@@ -42,9 +42,11 @@ jobs:
           pytest --cov=regime_driver --cov-report=term --cov-fail-under=68 2>&1 | tee /tmp/pytest.out
           rc=${PIPESTATUS[0]}
           if [ $rc -ne 0 ]; then
-            # surface the failing lines as read-only annotations (diagnosable w/o log download)
-            echo "::error::PYTEST_FAILED exit=$rc — tail:"
-            tail -n 60 /tmp/pytest.out | sed 's/^/::error::/'
+            # surface failing test names + assertion/error lines as read-only
+            # annotations (diagnosable via the API without log download).
+            echo "::error::PYTEST_FAILED exit=$rc"
+            grep -nE "FAILED|ERROR|short test summary|AssertionError|^E +|Failed:" /tmp/pytest.out \
+              | sed 's/^/::error::/'
             exit $rc
           fi
 
