@@ -69,6 +69,11 @@
 - 1 个 agent：`reviewer.md`（只读评审，`edit/write: deny`）。
 - 注意：这些是**全局**配置，对宿主机所有 opencode 会话生效。
 
+> **历史遗留（M0 时代，已收编删除）**：§4.4–4.9 记录的是早期 M0 监督器/oc-task/stall-watchdog/
+> oc-run.sh 的产物。这些脚本**均已退役删除**（见 §6：`ops/supervisor.py`、`oc-task.py`、`oc-run.sh`、
+> `stall-watchdog.js` 已收编进 `regime_driver.supervisor`/`task`/CLI）。保留此处仅作历史与设计演变参考；
+> 当前运行面请以 §6/§8 与 `regime supervisor`/`regime task`/`regime drive` 为准。
+
 ### 4.4 元层监督器（`/home/haber/oc-meta/ops/supervisor.py`）
 - **三层看门狗**：T1 进程级(health)、T2 会话级(无事件)、T3 轮次级(消息指纹稳定)。
 - **纠正阶梯**：L1 轻提示 → L2 abort → L3 换模型 → L4 重启容器 → L5 人工升级，`max_retries` 兜底。
@@ -171,7 +176,7 @@
 
 ### 当前状态速览（2026-08-10）
 
-- **测试基线 329 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 333 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
 - **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
   `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
   持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/

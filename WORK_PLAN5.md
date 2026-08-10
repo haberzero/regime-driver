@@ -76,7 +76,7 @@
 3. 运行中 `regime run` 不受 `flow reload` 影响（原子替换 + 旧快照继续）。✅（旧 SM 不原地 mutate）
 4. god A/B 路都能设计/校验/重载/启动 flow。✅
 5. 长期运行（opencode-go）2h+ 无泄漏性增长；资源治理收尾生效。⬜（L1–L3 待下 session）
-6. 全量测试零回归；HANDOVER/TASK/WORK_PLAN 同步。✅（329 passed）
+6. 全量测试零回归；HANDOVER/TASK/WORK_PLAN 同步。✅（333 passed，2026-08-10）
 
 > 建议顺序：F1–F4（基础注册表+校验）→ F5/F6（原子替换+watch）→ F7/F8（CLI+dialog）→
 > F9–F11（安全）→ L1–L3（长期运行）→ C1–C4（微调）。
