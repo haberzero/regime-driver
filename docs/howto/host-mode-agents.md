@@ -1,6 +1,6 @@
 # 主机模式 agent 模板（方式 B）
 
-> 目的：当把"主机 opencode"当作 regime worker（`docs/DESIGN-usability.md` 方式 B，无 Docker）
+> 目的：当把"主机 opencode"当作 regime worker（`docs/guide/00_environment.md` 方式 B，无 Docker）
 > 时，regime 用 `developer` / `reviewer` 两个 agent 驱动会话。若你的顶层
 > `~/.config/opencode/opencode.json` 的 `agents` 为空（默认只内置 `build`），须自行
 > 补这两个 agent 定义，否则 `regime run/drive` 会报错（worker 用 500 / 找不到 agent）。

@@ -1,7 +1,7 @@
 # 会话交接文档（HANDOVER）
 
 > 供新工作区开启的新 session 读取，完整了解本项目背景、已做成果、当前状态与下一步。
-> 新会话请先读本文件 + `PLANNING.md` + `docs/DESIGN.md`。
+> 新会话请先读本文件 + `PLANNING.md` + `docs/README.md`（技术文档导航）。
 
 ---
 
@@ -22,7 +22,7 @@
 - 主机：Linux，用户 `haber`，内存/GPU 充足。Docker 29.7.0。
 - **docker 权限**：`haber` 已在 docker 组，但本 shell 是旧组，需用 `sg docker -c '...'` 包装 docker 命令。
 - **网络**：Docker Hub 被墙 → 用镜像 `docker.m.daocloud.io` 拉基础镜像；npm 用 `registry.npmmirror.com`。
-- **模型授权**：默认模型为 OpenCode Go `my-opencode-go/deepseek-v4-flash`（用户指定，密钥在 auth.json 或 `~/.regime/keys/opencode-go.key`）；`deepseek-api/deepseek-v4-flash`（官方）作回退。详见 `docs/DESIGN-usability.md`。自检 `regime doctor`。
+- **模型授权**：默认模型为 OpenCode Go `my-opencode-go/deepseek-v4-flash`（用户指定，密钥在 auth.json 或 `~/.regime/keys/opencode-go.key`）；`deepseek-api/deepseek-v4-flash`（官方）作回退。详见 `docs/guide/00_environment.md`。自检 `regime doctor`。
 - opencode 版本：1.18.11（镜像 `opencode-mvp:1.18.11`）。
 
 ### 3.x 自主运行配置（下游会话必须遵守）
@@ -91,7 +91,7 @@
 ### 4.6 设计文档
 - `/home/haber/oc-meta/docs/DESIGN.md`：goal-plugin 源码级分析 + 元层设计。
   - 关键结论：goal-plugin 是**事件驱动**、无独立定时器；`latestHasThinkingTokens` 把 reasoning 排除在停滞判定外 → **thinking 卡死盲区**（本次痛点根因）。元层必须进程外、带独立时钟。
-  - v0.2 修正：插件可用定时器；thinking 盲区实为 goal-plugin 设计选择 + supervisor T3 指纹盲区（详见 `RESEARCH-thinking-timeout.md` 与 DESIGN §6）。
+  - v0.2 修正：插件可用定时器；thinking 盲区实为 goal-plugin 设计选择 + supervisor T3 指纹盲区（详见 `docs/architecture/02_statechart_network.md`）。
 
 ### 4.7 stall-watchdog 插件（M0，`ops/stall-watchdog.js`，已部署运行）
 - **定位**：进程内第一道防线，补 goal-plugin 与 supervisor.py 都测不到的"只思考不出活"。
@@ -134,8 +134,8 @@
 ### 4.10 本会话成果（2026-08-05~06，分支 `autonomous-2026-08-05`）
 
 - **P1 排查并修复 E2E 卡顿**：新增 `ops/probe_node_timing.py`（全流程节点耗时剖析）+ `ops/e2e_debug.py`（逐操作计时）+ `ops/probe_judge_stall.py`（并发观察 reasoning/output）。**根因 = 发派线程池饱和**：streaming `POST /message` 晚于 `message.completed`/`[WORK_DONE]` 返回，workflow 提前 advance 发下一 node，前 node POST 仍占线程 → 2 个 trailing POST 占满 `max_workers=2` → judge 发派永久排队 → 宪法误判 stall。修复：`workflow._dispatch` await 前一 POST future（`_await_prior_dispatch`，保持 STOP 响应）。真实 E2E 两次 COMPLETE；judge 长推理 21-60s 确认为长推理非永久卡。
-- **P1 mock 机制**：`src/regime_driver/testing/mock_client.py`（MockClient/MockRule，同接口 drop-in，默认 reviewer advance + developer [WORK_DONE]，规则 `(agent,node)` 二段匹配，delay/stall/error 故障注入，消息累积非替换）。`ops/mock_feasibility.py` 5/5 离线通过。设计见 `docs/DESIGN-mock.md`。
-- **上帝对话框 MVP**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元，role=human，订阅总线实时监控 + 命令路由 status/monitor/start/inspect/watch/talk/design/config/help + 自由文本→LLM worker 线程非阻塞解释 + 权限门控默认只读）。`regime dialog` CLI + `ops/god_dialog.py` 演示。设计/可行性定案见 `docs/DESIGN-god-dialog.md`（结论：**对话框应在状态机体系内**）。
+- **P1 mock 机制**：`src/regime_driver/testing/mock_client.py`（MockClient/MockRule，同接口 drop-in，默认 reviewer advance + developer [WORK_DONE]，规则 `(agent,node)` 二段匹配，delay/stall/error 故障注入，消息累积非替换）。`ops/mock_feasibility.py` 5/5 离线通过。设计见 `docs/subsystems/08_mock.md`。
+- **上帝对话框 MVP**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元，role=human，订阅总线实时监控 + 命令路由 status/monitor/start/inspect/watch/talk/design/config/help + 自由文本→LLM worker 线程非阻塞解释 + 权限门控默认只读）。`regime dialog` CLI + `ops/god_dialog.py` 演示。设计/可行性定案见 `docs/subsystems/06_god_dialog.md`（结论：**对话框应在状态机体系内**）。
 - **测试基线**：192 单测全绿（含崩坏回归：`test_dispatch_serializes_prior_post`、`test_judge_waits_for_new_reply_not_stale`、`test_god_dialog.py` 等）。
 
 ## 5. 关键决策与踩坑记录
@@ -225,7 +225,7 @@
 ### 已完成主线（历史，参考）
 
 - **P0#1/P0#2/P1#3/P1#4/P2#5** ✅：见上方表格。
-- **worker 工作区隔离 / 舰队 / 混沌 / 舰队控制面 / 模型统一 / 易用性** ✅：见上方表格 + `DESIGN-*.md`。
+- **worker 工作区隔离 / 舰队 / 混沌 / 舰队控制面 / 模型统一 / 易用性** ✅：见上方表格 + `docs/subsystems/*`。
 - **T1/T2 A 路验证** ✅：经专用 god 容器 + HTTP 驱动打通；修 regime-god.js 三个真 bug。
 - **T3/T4/T5/T7/T6** ✅：非阻塞作业、插件 job 工具、权限策略、文档同步、FakeClient 评估定案。
 - **WORK_PLAN4** ✅：I1/I2 保障、E1 SSE 摄入+重连、R-A/R-B/R-C（Reporter 报告总线 + `regime report` 看板 + 模板 + 保留策略）。
@@ -236,7 +236,7 @@
 
 **待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已规避）。历时超时模型：`default_deadline_sec` + `global_deadline_sec`。
 
-阅读顺序：`docs/README.md`（导航，先看）→ `DESIGN-usability.md`（模型/密钥/安装，新）→ `DESIGN-regime-driver.md` → `ARCHITECTURE-regime-driver.md` → `ARCHITECTURE-v2.md` → `ARCHITECTURE-v3.md` → `ARCHITECTURE-v4.md` → `ARCHITECTURE-BOUNDARY.md` → `ARCHITECTURE-statechart-network.md`（最终架构）→ `DESIGN-mock.md` → `DESIGN-god-dialog.md` → `DESIGN-god-dialog-carrier.md`（载体决策）→ `GOD_DIALOG_OPERATOR.md`（操作手册）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。**当前主线规划：`WORK_PLAN5.md`**（流程热编译/热加载 + 长期运行）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
+阅读顺序：`docs/README.md`（导航，先看）→ `docs/CLI_REFERENCE.md`（命令/配置参考）→ `docs/guide/`（教程）→ `docs/ARCHITECTURE.md`（架构，`architecture/02_statechart_network.md` 最终架构）→ `docs/SUBSYSTEM_DESIGN.md`（子系统，`subsystems/*`）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（宪法=无智能状态机+根不变量运行时强制）**；**上帝对话框双路：opencode 作载体（A 路）+ GodDialogUnit 程序化面（B 路），共用 CLI 契约**。
 

@@ -1,49 +1,132 @@
-# 技术文档导航（docs/README）
+# regime-driver 技术文档中心
 
-> 本文档是 `docs/` 的**导航与索引**。它声明文档体系的"尺子"与阅读顺序，让读者按需取用。
-> **书写准则是 `docs/WRITING_GUIDE.md`**（强制）；文档治理流程见 `skills/doc-governance/SKILL.md`。
-> 任何新增/修改技术文档，对照 WRITING_GUIDE 自查并在此登记。
+> 本文件是 `docs/` 目录的**导航枢纽与治理章程**。
+>
+> **文档分工**：
+> - `docs/` -- 设计文档与用户手册（根索引手册 + 5 个子目录）
+> - 任务/过程文档（`TASK.md`、`WORK_PLAN*.md`、`HANDOVER.md`、`AGENTS.md`）在仓库根，不属本体系
+> - `tasks_docs/`（若存在）-- 历史档案区（已废弃文档迁入）
 
-## 读者旅程
+---
 
-- **新用户 / 想跑一次**：根 `README.md`（中文）或 `README.en.md`（英文）→ 本文档 → `howto/`（实操）→ `KNOWN_LIMITS.md`（边界，含对外发布前须知）。
-- **理解最终架构**：`ARCHITECTURE-statechart-network.md`（对等多状态机网络）→ `DESIGN-god-dialog.md`（上帝对话框）→ `DESIGN-mock.md`（mock 调试）。
-- **理解演进脉络**：`ARCHITECTURE-regime-driver.md`（v1 分层）→ `ARCHITECTURE-v2/v3/v4.md`（交接/工作区/角色通用化）→ `ARCHITECTURE-BOUNDARY.md`（宪法与用户特化边界）。
-- **排查 / 开发**：`RESEARCH-thinking-timeout.md`（超时研究）→ `ARCHITECTURE-REVIEW.md`（早期诊断）。
-- **健康 / 治理**：`TECH_DEBT.md`（**技术债，先读**）→ `KNOWN_LIMITS.md`（边界）→ `WRITING_GUIDE.md`（书写准则）。
+## 一、目录结构
 
-## 文档清单
+```
+docs/
+├── README.md              本文件（导航 + 治理章程）
+├── WRITING_GUIDE.md       技术文档书写准则（强制）
+├── KNOWN_LIMITS.md        已知限制
+├── TECH_DEBT.md           技术债登记（问题清单）
+├── CLI_REFERENCE.md       命令行/配置参考索引 → reference/
+├── ARCHITECTURE.md        架构设计手册索引 → architecture/
+├── SUBSYSTEM_DESIGN.md    子系统设计手册索引 → subsystems/
+│
+├── guide/                 入门教程（按序阅读）
+│   ├── 00_environment.md
+│   ├── 01_setup.md
+│   ├── 02_first_run.md
+│   ├── 03_design_flow.md
+│   ├── 04_run_fleet.md
+│   └── 05_god_dialog.md
+│
+├── howto/                 操作指南（按问题查阅）
+│   ├── run-e2e.md
+│   ├── debug-with-mock.md
+│   ├── run-many-sessions.md
+│   ├── god-dialog.md
+│   ├── god-window.md
+│   └── host-mode-agents.md
+│
+├── reference/             参考（命令/配置/规格/权限）
+│   ├── 01_cli.md
+│   ├── 02_configuration.md
+│   ├── 03_flow_spec.md
+│   ├── 04_permissions.md
+│   └── 05_god_dialog_contract.md
+│
+├── architecture/          架构解释
+│   ├── 01_principles.md
+│   ├── 02_statechart_network.md
+│   └── 03_boundary.md
+│
+└── subsystems/            子系统实现
+    ├── 01_drive.md
+    ├── 02_worker_isolation.md
+    ├── 03_fleet.md
+    ├── 04_supervisor.md
+    ├── 05_chaos.md
+    ├── 06_god_dialog.md
+    ├── 07_god_dialog_carrier.md
+    ├── 08_mock.md
+    └── 09_testing_architecture.md
+```
 
-| 文档 | 类型 | 一句话覆盖 |
-|---|---|---|
-| `WRITING_GUIDE.md` | 准则 | 技术文档**强制书写准则**（尺子），Divio 四分法 + 骨架 + 行文 + 模板 + 红线 + 验收 |
-| `ARCHITECTURE-regime-driver.md` | 解释 | v1 分层架构（cli→app→core/infra） |
-| `ARCHITECTURE-v2.md` | 解释 | 交接模型（角色独立个体 + 结构化交接单） |
-| `ARCHITECTURE-v3.md` | 解释 | 工作区 + 交接机制（脑容量自评、策略可编程） |
-| `ARCHITECTURE-v4.md` | 解释 | 角色通用化（内核只认抽象角色 id） |
-| `ARCHITECTURE-BOUNDARY.md` | 解释 | 宪法层（定死）vs 用户特化（可自定义）边界 |
-| `ARCHITECTURE-statechart-network.md` | 解释 | **最终架构**：宪法→对等多状态机网络 + 信号协议 + 根不变量 |
-| `ARCHITECTURE-REVIEW.md` | 解释 | 早期架构诊断与修复记录 |
-| `DESIGN-regime-driver.md` | 解释 | regime-driver 设计（把制度化流程编译成状态机） |
-| `DESIGN.md` | 解释 | 上帝对话框元系统早期规划 |
-| `DESIGN-mock.md` | 解释 | mock 机制（无网络确定性调试） |
-| `DESIGN-god-dialog.md` | 解释 | 上帝对话框设计与可行性定案 |
-| `DESIGN-god-dialog-carrier.md` | 解释 | 上帝对话框载体决策（opencode 作载体 + 双路方案 + CLI 契约） |
-| `GOD_DIALOG_OPERATOR.md` | 指南 | **上帝对话框操作手册**（供 opencode 消费的 CLI 契约全命令 + --json schema + 操作流程） |
-| `DESIGN-supervision.md` | 解释 | 进程外监督（supervisor：T1/T2/deadline/纠正阶梯） |
-| `DESIGN-drive.md` | 解释 | 一键自驱动栈（`regime drive`） |
-| `DESIGN-worker-isolation.md` | 解释 | 多实例工作区物理隔离（`regime worker`） |
-| `DESIGN-fleet.md` | 解释 | 并发隔离舰队（`regime drive-many`） |
-| `DESIGN-chaos.md` | 解释 | 故障注入/恢复演练（`regime chaos`） |
-| `DESIGN-usability.md` | 解释 | 模型/密钥/安装（主机 vs Docker，多场景） |
-| `DESIGN-testing-architecture.md` | 解释 | 测试架构（E2E 系统化 / god 容器 / A 路打通） |
-| `RESEARCH-thinking-timeout.md` | 研究 | thinking 超时守护研究结论 |
-| `KNOWN_LIMITS.md` | 参考 | 已知限制与边界（读者必读） |
-| `TECH_DEBT.md` | 参考 | **技术债登记（问题清单，禁止 tricky/兼容层立场）——开发前必读** |
-| `howto/` | 指南 | 实操指南（如何跑 E2E / 如何 mock 调试 / 如何用上帝对话框 / god 容器窗 / 主机模式 agent） |
+---
 
-## 书写纪律
+## 二、按角色的阅读路径
 
-- 新增概念：先答 A.4"概念归属唯一"——归属文档存在则扩展之，否则新建并在此登记。
-- 人类手册区（本文档、howto/、KNOWN_LIMITS）**禁止**任何智能体元信息（agent 指令/skill 引用/工作流），见 WRITING_GUIDE Phase 0 红线。
-- 事实矛盾裁决：源代码 > 测试 > 设计文档 > 标记"待验证"。变更历史归 git，文档只写当前状态。
+| 角色 | 推荐阅读顺序 |
+|------|------------|
+| **新加入的开发者** | 根 `README.md` -> `docs/guide/00_environment.md` -> `01_setup.md` -> `02_first_run.md` -> `CLI_REFERENCE.md` -> `ARCHITECTURE.md` |
+| **写流程/用 CLI 的用户** | 根 `README.md` -> `guide/` 教程 -> `CLI_REFERENCE.md`（查命令/配置）-> `KNOWN_LIMITS.md`（查边界） |
+| **要理解最终架构的人** | `ARCHITECTURE.md` -> `architecture/02_statechart_network.md` -> `architecture/01_principles.md` |
+| **要改某子系统的人** | `SUBSYSTEM_DESIGN.md` -> 对应 `subsystems/NN_*.md` -> 源码 |
+| **要了解技术债的人** | `TECH_DEBT.md`（开发前必读） |
+
+---
+
+## 三、文档治理纪律（强制）
+
+### 3.1 单点真理
+
+| 事实 | 唯一来源 |
+|------|---------|
+| 命令行/配置/流程规格 | `CLI_REFERENCE.md` + `reference/` |
+| 架构设计 | `ARCHITECTURE.md` + `architecture/` |
+| 子系统设计 | `SUBSYSTEM_DESIGN.md` + `subsystems/` |
+| 语言级限制/边界 | `KNOWN_LIMITS.md` |
+| 技术债 | `TECH_DEBT.md` |
+| 测试基线 / 当前最紧要任务 | `TASK.md`（顶部） |
+
+### 3.2 数字纪律（测试基线）
+
+- 测试基线**只在 `TASK.md` 顶部**写一次。
+- 其它文档**不得冻结具体测试通过数字**，统一用"以 `python -m pytest` 实跑为准"。
+
+### 3.3 生命周期纪律
+
+- 重大架构决策直接写入 `architecture/` 对应章节，不另立独立 ADR 文件。
+- 已实现且无延迟项的设计内容可从任务文档中删除。
+- 已废弃/历史文档**删除或迁入 `tasks_docs/`**，不在 `docs/` 内保留（历史在 git 中）。
+
+### 3.4 跨文件一致性
+
+`README.md`、`KNOWN_LIMITS.md`、`CLI_REFERENCE.md`、`ARCHITECTURE.md`、`SUBSYSTEM_DESIGN.md`
+之间对同一命令/限制/架构立场的描述必须用**同一组事实**。
+
+### 3.5 新增文档前的检查
+
+- 新增概念前，先查 `ARCHITECTURE.md`/`SUBSYSTEM_DESIGN.md` 确认归属文档存在；若重复，扩展现有文档而非新建。
+- 新增命令/配置前，先查 `CLI_REFERENCE.md` 与 `reference/`。
+
+### 3.6 代码注释卫生纪律
+
+> **核心原则**：代码注释只应注明**功能设计**与**已知问题**，不应承载项目过程信息（任务指针、设计代号、
+> 历史叙述、文档章节引用）。过程信息属于任务文档与 git 历史，不属于代码。
+
+**禁止在 `.py` 文件注释与 docstring 中出现**：任务文档指针（`见 TASK.md`/`WORK_PLAN`）、任务/里程碑编号
+（`F1-F11`/`P0#`/`M-1`）、设计代号（`G1-G14`/`C1-C4`）、历史叙述（`原实现采用…`/`旧 bug`）、
+文档章节号（`§6.1`）、文档路径指针（`docs/…`）。一律删除或改写为功能说明。
+
+---
+
+## 四、跨文档引用约定
+
+- 文档间引用统一使用**仓库相对路径**。
+- Markdown 超链接使用**相对于本文件**的路径，迁移文件时必须同步修正。
+
+---
+
+## 五、技术文档书写准则
+
+全部技术文档的书写准则见 `docs/WRITING_GUIDE.md`（强制）。任何新增或修改 `docs/` 下文档时，必须以该文件为参考。

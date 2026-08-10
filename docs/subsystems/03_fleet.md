@@ -1,13 +1,12 @@
-# 并发隔离舰队（DESIGN-fleet）
+# 并发隔离舰队
 
-> 目的：把"并发 self-driving"变成可验证的舰队——多个任务在**各自隔离的工作区实例**上并行跑，
-> 互不污染、共享一个报告总线。状态：已实施（2026-08-09）。依据：HANDOVER 下一步 #1。
-> 测试：`tests/test_fleet.py`（5）+ 真实 E2E（并行隔离验证）。
+> 本文描述 `regime drive-many` 舰队：多个任务在各自隔离的工作区实例上并行跑全栈，
+> 互不污染、共享一个报告总线。面向需要并发 self-driving 的开发者。测试以 `python -m pytest` 实跑为准。
 
 ## 目标
 
 `run-many` 只能在**一个 worker** 上并发多个 workflow（按黑板隔离，但共用文件系统 → 文件碰撞）。
-配合多实例工作区隔离（`DESIGN-worker-isolation.md`），舰队把并发升级为**真物理隔离**：
+配合多实例工作区隔离（`02_worker_isolation.md`），舰队把并发升级为**真物理隔离**：
 
 * 每个任务 → 一个独立工作区实例（WorkerPool，无重复）；
 * 每个任务 → 一套完整 `Drive`（执行器 + 进程外 supervisor + reporter）；

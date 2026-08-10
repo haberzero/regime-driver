@@ -14,4 +14,4 @@
 
 ## 读者旅程
 
-新用户：根 `README.md` → `docs/README.md` → 本目录 →（深入）`ARCHITECTURE-statechart-network.md` → `KNOWN_LIMITS.md`。
+新用户：根 `README.md` → `docs/README.md` → 本目录 →（深入）`../architecture/02_statechart_network.md` → `KNOWN_LIMITS.md`。

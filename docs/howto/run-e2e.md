@@ -31,4 +31,4 @@
 ## 深入
 
 单节点耗时剖析逻辑见 `tests/test_e2e_worker.py` 与 `regime report --trace`；
-离线时序/故障注入调试用 MockClient（见 `docs/DESIGN-mock.md`）。
+离线时序/故障注入调试用 MockClient（见 `docs/subsystems/08_mock.md`）。

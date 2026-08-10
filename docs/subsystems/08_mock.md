@@ -1,7 +1,7 @@
-# Mock 机制设计（基础版）
+# Mock 机制
 
-> 日期：2026-08-06 · 状态：基础思路设计 + 可行性已验证
-> 演进自 _HANDOFF.md §4.2（可注入 mock 层，避免 API/LLM 响应不确定性）。
+> 本文描述 MockClient（`src/regime_driver/testing/mock_client.py`）：与 OpenCodeClient 同接口的
+> drop-in 模拟器，用于无网络/无 LLM 的确定性调试与故障注入。面向调试状态机/并发/超时的开发者。
 
 ## 1. 为什么
 

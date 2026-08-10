@@ -1,7 +1,7 @@
-# 混沌演练（DESIGN-chaos）
+# 混沌演练与故障恢复
 
-> 目的：把纠正阶梯从"能演示"推进到"系统性注入故障并验证恢复"。状态：已实施（2026-08-09）。
-> 依据：HANDOVER 下一步 #2（混沌/故障演练）。测试：`tests/test_chaos.py`（4）+ 真实场景。
+> 本文描述 `regime chaos`：向工作区实例系统性注入故障并验证恢复（kill/stop/start/restart +
+> worker-crash-recovery 场景）。面向验证纠正阶梯可靠性的开发者。测试以 `python -m pytest` 实跑为准。
 
 ## 问题
 

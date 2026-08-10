@@ -89,7 +89,7 @@
 
 ### 剩余 P1（下轮治理）
 - 约 15 篇**已废弃架构/早期设计文档**（v2/v3/v4/regime-driver/BOUNDARY/REVIEW、DESIGN-regime-driver、
-  DESIGN-supervision、DESIGN.md 等）仍含日期戳/里程碑(M-1..)/测试计数/历史演变/M0 叙述。
+  等历史文档）已按用户决定删除，不再污染 docs/。
   按尺子 §E 应**移入 `tasks_docs/`**（历史档案区）而非"已废弃"标注；此为大结构性改动，留待专门治理轮。
 - **C-D3**：✅ 文档治理已走尺子+流程（本轮即按 `doc-governance` 执行）。
 

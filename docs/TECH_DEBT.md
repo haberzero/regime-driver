@@ -148,7 +148,7 @@
 | 优先级 | 项 | 理由 |
 |---|---|---|
 | **P0** | G1 修 wf_id 归属（每次运行唯一 id）+ A1/A2 接 SSE→Reporter + 填 sm_id | 兑现"实时随取随用/可区分"核心承诺；消灭最大假能力 |
-| **P0** | G6 整仓双通道定案：**系统化收编 M0**（按 `DESIGN-supervision.md`：建 `regime_driver.supervisor`+`regime_driver.task` 吸收功能→真实验证→退役容器→删 M0）。**核实 M0 是活生产控制面（opencode-autopilot 挂载 ops→/root/control），非死代码，不可盲删** | ✅ **全部完成**：A/B 建好且真接线；C-代码级删 oc-task/oc-run/run-ledger/tasks；C-部署级——核实旧监督**未在运行**（无 host supervisor 进程、stall-watchdog 未注册进容器 config），删部署三件套 supervisor/stall-watchdog/policy；D-真实 worker E2E（`regime supervisor --once` 对 opencode-worker 成功 ingest SSE + 看门狗 pass）+ 零残留 grep 通过 |
+| **P0** | G6 整仓双通道定案：**系统化收编 M0**（按 `subsystems/04_supervisor.md`：建 `regime_driver.supervisor`+`regime_driver.task` 吸收功能→真实验证→退役容器→删 M0）。**核实 M0 是活生产控制面（opencode-autopilot 挂载 ops→/root/control），非死代码，不可盲删** | ✅ **全部完成**：A/B 建好且真接线；C-代码级删 oc-task/oc-run/run-ledger/tasks；C-部署级——核实旧监督**未在运行**（无 host supervisor 进程、stall-watchdog 未注册进容器 config），删部署三件套 supervisor/stall-watchdog/policy；D-真实 worker E2E（`regime supervisor --once` 对 opencode-worker 成功 ingest SSE + 看门狗 pass）+ 零残留 grep 通过 |
 | **P0** | G5 权限升级为不可绕过门禁 + 修 dialog 权限提升 | 否则"权限/安全"主张不成立，且现为权限提升漏洞 |
 | **P0** | B1 修 skill_loader 默认路径（parents[3]） | 真 bug，低风险 |
 | **P0** | C3 把 preflight/深检设为**默认强制** | 保障必须是强制门禁 |

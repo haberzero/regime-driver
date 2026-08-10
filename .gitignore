@@ -35,3 +35,6 @@ docker/worker-config/.local.*
 # coverage data (WORK_PLAN5 C1)
 .coverage
 htmlcov/
+
+# 参考用另一项目文档（不入库）
+docs-ref/

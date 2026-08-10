@@ -21,7 +21,7 @@ L1 制度流程机器人（OA 系统）。把 `workflow-regime/` 制度化流程
 opencode worker（L2）完成任务，并由只读审查者（L0）判定、确定性门把关。
 
 **最终架构**：对等多状态机网络（宪法 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
-详见 `docs/ARCHITECTURE-statechart-network.md`。
+详见 `docs/architecture/02_statechart_network.md`。
 
 > **Status / 状态**
 >
@@ -81,7 +81,7 @@ conda run -n regime-driver pytest
 **模型密钥**：默认模型 `my-opencode-go/deepseek-v4-flash`（OpenCode Go）。密钥零入库：
 - worker/god 容器经 `OPENCODE_GO_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/opencode-go.key` 读，或自设 env）。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
-- 详见 `docs/DESIGN-usability.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。
+- 详见 `docs/guide/00_environment.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。
 
 ## License 与免责声明
 

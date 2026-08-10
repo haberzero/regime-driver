@@ -33,4 +33,4 @@
 
 ## 深入
 
-`src/regime_driver/testing/mock_client.py`（MockClient/MockRule）、`docs/DESIGN-mock.md`。
+`src/regime_driver/testing/mock_client.py`（MockClient/MockRule）、`docs/subsystems/08_mock.md`。

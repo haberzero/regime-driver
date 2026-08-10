@@ -1,8 +1,7 @@
-# 监督层统一架构设计（DESIGN-supervision）
+# 进程外监督层架构
 
-> 目的：系统化收编旧 M0 监督系统，消除"新 regime-driver 包 vs 旧 M0 双通道"这一最重架构债，
-> 且**不因清理而丢失任何已有机能**（用户要求：彻底清理、不留痕迹、不留功能缺口）。
-> 背景债：`TECH_DEBT.md` G6。状态：设计（待实施）。
+> 本文描述 `regime supervisor` 进程外监督层：T1 健康 / T2 停滞 / deadline / 纠正阶梯 / 元分析，
+> 消费 worker SSE 事件流进 Reporter。面向需要理解或扩展监督/自愈机制的开发者。
 
 ---
 
@@ -116,16 +115,3 @@
 5. TECH_DEBT G6/G7 标记已清，无"留半拆除状态"。
 
 > 注：本设计是"系统化收编"路线。阶段 A/B/C 均为较大实现，按里程碑分步执行，每步过质量门 + 全量测试。
-
-## 6. 实施进度（2026-08-07）
-
-| 阶段 | 状态 |
-|---|---|
-| **A** `regime_driver.supervisor`（T1/T2/deadline/ladder/meta + 接 SSE event_stream） | ✅ 已建 + 单测（`src/regime_driver/supervisor.py`、`regime supervisor` CLI） |
-| **A+** 智能元分析接真实模型（P0#2） | ✅ `Supervisor.meta_analyze()`：独立模型读会话上下文→严格 JSON verdict→确定性门 `gate_meta`→阶梯；失败/门拒绝回退确定性 `_verdict_for_stall`；`--meta` 可开；真实模型 E2E 通过 |
-| **B** `regime_driver.task`（收编 oc-task，单一 derive） | ✅ 已建 + 单测（`src/regime_driver/task.py`、`regime task` CLI、report 单真源） |
-| **C-代码级** 删除被取代 M0 产物（oc-task.py/oc-run.sh/run-ledger/tasks） | ✅ 已删 |
-| **C-部署级** 退役运行容器旧监督 → 删部署三件套 | ✅ 核实旧监督**未在运行**（无 host supervisor 进程、stall-watchdog 未注册进容器 config）→ 删 `ops/supervisor.py`/`ops/stall-watchdog.js`/`ops/policy.json`，ops/ 已清空 |
-| **D** 零残留 grep + 真实进程外 E2E | ✅ `regime supervisor --once` 对真实 worker(opencode-worker:4097) 成功 ingest SSE(server.connected/heartbeat)→Reporter + 看门狗 pass；代码零 M0 残留引用 |
-
-> 部署级退役是运维动作（影响运行中容器），须真实验证新 supervisor 后再执行。

@@ -1,8 +1,7 @@
-# 多 opencode 实例工作区隔离（DESIGN-worker-isolation）
+# 多 opencode 实例工作区隔离
 
-> 目的：实现并发 self-driving 的物理工作区隔离。状态：已实施（2026-08-09）。
-> 依据：用户指令——"若 session 间工作区隔离无法成功，则转变为**启动多个 opencode 实例**，
-> 同一工作区的实例不要重复启动，同一工作区内的角色仍以 session 区分"。
+> 本文描述 `regime worker` 的多实例工作区隔离：每工作区一个 opencode 实例（物理隔离），
+> 同一工作区的实例不重复启动，工作区内的角色仍以 session 区分。面向需要并发 self-driving 的开发者。
 > 测试：`tests/test_worker.py`（10）+ 真实 E2E（多实例隔离）。
 
 ## 为什么是"按实例"而非"按 session"

@@ -20,7 +20,7 @@ plugin-free `opencode` worker (L2) to complete tasks, with a read-only reviewer
 **Final architecture**: a peer state-machine network — a "constitution"
 (intelligent-free state machines + a signal protocol + runtime-enforced root
 invariants) supervising agentic workflow units. See
-`docs/ARCHITECTURE-statechart-network.md`.
+`docs/architecture/02_statechart_network.md`.
 
 ## Status / highlights
 
@@ -83,8 +83,8 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
 ## Documentation
 
 - Navigation & reading order: `docs/README.md`. Design/usability:
-  `docs/DESIGN-usability.md`. God Dialog operator manual:
-  `docs/GOD_DIALOG_OPERATOR.md`. Known limits: `docs/KNOWN_LIMITS.md`.
+  `docs/guide/00_environment.md`. God Dialog operator manual:
+  `docs/reference/05_god_dialog_contract.md`. Known limits: `docs/KNOWN_LIMITS.md`.
 - Work plans: `WORK_PLAN.md`–`WORK_PLAN6.md` (current main line: release
   readiness, `WORK_PLAN6.md`).
 

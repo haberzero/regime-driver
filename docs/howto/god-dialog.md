@@ -7,7 +7,7 @@
 ## 上帝对话框有两条路
 
 - **A 路（推荐，opencode 作载体）**：一个 opencode `god` agent，通过 `regime` CLI 契约控制/监控系统。
-  这是最接近"可对话的元系统"的形态；操作手册 `docs/GOD_DIALOG_OPERATOR.md` + `docs/KNOWN_LIMITS.md`。
+  这是最接近"可对话的元系统"的形态；操作手册 `docs/reference/05_god_dialog_contract.md` + `docs/KNOWN_LIMITS.md`。
 - **B 路（程序化 REPL）**：`regime dialog` 交互式提示符，是 CLI 的对话包装（对等状态机单元）。
 
 两条路共用同一 CLI 契约与权限门禁（`--perm`）。
@@ -15,7 +15,7 @@
 ## A 路：opencode god agent（推荐）
 
 1. 以 `god` agent 会话（`opencode` 提示中选 god，或配置为默认 primary）进入。
-2. 它会先读 `GOD_DIALOG_OPERATOR.md` 与 `KNOWN_LIMITS.md`，然后照手册操作：
+2. 它会先读 `../reference/05_god_dialog_contract.md` 与 `KNOWN_LIMITS.md`，然后照手册操作：
    - 监控：`regime status/sessions/events --json`
    - 运行：`regime run/run-many --json`（阻塞）或 `--async`（非阻塞作业）
    - 交互：`regime session <id> send/reply`
@@ -52,5 +52,5 @@ regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker +
 
 - **权限**：写操作（start/design/talk/run/send/clean）统一走 `--perm` 分级门禁；
   CLI 显式开启（如 `regime dialog --perm run`）；程序化构造 `GodDialogUnit` 默认只读（`allow_write=False`）。
-- 对话框是**对等状态机单元**，共享同一 Runtime/黑板，故能实时看到 workflow 指标。见 `docs/DESIGN-god-dialog.md`。
-- 载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
+- 对话框是**对等状态机单元**，共享同一 Runtime/黑板，故能实时看到 workflow 指标。见 `docs/subsystems/06_god_dialog.md`。
+- 载体决策见 `docs/subsystems/07_god_dialog_carrier.md`。

@@ -1,4 +1,4 @@
-# 上帝对话框操作手册（GOD_DIALOG_OPERATOR）
+# 上帝对话框操作手册
 
 > 对象：充当"上帝对话框"的 opencode agent（即你，读本手册并照此操作 regime-driver）。
 > 目标：让你仅凭本文档 + CLI 的 `--help`/`--json` 就能**完备、精确、准确**地控制/监控整个系统，
@@ -11,7 +11,7 @@
 `regime-driver` 是 L1 制度流程机器人：把 `workflow-regime/` 制度化流程编译成**状态机**，驱动一个
 干净无插件的 opencode worker（L2）完成开发任务，并由只读审查者（L0）判定、确定性门把关。
 **最终架构**是对等多状态机网络（宪法=无智能状态机+信号协议+根不变量）。详细见
-`docs/README.md` 导航 + `docs/ARCHITECTURE-statechart-network.md`。
+`docs/README.md` 导航 + `docs/architecture/02_statechart_network.md`。
 
 **角色**：developer=干活（agent 节点）、reviewer=审查判定（judge 节点）。内核角色无关，只是注册实例。
 
@@ -103,7 +103,7 @@
   `regime sessions --clean --perm clean`。读命令无需 `--perm`（恒为 read）。
 - `regime dialog` 是写能力 REPL（live 时 `allow_write=True`），进入需 `--perm run` 及以上。
 - 判定逻辑：`src/regime_driver/infra/permission.py`（`classify` + `require`），CLI 与对话框共用同一门禁。
-- 对应 GodDialogUnit 的 `allow_write`：`False`==read，`True`==clean（见 `DESIGN-god-dialog.md`）。
+- 对应 GodDialogUnit 的 `allow_write`：`False`==read，`True`==clean（见 `../subsystems/06_god_dialog.md`）。
 - 拒绝示例：`regime run x --perm read` → `permission denied: 'run' required, held 'read'`。
 
 ## 4. 操作流程（推荐）
@@ -133,5 +133,5 @@
 
 ## 7. 文档导航（需要时查阅）
 
-`docs/README.md`（导航）→ `ARCHITECTURE-statechart-network.md`（架构）→ `DESIGN-god-dialog-carrier.md`
+`docs/README.md`（导航）→ `docs/architecture/02_statechart_network.md`（架构）→ `docs/subsystems/07_god_dialog_carrier.md`
 （载体决策）→ `KNOWN_LIMITS.md`（边界）→ `docs/howto/*`（实操）。书写准则 `docs/WRITING_GUIDE.md`。

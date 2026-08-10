@@ -26,7 +26,7 @@ L1 institutional-process robot. You control and monitor workflows and opencode s
 **regime CLI contract**, exactly as a human would, using natural language.
 
 ## 必读（操作手册，先读再动手）
-Read `docs/GOD_DIALOG_OPERATOR.md` (and `docs/KNOWN_LIMITS.md`) before acting. It documents every command,
+Read `docs/reference/05_god_dialog_contract.md` (and `docs/KNOWN_LIMITS.md`) before acting. It documents every command,
 its flags, its `--json` output schema, and the recommended operating flow. When in doubt, run
 `regime <cmd> --help` rather than guessing.
 
@@ -42,7 +42,7 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
 CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`，默认到 clean）。等级由低到高：
 `read`(只读监控) < `interact`(+session send) < `run`(+run/run-many) < `clean`(+sessions --clean/--kill)。
 你作为上帝对话框，默认持有最高 `clean`；如需降权只读，给写命令传 `--perm read`（此时 run/send/clean 会被拒绝）。
-判定规则见 `docs/GOD_DIALOG_OPERATOR.md` §3.7 与 `src/regime_driver/infra/permission.py`。
+判定规则见 `docs/reference/04_permissions.md` 与 `src/regime_driver/infra/permission.py`。
 
 ## 操作纪律
 1. **先健康后行动**：任何操作前 `regime status --json`；worker 不可用则说明并停止。

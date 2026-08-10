@@ -2,7 +2,7 @@
 
 > 目的：绕开交互式 TUI（`opencode run` 在本 shell 挂起），用容器的 opencode 作为
 > 上帝对话框 A 路的**测试窗口**，经 HTTP 程序化驱动验证 god agent 的真实控制能力。
-> 依据：`docs/DESIGN-testing-architecture.md`（职责定位 + 路由）。
+> 依据：`docs/subsystems/09_testing_architecture.md`（职责定位 + 路由）。
 
 ## 问题
 
