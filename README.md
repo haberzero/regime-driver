@@ -1,5 +1,7 @@
 # regime-driver
 
+**English**: [README.en.md](./README.en.md)
+
 > ## ⚠️ 开发中 / 未发布（Experimental · In Development）
 >
 > **本项目仍处于积极开发中的内部原型，尚未发布正式版本（尚无 v1.0，无稳定 API/CLI 契约）。**

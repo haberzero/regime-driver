@@ -6,7 +6,7 @@
 
 ## 读者旅程
 
-- **新用户 / 想跑一次**：根 `README.md` → 本文档 → `howto/`（实操）→ `KNOWN_LIMITS.md`（边界）。
+- **新用户 / 想跑一次**：根 `README.md`（中文）或 `README.en.md`（英文）→ 本文档 → `howto/`（实操）→ `KNOWN_LIMITS.md`（边界，含对外发布前须知）。
 - **理解最终架构**：`ARCHITECTURE-statechart-network.md`（对等多状态机网络）→ `DESIGN-god-dialog.md`（上帝对话框）→ `DESIGN-mock.md`（mock 调试）。
 - **理解演进脉络**：`ARCHITECTURE-regime-driver.md`（v1 分层）→ `ARCHITECTURE-v2/v3/v4.md`（交接/工作区/角色通用化）→ `ARCHITECTURE-BOUNDARY.md`（宪法与用户特化边界）。
 - **排查 / 开发**：`RESEARCH-thinking-timeout.md`（超时研究）→ `ARCHITECTURE-REVIEW.md`（早期诊断）。
