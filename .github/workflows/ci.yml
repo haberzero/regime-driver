@@ -37,7 +37,16 @@ jobs:
           regime validate --json
           regime preflight --json
       - name: Unit tests + coverage gate
-        run: pytest --cov=regime_driver --cov-report=term --cov-fail-under=68
+        run: |
+          set +e
+          pytest --cov=regime_driver --cov-report=term --cov-fail-under=68 2>&1 | tee /tmp/pytest.out
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            # surface the failing lines as read-only annotations (diagnosable w/o log download)
+            echo "::error::PYTEST_FAILED exit=$rc — tail:"
+            tail -n 60 /tmp/pytest.out | sed 's/^/::error::/'
+            exit $rc
+          fi
 
   # --------------------------------------------------------------------------
   # e2e-real — drive a REAL opencode worker over HTTP so the execution chain
