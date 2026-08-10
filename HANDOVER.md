@@ -175,8 +175,13 @@
 - **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
   `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
   持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/
-  reload/rm/inspect`（权限门禁）+ god A/B 路接入（B 路 `flow list/validate/reload` 命令、A 路
+  reload/rm/inspect`（权限门禁）+ god A/B 路接入（B 路 `flow list/validate/reload/doctor` 命令、A 路
   plugin `regime_flow_*` 工具）。god 原 `self.flows` 冗余第二真源已归并删除。
+- **L1 预演修复 async drive 双注册任务缺陷 ✅（真实 E2E）**：`drive --async` 子进程现经
+  `REGIME_TASK_ID` env + `register(task_id=)` 复用父任务记录（单 id、正确 done/complete，
+  消除成功误报 crashed/任务孤儿/重复记录）。**覆盖率基线 C1 ✅**（pytest-cov，floor 68 防矩阵抖动）；
+  **god doctor 自检 C2 ✅**；**主机模式 agent 模板 C4 ✅**（`docs/howto/host-mode-agents.md`）。
+- 测试基线 333 passed。
 - **模型**：默认 `my-opencode-go/deepseek-v4-flash`（OpenCode Go），主机+worker/god 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、
