@@ -43,11 +43,19 @@
 - **离线 test-job 命令本地等价验证**：`regime validate --json`(ok) / `regime preflight --json`
   (complete) / `pytest --cov --cov-fail-under=68`(333 passed, 覆盖 71%) 全过。
 
-### 待做（真实 CI 验证，需 push 触发）
-- **C-I1**：`git push` 到 GitHub（已获授权 public 仓库）后，观察 GitHub Actions 真实执行
-  `test` 与 `e2e-real`；需在仓库 Secrets 配 `OPENCODE_GO_API_KEY`。
-- **C-I2**：真实 run 全绿后，把 CI 行为与本地对齐结论写入 HANDOVER/本计划并闭环 C-I3。
-- **C-I3**：CI 覆盖门以实测为准（当前 floor 68），纳入零回归门槛。
+### 2026-08-10 真实 CI 验证（已闭环）
+- **CI 已真实转绿**：`unit · py3.11` / `unit · py3.12` / `real-worker E2E` 全部 success
+  （run 31381533078，`https://github.com/haberzero/regime-driver/actions`）。
+- **关键根因修复 ④ `secrets` 不可用于 job 级 `if`**：GitHub 拒绝整 workflow（0 job + failure），
+  原始 ci.yml 亦因此从未跑成。已改 job 级 `env` 注入 + step 级 `if: env.KEY` 门控（`actionlint` 通过）。
+- **关键根因修复 ⑤ 测试隔离缺陷**：`WorkerPool.ensure()` 忽略构造 `api_key`（死参数）只读 env/key
+  文件 → CI 干净 runner 无 `~/.regime/keys` 致 ensure 测试全挂（本机因有 key 文件掩盖）。已修复：
+  `ensure()` 合并 `self.api_key`（显式 key 优先，否则回退 env/key 文件）。隐藏 key 全量套件通过。
+- **调试手段**：失败时经 `::error::` 注解回显 pytest FAILED/断言行（无需日志鉴权即可定位）。
+- **说明**：`real-worker E2E` 的 docker/跑 E2E 步骤以 `OPENCODE_GO_API_KEY` 是否存在门控——
+  未设 key 时跳过、job 仍 success；设 key 后自动激活真实 E2E。
+- **C-I1**：真实 CI 已跑通；**待办 C-I2**：在仓库 Secrets 配 `OPENCODE_GO_API_KEY` 后观察 e2e-real
+  真实跑通并记录结果；**C-I3**：覆盖门 floor 68 已纳入真实回归（实测 71%）。
 
 ## III. 可配置化 / 去硬编码（P0，对外可移植性的关键）
 
