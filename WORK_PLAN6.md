@@ -61,8 +61,9 @@
 
 > 现状：大量机器/模型/路径/端口硬编码，不可移植。
 
-- **C-P1**：god 插件 `regime-god.js:9` 硬编码 `/opt/miniconda3/envs/regime-driver/bin/regime`
-  → 改从 env/配置解析（`REGIME_BIN`）或探测。
+- **C-P1**：god 插件 `regime-god.js` 硬编码 `/opt/miniconda3/envs/regime-driver/bin/regime`
+  → ✅ 已改 `REGIME_BIN` env → `regime`(PATH) → conda 默认（三级解析，2026-08-10）。
+  模型默认与 `base_url=4097` 为可配置默认（env/config 可覆盖），作为 fallback 保留，属合理默认。
 - **C-P2**：模型 provider 默认硬编码 `my-opencode-go/deepseek-v4-flash`（settings.py 及多 config）
   → 抽象为可配 provider 发现，默认值仅作 fallback，文档化多供应商接入。
 - **C-P3**：端口 4096/4097/4098、`~/.regime/*` 路径、`~/.config/opencode` 路径 → 全可配（env/config），

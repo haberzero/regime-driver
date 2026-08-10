@@ -6,7 +6,17 @@ import { tool } from "@opencode-ai/plugin"
 // Invoke the regime CLI entry point DIRECTLY (no `conda run` wrapper): conda run's
 // subprocess output capture is lost when spawned from the tool process, which makes
 // the tool return empty. The env's `regime` binary streams output reliably.
-const REGIME = ["/opt/miniconda3/envs/regime-driver/bin/regime"]
+//
+// Portability (WORK_PLAN6 III): the `regime` binary is resolved at load time as
+//   REGIME_BIN env  ->  `regime` on PATH  ->  known conda default.
+// This removes the machine-specific hardcoded absolute path.
+const _DEFAULT_REGIME = "/opt/miniconda3/envs/regime-driver/bin/regime"
+function resolveRegime() {
+  if (process.env.REGIME_BIN) return process.env.REGIME_BIN
+  const onPath = (typeof Bun !== "undefined" && Bun.which && Bun.which("regime")) || null
+  return onPath || _DEFAULT_REGIME
+}
+const REGIME = [resolveRegime()]
 const BASE = "http://127.0.0.1:4097"
 
 // Run a regime command and return trimmed output (JSON). Throws on non-zero exit.
