@@ -7,28 +7,28 @@
 ## 步骤
 
 1. 确认 worker 健康：`regime status --base http://127.0.0.1:4097`。
-2. 用带逐操作计时的调试脚本跑：
-
+2. 离线预跑（无 worker、不烧模型）先验证流程能干净终止：
    ```bash
-   conda run -n regime-driver python ops/e2e_debug.py --timeout 850
+   regime preflight --json          # MockClient 离线试跑，outcome=complete
    ```
-
-   默认任务是"实现 add(x,y) + pytest"。可 `--task "..."` 换任务。
-
-3. 读输出：
-   - `send_message POST per call`：每个 agent/judge 节点的生成耗时（`POST 等待`）。
-   - `read_messages RTT`：轮询往返（>1s 提示阻塞）。
-   - `time sunk in remote ops / wall`：远程耗时占比。
+3. 跑真实 E2E（需健康 worker + 有效模型密钥）：
+   ```bash
+   REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+   ```
+   或对单个任务：`regime drive "<任务>" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl`，
+   用 `regime report /tmp/rep.jsonl --trace <wf>` 看每节点因果耗时。
 
 ## 预期结果
 
-正常 E2E 应在 60–100s 内 `COMPLETE`，远程操作占 75%+ 墙钟。agent 约 3–7s，judge 约 2–60s（长推理不定）。
+正常 E2E 应在 60–120s 内 `COMPLETE`。agent 节点约 3–7s，judge 约 2–60s（长推理不定）。
 
 ## 异常排查
 
-- `monitor: busy but no output growth` → 会话"卡"：多半是发派池饱和或 judge 长推理。见 `KNOWN_LIMITS.md`。
-- 总墙钟远大于远程耗时 → 主循环在等 poll 间隔或读消息阻塞。
+- 会话"卡"（busy 但无输出增长）：多半是发派池饱和或 judge 长推理，见 `KNOWN_LIMITS.md`。
+- 总墙钟远大于远程耗时：主循环在等 poll 间隔或读消息阻塞。
+- 慢 judge 停滞：`regime drive` 传 `--stall <秒>` 与 `--meta`（真实模型判定停滞）调整判定。
 
 ## 深入
 
-`ops/probe_node_timing.py`（单节点耗时剖析）、`ops/probe_judge_stall.py`（并发观察 reasoning/output）可进一步定位。
+单节点耗时剖析逻辑见 `tests/test_e2e_worker.py` 与 `regime report --trace`；
+离线时序/故障注入调试用 MockClient（见 `docs/DESIGN-mock.md`）。

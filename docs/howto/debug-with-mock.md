@@ -25,7 +25,7 @@
 
 3. 驱动 `WorkflowUnit` / `StatechartDriver` / `StatechartCluster` 并断言结果。
 
-4. 一键可行性检查：`conda run -n regime-driver python ops/mock_feasibility.py`（5/5 通过）。
+4. 一键离线试跑（CLI 内置 MockClient）：`regime preflight --json`（`--fault stall|delay` 做弹性试检）。
 
 ## 预期结果
 

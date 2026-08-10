@@ -30,10 +30,17 @@
 | `DESIGN-god-dialog.md` | 解释 | 上帝对话框设计与可行性定案 |
 | `DESIGN-god-dialog-carrier.md` | 解释 | 上帝对话框载体决策（opencode 作载体 + 双路方案 + CLI 契约） |
 | `GOD_DIALOG_OPERATOR.md` | 指南 | **上帝对话框操作手册**（供 opencode 消费的 CLI 契约全命令 + --json schema + 操作流程） |
+| `DESIGN-supervision.md` | 解释 | 进程外监督（supervisor：T1/T2/deadline/纠正阶梯） |
+| `DESIGN-drive.md` | 解释 | 一键自驱动栈（`regime drive`） |
+| `DESIGN-worker-isolation.md` | 解释 | 多实例工作区物理隔离（`regime worker`） |
+| `DESIGN-fleet.md` | 解释 | 并发隔离舰队（`regime drive-many`） |
+| `DESIGN-chaos.md` | 解释 | 故障注入/恢复演练（`regime chaos`） |
+| `DESIGN-usability.md` | 解释 | 模型/密钥/安装（主机 vs Docker，多场景） |
+| `DESIGN-testing-architecture.md` | 解释 | 测试架构（E2E 系统化 / god 容器 / A 路打通） |
 | `RESEARCH-thinking-timeout.md` | 研究 | thinking 超时守护研究结论 |
 | `KNOWN_LIMITS.md` | 参考 | 已知限制与边界（读者必读） |
 | `TECH_DEBT.md` | 参考 | **技术债登记（问题清单，禁止 tricky/兼容层立场）——开发前必读** |
-| `howto/` | 指南 | 实操指南（如何跑 E2E / 如何 mock 调试 / 如何用上帝对话框） |
+| `howto/` | 指南 | 实操指南（如何跑 E2E / 如何 mock 调试 / 如何用上帝对话框 / god 容器窗 / 主机模式 agent） |
 
 ## 书写纪律
 

@@ -1,11 +1,8 @@
 # 架构：从"分层宪法层"到"对等多状态机网络"（Statechart Network）
 
-> 版本：v1.1（已实施 + 消息机制完善）
-> 日期：2026-08-06
-> 状态：**全部阶段已落地并验证**。阶段1(信号协议)+阶段2(并行运行时)+阶段3(宪法状态机)+
-> 阶段4(根不变量+可覆写+E2E)已完成；彻底重构(WorkflowUnit 单线程混合循环 + StatechartDriver
-> 集成 + 删除旧模块)已通过真实 worker 多轮 COMPLETE。消息机制完善：线程池消除阻塞、
-> 主题订阅/推送、黑板全局状态。153 测试全绿。
+> 本文是 regime-driver 的最终架构：对等多状态机网络（宪法 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
+> 覆盖：信号协议、并行运行时、宪法单元、根不变量、WorkflowUnit 单线程混合循环 + StatechartDriver 集成、
+> 消息机制（线程池/主题订阅/黑板）。这是现行实现的架构真相（完整测试基线见 `README.md`）。
 
 ---
 
@@ -47,13 +44,14 @@
 
 ### 2.3 与现有概念的对应（雏形已在代码里）
 
-| 现有实现 | 在状态机网络里的定位 |
+| 现行实现 | 在状态机网络里的定位 |
 |---|---|
-| `app/monitor.py`（独立线程轮询 + 发 MonitorEvent） | **第一个"无智能体并行状态机"雏形** |
-| `app/meta_analyzer.py`（独立智能研判 + 确定性门） | 一个"带智能的并行状态机/回调"雏形 |
-| `infra/ledger.py`（单向审计 JSONL） | 事件日志的雏形（缺**命令/信号通道**） |
-| `core/contract.py` 确定性门 | 宪法状态机的"转移守卫"倾向 |
-| `RegimeDriver`（单状态机顺序遍历） | 一个"有智能体的工作流状态机" |
+| `app/statechart_runtime.py`（ThreadedUnit/Runtime + 信号队列） | 并行状态机运行时的载体 |
+| `app/constitution_unit.py`（无智能 StatechartUnit，读黑板/发 STOP） | 宪法状态机 |
+| `app/workflow_unit.py` + `app/statechart_driver.py` | 有智能体的工作流状态机（单线程混合循环） |
+| `app/god_dialog.py`（GodDialogUnit，role=human） | 上帝对话框单元 |
+| `core/contract.py` 确定性门 | 宪法状态机的"转移守卫" |
+| `infra/ledger.py`（单向审计 JSONL） | 事件日志 |
 
 ---
 
@@ -238,10 +236,10 @@ StatechartUnit {
 - 每个 workflow 独立 id，黑板按 `{wid}.{metric}` 隔离；宪法点到点 STOP 只停出问题的 workflow。
 - `add_workflow/submit/run_all(tasks)/wait`；预期并发多个真实任务。
 
-### 可视化（`app/telemetry.py`）
-- `Telemetry` 单元订阅 `watchdog_fire`/`blackboard.changed`，读黑板生成状态快照。
-- `render()` 输出每 workflow 的 state/node/phase/node_count/heartbeat 年龄 + 最近 watchdog 事件。
-- 纯被动（pull 黑板 + push 事件），不打扰运行。
+### 可视化（God Dialog 实时监控）
+- `GodDialogUnit`（`app/god_dialog.py`）订阅 `blackboard.changed`/`watchdog_fire`/`NOTIFY`，实时监控运行。
+- `regime dialog --live` 提供 REPL：`status`/`watch` 读黑板生成每 workflow 状态与事件流快照。
+- 纯被动（订阅推送），不打扰运行。
 
 ### 健壮性（slow-judge 应对）
 - `Settings.request_timeout`（默认 600s）替代固定 240s，慢 judge POST 不超时。
