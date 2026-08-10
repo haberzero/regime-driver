@@ -67,8 +67,9 @@ def test_submit_sets_regime_task_id_env(tmp_path) -> None:
                       "import os,sys; sys.stderr.write(os.environ.get('REGIME_TASK_ID',''))"],
                      goal="g")
     import time
+    from regime_driver.task import _pid_alive
     for _ in range(50):
-        if not __import__("regime_driver.task", fromlist=["_pid_alive"])._pid_alive(rec["pid"]):
+        if not _pid_alive(rec["pid"]):
             break
         time.sleep(0.1)
     text = Path(rec["out_file"]).read_text(encoding="utf-8", errors="replace") if Path(

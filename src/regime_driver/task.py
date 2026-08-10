@@ -100,18 +100,24 @@ class TaskRegistry:
         record's id + paths instead of creating a duplicate — so the parent
         async task and its child share one summary and report correctly.
         """
+        existing = None
         if task_id:
+            # harden: only reuse a task id that actually exists in THIS registry
+            # (prevents path traversal via env and masks a mismatched --tasks-dir
+            # between parent and child, which would re-create the double-record bug).
+            existing = self.get(task_id)
+            if existing is None:
+                raise ValueError(
+                    f"cannot reuse unknown task_id '{task_id}' (record not in {self.dir})")
             tid = task_id
-            summary = self.dir / f"{tid}.summary.json"
-            out = out_file or str(self.dir / f"{tid}.out")
         else:
             tid = f"task-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}"
-            summary = self.dir / f"{tid}.summary.json"
-            out = out_file or str(self.dir / f"{tid}.out")
+        summary = self.dir / f"{tid}.summary.json"
+        out = out_file or str(self.dir / f"{tid}.out")
         rec = {
             "id": tid, "goal": goal, "deadline": deadline, "status": "running",
             "pid": pid, "summary_file": str(summary), "out_file": out,
-            "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "created": (existing or {}).get("created") or time.strftime("%Y-%m-%dT%H:%M:%S"),
         }
         self._save(rec)
         return rec
