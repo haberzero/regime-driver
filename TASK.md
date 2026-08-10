@@ -8,7 +8,7 @@
 
 推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`**（F1–F11 + C1/C2/C4 已完成；遗留 L1–L3/C3/F6b/P3）。**`WORK_PLAN6.md`（当前主线：发布就绪/对外宣传准备——耐久验证、真实CI、去硬编码、文档一致、发布准备）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/DESIGN-god-dialog-carrier.md`。
+> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`**（F1–F11 + C1/C2/C4 已完成；遗留 L1–L3/C3/F6b/P3）。**`WORK_PLAN6.md`（当前主线：发布就绪/对外宣传准备——耐久验证、真实CI、去硬编码、文档一致、发布准备）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/subsystems/07_god_dialog_carrier.md`。
 
 ## 候选清单（按优先级，见 WORK_PLAN5）
 
@@ -19,6 +19,16 @@
 - [x] P2 安全反循环：load/reload 门禁 + 版本/快照 + 环检测（F9–F11）| 2026-08-10 done
 - [~] P2 微调：覆盖率基线(pytest-cov) ✅ C1 / doctor 接入 god 与 web ✅ C2(god) / opencode-go 延迟调优 ⬜ C3 / 主机模式 agent 模板 ✅ C4（C1/C2/C4 2026-08-10 done; C3 待真实长时间观测）
 - [ ] P3 收敛测试内零散 FakeClient（T6 已评估不转，如需统一另建轻量脚本化 fake）
+
+## 发布就绪（WORK_PLAN6，2026-08-10~11）
+
+- [x] II 真实 CI 跑通：GitHub Actions 上 py3.11/3.12 + E2E 全绿（修 secrets-job-if + worker ensure api_key 缺陷）
+- [x] III 去硬编码：god 插件 `REGIME_BIN` 三级解析
+- [x] IV 文档一致性：计数统一 333 + M0 遗留段标注 + **技术文档体系彻底重构（Divio 结构）** + 独立交叉核验全绿
+- [x] V 发布准备：README 中英 + 警告 + MIT、SECURITY/CONTRIBUTING/KNOWN_LIMITS 对外摘要
+- [x] 公开上传 GitHub public：https://github.com/haberzero/regime-driver
+- [ ] I 长期运行耐久性真实验证（2h+，唯一关键未做）| P0 下 session
+- [ ] e2e-real 真实激活（需 GitHub `OPENCODE_GO_API_KEY` secret）| 用户未提供，暂缓
 
 ## 验证记录
 
@@ -90,6 +100,7 @@
 
 ## 自省记录
 
+- [REFLECT] 2026-08-11 | progress: 发布就绪收尾——WORK_PLAN6 II 真实CI转绿(GitHub Actions py3.11/3.12+E2E success, 修secrets-job-if与worker ensure死api_key两真缺陷) + III 去硬编码(REGIME_BIN) + IV 技术文档体系彻底重构(参考docs-ref组织思路→Divio结构 docs/{guide,howto,reference,architecture,subsystems}+根索引, 删废弃历史文档, 全仓跨引用+独立general agent交叉核验全绿) + V 发布准备(SECURITY/CONTRIBUTING/README.en/MIT) + 项目公开上传GitHub(haberzero/regime-driver, push已授权) | risk: I 长期耐久(2h+)未做(需长跑/密钥); e2e-real 因无GitHub key secret 门控跳过; 文档重构量大但断链/红线/测试(333)全绿 | next: I 长期耐久验证(P0) → e2e-real激活(待key) → V README双语精校 → C3延迟调优(依赖I) | escalate: no
 - [REFLECT] 2026-08-10 | progress: WORK_PLAN5 F1-F11 全落地——FlowRegistry(compile_spec/深检门/原子替换旧快照/持久store单一真源) + `regime flow` CLI(list/validate --watch/load/reload/rm/inspect, 权限门禁) + god A/B路接入 + 反循环; 归并 god self.flows 第二真源; 329测试全绿 + 真实CLI跨进程持久验证 | risk: FlowRegistry 单一真源为每进程作用域(CLI跨进程靠 disk store 统一; god/drive 各持实例), 运行中 workflow 依赖"不原地mutate"约定(已由不变量保证); F6 后半(运行中自动 reload-on-change)未做 | next: L1-L3 长期运行耐久性(opencode-go 2h+) / C1-C4 微调 | escalate: no
 - [REFLECT] 2026-08-09 | progress: 按用户三个方向收口交接——①长期运行授权用 opencode-go ②主线转向"流程热编译/热加载基础设施"(WRITE WORK_PLAN5: FlowRegistry/热校验/CLI+dialog/反循环/长期运行/微调) ③其余按工程判断微调; 同步 HANDOVER §8 主线+优先级表、TASK 候选、测试基线300 | risk: 真实模型(opencode-go) judge 慢/停滞使舰队成员可能超时(系统以 deadline/supervisor 兜底); worker 须 root→工作区 root 文件(down chown); 覆盖率数值未测(pytest-cov 未装, C1 待办) | next: 交接文档已更新, 分支干净300全绿, 待下 session 按 WORK_PLAN5 从 F1-F4(FlowRegistry+热校验) 开工 | escalate: no
 - [DONE] worker工作区隔离——转"多opencode实例每工作区一个"(用户指令) | verified: 285 passed(275+10) + 真实E2E隔离验证 | 新增 src/regime_driver/worker.py(WorkerPool: slugify/instance_name/work_dir_for纯函数 + get/ensure/list/remove docker持久映射 + no-duplicate不变量 + _run_docker sg回退(shlex.quote修多词format) + _resolve_key env/key文件回退) + `regime worker` CLI(list/up/base/down) + `regime drive --workspace <ws>`(解析工作区实例base_url) + tests/test_worker.py(10) + docs/DESIGN-worker-isolation.md + HANDOVER/config同步 | 真实E2E: up ws-algo→复用不重复(同端口)→up ws-infra独立→drive --workspace ws-algo 真实任务COMPLETE(119.6s)→产物ws_nine.py仅在该工作区(ws-infra与默认worker均无)=物理隔离成立 | 修: test_ensure_requires_key因新增key文件回退读到真key→health-wait 120s慢, 改mock _resolve_key="" (测试从78s回归)

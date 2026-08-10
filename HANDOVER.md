@@ -30,7 +30,9 @@
 - **代码审查必须用 `general` task agent（只读、不改文件）；严禁使用 `reviewer` task agent。**
   用户硬性决定（同仓库根 `AGENTS.md`）。每完成里程碑/阶段即用 `general` 独立只读 review，
   修复其 blocker/warning 后方可标记完成并 commit。
-- **禁 push**：除非明确授权，禁止 `git push`；只本地 commit。
+- **push 已授权（2026-08-10 起）**：项目已公开上传 `https://github.com/haberzero/regime-driver`（`main`，
+  SSH 认证），用户明确授权 push。默认远端 = `origin`（SSH）；本地分支 `autonomous-2026-08-05` 直接
+  `git push origin autonomous-2026-08-05:main` 即同步。push 会触发 GitHub Actions（CI 已绿）。
 - **破坏性重构授权**：符合一般工程/架构原则且经分析确实优于既有设计，允许破坏性重构（用户多次指示"彻底重构，不用关心兼容"）。
 - **自主推进偏好**：偏向无人值守，最大限度自我决定；只有确实无法决定才上报。日志纪律："只记录，不断决"。
 - **上报阈值**：`blocked` / `human_escalate` / 架构级方向调整 → 上报；审查发现的 blocker 必须修复后才能标记完成。
@@ -186,6 +188,12 @@
   `REGIME_TASK_ID` env + `register(task_id=)` 复用父任务记录（单 id、正确 done/complete，
   消除成功误报 crashed/任务孤儿/重复记录）。**覆盖率基线 C1 ✅**（pytest-cov，floor 68 防矩阵抖动）；
   **god doctor 自检 C2 ✅**；**主机模式 agent 模板 C4 ✅**（`docs/howto/host-mode-agents.md`）。
+- **真实 CI 已转绿（WORK_PLAN6 II ✅）**：GitHub Actions 上 `unit · py3.11/py3.12` + `real-worker E2E`
+  全 success（修复 `secrets` 不可用于 job 级 if + worker `ensure()` 死 api_key 测试隔离缺陷）。
+  见 `https://github.com/haberzero/regime-driver/actions`。
+- **发布就绪（WORK_PLAN6 III/IV/V 大部分 ✅）**：god 插件去硬编码（`REGIME_BIN`）、文档一致性、
+  `README.en.md` 英文版、`SECURITY.md`/`CONTRIBUTING.md`、KNOWN_LIMITS 对外摘要、MIT License。
+- **项目已公开上传 GitHub public**：https://github.com/haberzero/regime-driver （`main`，SSH 认证，已获用户明确授权 push）。
 - 测试基线 333 passed。
 - **模型**：默认 `my-opencode-go/deepseek-v4-flash`（OpenCode Go），主机+worker/god 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
@@ -205,21 +213,20 @@
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
-> **当前主线（唯一指针，2026-08-10）**：**发布就绪 / 对外宣传准备（WORK_PLAN6）**——
-> 依据 2026-08-10 复盘：内部地基与核心功能（WORK_PLAN5 F1–F11）已完整且检验通过，但**尚不足以对外
-> 发布**。重点：I 长期运行耐久性真实验证(2h+) → II 真实 CI 跑通 → III 可配置化/去硬编码 →
-> IV 文档事实一致性清理 → V 发布准备(README/许可/自检清单)。详见 `WORK_PLAN6.md`。
+> **当前主线（唯一指针，2026-08-11）**：**收尾发布就绪（WORK_PLAN6 剩余）+ 长期耐久验证（I）**。
+> WORK_PLAN6 的 II（CI 绿）✅、III（去硬编码）✅、IV（文档一致）✅、V（发布准备）大部分 ✅。
+> 剩余：I 长期耐久验证（唯一关键未做）+ V 剩余（README 双语正文精校）+ 需密钥项（e2e-real 激活）。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| **P0** | **长期运行耐久性真实验证**：opencode-go 2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾；耐久报告 + 更新 KNOWN_LIMITS | 运行可信 | WORK_PLAN6 I |
-| **P0** | **真实 CI 跑通**：本地 E2E 与 CI 行为对齐（REGIME_E2E=1 全量），开 push 即绿；覆盖门以实测为准 | 可信 | WORK_PLAN6 II |
-| **P0** | **可配置化/去硬编码**：god 插件 regime 路径、模型 provider 默认、端口/路径、打包安装、opencode 版本耦合护栏 | 可移植 | WORK_PLAN6 III |
-| **P1** | **文档事实一致性清理**：统一测试计数（255/329/333 冲突）、清 HANDOVER 遗留段落 | 可信 | WORK_PLAN6 IV |
-| **P1** | **对外发布准备**：README 中英重写、CONTRIBUTING/SECURITY/KNOWN_LIMITS、license、发布自检清单 | 发布 | WORK_PLAN6 V |
-| P3 | 承接：C3 延迟调优 / F6b reload-on-change / P3 FakeClient 收敛 | 健康/闭环 | WORK_PLAN5 遗留 |
+| **P0** | **长期运行耐久性真实验证（I）**：opencode-go 2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾；耐久报告 + 更新 KNOWN_LIMITS | 运行可信 | WORK_PLAN6 I |
+| **P1** | **e2e-real 真实激活**：在仓库 Secrets 配 `OPENCODE_GO_API_KEY` 后，CI 的 real-worker E2E 自动真实运行（当前无 key 时门控跳过） | 可信 | WORK_PLAN6 II |
+| **P1** | **发布收尾（V 剩余）**：README 中英双语正文精校、发布自检清单核对、KNOW_LIMITS 外部版复核 | 发布 | WORK_PLAN6 V |
+| P2 | **C3 延迟调优**：opencode-go 下 judge 超时/重试参数（依赖 I 期观测数据） | 健康 | WORK_PLAN5 |
+| P3 | 承接：F6b reload-on-change / P3 FakeClient 收敛 | 闭环 | WORK_PLAN5 |
 
-> 已完成：**WORK_PLAN5 F1–F11 ✅（2026-08-10）+ C1/C2/C4 ✅ + L1 预演 async-drive 修复 ✅（333 测试）**。
+> 已完成：**WORK_PLAN5 F1–F11 ✅ + C1/C2/C4 ✅ + WORK_PLAN6 II/III/IV ✅ + V 大部分 ✅ +
+> L1 预演 async-drive 修复 ✅ + 技术文档体系彻底重构（Divio 结构）+ 公开上传 GitHub（333 测试）**。
 > 若只做一件：**I 长期运行耐久性真实验证（opencode-go 2h+）**。
 
 ### 已完成主线（历史，参考）
