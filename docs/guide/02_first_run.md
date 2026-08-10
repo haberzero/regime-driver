@@ -93,7 +93,7 @@ conda run -n regime-driver regime drive "实现 add(x,y) 并写 pytest" --base h
 ```
 
 预期结果：输出结果与 supervisor 判定。
-用 `regime report /tmp/rep.jsonl` 查看汇报台账。
+用 `regime report --journal /tmp/rep.jsonl` 查看汇报台账。
 
 ## 你现在能做什么
 

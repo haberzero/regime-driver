@@ -26,11 +26,11 @@
 | 事件总线 / 消息订阅 | `core/statechart.py`：Bus 点对点 + 广播 + 主题 pub/sub（`subscribe`/`publish`/`on_event`） | 无 |
 | 并行状态机运行时 | `statechart_runtime.py`：ThreadedUnit（独立线程+队列）、Runtime（异步路由+黑板+不变量） | 无 |
 | 共享状态 + 变更通知 | `app/blackboard.py`（线程安全 key/value + `blackboard.changed`） | 无 |
-| 实时监控区 | `app/telemetry.py`：Telemetry 单元订阅 `watchdog_fire`+`blackboard.changed` 并 `render()` 快照 | 需扩展为"可随用户请求调整" |
+| 实时监控区 | `app/god_dialog.py`：GodDialogUnit 订阅 `blackboard.changed`+`watchdog_fire` 并 `render_monitor()` 快照 | 无 |
 | 看门狗 / 宪法 | `app/constitution_unit.py`（对等状态机，REPORT→死循环/卡死→STOP） | 无 |
 | 多 workflow 并发 | `app/statechart_cluster.py`（一 Runtime 多 WorkflowUnit） | 无 |
 | 无网络确定性调试 | `testing/mock_client.py` | 无 |
-| 内省探针 | `ops/probe_*.py`、`infra/opencode.py`（session/status/tokens/message） | 需接入对话框 |
+| 内省探针 | `testing/mock_client.py`、`infra/opencode.py`（session/status/tokens/message） | 无 |
 
 **结论**：God Dialog 需要的"总线 + 对等状态机 + 黑板 + 遥测 + 并发"全部已存在。对话框
 是把这些**组合成一个对话式控制面**的工作，而非从零造轮子。
@@ -39,7 +39,7 @@
 
 **用户直觉正确，且这是唯一自洽的架构。** 理由：
 
-1. **"永不阻塞"不变量**（PLANNING §3.2）正好由 `ThreadedUnit` 满足：它跑在独立线程 +
+1. **"永不阻塞"不变量**由 `ThreadedUnit` 满足：它跑在独立线程 +
    信号队列上，run loop 只 drain 信号、永不阻塞在用户交互上。
 2. **订阅其它状态机的消息**（需求 5）天然成立：对话框是总线上的一个单元，`subscribe`
    `blackboard.changed` / `watchdog_fire` / `REPORT`，被事件"推醒"。
@@ -92,8 +92,8 @@
    - `talk <session_id> <内容>` — 与指定 opencode session 独立内容交互
    - `config`、`help`；自由文本→LLM 解释（worker 线程）
 3. 权限门控：`allow_write=False` 默认只读，写操作（start/design/talk）被门禁拒绝——
-   防止困惑的 LLM 回复触发副作用（L0/L1 边界，PLANNING §3.3）。
-4. REPL 前端：`regime dialog` 命令 + `ops/god_dialog.py` 演示（离线 MockClient / 在线真实 worker+LLM）。
+   防止困惑的 LLM 回复触发副作用（L0/L1 边界）。
+4. REPL 前端：`regime dialog` 命令（离线 MockClient / 在线真实 worker+LLM）。
 5. 接入 StatechartCluster：launcher 回调启动（真实 worker 或 MockClient 离线）。
 
 ## 6. 后续（本次不做）

@@ -231,7 +231,15 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ---
 
-## 会话
+ ## 会话
+
+### `sessions`
+
+列出 worker 上的全部 opencode 会话及实时状态（busy/idle）。
+
+**参数**：`--base`、`--json`、`--clean`（abort 全部）、`--kill <id>`（abort 指定）、`--perm`。
+**输出**：会话数组，每项含 `{id,title,agent,status,tokens}`。
+**权限**：列出 `read`；`--clean`/`--kill` 为 `clean`。
 
 ### `session send <session_id> <message>`
 

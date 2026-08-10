@@ -35,7 +35,7 @@
 | `regime status [--json]` | worker 健康 | `{healthy, base}` |
 
 > **可用性保障**：opencode 自写 workflow 后先 `validate --deep` + `preflight`，静态错+语义错都在启动前暴露；
-> `run` 也可加 `--preflight` 先试跑再启动。见 `WORK_PLAN4 §I`。
+> `run` 也可加 `--preflight` 先试跑再启动。见 `../subsystems/06_god_dialog.md`。
 
 ### 3.2 运行 workflow
 | 命令 | 用途 | 说明 |
@@ -83,7 +83,7 @@
 | `regime report --journal <path> --template milestone\|blocker\|period\|activity [--since ts] [--json]` | 规则化模板报告（关键转折/阻塞/时段/操作日志） |
 
 > 上帝对话框一次 `regime report --json` 拿全量，无需反复 CLI。归属键区分 workflow/session/状态机。
-> 见 `WORK_PLAN4 §III`。
+> 见 `../subsystems/07_god_dialog_carrier.md`。
 
 ### 3.8 对话式控制面（可选，程序化）
 | 命令 | 用途 |

@@ -15,9 +15,7 @@
 
 ## 未实现 / 恒空项
 
-> `main_loop` flow 死配置已于 2026-08-08 移除（`data/regime.json` 现仅 `code_workflow`），
-> 该项已清。旧架构的 `_deadline` 字段（meta 研判 deadline）已在 R1-R5 重构中随
-> monitor/meta_analyzer 删除，不再存在。当前超时模型为 `default_deadline_sec`
+> `data/regime.json` 现仅含 `code_workflow` 一个 flow。当前超时模型为 `default_deadline_sec`
 > （每节点，settings）+ `global_deadline_sec`（整轮，constitution）。
 
 ## 行为限制

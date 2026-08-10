@@ -6,8 +6,8 @@
 
 ## 为什么是"按实例"而非"按 session"
 
-已探明：本 opencode 版本（1.18.11）的 `POST /session` 的 `directory` 字段是 **project 级**的，
-实测恒解析为服务器自身 cwd（`/root/work`），**无法按 session 设 cwd**。因此"同一 worker 内
+本 opencode 版本（1.18.11）的 `POST /session` 的 `directory` 字段是 **project 级**的，
+恒解析为服务器自身 cwd（`/root/work`），**无法按 session 设 cwd**。因此"同一 worker 内
 按 session 隔离工作区"不可能。改为**每工作区一个 opencode 实例**：
 
 - 每个实例 = 一个 `opencode-worker` 容器 + **自己的挂载工作区目录** + 独立端口；

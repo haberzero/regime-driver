@@ -63,4 +63,4 @@
 2. **A 路（低成本）**：opencode `god` agent 配置 + regime custom-tool 插件，先跑通"opencode 作上帝对话框"。
 3. **B 路（可并行/远期）**：保留/演进 `GodDialogUnit` 作为程序化面。
 
-> 详细可行性论证与 opencode 能力依据见本文件上文；实现跟踪见 `WORK_PLAN3.md`。
+> 详细可行性论证与 opencode 能力依据见本文件上文。

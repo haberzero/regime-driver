@@ -43,17 +43,12 @@ session_status/session_tokens/abort_session/delete_session/ask_and_get_text/heal
 
 - `src/regime_driver/testing/mock_client.py` — `MockClient` + `MockRule`
 - `src/regime_driver/testing/__init__.py` — 导出
-- `ops/mock_feasibility.py` — 可行性脚本（离线驱动 + 故障注入演示）
 
 ## 5. 可行性验证（已跑通）
 
-`ops/mock_feasibility.py` 用 `MockClient` 离线驱动：
+`regime preflight` 用 `MockClient` 离线驱动：
 1. `WorkflowUnit` 完整流程 → COMPLETE（无网络）
 2. `StatechartDriver` 完整流程 → COMPLETE
 3. 注入 `delay` 的慢 judge → 观察到生成耗时（>delay）
 4. 注入 `stall` 的 developer → 宪法 STOP → BLOCKED
 5. 注入 `error` 的 judge → 失败路径可复现
-
-## 6. 后续（未做，非本次）
-- 把现有测试内零散 `FakeClient` 收敛到 `MockClient`（减少重复）。
-- `ops/mock_worker.py`：mock 运行时入口，供 CLI/脚本一键离线调试。

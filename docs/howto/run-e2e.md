@@ -16,7 +16,7 @@
    REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
    ```
    或对单个任务：`regime drive "<任务>" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl`，
-   用 `regime report /tmp/rep.jsonl --trace <wf>` 看每节点因果耗时。
+   用 `regime report --journal /tmp/rep.jsonl --trace <wf>` 看每节点因果耗时。
 
 ## 预期结果
 

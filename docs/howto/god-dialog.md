@@ -39,14 +39,14 @@ regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker +
  - `talk <session_id> 内容` — 与指定 opencode session 独立交互
  - `sessions [busy]` — 列出 worker 会话及实时状态
  - `abort <session_id> | abort --all` — 中止运行中会话（写）
- - `reclaim <session_id> | reclaim --all` — 中止并删除（回收）会话（写，T8）
+ - `reclaim <session_id> | reclaim --all` — 中止并删除（回收）会话（写）
  - `help` — 全部命令；自由文本 — LLM 解释（`--live` 时）
  - `quit` — 退出
 
 ## 预期结果
 
 `start` 立即返回"已非阻塞启动 workflow：god-1"；随后 `status` 显示其 node/state 推进；自由文本异步返回 LLM 解释。
-非阻塞提交也可直接用 `regime run ... --async` + `regime job status/list`（见手册 §3.3）。
+非阻塞提交也可直接用 `regime run ... --async` + `regime job status/list`。
 
 ## 说明
 

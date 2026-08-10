@@ -1,7 +1,7 @@
 # 操作指南（howto）
 
 > 面向有基础的用户，解决具体问题。每篇以问题为题，给步骤与预期结果。
-> 书写遵守 `docs/WRITING_GUIDE.md`。心智模型见 `ARCHITECTURE-*`/`DESIGN-*`，本目录只讲"怎么做"。
+> 书写遵守 `docs/WRITING_GUIDE.md`。心智模型见 `ARCHITECTURE.md`/`SUBSYSTEM_DESIGN.md`，本目录只讲"怎么做"。
 
 ## 指南索引
 
