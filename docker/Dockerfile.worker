@@ -4,13 +4,15 @@
 ARG BASE=opencode-mvp:1.18.11
 FROM ${BASE}
 
+# miniconda 安装源：默认官方源（GitHub Actions 开放 runner 可达）；
+# 受限/被墙主机可用 --build-arg MINICONDA_URL=<镜像> 覆盖。
+ARG MINICONDA_URL=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+
 ENV OPENCODE_PORT=4097 \
     MINICONDA_DIR=/opt/miniconda3 \
     PATH=/opt/miniconda3/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# 用清华镜像安装 miniconda (Docker Hub 下载源被墙)
-RUN curl -fsSL -o /tmp/miniconda.sh \
-    https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+RUN curl -fsSL -o /tmp/miniconda.sh "${MINICONDA_URL}" \
   && bash /tmp/miniconda.sh -b -p /opt/miniconda3 \
   && rm -f /tmp/miniconda.sh \
   && /opt/miniconda3/bin/conda config --set auto_activate_base false \

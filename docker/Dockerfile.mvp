@@ -1,0 +1,27 @@
+# regime-driver BASE image: opencode-mvp:1.18.11 — self-contained build recipe.
+#
+# Ubuntu 24.04 + Node 22 + opencode-ai@1.18.11 (global npm) + system python3 +
+# git + curl. This is the base that Dockerfile.worker / Dockerfile.god build on.
+# Committed so a fresh CI runner (network-open) can build the whole stack from
+# source instead of depending on a pre-built local image.
+#
+# NOTE: intended for a network-open build host (e.g. GitHub Actions runner).
+# On a walled host, apt/nodesource/npm need mirrors (see HANDOVER §3).
+
+FROM ubuntu:24.04
+
+ENV OPENCODE_PORT=4096 \
+    DEBIAN_FRONTEND=noninteractive
+
+# base utils + system python3 + Node 22 (nodesource) + global opencode-ai@1.18.11
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      curl ca-certificates git python3 python3-pip \
+ && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && npm install -g opencode-ai@1.18.11 \
+ && rm -rf /var/lib/apt/lists/*
+
+# headless web service (port 4096; OPENCODE_PORT override). M0-era entrypoint;
+# the worker/god images override ENTRYPOINT.
+ENTRYPOINT ["/bin/sh","-c","exec opencode web --hostname 0.0.0.0 --port ${OPENCODE_PORT:-4096} \"$@\"" "--"]
