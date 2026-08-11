@@ -176,13 +176,13 @@
 **示例——正面与反面配对（regime 配置）**：
 
 ```toml
-# ✅ 正确：默认模型走 OpenCode Go（env 注入 key，不入库）
-model = "my-opencode-go/deepseek-v4-flash"
+# ✅ 正确：默认模型走官方 API（env 注入 key，不入库）
+model = "deepseek-api/deepseek-v4-flash"
 ```
 
 ```toml
 # ❌ 错误：在仓库可提交配置里写死真实 key，会泄露凭据
-model = "my-opencode-go/deepseek-v4-flash"
+model = "deepseek-api/deepseek-v4-flash"
 # api_key = "sk-xxxxx"   # ← 绝不写真实 key
 ```
 

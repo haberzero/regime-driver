@@ -53,10 +53,12 @@ def test_worker_event_ingestion() -> None:
 
 
 def test_worker_streaming_delta_dropped() -> None:
-    # high-frequency streaming deltas are noise; they must not pollute the journal
+    # high-frequency streaming deltas/updates are noise; they must not pollute the journal
     r = Reporter()
     assert r.ingest_worker_event(
         {"event": "message.part.delta", "data": {"sessionID": "abc"}}) is None
+    assert r.ingest_worker_event(
+        {"event": "message.part.updated", "data": {"sessionID": "abc"}}) is None
     assert r.rollup() == []
     # a meaningful event right after is still recorded
     rec = r.ingest_worker_event({"event": "message.completed", "data": {"sessionID": "abc"}})

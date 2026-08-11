@@ -11,7 +11,7 @@
 | 字段 | 类型 | 默认值 | 用途 |
 |------|------|--------|------|
 | `base_url` | str | `http://127.0.0.1:4097` | worker opencode 服务器 URL |
-| `model` | str | `my-opencode-go/deepseek-v4-flash` | 所有 session 的模型 |
+| `model` | str | `deepseek-api/deepseek-v4-flash` | 所有 session 的模型 |
 | `request_timeout` | float | 600.0 | 每个 message POST 的流式超时（秒） |
 | `agent_reviewer` | str | `reviewer` | 审查者 agent 名 |
 | `default_deadline_sec` | int | 600 | 每段等待超时（秒） |
@@ -31,7 +31,7 @@
 | `stall_sec` | int | 120 | busy 且无输出增长超过此秒 → 判卡死 |
 | `on_stall` | enum | `abort` | 停滞动作：abort\|report_user\|none |
 | `meta_analyze_enabled` | bool | false | 用独立模型确认停滞再行动 |
-| `meta_model` | str | `my-opencode-go/deepseek-v4-flash` | 停滞审查模型 |
+| `meta_model` | str | `deepseek-api/deepseek-v4-flash` | 停滞审查模型 |
 | `meta_max_context_msgs` | int | 20 | 喂给元分析的最近消息数 |
 | `context_limit_tokens` | int | 120000 | session token 上限（算用量分数） |
 | `log_level` | enum | `info` | debug\|info\|warning\|error |
@@ -47,13 +47,13 @@
 
 ### `model`
 
-**类型/默认**：str，`my-opencode-go/deepseek-v4-flash`。
+**类型/默认**：str，`deepseek-api/deepseek-v4-flash`。
 **语义**：所有 session 使用的模型，格式 `<provider>/<model>`。
 **约束**：provider 为 `my-opencode-go` 或 `deepseek-api`。
 **示例**：
 
 ```toml
-model = "my-opencode-go/deepseek-v4-flash"
+model = "deepseek-api/deepseek-v4-flash"
 ```
 
 ### `permission_ceiling`

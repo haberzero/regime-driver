@@ -757,7 +757,8 @@ def doctor(
     try:
         auth = json.loads(_Path.home().joinpath(
             ".local", "share", "opencode", "auth.json").read_text(encoding="utf-8"))
-        auth_has_go = "opencode-go" in auth or "my-opencode-go" in auth
+        auth_has_go = ("opencode-go" in auth or "my-opencode-go" in auth
+                       or "deepseek-api" in auth or "deepseek" in auth)
     except Exception:
         pass
     checks.append({"check": "opencode auth.json has key", "ok": auth_has_go})
@@ -782,8 +783,10 @@ def doctor(
             console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
         if provider == "my-opencode-go" and not checks[1]["ok"]:
             console.print("  · 设 OPENCODE_GO_API_KEY 或写 ~/.regime/keys/opencode-go.key")
+        if provider == "deepseek-api" and not checks[1]["ok"]:
+            console.print("  · 设 DEEPSEEK_API_KEY 或写 ~/.regime/keys/deepseek.key")
         raise typer.Exit(1)
-    console.print("\n✓ 配置就绪：可用 `regime run/drive`（默认模型 opencode-go）")
+    console.print("\n✓ 配置就绪：可用 `regime run/drive`（默认模型 deepseek-api）")
 
 
 # ---------------------------------------------------------------------------

@@ -146,14 +146,15 @@ class Reporter:
                             project_id: str | None = None) -> ReportRecord | None:
         """Normalize an opencode SSE worker event (from `event_stream`) into a record.
 
-        Streaming text deltas (``message.part.delta``) are high-frequency noise
-        that would drown the journal (a single long generation emits hundreds);
-        they are evidence of liveness only, so they are dropped from the journal.
-        Meaningful lifecycle events (``server.connected``, ``session.idle``,
-        ``message.completed``, ...) are kept. Returns None for dropped events.
+        Streaming part events (``message.part.delta`` / ``message.part.updated``)
+        are high-frequency noise that would drown the journal (a single long
+        generation emits hundreds); they are evidence of liveness only, so they
+        are dropped from the journal. Meaningful lifecycle events
+        (``server.connected``, ``session.idle``, ``message.completed``, ...) are
+        kept. Returns None for dropped events.
         """
         etype = raw.get("event")
-        if etype == "message.part.delta":
+        if etype in ("message.part.delta", "message.part.updated"):
             return None
         data = raw.get("data") if isinstance(raw.get("data"), dict) else {}
         return self.ingest(

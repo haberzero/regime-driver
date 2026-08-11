@@ -100,6 +100,36 @@ export const RegimeGod = async ({ $ }) => {
         },
       }),
 
+      regime_report: tool({
+        description: "Read the report bus from an append-only journal: global rollup board " +
+                     "(O(1) counters), journal history, or a templated report. Use this to see " +
+                     "workflow outcomes, supervisor ladder actions, and per-workflow progress. " +
+                     "Options: --wf <id> filter, --trace (causal chain for an object), " +
+                     "--template milestone|blocker|period|activity, --since <ts>, --history.",
+        args: {
+          journal: tool.schema.string(),
+          wf: tool.schema.string().optional(),
+          history: tool.schema.boolean().optional(),
+          object: tool.schema.string().optional().describe("object id to trace (with trace=true)"),
+          trace: tool.schema.boolean().optional(),
+          template: tool.schema.string().optional(),
+          since: tool.schema.number().optional(),
+          limit: tool.schema.number().optional(),
+        },
+        async execute(args) {
+          const a = A(args)
+          const opts = ["report", "--journal", a.journal, "--json"]
+          if (a.wf) opts.push("--wf", a.wf)
+          if (a.history) opts.push("--history")
+          if (a.object) opts.push(a.object)
+          if (a.trace) opts.push("--trace")
+          if (a.template) opts.push("--template", a.template)
+          if (a.since) opts.push("--since", String(a.since))
+          if (a.limit) opts.push("--limit", String(a.limit))
+          return await run($, opts)
+        },
+      }),
+
       regime_run: tool({
         description: "Run ONE task through the regime flow to completion (BLOCKING, can take minutes). " +
                      "Returns {outcome,end,detail,elapsed_sec} JSON. Provide a clear, self-contained task context. " +

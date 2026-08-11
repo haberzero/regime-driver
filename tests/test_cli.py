@@ -265,5 +265,5 @@ def test_doctor_readonly_reports_unhealthy():
     assert res.exit_code == 1
     data = json.loads(res.output)
     assert data["ok"] is False
-    assert data["model"] == "my-opencode-go/deepseek-v4-flash"
-    assert data["provider"] == "my-opencode-go"
+    assert data["model"] == "deepseek-api/deepseek-v4-flash"
+    assert data["provider"] == "deepseek-api"

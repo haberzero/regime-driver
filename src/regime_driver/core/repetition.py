@@ -52,7 +52,12 @@ class RepetitionDetector:
 
     n: int = 4
     window_tokens: int = 400
-    rate_threshold: float = 0.35
+    # 0.40 (was 0.35): structured reviewer output (JSON verdicts echoing a
+    # developer report / inquiry) can exceed 0.35 n-gram overlap without being a
+    # true loop; 0.40 still catches degenerate repetition while reducing
+    # false-positive aborts on legitimate mixed structured text. Calibrated in
+    # the C3 tuning pass (2026-08-11 real-run observation).
+    rate_threshold: float = 0.40
     adjacency_threshold: float = 0.9
 
     def check(self, text: str) -> RepetitionResult:

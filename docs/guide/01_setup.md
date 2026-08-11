@@ -21,7 +21,7 @@
 
 regime-driver 用 opencode worker 执行任务。
 worker 需要连到一个可用模型。
-默认模型为 `my-opencode-go/deepseek-v4-flash`。
+默认模型为 `deepseek-api/deepseek-v4-flash`。
 该模型由 OpenCode Go 提供，baseURL 为 `https://opencode.ai/zen/go/v1`。
 
 密钥经环境变量注入，不进仓库、不入库。
@@ -106,7 +106,7 @@ provider 从环境变量 `OPENCODE_GO_API_KEY` 读取密钥。
 
 主机 opencode 若用同一 provider，可参考该文件。
 配置文件示例见 `config.example.toml`。
-其中 `model = "my-opencode-go/deepseek-v4-flash"` 为默认值。
+其中 `model = "deepseek-api/deepseek-v4-flash"` 为默认值。
 
 ### 5. 运行 `regime doctor` 自检
 

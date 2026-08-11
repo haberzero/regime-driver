@@ -76,7 +76,7 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
   default < config file < env (`REGIME_<FIELD>`) < CLI args.
 - **Model API keys are never committed.** Provide `OPENCODE_GO_API_KEY` /
   `DEEPSEEK_API_KEY` env, or write `~/.regime/keys/<name>.key`; containers receive
-  them only at runtime. Default model is `my-opencode-go/deepseek-v4-flash`
+  them only at runtime. Default model is `deepseek-api/deepseek-v4-flash` (official DeepSeek API)
   (OpenCode Go) with `deepseek-api/...` as fallback. Self-check: `regime doctor`
   (reports key presence only, never the value).
 

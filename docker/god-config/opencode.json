@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "my-opencode-go/deepseek-v4-flash",
+  "model": "deepseek-api/deepseek-v4-flash",
   "agent": {
     "developer": {
       "description": "Pure execution worker. Runs instructed tasks, no institutional process, no self-review.",

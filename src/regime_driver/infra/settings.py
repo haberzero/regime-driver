@@ -14,7 +14,7 @@ class Settings(BaseModel):
     """
 
     base_url: str = Field(default="http://127.0.0.1:4097", description="worker opencode server URL")
-    model: str = Field(default="my-opencode-go/deepseek-v4-flash", description="model for all sessions")
+    model: str = Field(default="deepseek-api/deepseek-v4-flash", description="model for all sessions")
     request_timeout: float = Field(
         default=600.0, ge=10.0,
         description="HTTP/stream timeout (s) for each message POST; slow judges may exceed the old 240s"
@@ -57,7 +57,7 @@ class Settings(BaseModel):
         default=False, description="confirm stalls with an independent model before acting"
     )
     meta_model: str = Field(
-        default="my-opencode-go/deepseek-v4-flash", description="model for independent stall review"
+        default="deepseek-api/deepseek-v4-flash", description="model for independent stall review"
     )
     meta_max_context_msgs: int = Field(default=20, ge=1, description="messages fed to meta reviewer")
     # session lifecycle (brain-capacity management, policy-driven)
