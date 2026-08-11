@@ -59,6 +59,10 @@
   未设 key 时跳过、job 仍 success；设 key 后自动激活真实 E2E。
 - **C-I1**：真实 CI 已跑通；**待办 C-I2**：在仓库 Secrets 配 `OPENCODE_GO_API_KEY` 后观察 e2e-real
   真实跑通并记录结果；**C-I3**：覆盖门 floor 68 已纳入真实回归（实测 71%）。
+- **⛔ e2e-real 已封存（2026-08-11，用户决定）**：GitHub 真实 E2E 集成**未来很长时间不列入计划**
+  （无 `OPENCODE_GO_API_KEY` secret）。CI 已移除 `e2e-real` job（避免永远 no-op 的空转 job）；
+  `tests/test_e2e_worker.py` **保留**，本地/手动经 `REGIME_E2E=1` 可用（本机 worker+key 就绪即跑）。
+  相关：C-I1 已达成（CI 曾经真实跑通并绿）；C-I2 因无密钥**长期搁置**。
 
 ## III. 可配置化 / 去硬编码（P0，对外可移植性的关键）
 

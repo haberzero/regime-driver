@@ -42,8 +42,9 @@ conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --god 
 ### GitHub（已完成）
 
 - public 仓库：https://github.com/haberzero/regime-driver （`main`，SSH 认证）。
-- CI（`.github/workflows/ci.yml`）：py3.11/3.12 单测 + 覆盖率门 + 真实 worker E2E
-  （`OPENCODE_GO_API_KEY` secret 注入时激活）。
+- CI（`.github/workflows/ci.yml`）：py3.11/3.12 单测 + 覆盖率门（离线，无需密钥）。
+  真实 worker E2E 已从 CI 移除（2026-08-11 封存：无 `OPENCODE_GO_API_KEY` secret 长期
+  不启用）；本地经 `REGIME_E2E=1` 可用。
 
 ### PyPI（可选，WORK_PLAN7 V-2）
 
@@ -55,7 +56,10 @@ conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --god 
 ### GitHub Pages 文档站（可选，WORK_PLAN7 V-1）
 
 用现有 `docs/`（Divio 结构）直接发布为静态站点，成本低。启用仓库 Settings →
-Pages → 选分支/目录即可；文档站引用路径保持相对链接。
+Pages → 选分支 + `/docs` 目录即可。**注意 Pages 已知坑**：GitHub Pages 默认用 Jekyll
+把 Markdown 渲染为 HTML，`.md` 内部相对链接会 404；启用前需在仓库根加 `_config.yml`
+（`include: [docs]` + 调整链接），或改用带 `.md`→`.html` 映射的静态生成器，或保持纯
+HTML。启用前先本地验证（`jekyll build` 或静态服务器预览 `docs/`）。
 
 ## 4. 许可与免责复核（对外发布前必须确认）
 

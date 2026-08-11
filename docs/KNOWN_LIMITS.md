@@ -7,7 +7,9 @@
 
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
-> - **未完成耐久验证**：长期运行（2h+）无泄漏/能恢复尚未系统化验证；CI 已绿但真实模型 E2E 需密钥门控。
+> - **未完成耐久验证**：长期运行（2h+）无泄漏/能恢复尚未系统化验证（WORK_PLAN6 I，进行中 2026-08-11）。
+> - **GitHub 真实模型 E2E 已封存**：CI 内不再跑真实 worker E2E（2026-08-11 起，长期不列入计划；
+>   需 `OPENCODE_GO_API_KEY` secret）。`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 > - **项目特定默认**：默认模型（`deepseek-api/deepseek-v4-flash`，DeepSeek 官方 API）、端口、目录为项目配置，需自行适配。
 > - **依赖 opencode 内部 HTTP API**（`/event` SSE、session 端点），并锁定 opencode 1.18.11，版本漂移可能破坏。
 > - **强副作用**：驱动真实 AI 模型与 Docker，可自动执行代码——务必在隔离沙箱运行并审查其行为（见 `SECURITY.md`）。

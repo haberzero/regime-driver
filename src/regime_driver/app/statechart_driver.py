@@ -91,9 +91,18 @@ class StatechartDriver:
         self.runtime.start()
         try:
             self.workflow.submit(context, title)
-            deadline = time.time() + (timeout_sec or 3600)
+            deadline = time.time() + (timeout_sec or self.settings.max_driver_wait_sec)
             while self.workflow.result() is None:
                 if time.time() > deadline:
+                    # Timeout must be recorded like any other outcome (D1): the
+                    # workflow thread never reached a terminal state, so no
+                    # outcome event would otherwise be written to ledger/reporter
+                    # and the run would vanish from the report bus.
+                    self.workflow.record_outcome(
+                        Outcome.ERROR.value,
+                        node=self.workflow._node,
+                        detail="run timed out",
+                    )
                     return (Outcome.ERROR, self.workflow._node, "run timed out")
                 time.sleep(0.05)
             return self.workflow.result()

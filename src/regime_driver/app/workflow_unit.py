@@ -704,6 +704,18 @@ class WorkflowUnit(ThreadedUnit):
                 detail=dict(fields),
             )
 
+    def record_outcome(self, outcome: str, *, node: str | None = None,
+                       detail: str = "") -> None:
+        """Publicly record a run outcome to ledger/reporter (D1).
+
+        Used by the driver when the run is externally cut short (e.g. driver
+        timeout) — the workflow thread never reached a terminal state, so it
+        would otherwise write no outcome event and the run would vanish from
+        the report bus.
+        """
+        self._log("outcome", node=node or self._node,
+                  outcome=outcome, detail=detail)
+
     def _with_dispatch_diag(self, detail: str) -> str:
         """Append recent dispatch failures to a result detail for user visibility."""
         if not self._dispatch_errors:

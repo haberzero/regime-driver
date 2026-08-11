@@ -9,6 +9,7 @@ base_url = "http://127.0.0.1:4097"          # worker opencode server URL
 model = "deepseek-api/deepseek-v4-flash"  # 所有 session 的模型（默认 DeepSeek 官方 API）
 # 备选回退: my-opencode-go/deepseek-v4-flash（OpenCode Go）；需要 provider + key 见 DESIGN-usability.md
 request_timeout = 600.0                      # 每个 message POST 的流式超时(秒)（慢 judge 需较大值）
+max_driver_wait_sec = 3600.0                 # driver.run() 无显式 deadline 时的等待上限(秒)
 agent_reviewer = "reviewer"                  # 审查者 agent 名
 
 # --- 流程控制 ---

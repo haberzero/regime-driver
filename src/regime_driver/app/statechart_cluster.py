@@ -91,7 +91,9 @@ class StatechartCluster:
 
     def wait(self, timeout_sec: float | None = None) -> dict:
         """Wait for all workflows to finish; return {id: (outcome,end,detail)}."""
-        deadline = time.time() + (timeout_sec or 3600)
+        default = next(iter(self.workflows.values())).settings.max_driver_wait_sec \
+            if self.workflows else 3600.0
+        deadline = time.time() + (timeout_sec or default)
         while any(wf.result() is None for wf in self.workflows.values()):
             if time.time() > deadline:
                 break

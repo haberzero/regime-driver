@@ -143,7 +143,7 @@ class Drive:
         def _go() -> None:
             try:
                 self._result["res"] = self.driver.run(
-                    context, title, timeout_sec=3600.0)
+                    context, title, timeout_sec=self.settings.max_driver_wait_sec)
             except Exception as exc:  # surface executor failure, don't hang
                 self._result["res"] = (Outcome.ERROR, None, f"executor: {exc}")
 

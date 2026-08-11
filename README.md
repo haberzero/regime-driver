@@ -7,8 +7,7 @@
 > **本项目仍处于积极开发中的内部原型，尚未发布正式版本（尚无 v1.0，无稳定 API/CLI 契约）。**
 >
 > - **不稳定**：接口、命令、配置、行为可能随时不兼容地变更，**不保证向后兼容**。
-> - **未完成**：长期运行耐久性（2h+ 无泄漏/能恢复）尚未完成系统化验证；CI 尚未在真实环境跑通；
->   仍有机器/模型/路径硬编码，未做通用化打包。
+> - **未完成**：长期运行耐久性（2h+ 无泄漏/能恢复）正在系统化验证中；仍有项目特定默认配置需自行适配。
 > - **未审计**：尚未经过外部安全审计；默认模型/供应商、端口、目录等为项目特定配置，需自行适配。
 > - **自担风险**：使用本软件造成的任何直接/间接损失，作者概不负责（见下方 License 与免责声明）。
 >
@@ -25,9 +24,10 @@ opencode worker（L2）完成任务，并由只读审查者（L0）判定、确�
 
 > **Status / 状态**
 >
-> - 测试：全量 `python -m pytest` 绿（覆盖 71%+，含真实 worker E2E，`REGIME_E2E` 门控）。
+> - 测试：全量 `python -m pytest` 绿（覆盖 71%+）；真实 worker E2E 本地可用（`REGIME_E2E=1`，CI 内已封存）。
 > - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离舰队、上帝对话框）已完成；
->   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）见 `WORK_PLAN7.md`。
+>   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）见 `WORK_PLAN7.md`；
+>   长期耐久验证见 `WORK_PLAN6.md`。
 
 ## Install
 
@@ -46,7 +46,7 @@ conda run -n regime-driver pip install -e ".[dev]"
 ```bash
 # 从包内模板生成 ~/.config/opencode/{agents,skills}（幂等；--dry-run 预览）
 regime scaffold
-# 需要上帝对话框助手 subagent（analyst/advisor）时
+# 需要上帝对话框助手 subagent（analyst/advisor/reviewer）时
 regime scaffold --god
 # 自检：worker 健康 / 模型密钥 / 模板就绪
 regime doctor
@@ -69,8 +69,8 @@ regime run "任务" --base http://<主机 opencode 端口>
 
 ### 3. 配模型密钥
 
-- worker/god 容器经 `OPENCODE_GO_API_KEY` / `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从
-  `~/.regime/keys/*.key` 读，或自设 env）；密钥零入库。
+- worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设
+  env）；密钥零入库。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
 - 详见 `docs/guide/00_environment.md`。
 
@@ -121,7 +121,8 @@ conda run -n regime-driver pytest
 **环境变量覆盖**：任意 Settings 字段可用 `REGIME_<大写字段>` 覆盖，如 `REGIME_MODEL`、`REGIME_STALL_SEC`、`REGIME_POLL_SEC`。
 
 **模型密钥**：默认模型 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API）。密钥零入库：
-- worker/god 容器经 `OPENCODE_GO_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/opencode-go.key` 读，或自设 env）。
+- worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设 env）；
+  OpenCode Go 回退 provider 用 `OPENCODE_GO_API_KEY` / `~/.regime/keys/opencode-go.key`。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
 - 详见 `docs/guide/00_environment.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。
 

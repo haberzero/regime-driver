@@ -13,6 +13,7 @@
 | `base_url` | str | `http://127.0.0.1:4097` | worker opencode 服务器 URL |
 | `model` | str | `deepseek-api/deepseek-v4-flash` | 所有 session 的模型 |
 | `request_timeout` | float | 600.0 | 每个 message POST 的流式超时（秒） |
+| `max_driver_wait_sec` | float | 3600.0 | `driver.run()` 无显式 deadline 时的等待上限（秒） |
 | `agent_reviewer` | str | `reviewer` | 审查者 agent 名 |
 | `default_deadline_sec` | int | 600 | 每段等待超时（秒） |
 | `poll_sec` | float | 5.0 | session 轮询间隔（秒） |

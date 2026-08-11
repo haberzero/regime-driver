@@ -2,8 +2,8 @@
 
 > **⚠️ Experimental · In Development — NOT yet released.**
 > No stable API/CLI contract, no `v1.0`. Interfaces and behaviour may change
-> without notice. Long-running durability (2h+ no-leak/recovery) is not yet
-> systematically validated; CI is now green but real-model E2E is key-gated;
+> without notice. Long-running durability (2h+ no-leak/recovery) is being
+> systematically validated; real-model E2E is available locally only;
 > some machine/model/path/port defaults are project-specific. **Use at your own
 > risk** — it drives real AI models and Docker containers and can auto-execute
 > code. Run it only in a controlled, isolated environment. See `SECURITY.md`.
@@ -24,16 +24,16 @@ invariants) supervising agentic workflow units. See
 
 ## Status / highlights
 
-- **Tests**: full `python -m pytest` green (71%+ coverage, incl. real-worker E2E,
-  gated behind `REGIME_E2E`).
-- **Real CI is green**: unit tests pass on Python 3.11 & 3.12; real-worker E2E
-  activates when an `OPENCODE_GO_API_KEY` secret is set.
+- **Tests**: full `python -m pytest` green (71%+ coverage); real-worker E2E
+  available locally via `REGIME_E2E=1` (archived from CI).
+- **CI is green**: unit tests pass on Python 3.11 & 3.12 (offline, no key needed).
 - Core features implemented & verified: hot flow compile/reload
   (`FlowRegistry` + `regime flow`), one-command self-driving stack (`regime drive`),
   per-workspace isolated worker fleet (`regime worker` / `drive-many`),
   fault-injection/recovery (`regime chaos`), God Dialog (A/B dual surface).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
-  source of truth / release docs) tracked in `WORK_PLAN7.md`.
+  source of truth / release docs) tracked in `WORK_PLAN7.md`; long-run durability
+  in `WORK_PLAN6.md`.
 
 ## Install
 
@@ -53,7 +53,7 @@ conda run -n regime-driver pip install -e ".[dev]"
 # generate ~/.config/opencode/{agents,skills} from the packaged templates
 # (idempotent; --dry-run previews without writing)
 regime scaffold
-# also deploy the god-dialog assistant subagents (analyst/advisor)
+# also deploy the god-dialog assistant subagents (analyst/advisor/reviewer)
 regime scaffold --god
 # self-check: worker health / model key / templates ready
 regime doctor
@@ -76,9 +76,9 @@ regime run "task" --base http://<host-opencode-port>
 
 ### 3. Configure the model key
 
-- worker/god containers receive `OPENCODE_GO_API_KEY` / `DEEPSEEK_API_KEY` at
-  runtime (`ops/up.sh` reads `~/.regime/keys/*.key` or your env); keys are never
-  committed.
+- worker/god containers receive `DEEPSEEK_API_KEY` at runtime (`ops/up.sh` reads
+  `~/.regime/keys/deepseek.key` or your env); keys are never committed. The
+  OpenCode Go fallback provider uses `OPENCODE_GO_API_KEY`.
 - Interactive opencode stores keys via `/connect` in
   `~/.local/share/opencode/auth.json`.
 - See `docs/guide/00_environment.md`.
@@ -117,11 +117,11 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
 
 - Config file: `config.example.toml` (all fields documented). Priority:
   default < config file < env (`REGIME_<FIELD>`) < CLI args.
-- **Model API keys are never committed.** Provide `OPENCODE_GO_API_KEY` /
-  `DEEPSEEK_API_KEY` env, or write `~/.regime/keys/<name>.key`; containers receive
-  them only at runtime. Default model is `deepseek-api/deepseek-v4-flash` (official DeepSeek API)
-  (OpenCode Go) with `deepseek-api/...` as fallback. Self-check: `regime doctor`
-  (reports key presence only, never the value).
+- **Model API keys are never committed.** Provide `DEEPSEEK_API_KEY` env (the
+  default `deepseek-api/deepseek-v4-flash` provider), or write
+  `~/.regime/keys/<name>.key`; containers receive them only at runtime. The
+  `my-opencode-go/...` (OpenCode Go) provider is the fallback. Self-check:
+  `regime doctor` (reports key presence only, never the value).
 
 ## Documentation
 

@@ -19,6 +19,10 @@ class Settings(BaseModel):
         default=600.0, ge=10.0,
         description="HTTP/stream timeout (s) for each message POST; slow judges may exceed the old 240s"
     )
+    max_driver_wait_sec: float = Field(
+        default=3600.0, ge=60.0,
+        description="driver.run() default wait cap (s) when no explicit timeout/deadline is given"
+    )
     agent_reviewer: str = Field(default="reviewer", description="reviewer agent name (for meta-analysis)")
     default_deadline_sec: int = Field(default=600, ge=1, description="per-segment deadline")
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")

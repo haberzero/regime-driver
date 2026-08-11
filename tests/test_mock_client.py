@@ -90,3 +90,33 @@ def test_mock_error_rule_emits_error_message():
     sid = c.create_session("s")
     c.send_message(sid, "当前节点：understand", "developer")
     assert c.read_messages(sid)[0].error == "boom"
+
+
+def test_driver_timeout_records_outcome(tmp_path):
+    """D1 regression: a driver wait that times out must write an outcome event
+    to the reporter/ledger — otherwise the run vanishes from the report bus."""
+    from regime_driver.app.reporter import Reporter
+    from regime_driver.infra.ledger import Ledger
+
+    journal = tmp_path / "rep.jsonl"
+    ledger_path = tmp_path / "ev.jsonl"
+    c = MockClient(sm=load_regime())
+    c.rule("developer", "understand", stall=True)  # never advances
+    d = StatechartDriver(
+        Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=1),
+        load_regime(), c, enforce_invariants=True,
+        reporter=Reporter(journal_path=journal),
+        ledger=Ledger(ledger_path),
+    )
+    outcome, _, detail = d.run("超时任务", timeout_sec=0.3)
+    assert outcome == Outcome.ERROR
+    assert "timed out" in (detail or "")
+
+    recs = journal.read_text(encoding="utf-8").splitlines()
+    outcomes = [json.loads(r) for r in recs if json.loads(r).get("outcome")]
+    assert outcomes, "no outcome recorded in reporter journal"
+    assert outcomes[-1]["outcome"] == "error"
+
+    evs = ledger_path.read_text(encoding="utf-8").splitlines()
+    ev_outcomes = [json.loads(e) for e in evs if json.loads(e).get("event") == "outcome"]
+    assert ev_outcomes and ev_outcomes[-1]["outcome"] == "error"

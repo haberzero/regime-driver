@@ -28,7 +28,7 @@
 - [x] V 发布准备：README 中英 + 警告 + MIT、SECURITY/CONTRIBUTING/KNOWN_LIMITS 对外摘要
 - [x] 公开上传 GitHub public：https://github.com/haberzero/regime-driver
 - [ ] I 长期运行耐久性真实验证（2h+，唯一关键未做）| P0 下 session
-- [ ] e2e-real 真实激活（需 GitHub `OPENCODE_GO_API_KEY` secret）| 用户未提供，暂缓
+- [x] ~~e2e-real 真实激活（需 GitHub `OPENCODE_GO_API_KEY` secret）~~ | **已封存（2026-08-11）**：GitHub 真实 E2E 集成未来很长时间不列入计划。CI 移除 e2e-real job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 
 ## 验证记录
 
