@@ -727,9 +727,10 @@ def doctor(
     import os as _os
     from pathlib import Path as _Path
 
+    from ..infra.config import load_settings
     from ..infra.settings import Settings
 
-    settings = Settings(base_url=base)
+    settings = load_settings(overrides={"base_url": base})
     model = settings.model
     provider = model.split("/")[0] if "/" in model else model
     checks: list[dict] = []
@@ -767,6 +768,24 @@ def doctor(
     from ..scaffold import templates_ready
     _tpl = templates_ready()
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
+
+    # accumulated-session hygiene (L2, from durability finding): session records
+    # cannot be deleted (opencode 1.18.11), so a long-running worker accumulates
+    # them; warn at a threshold so the operator knows when to clean/rebuild.
+    if healthy:
+        session_count = 0
+        try:
+            sessions = OpenCodeClient(base, timeout=5).list_sessions()
+            session_count = len(sessions) if isinstance(sessions, list) else 0
+        except Exception:
+            session_count = -1
+        if session_count >= 0:
+            threshold = settings.session_hygiene_threshold
+            ok = session_count < threshold
+            checks.append({"check": "session hygiene",
+                           "ok": ok, "sessions": session_count,
+                           "detail": (f"abort/rebuild advised beyond {threshold} "
+                                      "accumulated sessions") if not ok else ""})
 
     all_ok = all(c["ok"] for c in checks)
     if json_out:

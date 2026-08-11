@@ -276,3 +276,28 @@ def test_doctor_readonly_reports_unhealthy():
     assert data["ok"] is False
     assert data["model"] == "deepseek-api/deepseek-v4-flash"
     assert data["provider"] == "deepseek-api"
+
+
+def test_doctor_session_hygiene_warns_on_low_threshold(monkeypatch):
+    """L2: with a tiny threshold, doctor must flag accumulated sessions (ok=False)."""
+    monkeypatch.setenv("REGIME_SESSION_HYGIENE_THRESHOLD", "1")
+    # Force a healthy fake client instead of the real worker.
+    import regime_driver.cli as cli
+
+    class _Fake:
+        def health(self):
+            return True
+
+        def list_sessions(self):
+            return [{"id": "a"}, {"id": "b"}]
+
+    original = cli.OpenCodeClient
+    cli.OpenCodeClient = lambda base, timeout: _Fake()  # noqa: E731
+    try:
+        res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:9", "--json"])
+    finally:
+        cli.OpenCodeClient = original
+    data = json.loads(res.output)
+    hygiene = [c for c in data["checks"] if c["check"] == "session hygiene"]
+    assert hygiene and hygiene[0]["ok"] is False
+    assert hygiene[0]["sessions"] == 2

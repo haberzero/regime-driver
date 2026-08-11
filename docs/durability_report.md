@@ -76,6 +76,8 @@ worker 全程健康。**系统"2h+ 能持续运行"的核心声明成立**。
 - session 累积是**真实、有界、但无上限**的运营成本：长期（多天）运行需定期
   `regime sessions --clean`（abort 旧 session）或重建容器。建议把"session 数 > N 则提示清理"
   纳入 `regime doctor` 或 supervisor 周期动作。
+  **✅ 已落地（2026-08-12）**：`regime doctor` 增 "session hygiene" 检查（worker 健康时统计 session
+  数，≥100 警告"abort/rebuild advised"），阈值 `session_hygiene_threshold` 可配。
 - journal/ledger 线性增长：长跑脚本收尾建议自动 `regime report --prune`（L2 待接入）。
 
 ### 4.4 C3 参数校准

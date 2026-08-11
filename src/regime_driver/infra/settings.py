@@ -52,6 +52,11 @@ class Settings(BaseModel):
     # monitor thread (independent safety guard)
     monitor_enabled: bool = Field(default=True, description="enable the monitor thread")
     monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="monitor poll interval")
+    session_hygiene_threshold: int = Field(
+        default=100, ge=1,
+        description="doctor warns when accumulated worker sessions exceed this (L2: "
+                    "session records cannot be deleted, only aborted)"
+    )
     stall_sec: int = Field(default=120, ge=1, description="busy but no token growth beyond this -> stall")
     on_stall: Literal["abort", "report_user", "none"] = Field(
         default="abort", description="action when a session stalls (no progress)"
