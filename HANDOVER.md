@@ -178,19 +178,21 @@
 
 ### 当前状态速览（2026-08-11）
 
-- **测试基线 347 passed（+6 skip，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
-- **实践暴露问题全自主修复 ✅（2026-08-11，真实 E2E 验证）**：
-  - **supervisor T2 stall 误报根治**：`SessionWatch` 的 `stall_sec` 原是死参数（一停顿即 abort，不等到 60s），
-    重写为时间窗语义 + SSE 活动兑底（排除 `server.connected` 握手）+ 恢复重置 consecutive + 每窗一射。
-    真实 E2E：同一 mini_regime 复刻任务从"连续 5 次误判 escalate→human + L4 重启"变"198s COMPLETE、零 ladder"。
-  - **僵尸进程 bug 根治**：新增 `infra/proc.py` `pid_alive()`（读 `/proc/<pid>/stat`，`Z/X` 判死），
-    `jobs.py`/`task.py` 接入 → 崩溃的 async job/task 不再永久 `running`。
-  - **god 容器环境漂移**：镜像打 `org.regime-driver.head` label，`ops/up.sh` 检测到 git HEAD 变化自动重建；
-    god 运行时挂载当前 docs/god.md/插件/opencode.json；`Dockerfile.god` COPY docs 入镜像。
-  - **A-route 权限死锁**：god.md bash 白名单扩只读命令；`god-window.md` 文档化
-    `GET /permission` + `POST /permission/{id}/reply` 应答（HTTP 驱动无交互时用）。
-  - **reporter 噪音**：drop 高频 `message.part.delta`（supervisor 仍计 raw 事件做 liveness）。
-  - **易用性**：`regime task list/status/logs/stop/clean --tasks-dir`；`regime drive --ledger`。
+- **测试基线 356 passed（+6 skip，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，
+  快一个数量级）；`my-opencode-go/...`（OpenCode Go）作回退。主机+worker/god 全统一。key：
+  `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`。自检 `regime doctor`。
+- **上帝对话框制度设计闭环（P0 主线）✅（2026-08-11）**：
+  - `regime flow design <name> '<spec>'`：inline 注册新流程（无需文件），上帝对话框设计制度主入口；
+  - `regime status --deep`：一次拿全聚合态势（健康+会话+busy+流程+任务+reporter rollup）；
+  - `regime run/drive --flow <name>`：按名执行注册流程（god 设计的流程可运行）；
+  - **终止 judge 节点 gate 修复**：advance+null next_state 仅当 terminal 节点放行（此前"最终审查 judge
+    流程永远无法完成"，preflight gate exhausted）；
+  - god 插件新增 `regime_flow_design/summary/load/report` + `regime_run --flow`；
+  - god.md bash 改 `*: allow`（headless HTTP 死锁根治；安全靠 edit/write deny + --perm 门禁）。
+  - 真实 E2E：god 设计 mini_wf → 注册 → 运行 → 正确诊断；官方模型下 drive --flow 31.4s COMPLETE 零 ladder。
+- **实践暴露问题修复 ✅（2026-08-11）**：supervisor T2 stall 误报根治 + 僵尸进程 bug + god 容器漂移 +
+  A-route 权限死锁 + reporter 噪音 + 易用性（见 TASK 验证记录）。
 - **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
   `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
   持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/
@@ -206,7 +208,7 @@
 - **发布就绪（WORK_PLAN6 III/IV/V 大部分 ✅）**：god 插件去硬编码（`REGIME_BIN`）、文档一致性、
   `README.en.md` 英文版、`SECURITY.md`/`CONTRIBUTING.md`、KNOWN_LIMITS 对外摘要、MIT License。
 - **项目已公开上传 GitHub public**：https://github.com/haberzero/regime-driver （`main`，SSH 认证，已获用户明确授权 push）。
-- 测试基线 347 passed。
+- 测试基线 356 passed。
 - **模型**：默认 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），主机+worker/god 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、

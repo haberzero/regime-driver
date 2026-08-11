@@ -23,6 +23,10 @@
 - **DELETE /session/{id} 返回 404**：当前 opencode-server（1.18.11）不支持删除远端 session。
   `regime sessions --clean`/`--kill` 只能 **abort**（释放 busy 状态），session 记录本身无法删除，
   会持续累积。归属：`infra/opencode.py` + `cli`。
+- **session 状态不一致（message 404 + status busy）**：容器重启后，旧 session 的 `/session/{id}/message`
+  可能 404，但 `/session/status` 仍报 busy（状态 map 残留）。受影响的 workflow 会在该会话上卡住
+  （`_step_judge`/`_step_agent` 轮询死会话）。规避：`regime sessions --clean` 释放，或重启容器；
+  严重时需重建容器（`docker rm -f` + `ops/up.sh`）。归属：opencode 1.18.11 行为 + `workflow_unit.py`。
 - **固化镜像依赖重建刷新**：`opencode-god`/`opencode-worker` 镜像把源码与配置烘焙进镜像；
   源码变更后未重建（`ops/up.sh` 会在 git HEAD 变化时自动重建，或 `--rebuild` 强制）会导致
   容器内运行旧包（如 god 无 `flow` 子命令、读不到新文档）。运行面已用 `-v` 挂载当前文档/插件，

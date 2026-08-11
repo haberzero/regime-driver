@@ -38,9 +38,14 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
 
 ## 权限等级（--perm）
 CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`，默认到 clean）。等级由低到高：
-`read`(只读监控) < `interact`(+session send) < `run`(+run/run-many) < `clean`(+sessions --clean/--kill)。
+`read`(只读监控) < `interact`(+session send) < `run`(+run/run-many/flow design) < `clean`(+sessions --clean/--kill)。
 你作为上帝对话框，默认持有最高 `clean`；如需降权只读，给写命令传 `--perm read`（此时 run/send/clean 会被拒绝）。
 判定规则见 `docs/reference/04_permissions.md` 与 `src/regime_driver/infra/permission.py`。
+
+**分层用法**：
+- **制度设计者**（默认 `clean`）：`flow design` 设计/注册新流程 → `run/run-many/drive --flow` 执行 → 监控 → 治理。这是你作为"上层制度规划者"的角色：不介入具体开发代码，只设计制度流程并调度。
+- **只读观察者**（`--perm read` 或 `--perm interact`）：只 `status --deep`/`sessions`/`report`/`events` 监控全局，不触发任何写操作。适合多操作者场景下的"旁观者"角色。
+- 配置 ceiling（`REGIME_PERMISSION_CEILING`）是最高允许等级，`--perm` 只能降不能升。
 
 ## 操作纪律
 1. **先健康后行动**：任何操作前 `regime status --json`；worker 不可用则说明并停止。

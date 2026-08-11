@@ -68,7 +68,8 @@
   → ✅ 已改 `REGIME_BIN` env → `regime`(PATH) → conda 默认（三级解析，2026-08-10）。
   模型默认与 `base_url=4097` 为可配置默认（env/config 可覆盖），作为 fallback 保留，属合理默认。
 - **C-P2**：模型 provider 默认硬编码 `my-opencode-go/deepseek-v4-flash`（settings.py 及多 config）
-  → 抽象为可配 provider 发现，默认值仅作 fallback，文档化多供应商接入。
+  → ✅ 默认模型已切换为 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API，2026-08-11 用户授权，
+  实测 1.6s vs opencode-go 40s）；`my-opencode-go/...` 作回退 provider。多供应商仍可配（env/config）。
 - **C-P3**：端口 4096/4097/4098、`~/.regime/*` 路径、`~/.config/opencode` 路径 → 全可配（env/config），
   默认值保留。
 - **C-P4**：打包/安装——`pip install regime-driver`（PyPI 或自建源）可装即用，含 data/regime.json、
