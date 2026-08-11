@@ -8,7 +8,7 @@
 
 推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`**（F1–F11 + C1/C2/C4 已完成；遗留 L1–L3/C3/F6b/P3）。**`WORK_PLAN6.md`（当前主线：发布就绪/对外宣传准备——耐久验证、真实CI、去硬编码、文档一致、发布准备）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/subsystems/07_god_dialog_carrier.md`。
+> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`**（F1–F11 + C1/C2/C4 已完成；遗留 L1–L3/C3/F6b/P3）。**`WORK_PLAN6.md`**（发布就绪：II/III/IV/V 大部分完成；剩余 I 耐久 + e2e-real 密钥 + README 精校）。**`WORK_PLAN7.md`（当前主线：对外供给就绪——模板进包 + scaffold + 单一真源 + 文档修复，审查见 `docs/release_readiness_audit.md`）**。**技术债治理见 `docs/TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/subsystems/07_god_dialog_carrier.md`。
 
 ## 候选清单（按优先级，见 WORK_PLAN5）
 
@@ -99,6 +99,10 @@
 - [DONE] 2026-08-11 上帝对话框制度设计闭环(P0主线) | verified: 356 passed(覆盖71%) + 真实E2E(官方模型 drive --flow 31.4s COMPLETE 零 ladder) | (1) `regime flow design <name> '<spec>'` inline 注册(compile_spec+register validate, preflight先于register零突变, --preflight-fault, skills_dir贯通) | (2) `regime status --deep` 聚合态势(健康+会话+busy+流程+任务+reporter rollup, 读journal前load, 会话聚合异常防护, 无mkdir副作用) | (3) `run/drive --flow <name>` 执行注册流程(god设计的流程按名运行) | (4) 终止judge节点gate修复(core/contract: advance next_state=null 仅当 terminal; workflow_unit _advance(None) 完成) | (5) god 插件 regime_flow_design/summary/load/report + regime_run --flow | (6) god.md bash *:allow(headless HTTP 死锁根治, 安全靠 edit/write deny+--perm) | tests: test_cli(+5) + test_core(terminal judge) + test_preflight(judge-terminal) | 真实E2E: god 设计 mini_wf → 注册 → 运行 → 正确诊断(被宪法重复检测拦截, 非机制故障); 官方模型下终止judge flow 31.4s COMPLETE
 
 - [DONE] 2026-08-11 默认模型切换 DeepSeek 官方 API(用户授权, 速度更快) | verified: 356 passed + 真实E2E(drive --flow 31.4s vs 之前 opencode-go 198s) | settings.py/config.example.toml/docker worker+god opencode.json 默认模型 my-opencode-go→deepseek-api/deepseek-v4-flash; doctor 统一(auth检查含deepseek, 建议文案); 实测官方 1.6s vs opencode-go 40s; P1收尾: regime_report god工具(暴露supervisor ladder/历史) + reporter drop message.part.updated + repetition阈值0.35→0.40(结构化审查输出误报) | 新发现: opencode session 状态不一致(message 404 + status busy, 容器重启后残留) → KNOWN_LIMITS 记录
+
+- [DONE] 2026-08-11 上帝对话框获得助手subagent(可行性验证+落地) | verified: 356 passed + 真实E2E | 调研: opencode primary agent 经内置 task 工具委派 subagent, headless serve 模式实测可行(探针: god 委派 general 计算 3^7 成功) | 落地: docker/god-config/agents/{analyst,advisor,reviewer}.md (态势分析师/流程设计顾问/只读审查), 挂载进 god 容器 + Dockerfile COPY | god.md 文档化两助手用法(只委派只读/起草, 写操作仍经 regime_*) | 真实E2E(281s): god 并行委派 analyst 读 journal 识别 reviewer gate exhausted 根因 + advisor 起草 flow spec | 边界: subagent 读容器外目录触发 external_directory 权限 ask(headless 需应答) → KNOWN_LIMITS; advisor 需强约束 agent|judge 类型(已修 prompt) | tests: 无新增(能力验证为主)
+
+- [DONE] 2026-08-11 对外供给就绪度审查(发现"开发态≠发布态"硬缺口) | 产出: WORK_PLAN7.md(主线) + docs/release_readiness_audit.md(证据快照) | 决定性证据: 实测 pip wheel 仅含 Python 代码, agents/skills/docker/god助手/docs 全不在包内(62文件全代码); data/regime.json 引用包内不存在的 skill → 纯wheel用户 preflight 必败; DEFAULT_SKILLS_DIR=parents[3]/workflow-regime/skills 在 site-packages 下解析到不存在路径(即 god 容器 preflight 失败根因) | 目录漂移: reviewer.md 四处副本已有1行差异; skills 双份 | README 死链2处(ops/mock_feasibility.py, ops/e2e_debug.py 已删) | 无 scaffold/init 一键配置入口 | 建议: I模板进包 + II scaffold + III单一真源 + IV文档修复 + V平台 | verified: 356 passed 无回归 | next: 下一 session 按 WORK_PLAN7 实施(模板进包+scaffold 是"别人能用"硬前提)
 
 ## 阻塞
 

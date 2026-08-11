@@ -17,6 +17,7 @@ docs/
 ├── WRITING_GUIDE.md       技术文档书写准则（强制）
 ├── KNOWN_LIMITS.md        已知限制
 ├── TECH_DEBT.md           技术债登记（问题清单）
+├── release_readiness_audit.md  对外供给就绪度审查快照（WORK_PLAN7 依据，实施后更新）
 ├── CLI_REFERENCE.md       命令行/配置参考索引 → reference/
 ├── ARCHITECTURE.md        架构设计手册索引 → architecture/
 ├── SUBSYSTEM_DESIGN.md    子系统设计手册索引 → subsystems/

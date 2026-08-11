@@ -227,21 +227,23 @@
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
-> **当前主线（唯一指针，2026-08-11）**：**收尾发布就绪（WORK_PLAN6 剩余）+ 长期耐久验证（I）**。
-> WORK_PLAN6 的 II（CI 绿）✅、III（去硬编码）✅、IV（文档一致）✅、V（发布准备）大部分 ✅。
-> 剩余：I 长期耐久验证（唯一关键未做）+ V 剩余（README 双语正文精校）+ 需密钥项（e2e-real 激活）。
+> **当前主线（唯一指针，2026-08-11）**：**对外供给就绪（WORK_PLAN7）** —— 让"别人能用"而非"只能 clone 源码跑"。
+> 决定性证据（`docs/release_readiness_audit.md`）：pip wheel 不含任何模板，用户安装后 preflight 必败；
+> 全套 agent/skills/god 助手只在源码仓库。这是对外发布前必须补齐的硬缺口。
+> 已完成的上一主线：**上帝对话框制度设计闭环（P0）+ 模型切换官方 API**（见上）✅。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| **P0** | **长期运行耐久性真实验证（I）**：opencode-go 2h+ drive/fleet，观测容器/session/journal/内存/恢复；资源治理收尾；耐久报告 + 更新 KNOWN_LIMITS | 运行可信 | WORK_PLAN6 I |
-| **P1** | **e2e-real 真实激活**：在仓库 Secrets 配 `OPENCODE_GO_API_KEY` 后，CI 的 real-worker E2E 自动真实运行（当前无 key 时门控跳过） | 可信 | WORK_PLAN6 II |
-| **P1** | **发布收尾（V 剩余）**：README 中英双语正文精校、发布自检清单核对、KNOW_LIMITS 外部版复核 | 发布 | WORK_PLAN6 V |
-| P2 | **C3 延迟调优**：opencode-go 下 judge 超时/重试参数（依赖 I 期观测数据） | 健康 | WORK_PLAN5 |
-| P3 | 承接：F6b reload-on-change / P3 FakeClient 收敛 | 闭环 | WORK_PLAN5 |
+| **P0** | **模板数据进包（I）**：`data/{skills,agents,god-assistants,docker}` 随 wheel 打包 + 修 `DEFAULT_SKILLS_DIR`（不再依赖源码树）+ 纯 wheel preflight 验证 | 供给 | WORK_PLAN7 I |
+| **P0** | **`regime scaffold` 一键配置（II）**：从包内模板生成 `~/.config/opencode/{agents,skills}` + god 助手 + 部署指引；幂等 + `--dry-run` | 易用 | WORK_PLAN7 II |
+| **P1** | **单一真源收敛（III）**：reviewer.md/skills 重复副本收敛（真源=docker/*-config + workflow-regime/skills），删根副本、无断链 | 数据分层 | WORK_PLAN7 III |
+| **P1** | **文档修复与发布教程（IV）**：README 死链 + 部署/scaffold/发布章节 + docs-ref 说明 | 发布 | WORK_PLAN7 IV |
+| P2 | **平台通道（V）**：GitHub Pages 文档站 / PyPI 发布 / 对外 KNOWN_LIMITS 复核 | 发布 | WORK_PLAN7 V |
 
-> 已完成：**WORK_PLAN5 F1–F11 ✅ + C1/C2/C4 ✅ + WORK_PLAN6 II/III/IV ✅ + V 大部分 ✅ +
-> L1 预演 async-drive 修复 ✅ + 技术文档体系彻底重构（Divio 结构）+ 公开上传 GitHub（333 测试）**。
-> 若只做一件：**I 长期运行耐久性真实验证（opencode-go 2h+）**。
+> 已完成（上一主线）：**上帝对话框制度设计闭环（flow design/status --deep/--flow/终止 judge gate 修复/
+> god 插件 5 工具）+ god 助手 subagent（analyst/advisor，headless serve 委派可行已验证）+
+> 默认模型切换 DeepSeek 官方 API（1.6s vs 40s）+ 实践暴露问题全修复（T2 stall/僵尸进程/容器漂移/权限死锁）**。
+> 若只做一件：**WORK_PLAN7 I（模板进包）+ II（scaffold）—— 这是"别人能用"的硬前提**。
 
 ### 已完成主线（历史，参考）
 
