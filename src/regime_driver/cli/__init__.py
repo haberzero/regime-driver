@@ -715,7 +715,7 @@ def drive_many(
 # ---------------------------------------------------------------------------
 @app.command("doctor")
 def doctor(
-    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    base: Optional[str] = typer.Option(None, "--base", help="worker URL"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Self-check readiness: worker health, model config, API key presence.
@@ -728,9 +728,16 @@ def doctor(
     from pathlib import Path as _Path
 
     from ..infra.config import load_settings
-    from ..infra.settings import Settings
 
-    settings = load_settings(overrides={"base_url": base})
+    # Load settings the same way sibling commands do: config/env overrides win,
+    # an explicit --base only overrides when given (None lets REGIME_BASE_URL /
+    # config take effect). A bad env value must never crash the read-only
+    # self-check — fall back to defaults so doctor still reports.
+    try:
+        settings = load_settings(overrides={"base_url": base} if base else {})
+    except Exception:  # noqa: BLE001 — doctor must never crash on bad config/env
+        from ..infra.settings import Settings
+        settings = Settings(base_url=base or Settings().base_url)
     model = settings.model
     provider = model.split("/")[0] if "/" in model else model
     checks: list[dict] = []

@@ -297,7 +297,43 @@ def test_doctor_session_hygiene_warns_on_low_threshold(monkeypatch):
         res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:9", "--json"])
     finally:
         cli.OpenCodeClient = original
+    assert res.exit_code == 1  # advisory hygiene warning flips the gate
     data = json.loads(res.output)
     hygiene = [c for c in data["checks"] if c["check"] == "session hygiene"]
     assert hygiene and hygiene[0]["ok"] is False
     assert hygiene[0]["sessions"] == 2
+    assert "abort/rebuild advised" in hygiene[0]["detail"]
+
+
+def test_doctor_session_hygiene_ok_below_threshold(monkeypatch):
+    """L2 pass path: sessions below threshold keep doctor green."""
+    monkeypatch.setenv("REGIME_SESSION_HYGIENE_THRESHOLD", "100")
+    import regime_driver.cli as cli
+
+    class _Fake:
+        def health(self):
+            return True
+
+        def list_sessions(self):
+            return [{"id": "a"}]
+
+    original = cli.OpenCodeClient
+    cli.OpenCodeClient = lambda base, timeout: _Fake()  # noqa: E731
+    try:
+        res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:9", "--json"])
+    finally:
+        cli.OpenCodeClient = original
+    data = json.loads(res.output)
+    hygiene = [c for c in data["checks"] if c["check"] == "session hygiene"]
+    assert hygiene and hygiene[0]["ok"] is True
+    assert hygiene[0]["sessions"] == 1
+
+
+def test_doctor_survives_bad_env(monkeypatch):
+    """doctor is read-only and must never crash on an invalid REGIME_* value."""
+    monkeypatch.setenv("REGIME_REQUEST_TIMEOUT", "5")  # below ge=10 -> ValidationError
+    res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:1", "--json"])
+    assert res.exit_code == 1  # reports unhealthy worker, does not traceback
+    data = json.loads(res.output)
+    assert data["ok"] is False
+    assert "worker health" in [c["check"] for c in data["checks"]]
