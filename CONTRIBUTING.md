@@ -28,7 +28,7 @@ conda run -n regime-driver python -m pytest      # 333+ tests
   units in `app/`.
 - New public API must have a production consumer (see `tests/test_deadcode.py`).
 - Keys never committed; use `~/.regime/keys/*.key` or env vars.
-- Documentation follows `docs/WRITING_GUIDE.md` + `skills/doc-governance/SKILL.md`.
+- Documentation follows `docs/WRITING_GUIDE.md` + `workflow-regime/skills/doc-governance/SKILL.md`.
 
 ## Testing
 

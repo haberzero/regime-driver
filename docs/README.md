@@ -28,7 +28,8 @@ docs/
 │   ├── 02_first_run.md
 │   ├── 03_design_flow.md
 │   ├── 04_run_fleet.md
-│   └── 05_god_dialog.md
+│   ├── 05_god_dialog.md
+│   └── 06_release.md
 │
 ├── howto/                 操作指南（按问题查阅）
 │   ├── run-e2e.md

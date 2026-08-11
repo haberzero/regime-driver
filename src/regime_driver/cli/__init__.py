@@ -763,6 +763,11 @@ def doctor(
         pass
     checks.append({"check": "opencode auth.json has key", "ok": auth_has_go})
 
+    # packaged templates ready for scaffold (WORK_PLAN7 II-2)
+    from ..scaffold import templates_ready
+    _tpl = templates_ready()
+    checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
+
     all_ok = all(c["ok"] for c in checks)
     if json_out:
         _emit_json({"model": model, "provider": provider, "ok": all_ok,
@@ -2096,6 +2101,61 @@ def job_status(
 
 
 app.add_typer(_job_app, name="job")
+
+
+# ---------------------------------------------------------------------------
+# scaffold
+# ---------------------------------------------------------------------------
+@app.command("scaffold")
+def scaffold_cmd(
+    target: Optional[Path] = typer.Option(
+        None, "--target", help="opencode config root (default ~/.config/opencode)"),
+    god: bool = typer.Option(False, "--god",
+                             help="also deploy the god-assistant subagents (analyst/advisor/reviewer)"),
+    dry_run: bool = typer.Option(False, "--dry-run",
+                                 help="show what would be written without writing"),
+    force: bool = typer.Option(False, "--force",
+                               help="overwrite existing files (default: keep them)"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Deploy the packaged official templates into an opencode config root.
+
+    A fresh install (pip wheel) carries the agent/skill/god templates inside the
+    package; ``scaffold`` copies them to ``~/.config/opencode`` so no source
+    clone is needed. Idempotent: existing files are kept unless --force.
+    """
+    from pathlib import Path as _Path
+
+    _gate(perm, ["scaffold"])
+    dest = target or _Path.home() / ".config" / "opencode"
+
+    from ..scaffold import scaffold as _scaffold
+
+    result = _scaffold(dest, god=god, dry_run=dry_run, force=force)
+
+    if json_out:
+        _emit_json(result.to_dict())
+        return
+
+    label = "would write" if dry_run else "written"
+    copied_set = set(id(c) for c in result.copied)
+    skipped_set = set(id(c) for c in result.skipped)
+    for item in result.plan:
+        rel = item.dest.relative_to(dest)
+        if id(item) in skipped_set:
+            console.print(Text(f"· [dim]keep[/dim]   {rel} (exists)", style="dim"))
+        elif dry_run:
+            console.print(Text(f"· [cyan]plan[/cyan]  {rel}"))
+        else:
+            console.print(Text(f"· [green]write[/green] {rel}"))
+    console.print(f"\n[{label}] {len(result.plan) - len(result.skipped)} "
+                  f"(kept {len(result.skipped)}) → {dest}")
+    if not dry_run:
+        console.print("\n[bold]next steps[/bold]")
+        console.print("  · 起栈：`ops/up.sh all`（构建+拉起 worker/god 容器）")
+        console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
+        console.print("  · 配模型密钥：`regime doctor`（设 DEEPSEEK_API_KEY 或 ~/.regime/keys/deepseek.key）")
 
 
 # ---------------------------------------------------------------------------

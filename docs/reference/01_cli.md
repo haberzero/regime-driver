@@ -204,6 +204,24 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ## 检查与报告
 
+### `scaffold`
+
+把包内官方模板（agents/skills/god 助手）一键部署到 opencode 配置根目录，无需 clone 源码仓库。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `--target` | path | 目标配置根（默认 `~/.config/opencode`） |
+| `--god` | flag | 同时部署上帝对话框助手 subagent（analyst/advisor/reviewer） |
+| `--dry-run` | flag | 只打印计划，不写任何文件 |
+| `--force` | flag | 覆盖已存在文件（默认保留） |
+| `--json` | flag | 机器可读输出 |
+| `--perm` | str | 持有的权限等级（默认 run） |
+
+**输出**：`{target,god,dry_run,copied,skipped,plan}`。
+**行为**：幂等——已存在的目标文件默认跳过，除非 `--force`。
+
 ### `doctor`
 
 自检就绪状态：worker 健康、模型配置、API key 是否存在。

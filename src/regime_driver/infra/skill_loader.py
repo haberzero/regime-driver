@@ -11,8 +11,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-# Default skills directory (workflow-regime is a sibling of the package repo).
-DEFAULT_SKILLS_DIR = Path(__file__).resolve().parents[3] / "workflow-regime" / "skills"
+# Default skills root: the packaged templates inside this package (works in a
+# wheel install and in the source tree alike). No source-tree assumption.
+DEFAULT_SKILLS_DIR = Path(__file__).resolve().parent.parent / "data" / "skills"
 
 _FRONTMATTER_RE = re.compile(r"^---\s*\n.*?\n---\s*\n?", re.DOTALL)
 

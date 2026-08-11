@@ -178,10 +178,21 @@
 
 ### 当前状态速览（2026-08-11）
 
-- **测试基线 356 passed（+6 skip，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 389 collected（383 passed + 6 skip E2E 门控，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
 - **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，
   快一个数量级）；`my-opencode-go/...`（OpenCode Go）作回退。主机+worker/god 全统一。key：
   `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`。自检 `regime doctor`。
+- **对外供给就绪（WORK_PLAN7 I–IV + V-3 ✅，2026-08-11）**：
+  - **模板进包**：wheel 现含 `data/{skills,agents,god-assistants,docker}`（hatchling 自动纳入包内 data/）；
+    纯 wheel 隔离安装下 `regime preflight --json` 实测 `ok:true, outcome:complete`（此前必败）。
+    `DEFAULT_SKILLS_DIR` 已改为包内 `data/skills`（去源码树假设）。
+  - **`regime scaffold`**：一键从包内模板生成 `~/.config/opencode/{agents,skills}`（+`--god` 助手；
+    幂等/`--dry-run`/`--force`）；`regime doctor` 增"packaged templates"就绪检查。
+  - **单一真源收敛**：根 `agents/`、`skills/` 副本删除；真源 = `docker/*-config/agents` +
+    `workflow-regime/skills`；打包派生 = `src/regime_driver/data/`，CI 漂移守卫
+    `test_packaged_templates_match_true_sources` + 同步脚本 `ops/sync_templates.py [--check]`。
+  - **文档**：README 中英死链修复 + 部署章节；`docs/guide/06_release.md` 发布教程；CLI_REFERENCE 登记 scaffold。
+  - V-1（GitHub Pages）/ V-2（PyPI）标可选，路径已文档化，执行需授权/凭据。
 - **上帝对话框制度设计闭环（P0 主线）✅（2026-08-11）**：
   - `regime flow design <name> '<spec>'`：inline 注册新流程（无需文件），上帝对话框设计制度主入口；
   - `regime status --deep`：一次拿全聚合态势（健康+会话+busy+流程+任务+reporter rollup）；
@@ -227,23 +238,23 @@
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
-> **当前主线（唯一指针，2026-08-11）**：**对外供给就绪（WORK_PLAN7）** —— 让"别人能用"而非"只能 clone 源码跑"。
-> 决定性证据（`docs/release_readiness_audit.md`）：pip wheel 不含任何模板，用户安装后 preflight 必败；
-> 全套 agent/skills/god 助手只在源码仓库。这是对外发布前必须补齐的硬缺口。
-> 已完成的上一主线：**上帝对话框制度设计闭环（P0）+ 模型切换官方 API**（见上）✅。
+> **当前主线（唯一指针，2026-08-11）**：**对外供给就绪（WORK_PLAN7）** ✅ I–IV + V-3 已完成——
+> 模板随 wheel 打包、`regime scaffold` 一键配置、单一真源收敛、README 死链修复 + 发布教程
+> （`docs/guide/06_release.md`）。剩余 **V-1（GitHub Pages 文档站）/ V-2（PyPI 发布）标可选**，
+> 需维护者授权/凭据后执行（路径已文档化）。
+> 已完成的上一主线：**对外供给就绪实施**（见下）；再上一主线：**上帝对话框制度设计闭环（P0）+ 模型切换官方 API** ✅。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
-| **P0** | **模板数据进包（I）**：`data/{skills,agents,god-assistants,docker}` 随 wheel 打包 + 修 `DEFAULT_SKILLS_DIR`（不再依赖源码树）+ 纯 wheel preflight 验证 | 供给 | WORK_PLAN7 I |
-| **P0** | **`regime scaffold` 一键配置（II）**：从包内模板生成 `~/.config/opencode/{agents,skills}` + god 助手 + 部署指引；幂等 + `--dry-run` | 易用 | WORK_PLAN7 II |
-| **P1** | **单一真源收敛（III）**：reviewer.md/skills 重复副本收敛（真源=docker/*-config + workflow-regime/skills），删根副本、无断链 | 数据分层 | WORK_PLAN7 III |
-| **P1** | **文档修复与发布教程（IV）**：README 死链 + 部署/scaffold/发布章节 + docs-ref 说明 | 发布 | WORK_PLAN7 IV |
-| P2 | **平台通道（V）**：GitHub Pages 文档站 / PyPI 发布 / 对外 KNOWN_LIMITS 复核 | 发布 | WORK_PLAN7 V |
+| **P0** | **模板数据进包（I）**：`data/{skills,agents,god-assistants,docker}` 随 wheel 打包 + 修 `DEFAULT_SKILLS_DIR`（不再依赖源码树）+ 纯 wheel preflight 验证 | 供给 | WORK_PLAN7 I ✅ |
+| **P0** | **`regime scaffold` 一键配置（II）**：从包内模板生成 `~/.config/opencode/{agents,skills}` + god 助手 + 部署指引；幂等 + `--dry-run` | 易用 | WORK_PLAN7 II ✅ |
+| **P1** | **单一真源收敛（III）**：reviewer.md/skills 重复副本收敛（真源=docker/*-config + workflow-regime/skills），删根副本、无断链 + 漂移守卫 | 数据分层 | WORK_PLAN7 III ✅ |
+| **P1** | **文档修复与发布教程（IV）**：README 死链 + 部署/scaffold/发布章节 + docs-ref 说明 | 发布 | WORK_PLAN7 IV ✅ |
+| P2 | **平台通道（V）**：GitHub Pages 文档站 / PyPI 发布（需授权/凭据）/ 对外 KNOWN_LIMITS 复核 | 发布 | WORK_PLAN7 V ⏳（V-3 ✅） |
 
-> 已完成（上一主线）：**上帝对话框制度设计闭环（flow design/status --deep/--flow/终止 judge gate 修复/
-> god 插件 5 工具）+ god 助手 subagent（analyst/advisor，headless serve 委派可行已验证）+
-> 默认模型切换 DeepSeek 官方 API（1.6s vs 40s）+ 实践暴露问题全修复（T2 stall/僵尸进程/容器漂移/权限死锁）**。
-> 若只做一件：**WORK_PLAN7 I（模板进包）+ II（scaffold）—— 这是"别人能用"的硬前提**。
+> 已完成（当前主线）：**模板进包 + scaffold + 单一真源 + 文档修复（WORK_PLAN7 I–IV）**，
+> 纯 wheel 隔离 preflight 实测 `ok:true`；389 测试全绿（覆盖 71%）。code-review(general) 无 blocker。
+> 若只做一件：**V-1/V-2 平台通道（待授权）或转下一主线（长期耐久验证 WORK_PLAN6 I）**。
 
 ### 已完成主线（历史，参考）
 
@@ -259,7 +270,7 @@
 
 **待决技术项**：monkey 用 `RolePolicy(transition_mode=ROTATE)` 构造时 dataclass 字段默认值遮蔽类属性（测试已规避）。历时超时模型：`default_deadline_sec` + `global_deadline_sec`。
 
-阅读顺序：`docs/README.md`（导航，先看）→ `docs/CLI_REFERENCE.md`（命令/配置参考）→ `docs/guide/`（教程）→ `docs/ARCHITECTURE.md`（架构，`architecture/02_statechart_network.md` 最终架构）→ `docs/SUBSYSTEM_DESIGN.md`（子系统，`subsystems/*`）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`skills/doc-governance/SKILL.md`。
+阅读顺序：`docs/README.md`（导航，先看）→ `docs/CLI_REFERENCE.md`（命令/配置参考）→ `docs/guide/`（教程）→ `docs/ARCHITECTURE.md`（架构，`architecture/02_statechart_network.md` 最终架构）→ `docs/SUBSYSTEM_DESIGN.md`（子系统，`subsystems/*`）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`workflow-regime/skills/doc-governance/SKILL.md`。
 
 **关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（宪法=无智能状态机+根不变量运行时强制）**；**上帝对话框双路：opencode 作载体（A 路）+ GodDialogUnit 程序化面（B 路），共用 CLI 契约**。
 

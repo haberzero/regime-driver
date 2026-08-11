@@ -70,6 +70,7 @@ _COMMAND_LEVEL: dict[str, PermissionLevel] = {
     "run": PermissionLevel.RUN,
     "run-many": PermissionLevel.RUN,
     "drive": PermissionLevel.RUN,         # launches the whole self-driving stack
+    "scaffold": PermissionLevel.RUN,      # writes official templates into config root
     "task": PermissionLevel.RUN,          # submit is RUN; stop/clean escalate to CLEAN
     "supervisor": PermissionLevel.CLEAN,  # abort/restart/human ladder: destructive
 }

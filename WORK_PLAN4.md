@@ -144,7 +144,7 @@
 - 事件能力面：opencode 官方 `docs/plugins`（`event:` hook / 自定义工具）+ `docs/server`
   （`/event` SSE、`prompt_async`、`todo/fork/children/summarize`、`/log`）。
 - 预检复用：`docs/DESIGN-mock.md` + `ops/mock_feasibility.py`（离线试跑已证可行）。
-- 书写准则 `docs/WRITING_GUIDE.md`；文档治理 `skills/doc-governance/SKILL.md`。
+- 书写准则 `docs/WRITING_GUIDE.md`；文档治理 `workflow-regime/skills/doc-governance/SKILL.md`。
 
 ---
 

@@ -24,14 +24,16 @@ invariants) supervising agentic workflow units. See
 
 ## Status / highlights
 
-- **Tests**: `333 passed` (incl. real-worker E2E, gated behind `REGIME_E2E`).
+- **Tests**: full `python -m pytest` green (71%+ coverage, incl. real-worker E2E,
+  gated behind `REGIME_E2E`).
 - **Real CI is green**: unit tests pass on Python 3.11 & 3.12; real-worker E2E
   activates when an `OPENCODE_GO_API_KEY` secret is set.
 - Core features implemented & verified: hot flow compile/reload
   (`FlowRegistry` + `regime flow`), one-command self-driving stack (`regime drive`),
   per-workspace isolated worker fleet (`regime worker` / `drive-many`),
   fault-injection/recovery (`regime chaos`), God Dialog (A/B dual surface).
-- Release-readiness work tracked in `WORK_PLAN6.md`.
+- External-supply readiness (templates in wheel / `regime scaffold` / single
+  source of truth / release docs) tracked in `WORK_PLAN7.md`.
 
 ## Install
 
@@ -39,6 +41,47 @@ invariants) supervising agentic workflow units. See
 conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
+
+> The pip wheel ships the official templates (agents/skills/god-assistants/docker
+> recipes), so you can `regime scaffold` a full config without cloning the repo.
+
+## Deployment
+
+### 1. Fetch official templates (once)
+
+```bash
+# generate ~/.config/opencode/{agents,skills} from the packaged templates
+# (idempotent; --dry-run previews without writing)
+regime scaffold
+# also deploy the god-dialog assistant subagents (analyst/advisor)
+regime scaffold --god
+# self-check: worker health / model key / templates ready
+regime doctor
+```
+
+### 2. Bring up the execution surface
+
+**Containerized (recommended)** — build + start worker/god containers and wait for health:
+
+```bash
+ops/up.sh all            # worker + god
+ops/up.sh god --rebuild  # force-rebuild the pinned image
+```
+
+**Host mode** — drive an opencode service running on the host directly:
+
+```bash
+regime run "task" --base http://<host-opencode-port>
+```
+
+### 3. Configure the model key
+
+- worker/god containers receive `OPENCODE_GO_API_KEY` / `DEEPSEEK_API_KEY` at
+  runtime (`ops/up.sh` reads `~/.regime/keys/*.key` or your env); keys are never
+  committed.
+- Interactive opencode stores keys via `/connect` in
+  `~/.local/share/opencode/auth.json`.
+- See `docs/guide/00_environment.md`.
 
 ## Quick start
 
@@ -65,7 +108,7 @@ regime dialog --live --base http://127.0.0.1:4097
 ## Tests
 
 ```bash
-conda run -n regime-driver python -m pytest            # 333 passed (no worker needed)
+conda run -n regime-driver python -m pytest            # full suite, no worker needed
 conda run -n regime-driver python -m pytest --cov=regime_driver --cov-fail-under=68
 REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q  # real worker
 ```
@@ -85,8 +128,10 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
 - Navigation & reading order: `docs/README.md`. Design/usability:
   `docs/guide/00_environment.md`. God Dialog operator manual:
   `docs/reference/05_god_dialog_contract.md`. Known limits: `docs/KNOWN_LIMITS.md`.
-- Work plans: `WORK_PLAN.md`–`WORK_PLAN6.md` (current main line: release
-  readiness, `WORK_PLAN6.md`).
+- Work plans: `WORK_PLAN.md`–`WORK_PLAN7.md` (current main line: external-supply
+  readiness, `WORK_PLAN7.md`).
+- Note: `docs-ref/` is a reference copy of another project's docs — it is **not
+  committed** (gitignored), kept only as writing guidance.
 
 ## License & disclaimer
 

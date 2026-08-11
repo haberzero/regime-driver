@@ -25,9 +25,9 @@ opencode worker（L2）完成任务，并由只读审查者（L0）判定、确�
 
 > **Status / 状态**
 >
-> - 测试：`333 passed`（含真实 worker E2E，`REGIME_E2E` 门控）。
-> - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离舰队等）已完成并检验；
->   发布就绪工作见 `WORK_PLAN6.md`。
+> - 测试：全量 `python -m pytest` 绿（覆盖 71%+，含真实 worker E2E，`REGIME_E2E` 门控）。
+> - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离舰队、上帝对话框）已完成；
+>   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）见 `WORK_PLAN7.md`。
 
 ## Install
 
@@ -35,6 +35,44 @@ opencode worker（L2）完成任务，并由只读审查者（L0）判定、确�
 conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
+
+> pip 安装（wheel）自带官方模板（agents/skills/god 助手/docker 配方），无需 clone 仓库即可
+> `regime scaffold` 生成全套配置；`regime doctor` 自检就绪度。
+
+## 部署
+
+### 1. 获取官方模板（一次）
+
+```bash
+# 从包内模板生成 ~/.config/opencode/{agents,skills}（幂等；--dry-run 预览）
+regime scaffold
+# 需要上帝对话框助手 subagent（analyst/advisor）时
+regime scaffold --god
+# 自检：worker 健康 / 模型密钥 / 模板就绪
+regime doctor
+```
+
+### 2. 起执行面
+
+**容器化（推荐）**——一键构建 + 拉起 worker/god 容器并等健康：
+
+```bash
+ops/up.sh all          # worker + god
+ops/up.sh god --rebuild   # 强制重建固化镜像
+```
+
+**主机模式**——直接驱动宿主机上的 opencode 服务：
+
+```bash
+regime run "任务" --base http://<主机 opencode 端口>
+```
+
+### 3. 配模型密钥
+
+- worker/god 容器经 `OPENCODE_GO_API_KEY` / `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从
+  `~/.regime/keys/*.key` 读，或自设 env）；密钥零入库。
+- 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
+- 详见 `docs/guide/00_environment.md`。
 
 ## 快速上手
 
@@ -54,10 +92,13 @@ regime dialog --live --base http://127.0.0.1:4097
 ## 调试
 
 ```bash
-# 离线确定性调试（无网络/无 LLM）
-conda run -n regime-driver python ops/mock_feasibility.py
-# 真实 E2E 逐操作计时
-conda run -n regime-driver python ops/e2e_debug.py
+# 离线确定性试跑（无网络/无 LLM）：同一驱动代码跑 MockClient，验证流程能终止
+regime preflight [--fault stall|delay] --json
+# 真实 worker E2E（需 worker 容器健康 + REGIME_E2E=1）
+REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+# 事件 / 宏观台账
+regime events --ledger /tmp/rep.jsonl
+regime report --journal /tmp/rep.jsonl
 ```
 
 ## 测试
@@ -69,7 +110,8 @@ conda run -n regime-driver pytest
 ## 文档
 
 导航与阅读顺序见 `docs/README.md`；书写准则见 `docs/WRITING_GUIDE.md`；已知限制见 `docs/KNOWN_LIMITS.md`。
-改进工作清单见 `WORK_PLAN.md`。
+改进工作清单见 `WORK_PLAN*.md`。
+> 注：`docs-ref/` 是另一项目文档的参考副本，**不入库**（gitignore），仅作写作参考。
 
 ## 配置与密钥
 

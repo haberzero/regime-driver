@@ -79,6 +79,15 @@ def test_drive_permission_gate_blocks_low_perm(monkeypatch):
     assert "permission denied" in res.output
 
 
+def test_scaffold_permission_gate_blocks_low_perm(monkeypatch, tmp_path):
+    # scaffold writes templates into a config root -> RUN; a READ-holder must be rejected
+    monkeypatch.setenv("REGIME_PERMISSION_CEILING", "read")
+    res = runner.invoke(app, ["scaffold", "--target", str(tmp_path), "--dry-run"])
+    assert res.exit_code == 1
+    assert "permission denied" in res.output
+    assert not (tmp_path / "agents").exists()
+
+
 def test_flow_list_json():
     res = runner.invoke(app, ["flow", "list", "--json"])
     assert res.exit_code == 0

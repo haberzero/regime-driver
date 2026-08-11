@@ -43,6 +43,21 @@
 
 新增文档前必须回答：这个概念的归属文档是谁？归属文档已存在则扩展它；必须新建则明确它在体系中的位置。应显式设计文档体系的结构（哪些文件存在、各自覆盖什么、如何组合为整体）。
 
+### A.5.1 模板单一真源（WORK_PLAN7 III）
+
+**模板（agent/skills/god 助手）只有一个真源，其余均为派生。**
+
+| 资产 | 真源 | 派生 |
+|---|---|---|
+| worker agent 模板（reviewer） | `docker/worker-config/agents/` | `src/regime_driver/data/agents/` |
+| god 助手 subagent（analyst/advisor/reviewer） | `docker/god-config/agents/` | `src/regime_driver/data/god-assistants/` |
+| 运行期 skills（design-philosophy/code-review 等） | `workflow-regime/skills/` | `src/regime_driver/data/skills/` |
+
+- `data/` 内副本是**打包派生**（随 wheel 分发，用户无需 clone 仓库），**不许手工编辑**。
+- 改真源后运行 `python ops/sync_templates.py` 同步；漂移由
+  `tests/test_package.py::test_packaged_templates_match_true_sources` 在 CI 拦截。
+- 根目录不再允许出现 `agents/`、`skills/` 之类的第二份副本（曾产生 reviewer.md 漂移）。
+
 ### A.6 文件身份完整性
 
 标题、定位段、实际内容三者必须一致。文件名承诺什么，内容就必须交付什么。新增内容若不匹配文件已声明的范围，放入正确的归属文件，而非追加到当前文件。

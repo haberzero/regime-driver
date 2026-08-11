@@ -8,9 +8,11 @@
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
 > - **未完成耐久验证**：长期运行（2h+）无泄漏/能恢复尚未系统化验证；CI 已绿但真实模型 E2E 需密钥门控。
-> - **项目特定默认**：默认模型（`my-opencode-go/...`）、端口、目录为项目配置，需自行适配。
+> - **项目特定默认**：默认模型（`deepseek-api/deepseek-v4-flash`，DeepSeek 官方 API）、端口、目录为项目配置，需自行适配。
 > - **依赖 opencode 内部 HTTP API**（`/event` SSE、session 端点），并锁定 opencode 1.18.11，版本漂移可能破坏。
 > - **强副作用**：驱动真实 AI 模型与 Docker，可自动执行代码——务必在隔离沙箱运行并审查其行为（见 `SECURITY.md`）。
+> - **对外安装通道**：`pip install regime-driver` 后先 `regime scaffold` 生成官方模板，再 `regime doctor` 自检；
+>   发布自检清单见 `docs/guide/06_release.md`。
 > - 详细开发视角限制见下方各节（含"现象+影响+归属"）。
 
 ## 未实现 / 恒空项
@@ -54,8 +56,8 @@
 - **事件链路【可】接入（非限制，更正旧表述）**：上帝对话框/摄入层可经 `GET /event`（SSE 流）+
   插件 `event:` hook 实时接入事件链（`session.*`、`message.part.*`、`tool.execute.*`…），
   不必反复 CLI 轮询。真正的限制是"无**进程外独立**时钟"：缺事件→停滞检测必须靠独立时钟进程
-  （supervisor），这是唯一无法靠事件链解决的问题。见 `subsystems/04_supervisor.md`。
-  归属：`infra/opencode.py` + 规划 `app/reporter.py`。
+   （supervisor），这是唯一无法靠事件链解决的问题。见 `subsystems/04_supervisor.md`。
+   归属：`infra/opencode.py` + `app/reporter.py`。
 
 ## 边界（设计使然）
 
