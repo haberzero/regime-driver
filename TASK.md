@@ -15,7 +15,7 @@
 - [x] P0 热编译/热校验：统一校验入口 + `regime flow validate`（--watch 编辑即校验）+ preflight 挂钩（F1–F3）| 2026-08-10 F1-F3 done
 - [x] P0 热加载/热重载：`FlowRegistry`（命名 flow 单一真源，归并 god self.flows）+ 原子替换/快照 + 文件监视重载（F4–F6）| 2026-08-10 F4/F5 done; F6 的 validate --watch 完成，运行中自动 reload-on-change 待 L 期并轨
 - [x] P1 CLI+dialog 交互：`regime flow list/validate/load/reload/rm/inspect` + god A/B 路接入（F7/F8）| 2026-08-10 F7/F8 done
-- [ ] P1 长期运行（耐久性，opencode-go）：2h+ drive/fleet，观测资源/泄漏/恢复 + 资源治理收尾（L1–L3）
+- [x] P1 长期运行（耐久性，opencode-go）：2h+ drive/fleet，观测资源/泄漏/恢复 + 资源治理收尾（L1–L3）| 2026-08-12 L1✅(2h零崩溃/资源有界增长) + L3✅(KNOWN_LIMITS/C3校准) done; L2⏳(工具已就绪, 长跑自动prune/清理待接入)
 - [x] P2 安全反循环：load/reload 门禁 + 版本/快照 + 环检测（F9–F11）| 2026-08-10 done
 - [~] P2 微调：覆盖率基线(pytest-cov) ✅ C1 / doctor 接入 god 与 web ✅ C2(god) / opencode-go 延迟调优 ⬜ C3 / 主机模式 agent 模板 ✅ C4（C1/C2/C4 2026-08-10 done; C3 待真实长时间观测）
 - [ ] P3 收敛测试内零散 FakeClient（T6 已评估不转，如需统一另建轻量脚本化 fake）
@@ -27,7 +27,7 @@
 - [x] IV 文档一致性：计数统一 333 + M0 遗留段标注 + **技术文档体系彻底重构（Divio 结构）** + 独立交叉核验全绿
 - [x] V 发布准备：README 中英 + 警告 + MIT、SECURITY/CONTRIBUTING/KNOWN_LIMITS 对外摘要
 - [x] 公开上传 GitHub public：https://github.com/haberzero/regime-driver
-- [ ] I 长期运行耐久性真实验证（2h+，唯一关键未做）| P0 下 session
+- [x] I 长期运行耐久性真实验证（2h+）| **已完成（2026-08-12）**：2h 连续真实运行零崩溃/停滞/重启，资源线性有界增长，worker 全程健康。报告 `docs/durability_report.md`。
 - [x] ~~e2e-real 真实激活（需 GitHub `OPENCODE_GO_API_KEY` secret）~~ | **已封存（2026-08-11）**：GitHub 真实 E2E 集成未来很长时间不列入计划。CI 移除 e2e-real job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 
 ## 验证记录
@@ -106,6 +106,8 @@
 
 - [DONE] 2026-08-11 对外供给就绪实施(WORK_PLAN7 I-IV + V-3) | verified: 389 passed(383+6 skip E2E门控, 覆盖71%) + 纯wheel隔离验证(preflight ok:true + scaffold落位 + doctor模板检查绿) | I 模板进包: src/regime_driver/data/{skills,agents,god-assistants,docker} 随 wheel 打包(hatchling自动纳入包内data/, 实测wheel含23模板文件), DEFAULT_SKILLS_DIR 改包内 data/skills(去源码树假设), tests/test_package.py(14项: 真实wheel构建+隔离子进程preflight无源码树+漂移守卫) | II scaffold: src/regime_driver/scaffold.py + `regime scaffold [--target][--god][--dry-run][--force][--json]`(幂等/部署指引) + doctor增packaged templates检查 + tests/test_scaffold.py(11项) | III 单一真源: 根 agents/、skills/ 副本删除, 真源=docker/*-config+workflow-regime/skills, 打包派生data/加CI漂移守卫(含docker pair+reviewer双源一致性), ops/sync_templates.py[--check], WRITING_GUIDE §A.5.1纪律, 4处skills/doc-governance引用改指真源 | IV 文档: README中英死链修复+部署章节, docs/guide/06_release.md发布教程, CLI_REFERENCE/01_cli/docs/README登记scaffold, KNOWN_LIMITS对外摘要更新, 测试冻结数字移除 | V-3 KNOWN_LIMITS复核; V-1 Pages/V-2 PyPI标可选(需授权/凭据, 路径已文档化) | code-review(general)无blocker, 修3 warning(scaffold权限RUN分类/CLI keep-write标注/docker漂移守卫)+4 nit(断言真空/双源交叉/help/解析健壮) | next: V-1/V-2平台通道(待授权) 或 后续主线(耐久验证) | escalate: no
 
+- [DONE] 2026-08-11~12 长期耐久验证(WORK_PLAN6 I L1+L3) + e2e-real封存(用户决定) | verified: 2h真实运行(7205s, 38 drive)零崩溃/停滞/重启(ladder=0) + 391测试全绿 + 纯wheel验证 | L1: ops/durability.py(2h+真实drive序列 + 资源采样session/journal/内存 + event ledger审计 + --finalize重生成); 数据: session 16→96(+80, 有界线性), worker内存 466→697MB(+231MB/2h, ~1.9MB/min), journal 10KB→3.4MB, 完成率27/38(11个supervisor=timeout命中600s deadline, 根因=验证过度订阅单worker致并发积压busy 4→13, 非系统缺陷) | L3: 结果记入KNOWN_LIMITS + C3校准(单任务42-106s, deadline 600充裕, 并发上限比单任务超时更敏感) | 报告: docs/durability_report.md | e2e-real封存: CI移除e2e-real job(无secret长期不启用), TASK/WORK_PLAN6/KNOWN_LIMITS/06_release标记 | 小债: D1超时outcome记录(record_outcome公共方法+回归测试), G10 max_driver_wait_sec收敛driver/cluster/drive | 文档: README中英精校(去stale CI/耐久表述, deepseek默认key) | code-review(general)无blocker, 修durability harness 4 warning(_summarize KeyError/tasks outcome恒0/sessions fail-fast/submit rc) | next: L2资源治理(长跑自动prune/清理) 或 V-1 Pages待授权 | escalate: no
+
 
 ## 阻塞
 
@@ -113,6 +115,7 @@
 
 ## 自省记录
 
+- [REFLECT] 2026-08-12 | progress: 长期耐久验证(WORK_PLAN6 I L1+L3)完成——2h真实运行零崩溃/停滞/重启, 资源线性有界增长, worker全程健康; "2h+能持续运行"声明成立 | e2e-real按用户决定封存(CI移除job) | 关键发现: 11/38 timeout全部命中600s deadline且根因是验证配置过度订阅(单worker每150s发一个积压至busy13)非系统缺陷——supervisor正确执行deadline产出干净error/timeout; session累积16→96(+80)是有界线性运营成本(记录不可删只能abort), 内存+231MB/2h约1.9MB/min, journal 3.4MB线性 | 工程判断: 耐久结论必须以event ledger为权威(event ledger干净, tasks_dir含跨run孤儿可误报); harness的tasks outcome必须读summary非注册表(注册表恒running); 验证过度订阅本身是真实运营教训(并发上限比单任务超时更敏感) | risk: L2资源治理未接入(长跑自动prune/清理需下轮); 本次未触发T2 stall→恢复路径(stall恢复能力靠既有E2E覆盖); session无上限累积是长期运营边界 | next: L2资源治理 或 V-1 Pages(待授权) 或 新一轮稳态耐久(限并发验证~100%完成率) | escalate: no
 - [REFLECT] 2026-08-11(4) | progress: WORK_PLAN7 对外供给就绪 I-IV 全落地——模板进包(纯wheel用户 preflight 从"必败"变"ok:true") + scaffold 一键配置 + 单一真源收敛(根副本删除+CI漂移守卫+同步脚本) + 文档修复(死链清零/部署章节/发布教程06_release/KNOWN_LIMITS对外摘要) | verified: 389 passed(383+6, 覆盖71%) + 隔离wheel验证 | 关键工程判断: 打包派生用"提交副本+漂移守卫测试+同步脚本"而非构建钩子(简单/CI可见/可回滚), data/为wheel分发快照、真源=docker/*-config+workflow-regime/skills; scaffold去重reviewer.md(双源一致性测试兜底); 权限scaffold归RUN(写配置但幂等) | risk: data/副本与真源靠测试守卫(改真源忘sync会CI红, 属防呆非静默); V-1 Pages/V-2 PyPI 需授权/凭据未做(路径已文档化); 新增wheel构建回归测试~3s(suite ~75s) | next: V-1/V-2 待授权 或 转耐久验证(I WORK_PLAN6) 或 README精校 | escalate: no
 - [REFLECT] 2026-08-11(3) | progress: 上帝对话框制度设计闭环(P0)完成——flow design inline注册 + status --deep 聚合态势 + run/drive --flow + 终止judge节点gate修复(发现"最终审查judge流程永远无法完成"的潜在bug) + god插件 regime_flow_design/summary/load/report; 真实E2E验证 god 设计→注册→执行闭环(被宪法重复检测拦截属运行期判定非机制故障); 官方模型驱动 drive --flow 31.4s COMPLETE 零 ladder | 用户授权默认模型切换 DeepSeek 官方 API(实测1.6s vs opencode-go 40s) | risk: opencode session 状态不一致(message 404+status busy, 容器重启后)会使 workflow 卡在死会话(已记 KNOWN_LIMITS, 规避=clean/重建); god A-route 长使命仍可能因 opencode 容器状态退化需重建; repetition 阈值 0.40 为经验值待更多样本 | next: 耐久验证(I) / README双语精校(V) / C3延迟参数校准 | escalate: no
 - [REFLECT] 2026-08-11(2) | progress: 全自主清理+重构实践暴露的问题——①supervisor T2 stall 误报根治(SessionWatch 死参数 stall_sec 从未生效→一停顿即 abort; 重写为时间窗语义 + SSE 活动兑底(排除 server.connected 握手) + 恢复重置 consecutive + 每窗一射) + 真实 E2E 验证: 同任务 drive 从"连续5次误判 escalate→human"变为"198s COMPLETE 零 ladder" + ②僵尸进程 bug 根治(新增 infra/proc.py pid_alive 读 /proc/<pid>/stat 状态, Z/X 判死; jobs.py+task.py 接入 + 回归测试) + ③god 容器环境漂移(镜像打 git-head label, up.sh 自动重建; god 挂载当前 docs/插件/god.md; Dockerfile.god COPY docs) + ④A-route 权限死锁(god.md bash 白名单扩只读命令; god-window.md 文档化 /permission 应答) + ⑤reporter 噪音(drop message.part.delta) + task --tasks-dir + drive --ledger | verified: 347 passed(344+3, 覆盖71%) + 真实 E2E(198s COMPLETE, 0 ladder, 产物9/9测试绿) + god A路验证(读手册+工具调用无死锁) | risk: 镜像重建后 god 容器 version 串仍 0.2.0(未 bump, flow 命令已在); worker 镜像每次 HEAD 变自动重建 | next: 提交本批修复 → I 长期耐久验证(P0) → e2e-real激活(待key) → V README双语精校 | escalate: no

@@ -176,9 +176,15 @@
 > （E2E / god 容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
 > 见下方"下一 session 主线任务（优先级表）"。
 
-### 当前状态速览（2026-08-11）
+### 当前状态速览（2026-08-12）
 
-- **测试基线 389 collected（383 passed + 6 skip E2E 门控，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 391 collected（全绿，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **长期耐久验证（WORK_PLAN6 I L1+L3 ✅，2026-08-12）**：2h 真实运行（7205s，38 drive）零崩溃/
+  停滞/重启（ladder=0），资源线性有界增长（session 16→96、内存 +231MB/2h、journal 3.4MB），
+  worker 全程健康。完成率 27/38（11 个 timeout 命中 600s deadline，根因=验证过度订阅单 worker，
+  非系统缺陷）。报告 `docs/durability_report.md`；结果记入 KNOWN_LIMITS。
+- **e2e-real 已封存（用户决定，2026-08-11）**：GitHub 真实模型 E2E 长期不列入计划；CI 已移除
+  `e2e-real` job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 - **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，
   快一个数量级）；`my-opencode-go/...`（OpenCode Go）作回退。主机+worker/god 全统一。key：
   `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`。自检 `regime doctor`。
@@ -238,11 +244,10 @@
 
 ### 下一 session 主线任务（优先级表，我的判断）
 
-> **当前主线（唯一指针，2026-08-11）**：**对外供给就绪（WORK_PLAN7）** ✅ I–IV + V-3 已完成——
-> 模板随 wheel 打包、`regime scaffold` 一键配置、单一真源收敛、README 死链修复 + 发布教程
-> （`docs/guide/06_release.md`）。剩余 **V-1（GitHub Pages 文档站）/ V-2（PyPI 发布）标可选**，
-> 需维护者授权/凭据后执行（路径已文档化）。
-> 已完成的上一主线：**对外供给就绪实施**（见下）；再上一主线：**上帝对话框制度设计闭环（P0）+ 模型切换官方 API** ✅。
+> **当前主线（唯一指针，2026-08-12）**：**对外供给就绪（WORK_PLAN7）✅ + 长期耐久验证（WORK_PLAN6 I）✅**。
+> 已完成：模板进包 / scaffold / 单一真源 / 文档修复 / 2h 耐久验证 / e2e-real 封存。
+> 剩余可选：**V-1（GitHub Pages）/ V-2（PyPI）需授权/凭据**；**L2 资源治理**（长跑自动 prune/清理）。
+> 已完成的上一主线：**对外供给就绪实施 + 长期耐久验证**；再上一主线：**上帝对话框制度设计闭环（P0）+ 模型切换官方 API** ✅。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
@@ -250,11 +255,13 @@
 | **P0** | **`regime scaffold` 一键配置（II）**：从包内模板生成 `~/.config/opencode/{agents,skills}` + god 助手 + 部署指引；幂等 + `--dry-run` | 易用 | WORK_PLAN7 II ✅ |
 | **P1** | **单一真源收敛（III）**：reviewer.md/skills 重复副本收敛（真源=docker/*-config + workflow-regime/skills），删根副本、无断链 + 漂移守卫 | 数据分层 | WORK_PLAN7 III ✅ |
 | **P1** | **文档修复与发布教程（IV）**：README 死链 + 部署/scaffold/发布章节 + docs-ref 说明 | 发布 | WORK_PLAN7 IV ✅ |
-| P2 | **平台通道（V）**：GitHub Pages 文档站 / PyPI 发布（需授权/凭据）/ 对外 KNOWN_LIMITS 复核 | 发布 | WORK_PLAN7 V ⏳（V-3 ✅） |
+| P2 | **平台通道（V）**：GitHub Pages 文档站 / PyPI 发布（需授权/凭据）/ 对外 KNOWN_LIMITS 复核 | 发布 | WORK_PLAN7 V ⏳（V-3 ✅；V-1/V-2 待授权） |
+| **P1** | **长期耐久验证（I）**：2h+ 真实运行 + 资源/泄漏/恢复观测 + 耐久报告 | 可靠 | WORK_PLAN6 I ✅（L1+L3；L2 待接入） |
+| P1 | **L2 资源治理**：session 超阈值提示清理 / 长跑自动 `report --prune` 收尾 | 可靠 | WORK_PLAN6 L2 ⏳ |
 
-> 已完成（当前主线）：**模板进包 + scaffold + 单一真源 + 文档修复（WORK_PLAN7 I–IV）**，
-> 纯 wheel 隔离 preflight 实测 `ok:true`；389 测试全绿（覆盖 71%）。code-review(general) 无 blocker。
-> 若只做一件：**V-1/V-2 平台通道（待授权）或转下一主线（长期耐久验证 WORK_PLAN6 I）**。
+> 已完成（当前主线）：**WORK_PLAN7 I–IV + V-3、WORK_PLAN6 I（2h 耐久验证）、e2e-real 封存、
+> README 双语精校、D1/G10 小债**。纯 wheel 隔离 preflight 实测 `ok:true`；391 测试全绿（覆盖 71%）。
+> 若只做一件：**L2 资源治理**（session 累积是长期运营真实边界）或 **V-1 Pages（待授权）**。
 
 ### 已完成主线（历史，参考）
 

@@ -19,12 +19,20 @@
 
 ## I. 长期运行耐久性真实验证（首要，P0）
 
+> ✅ **已完成（2026-08-12）**：`ops/durability.py` 对真实 worker 跑 2h+（7205s），38 个受监督 drive。
+> **零崩溃/停滞/重启/升级（ladder=0）；资源线性有界增长（session 16→96、内存 466→697MB、
+> journal 3.4MB）；worker 全程健康。** 完成率 27/38——11 个 `supervisor=timeout` 命中 600s deadline，
+> 根因是验证自身过度订阅（单 worker 每 150s 发一个、积压至并发 busy 13），**非系统缺陷**（supervisor
+> deadline 执行正确）。报告见 `docs/durability_report.md`。
+
 > 现状：L1–L3 未验证；"2h+ 不泄漏/能恢复"是核心卖点却未被证明，对外宣传站不住。
 
-- **L1**：opencode-go 跑 2h+ `regime drive` / `drive-many`，观测：容器数、session 泄漏、
-  journal/ledger 增长、内存、stall 恢复次数。落一份耐久性报告（现象+影响+归属）。
-- **L2**：资源治理收尾——`report --prune`/保留策略接入 drive 收尾；`worker prune` 定时回收空闲实例。
-- **L3**：结果记录进 KNOWN_LIMITS，并据此校准 C3（延迟/超时参数）。
+- **L1**：✅ 完成（见上）。观测：容器数、session 泄漏、journal/ledger 增长、内存、stall 恢复。
+- **L2**：⏳ 部分——资源治理工具已存在（`regime report --prune`、`regime sessions --clean`、
+  `regime worker prune`）；**待接入长期收尾**：session 数超阈值提示清理 / 长跑自动 prune（见
+  `docs/durability_report.md §4.3`）。
+- **L3**：✅ 结果已记入 KNOWN_LIMITS；C3 校准结论：单任务 42–106s，`default_deadline_sec=600` 充裕，
+  **并发上限比单任务超时更敏感**（积压致 timeout）；repetition 0.40 无误报无需调整。
 
 ## II. 真实 CI 跑通（P0）
 

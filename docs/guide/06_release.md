@@ -66,7 +66,8 @@ HTML。启用前先本地验证（`jekyll build` 或静态服务器预览 `docs/
 - `LICENSE`（MIT，© 2026 Nan Shi 施楠）、`SECURITY.md`（密钥处理/报告流程）、
   `CONTRIBUTING.md`（工作流/约定）、README 中英免责声明 — 均已就位。
 - `docs/KNOWN_LIMITS.md` 按"对外使用"姿态复核：默认模型/端口/目录为项目特定配置，
-  需用户自行适配；无外部安全审计；长期耐久性（2h+）未系统化验证。
+  需用户自行适配；无外部安全审计。**耐久验证已完成**（2h 真实运行稳定、资源有界增长，
+  见 `docs/durability_report.md`）。
 
 ## 5. 发布后收尾
 
