@@ -217,15 +217,17 @@ class FlowRegistry:
 
     def register(self, name: str, sm: StateMachine, *,
                  source: str = "design", file: Path | None = None,
-                 validate: bool = False) -> FlowEntry:
+                 validate: bool = False,
+                 skills_dir: str | Path | None = None) -> FlowEntry:
         """Register a StateMachine under a name (F4).
 
         By default this is the low-level API that trusts the caller has already
         validated (builtin seeding). Pass `validate=True` to run the F9 deep gate
-        here and reject invalid flows at the registry boundary (raises FlowError).
+        here and reject invalid flows at the registry boundary (raises FlowError);
+        `skills_dir` enables the skill-loadability check within that gate.
         """
         if validate:
-            self._check(sm, preflight=False, target=name)
+            self._check(sm, preflight=False, target=name, skills_dir=skills_dir)
         self._version += 1
         entry = FlowEntry(name=name, sm=sm, version=self._version,
                           source=source, file=file)

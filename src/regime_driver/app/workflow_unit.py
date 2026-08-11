@@ -446,6 +446,13 @@ class WorkflowUnit(ThreadedUnit):
                   action=action, confidence=verdict.confidence)
         if action == "advance":
             target = verdict.next_state
+            if target is None and not self._valid_targets:
+                # terminal judge: advance to end-of-flow (COMPLETE)
+                self._log("advance", to="<end>")
+                self._phase = _PH_NONE
+                self._phase_started = None
+                self._advance(None)
+                return
             if target in self._valid_targets:
                 self._log("advance", to=target)
                 self._phase = _PH_NONE

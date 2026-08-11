@@ -34,6 +34,19 @@ def test_clean_flow_completes() -> None:
     assert res["outcome"] == "complete"
 
 
+def test_judge_terminal_flow_completes() -> None:
+    # regression: a flow whose LAST node is a judge (final review) must complete
+    # (advance with next_state=null), not exhaust the reviewer gate.
+    sm = _flow({
+        "a": _node("a", next="j"),
+        "j": _node("j", type="judge", role="reviewer"),
+    })
+    res = preflight(sm, timeout_sec=10)
+    assert res["ok"] is True, res
+    assert res["outcome"] == "complete"
+    assert res["end"] == "j"
+
+
 def test_stall_fault_blocks() -> None:
     sm = _flow({"a": _node("a", next="b"), "b": _node("b")})
     res = preflight(sm, fault="stall", timeout_sec=10)

@@ -55,6 +55,23 @@ def test_advance_requires_valid_next_state():
     assert "next_state" in res.reason
 
 
+def test_terminal_judge_advance_with_null_next_state_ok():
+    # a judge on a terminal node (no successors) completes the flow with
+    # next_state=null — regression for the "reviewer gate exhausted" bug on
+    # final-review judge flows.
+    v = parse_reviewer_verdict(make_verdict(next_state=None))
+    res = gate_reviewer_verdict(v, valid_node_ids=set())
+    assert res.ok, res.reason
+
+
+def test_terminal_judge_advance_with_non_null_next_state_rejected():
+    # terminal node has no valid targets; naming a concrete next_state is invalid
+    v = parse_reviewer_verdict(make_verdict(next_state="implement"))
+    res = gate_reviewer_verdict(v, valid_node_ids=set())
+    assert not res.ok
+    assert "terminal node" in res.reason
+
+
 def test_bad_verdict_rejected():
     with pytest.raises(ContractError):
         parse_reviewer_verdict(make_verdict(verdict="slomo"))

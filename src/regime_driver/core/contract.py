@@ -60,14 +60,25 @@ def gate_reviewer_verdict(
         return GateResult(ok=False, reason="ask_developer requires message_to_developer")
     if action == "advance":
         ns = verdict.next_state
-        if not ns:
-            return GateResult(ok=False, reason="advance requires next_state")
-        if valid_node_ids is not None and ns not in valid_node_ids:
-            return GateResult(
-                ok=False,
-                reason=f"advance next_state '{ns}' not in state machine "
-                       f"(valid: {sorted(valid_node_ids)})",
-            )
+        # A judge on a TERMINAL node (no successors) advances to "end of flow":
+        # next_state must be null AND valid_node_ids must be empty. This is how a
+        # final-review judge completes a workflow. Any other null/next mismatch
+        # is rejected.
+        if valid_node_ids is not None and not valid_node_ids:
+            if ns is not None:
+                return GateResult(
+                    ok=False,
+                    reason=f"advance next_state '{ns}' on a terminal node must be null",
+                )
+        else:
+            if not ns:
+                return GateResult(ok=False, reason="advance requires next_state")
+            if valid_node_ids is not None and ns not in valid_node_ids:
+                return GateResult(
+                    ok=False,
+                    reason=f"advance next_state '{ns}' not in state machine "
+                           f"(valid: {sorted(valid_node_ids)})",
+                )
     if action == "request_context" and not (verdict.context_requested or "").strip():
         return GateResult(ok=False, reason="request_context requires context_requested")
 

@@ -140,6 +140,17 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 **输出**：`{ok,name,version,nodes,source}`。
 **权限**：`run`。
 
+### `flow design <name> '<spec>'`
+
+从**内联规格**（无需文件）设计并注册一个新流程——上帝对话框 A 路设计制度的入口。
+规格可为完整 regime JSON 或紧凑格式 `{"entry":"a","nodes":[{id,desc,role,type,next}]}`；
+统一经 `compile_spec` 编译 + F9 深检门 + 持久注册（写入 `REGIME_FLOW_STORE`）。
+
+**参数**：`--skills-dir`、`--preflight`（额外离线预检）、`--preflight-fault`（配合 `--preflight`
+注入故障 `stall|delay`，仅与 `--preflight` 同用生效）、`--perm`。
+**输出**：`{ok,name,version,nodes,path,source:"design"}`。
+**权限**：`run`。
+
 ### `flow reload <name>`
 
 原子热重载一个文件背书流程。运行中的 workflow 保持旧 StateMachine 快照，注册表切换到新版本。

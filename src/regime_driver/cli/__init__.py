@@ -120,6 +120,8 @@ def run(
     base: str = typer.Option(None, "--base", help="worker opencode server URL"),
     config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
     regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
+    flow: str = typer.Option(None, "--flow", help="run a named flow from the FlowRegistry "
+                             "(designed/loaded; resolves to its persisted spec)"),
     ledger: Optional[Path] = typer.Option(None, "--ledger", help="JSONL ledger path"),
     deadline: int = typer.Option(None, "--deadline", help="per-segment deadline (sec)"),
     title: str = typer.Option("regime-driver", "--title"),
@@ -163,6 +165,7 @@ def run(
             *(["--base", base] if base else []),
             *(["--config", str(config)] if config else []),
             *(["--regime", str(regime)] if regime else []),
+            *(["--flow", flow] if flow else []),
             *(["--ledger", str(ledger)] if ledger else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--title", title] if title != "regime-driver" else []),
@@ -175,14 +178,10 @@ def run(
                     title=title, json_out=json_out)
         return
     # mandatory preflight (offline trial) before touching a real worker/session
+    sm = _sm_from_flow_or_regime(flow, regime)
     if not no_preflight:
         from ..app.preflight import preflight
-        from ..core.state_machine import StateMachineError
 
-        try:
-            sm = load_regime(regime)
-        except (StateMachineError, FileNotFoundError) as exc:
-            _fail(f"error loading regime: {exc}")
         res = preflight(sm, timeout_sec=30.0)
         if json_out:
             _emit_json({"preflight": res, "started": False})
@@ -190,15 +189,35 @@ def run(
             _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
         else:
             _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
-    _run(settings, context, title, json_out=json_out, reporter=reporter)
+    _run(settings, context, title, json_out=json_out, reporter=reporter, sm=sm)
+
+
+def _sm_from_flow_or_regime(flow: str | None, regime: Path | None):
+    """Resolve the StateMachine to run: a named registry flow or a regime file.
+
+    ``--flow`` takes precedence (God-Dialog-designed flows); ``--regime`` is the
+    file-based fallback; neither means the packaged default descriptor.
+    """
+    from ..core.state_machine import StateMachineError
+
+    if flow:
+        try:
+            return _default_registry().get(flow).sm
+        except (AttributeError, KeyError) as exc:
+            _fail(f"unknown flow '{flow}' (use `regime flow list`)")
+    try:
+        return load_regime(regime)
+    except (StateMachineError, FileNotFoundError) as exc:
+        _fail(f"error loading regime: {exc}")
 
 
 def _run(settings: Settings, context: str, title: str, json_out: bool = False,
-         reporter: Optional[Path] = None) -> None:
-    try:
-        sm = load_regime(settings.regime_path)
-    except (StateMachineError, FileNotFoundError) as exc:
-        _fail(f"error loading regime: {exc}")
+         reporter: Optional[Path] = None, sm: "StateMachine | None" = None) -> None:
+    if sm is None:
+        try:
+            sm = load_regime(settings.regime_path)
+        except (StateMachineError, FileNotFoundError) as exc:
+            _fail(f"error loading regime: {exc}")
 
     from ..app.reporter import Reporter
 
@@ -424,6 +443,8 @@ def drive(
         None, "--reporter", help="append-only report journal path (single truth)"),
     ledger: Optional[Path] = typer.Option(
         None, "--ledger", help="JSONL event ledger path (workflow events)"),
+    flow: str = typer.Option(None, "--flow", help="run a named flow from the FlowRegistry "
+                             "(designed/loaded; resolves to its persisted spec)"),
     tasks_dir: Optional[Path] = typer.Option(
         None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
     skills_dir: Optional[Path] = typer.Option(
@@ -468,6 +489,7 @@ def drive(
             *(["--base", base] if base else []),
             *(["--config", str(config)] if config else []),
             *(["--regime", str(regime)] if regime else []),
+            *(["--flow", flow] if flow else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--container", container] if container else []),
             *(["--stall", str(stall)] if stall != 60 else []),
@@ -492,12 +514,7 @@ def drive(
         return
 
     # mandatory preflight (offline trial) before touching a real worker/session
-    from ..core.state_machine import StateMachineError
-
-    try:
-        sm = load_regime(regime)
-    except (StateMachineError, FileNotFoundError) as exc:
-        _fail(f"error loading regime: {exc}")
+    sm = _sm_from_flow_or_regime(flow, regime)
     if not no_preflight:
         from ..app.preflight import preflight
 
@@ -1163,18 +1180,90 @@ def gate(
 @app.command("status")
 def status(
     base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    deep: bool = typer.Option(
+        False, "--deep", help="aggregate situational summary: sessions + flows + tasks + reporter rollup"),
+    reporter: Optional[Path] = typer.Option(
+        None, "--reporter", help="report journal path to include its rollup (with --deep)"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (with --deep)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
-    """Check worker health."""
+    """Check worker health; with --deep, an aggregate situational summary.
+
+    ``--deep`` returns everything the God Dialog needs to judge global state in
+    one call: worker health, live sessions, registered flows, supervised tasks,
+    and (with --reporter) the report-bus rollup. Read-only.
+    """
     client = OpenCodeClient(base)
     healthy = client.health()
-    if json_out:
-        _emit_json({"healthy": healthy, "base": base})
+    if not deep:
+        if json_out:
+            _emit_json({"healthy": healthy, "base": base})
+            return
+        if healthy:
+            _ok(f"worker healthy at [bold]{base}[/bold]", markup=True)
+        else:
+            _fail(f"worker unhealthy at {base}")
         return
+
+    # --deep: aggregate situational summary ----------------------------------
+    summary: dict = {"healthy": healthy, "base": base}
+    sessions_rows: list = []
     if healthy:
-        _ok(f"worker healthy at [bold]{base}[/bold]", markup=True)
+        try:
+            slist = client.list_sessions()
+            status_map = client.session_status_map()
+            sessions_rows = [{
+                "id": s.get("id"), "title": s.get("title"), "agent": s.get("agent"),
+                "status": status_map.get(s.get("id")) or "idle",
+                "tokens_in": (s.get("tokens") or {}).get("input") or 0,
+                "tokens_out": (s.get("tokens") or {}).get("output") or 0,
+            } for s in slist]
+        except Exception:
+            # a partially-degraded worker must not kill the whole situational view
+            sessions_rows = []
+    summary["sessions"] = sessions_rows
+    summary["busy_sessions"] = sum(
+        1 for s in sessions_rows if s["status"] == "busy")
+
+    reg = _default_registry()
+    summary["flows"] = [e.to_dict() for e in reg.list()]
+
+    from ..task import DEFAULT_TASKS_DIR, TaskRegistry
+    # read-only aggregation: never create the tasks dir as a side effect
+    tasks_dir_path = Path(tasks_dir) if tasks_dir else Path(DEFAULT_TASKS_DIR)
+    if tasks_dir_path.exists():
+        summary["tasks"] = TaskRegistry(tasks_dir_path).list()
     else:
-        _fail(f"worker unhealthy at {base}")
+        summary["tasks"] = []
+
+    if reporter:
+        from ..app.reporter import Reporter
+        rep = Reporter(journal_path=reporter)
+        try:
+            rep.load()  # replay the journal so rollup reflects the on-disk truth
+            summary["reporter"] = {
+                "rollup": rep.rollup(),
+                "records": len(rep.journal_slice()),
+            }
+        finally:
+            rep.close()
+
+    if json_out:
+        _emit_json(summary)
+        return
+    console.print(f"worker: [bold]{'healthy' if healthy else 'UNHEALTHY'}[/bold] @ {base}")
+    if healthy:
+        console.print(f"sessions: {len(summary['sessions'])} "
+                      f"([bold yellow]{summary['busy_sessions']} busy[/bold yellow])")
+    console.print(f"flows: {len(summary['flows'])} → "
+                  + ", ".join(f"{e['name']}({e['nodes']})" for e in summary["flows"]))
+    console.print(f"tasks: {len(summary['tasks'])} "
+                  + f"([bold yellow]{sum(1 for t in summary['tasks'] if t['status']=='running')} running[/bold yellow])")
+    if reporter:
+        r = summary.get("reporter") or {}
+        console.print(f"reporter: {r.get('records', 0)} records "
+                      f"([dim]{len(r.get('rollup') or [])} rollup groups[/dim])")
 
 
 # ---------------------------------------------------------------------------
@@ -1588,6 +1677,56 @@ def _name_from(raw: str) -> str | None:
     except Exception:
         pass
     return None
+
+
+@_flow_app.command("design")
+def flow_design(
+    name: str = typer.Argument(..., help="flow name to register under"),
+    spec: str = typer.Argument(..., help="inline flow spec: full regime JSON or "
+                                          "compact {\"entry\":\"a\",\"nodes\":[...]}"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    preflight: bool = typer.Option(
+        False, "--preflight", help="also run an offline preflight trial"),
+    preflight_fault: str = typer.Option(
+        None, "--preflight-fault", help="inject a preflight fault (stall|delay)"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Design + register a new flow from an inline spec (no file needed).
+
+    Compiles the spec (full regime JSON or compact flow spec) via the unified
+    ``compile_spec`` entry, runs the F9 deep gate, and registers it into the
+    persistent FlowRegistry — the same design path the god dialog B-route uses,
+    exposed for the A-route god / CLI without requiring file-system write access.
+    """
+    _gate(perm, ["flow", "design", name])
+    from ..flow import FlowError, compile_spec
+
+    reg = _default_registry()
+    try:
+        sm = compile_spec(name, spec)
+        if preflight:
+            from ..app.preflight import preflight as _preflight
+            res = _preflight(sm, timeout_sec=30.0, fault=preflight_fault)
+            if not res["ok"]:
+                raise FlowError(f"preflight FAILED: outcome={res['outcome']} "
+                                f"detail={res['detail']}")
+        # register AFTER preflight so a failed gate never mutates the registry
+        entry = reg.register(name, sm, source="design",
+                             validate=True, file=None,
+                             skills_dir=skills_dir)
+    except FlowError as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
+        _fail(f"design FAILED: {exc}")
+    if json_out:
+        _emit_json({"ok": True, **entry.to_dict()})
+        return
+    path = " → ".join(entry.sm.flow_path()) or "(empty)"
+    _ok(f"designed flow [bold]{entry.name}[/bold] (v{entry.version}, "
+        f"{len(entry.sm.flow.nodes)} nodes, path: {path})", markup=True)
 
 
 @_flow_app.command("load")

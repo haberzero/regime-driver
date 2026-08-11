@@ -33,9 +33,11 @@
 | `regime preflight [--regime p] [--fault stall\|delay] [--json]` | **离线试跑**整条 flow，验证能否干净 COMPLETE（自写 workflow 启动前先跑） | `{ok, outcome, end, detail}` |
 | `regime gate '<verdict_json>' [--regime p]` | 校验审查者判定 | pass/reject |
 | `regime status [--json]` | worker 健康 | `{healthy, base}` |
+| `regime status --deep [--reporter p] [--tasks-dir p] [--json]` | **聚合态势**（一次拿全）：worker 健康 + 会话（含 busy 计数）+ 流程注册表 + 受监管任务 + reporter rollup | `{healthy, sessions, busy_sessions, flows, tasks, reporter?}` |
 
 > **可用性保障**：opencode 自写 workflow 后先 `validate --deep` + `preflight`，静态错+语义错都在启动前暴露；
-> `run` 也可加 `--preflight` 先试跑再启动。见 `../subsystems/06_god_dialog.md`。
+> `run` 也可加 `--preflight` 先试跑再启动。上帝对话框判全局态势用 `status --deep` 一次即可，无需拼多条命令。
+> 见 `../subsystems/06_god_dialog.md`。
 
 ### 3.2 运行 workflow
 | 命令 | 用途 | 说明 |
@@ -44,6 +46,7 @@
 | `regime run-many "<t1>" "<t2>"... [--json]` | 并发跑多任务到完成（**阻塞**） | 单点失败隔离 |
 | `regime run "<context>" --async [--json]` | **非阻塞**提交后台作业，立即返回 handle | `job id` 形如 `20260807-184144-xxxxxx` |
 | `regime run-many ... --async [--json]` | 非阻塞并发提交 | 同上 |
+| `regime flow design <name> '<spec>' [--perm run] [--json]` | **设计并注册新流程**（inline 规格，无需写文件）| 上帝对话框制度设计主入口；`--preflight` 可加离线预检 |
 
 `--json` 输出：`{outcome, end, detail, elapsed_sec}`；run-many 为 `{elapsed_sec, results:{wid:{outcome,end,detail}}}`。
 `outcome` ∈ `complete|error|timeout|blocked|aborted|human`。

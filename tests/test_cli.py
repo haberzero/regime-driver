@@ -163,6 +163,102 @@ def test_flow_load_rejects_invalid_keeps_registry_clean(tmp_path):
     assert "f" not in names  # no partial mutation
 
 
+def test_flow_design_inline_registers(tmp_path):
+    """flow design takes an inline spec (no file) and persists it (P0 god design)."""
+    compact = ('{"entry":"start","nodes":['
+               '{"id":"start","desc":"理解","role":"developer","type":"agent","next":"judge"},'
+               '{"id":"judge","desc":"判定","role":"reviewer","type":"judge","next":null}]}')
+    r1 = runner.invoke(app, ["flow", "design", "mini", compact, "--json"])
+    assert r1.exit_code == 0, r1.output
+    data = json.loads(r1.output)
+    assert data["ok"] is True and data["name"] == "mini"
+    assert data["nodes"] == 2 and data["path"] == ["start", "judge"]
+    # persists: a fresh registry (same store) sees it
+    r2 = runner.invoke(app, ["flow", "list", "--json"])
+    names = [e["name"] for e in json.loads(r2.output)["flows"]]
+    assert "mini" in names
+
+
+def test_flow_design_rejects_invalid_no_mutation(tmp_path):
+    bad = ('{"entry":"start","nodes":['
+           '{"id":"start","desc":"x","role":"ghost","type":"agent","next":null}]}')
+    r1 = runner.invoke(app, ["flow", "design", "mini-bad", bad, "--json"])
+    assert r1.exit_code == 1
+    assert json.loads(r1.output)["ok"] is False
+    r2 = runner.invoke(app, ["flow", "list", "--json"])
+    names = [e["name"] for e in json.loads(r2.output)["flows"]]
+    assert "mini-bad" not in names  # no partial mutation
+
+
+def test_flow_design_preflight_failure_no_mutation(tmp_path):
+    """A failed preflight must not leave the flow registered/persisted."""
+    spec = ('{"entry":"a","nodes":['
+            '{"id":"a","desc":"x","role":"developer","type":"agent","next":null}]}')
+    r1 = runner.invoke(app, ["flow", "design", "p-bad", spec,
+                             "--preflight", "--preflight-fault", "stall", "--json"])
+    assert r1.exit_code == 1
+    assert json.loads(r1.output)["ok"] is False
+    r2 = runner.invoke(app, ["flow", "list", "--json"])
+    names = [e["name"] for e in json.loads(r2.output)["flows"]]
+    assert "p-bad" not in names
+
+
+def test_flow_design_is_write_gated(monkeypatch):
+    monkeypatch.setenv("REGIME_PERMISSION_CEILING", "read")
+    res = runner.invoke(app, ["flow", "design", "x",
+                              '{"entry":"a","nodes":[{"id":"a","desc":"d",'
+                              '"role":"developer","type":"agent","next":null}]}',
+                              "--perm", "run"])
+    assert res.exit_code == 1
+    assert "permission denied" in res.output
+
+
+def test_status_deep_aggregates(monkeypatch, tmp_path):
+    """status --deep returns the aggregate situational picture in one call."""
+    from regime_driver.cli import _reset_flow_registry
+    monkeypatch.setenv("REGIME_FLOW_STORE", str(tmp_path / "flowstore"))
+    _reset_flow_registry()
+    # unreachable worker -> healthy=False but aggregation still returns flows/tasks
+    res = runner.invoke(app, [
+        "status", "--deep", "--json", "--base", "http://127.0.0.1:1",
+        "--tasks-dir", str(tmp_path / "tasks")])
+    assert res.exit_code == 0, res.output
+    data = json.loads(res.output)
+    assert data["healthy"] is False
+    assert "flows" in data and "tasks" in data
+    assert "sessions" in data and data["busy_sessions"] == 0  # degraded worker -> empty sessions
+    # with a reporter journal: rollup surfaced from disk (B2 regression)
+    from regime_driver.app.reporter import Reporter
+    rep = Reporter(journal_path=tmp_path / "j.jsonl")
+    rep.ingest(kind="outcome", wf_id="w1", outcome="complete")
+    rep.close()
+    res2 = runner.invoke(app, [
+        "status", "--deep", "--json", "--base", "http://127.0.0.1:1",
+        "--reporter", str(tmp_path / "j.jsonl")])
+    assert res2.exit_code == 0, res2.output
+    data2 = json.loads(res2.output)
+    assert data2["reporter"]["records"] == 1
+    assert data2["reporter"]["rollup"]
+
+
+def test_status_deep_reporter_rollup(tmp_path):
+    """--deep --reporter must surface the journal's rollup (not empty)."""
+    from regime_driver.app.reporter import Reporter
+    rep = Reporter(journal_path=tmp_path / "j.jsonl")
+    rep.ingest(kind="outcome", wf_id="w1", outcome="complete")
+    rep.ingest(kind="outcome", wf_id="w1", outcome="complete")
+    rep.ingest(kind="node_enter", wf_id="w1", node="a")
+    rep.close()
+    res = runner.invoke(app, [
+        "status", "--deep", "--json", "--base", "http://127.0.0.1:1",
+        "--reporter", str(tmp_path / "j.jsonl")])
+    assert res.exit_code == 0, res.output
+    data = json.loads(res.output)
+    rep_out = data["reporter"]
+    assert rep_out["records"] == 3
+    assert rep_out["rollup"]  # non-empty rollup reflects on-disk journal
+
+
 def test_doctor_readonly_reports_unhealthy():
     # doctor is read-only; against an unreachable worker it reports ok=False (exit 1)
     res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:1", "--json"])

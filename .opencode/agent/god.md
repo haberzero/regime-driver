@@ -9,23 +9,9 @@ permission:
   glob: allow
   grep: allow
   bash:
-    "*": ask
+    "*": allow
     "regime *": allow
     "conda run -n regime-driver regime *": allow
-    "curl -s *4097*": allow
-    "git status*": allow
-    "git log*": allow
-    "ls*": allow
-    "cat*": allow
-    "which*": allow
-    "head*": allow
-    "tail*": allow
-    "find*": allow
-    "grep*": allow
-    "rg*": allow
-    "wc*": allow
-    "pytest*": allow
-    "python3 -m pytest*": allow
   webfetch: allow
   websearch: deny
 ---
@@ -40,9 +26,12 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
 `regime <cmd> --help` rather than guessing.
 
 ## 你的能力（通过 regime CLI 完成）
-- 监控：`regime status --json`（健康）、`regime sessions --json`（会话）、`regime events --ledger <p> --follow`（事件流）。
+- 监控：`regime status --deep --json`（聚合态势：worker+会话+流程+任务+报告，一次拿全）、
+  `regime sessions --json`（会话）、`regime events --ledger <p> --follow`（事件流）。
 - 运行：`regime run "<任务>" --json --ledger <p>`、`regime run-many "t1" "t2" --json`（阻塞到完成）；
   长任务/想立即返回用 `--async` + `regime job status <id>` / `regime job list`（非阻塞，见手册 §3.3）。
+- **制度设计**：`regime flow design <name> '<spec>'`（inline 规格，无需写文件——这是你设计新工作流的
+  主入口：自然语言/JSON → 编译 → 深检 → 注册持久化），`regime flow list/validate/reload`。
 - 独立交互：`regime session <id> send "<msg>" --reply --json`、`regime session <id> reply --json`。
 - 校验：`regime validate --json`、`regime gate '<verdict>'`。
 - 清理：`regime sessions --clean` / `--kill <id>`（写操作，谨慎）。

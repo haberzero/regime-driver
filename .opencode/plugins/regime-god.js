@@ -40,11 +40,32 @@ export const RegimeGod = async ({ $ }) => {
   return {
     tool: {
       regime_status: tool({
-        description: "Check the regime-driver worker health. Returns {healthy, base} JSON.",
+        description: "Check the regime-driver worker health. Returns {healthy, base} JSON. " +
+                     "Use regime_summary for the full situational picture.",
         args: { base: tool.schema.string().optional() },
         async execute(args) {
           const a = A(args)
           return await run($, ["status", "--json", "--base", a.base ?? BASE])
+        },
+      }),
+
+      regime_summary: tool({
+        description: "Aggregate situational summary in ONE call (read-only): worker health, " +
+                     "live sessions with busy count + tokens, registered flows, supervised tasks, " +
+                     "and (if reporter given) the report-bus rollup. Returns {healthy, sessions, " +
+                     "busy_sessions, flows, tasks, reporter?} JSON. Use this to judge global state " +
+                     "instead of piecing together status/sessions/flow-list manually.",
+        args: {
+          base: tool.schema.string().optional(),
+          reporter: tool.schema.string().optional(),
+          tasks_dir: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const a = A(args)
+          const opts = ["status", "--deep", "--json", "--base", a.base ?? BASE]
+          if (a.reporter) opts.push("--reporter", a.reporter)
+          if (a.tasks_dir) opts.push("--tasks-dir", a.tasks_dir)
+          return await run($, opts)
         },
       }),
 
@@ -82,11 +103,13 @@ export const RegimeGod = async ({ $ }) => {
       regime_run: tool({
         description: "Run ONE task through the regime flow to completion (BLOCKING, can take minutes). " +
                      "Returns {outcome,end,detail,elapsed_sec} JSON. Provide a clear, self-contained task context. " +
-                     "Set async=true to submit as a background job and return a handle immediately.",
+                     "Set async=true to submit as a background job and return a handle immediately. " +
+                     "Optionally set flow=<name> to run a God-Dialog-designed registry flow instead of the builtin.",
         args: {
           context: tool.schema.string(),
           base: tool.schema.string().optional(),
           ledger: tool.schema.string().optional(),
+          flow: tool.schema.string().optional(),
           async: tool.schema.boolean().optional(),
           perm: tool.schema.string().optional(),
         },
@@ -94,6 +117,7 @@ export const RegimeGod = async ({ $ }) => {
           const a = A(args)
           const opts = ["run", a.context, "--json", "--base", a.base ?? BASE,
                         "--perm", a.perm ?? "run"]
+          if (a.flow) opts.push("--flow", a.flow)
           if (a.ledger) opts.push("--ledger", a.ledger)
           if (a.async) opts.push("--async")
           return await run($, opts)
@@ -210,6 +234,41 @@ export const RegimeGod = async ({ $ }) => {
         async execute(args) {
           const a = A(args)
           return await run($, ["flow", "reload", a.name, "--json", "--perm", a.perm ?? "run"])
+        },
+      }),
+
+      regime_flow_design: tool({
+        description: "Design AND register a new flow from an inline spec (full regime JSON or " +
+                     "compact {\"entry\":\"a\",\"nodes\":[{id,desc,role,type,next}]}). No file needed. " +
+                     "Compiles + deep-validates + registers into the persistent FlowRegistry. " +
+                     "This is how the God Dialog designs institutional workflows. Returns {ok, name, version, nodes, path} JSON.",
+        args: {
+          name: tool.schema.string().describe("flow name to register under"),
+          spec: tool.schema.string().describe("inline flow spec JSON (compact or full regime)"),
+          preflight: tool.schema.boolean().optional(),
+          perm: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const a = A(args)
+          const opts = ["flow", "design", a.name, a.spec, "--json", "--perm", a.perm ?? "run"]
+          if (a.preflight) opts.push("--preflight")
+          return await run($, opts)
+        },
+      }),
+
+      regime_flow_load: tool({
+        description: "Register a full regime.json flow from its JSON CONTENT (a string, not a file path). " +
+                     "Delegates to `flow design` so no temp file is created and no dead file pointer is " +
+                     "persisted (reload-safe). Returns {ok, name, version, nodes} JSON.",
+        args: {
+          name: tool.schema.string().describe("flow name to register under"),
+          content: tool.schema.string().describe("full regime.json content"),
+          perm: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const a = A(args)
+          const opts = ["flow", "design", a.name, a.content, "--json", "--perm", a.perm ?? "run"]
+          return await run($, opts)
         },
       }),
     },

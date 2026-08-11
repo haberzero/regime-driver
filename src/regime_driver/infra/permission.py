@@ -100,7 +100,7 @@ def classify(argv: list[str]) -> PermissionLevel:
         return PermissionLevel.READ
     if cmd == "flow":
         sub = tokens[1] if len(tokens) > 1 else ""
-        if sub in ("load", "reload", "rm"):
+        if sub in ("load", "reload", "rm", "design"):
             return PermissionLevel.RUN
         return PermissionLevel.READ
     return base
