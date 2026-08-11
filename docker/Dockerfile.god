@@ -19,6 +19,8 @@ COPY .opencode/agent/god.md /root/.config/opencode/agent/god.md
 COPY .opencode/plugins/regime-god.js /root/.config/opencode/plugins/regime-god.js
 # god 专用 opencode.json (developer/reviewer + god agent + regime-god 插件 + 模型)
 COPY docker/god-config/opencode.json /root/.config/opencode/opencode.json
+# god 的助手 subagent (analyst/advisor) — 上帝对话框可委派的辅助角色
+COPY docker/god-config/agents/ /root/.config/opencode/agents/
 
 # 操作手册进镜像 (god A 路需读 docs/reference/05_god_dialog_contract.md + KNOWN_LIMITS.md)
 # 运行面仍以 up.sh 的 -v 实时挂载覆盖, 保证文档变更无需重建即可生效。

@@ -53,6 +53,9 @@ c.send_message(sid, "请调用你的 regime_status 工具检查 worker 健康，
 ## 关键配置
 - `docker/Dockerfile.god`：基于 worker 镜像装 regime-driver + god.md + regime-god 插件，非 `--pure`（要插件）。
 - `docker/god-config/opencode.json`：注册 developer/reviewer + god agent + regime-god 插件 + 模型 provider。
+- `docker/god-config/agents/`：**god 的助手 subagent**（`analyst` 态势分析师 / `advisor` 流程设计顾问 /
+  `reviewer` 只读审查）。god 通过 opencode 的 `task` 委派机制调用它们——headless serve 模式下已验证可行，
+  助手独立上下文，帮 god 分流"消化原始数据/起草流程"的注意力消耗。改动助手后重启容器生效。
 - `regime-god.js` 插件直接调用 `regime` 二进制（不经 `conda run`，避免工具子进程输出丢失），
   且用 `await proc.text()` 捕获输出，并 null-safe 处理 args。**可移植**：
   二进制路径解析为 `REGIME_BIN` env → `regime`(PATH) → 已知 conda 默认，不再硬编码绝对路径。

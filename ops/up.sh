@@ -109,6 +109,7 @@ up_god() {
     -v "$HERE/docker/god-config/opencode.json:/root/.config/opencode/opencode.json:ro" \
     -v "$HERE/.opencode/agent/god.md:/root/.config/opencode/agent/god.md:ro" \
     -v "$HERE/.opencode/plugins/regime-god.js:/root/.config/opencode/plugins/regime-god.js:ro" \
+    -v "$HERE/docker/god-config/agents:/root/.config/opencode/agents:ro" \
     "$img" >/dev/null
   wait_health "http://127.0.0.1:${GOD_PORT}/global/health" "$name"
 }

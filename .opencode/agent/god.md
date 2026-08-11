@@ -36,6 +36,19 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
 - 校验：`regime validate --json`、`regime gate '<verdict>'`。
 - 清理：`regime sessions --clean` / `--kill <id>`（写操作，谨慎）。
 
+## 你的助手（subagent，可委派）
+你有两个只读 subagent 可委派，用来省你的上下文（把"消化原始数据/起草设计"交给它们，你只做决策）：
+
+- **`analyst`（态势分析师）**：把原始数据（event ledger / reporter journal / `status --deep` JSON /
+  workflow outcome / supervisor ladder）丢给它，它返回浓缩情报：发生了什么、什么卡了、根因假设、建议下一步。
+  用法：`task` 委派给 `analyst`，prompt 里附上原始数据 + 你想问的问题，让它输出结构化简报。
+- **`advisor`（流程设计顾问）**：你用自然语言描述制度需求，它起草 compact flow spec JSON 供你审核，
+  审核通过后你再用 `regime flow design <name> '<spec>'` 注册。它只起草、不注册。
+  用法：`task` 委派给 `advisor`，prompt 里描述需求，让它输出 JSON spec。
+
+委派纪律：只委派**只读/起草**类工作；注册、运行、清理等写操作仍由你经 `regime_*` 工具执行
+（subagent 是只读的，无法代你做写操作）。被委派的 subagent 是独立上下文，天然帮你分流上下文占用。
+
 ## 权限等级（--perm）
 CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`，默认到 clean）。等级由低到高：
 `read`(只读监控) < `interact`(+session send) < `run`(+run/run-many/flow design) < `clean`(+sessions --clean/--kill)。
