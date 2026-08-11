@@ -17,6 +17,14 @@ def test_scaffold_plan_has_agents_and_skills(tmp_path):
     assert all(not str(d).startswith("god-assistants") for d in dests)
 
 
+def test_scaffold_accepts_str_target(tmp_path):
+    """A plain string target must work (coerced to Path), not crash path arithmetic."""
+    result = scaffold(str(tmp_path), god=True)
+    assert isinstance(result, ScaffoldResult)
+    assert (tmp_path / "agents" / "reviewer.md").is_file()
+    assert (tmp_path / "skills" / "design-philosophy" / "SKILL.md").is_file()
+
+
 def test_scaffold_plan_god_adds_assistants(tmp_path):
     plan = scaffold_plan(tmp_path, god=True)
     dests = [str(c.dest.relative_to(tmp_path)) for c in plan]

@@ -69,8 +69,13 @@ def _copies_from(data_subdir: str, target_subdir: str, target: Path) -> list[Cop
     return items
 
 
-def scaffold_plan(target: Path, *, god: bool = False) -> list[CopyItem]:
-    """Compute the full copy plan (read-only; nothing is written)."""
+def scaffold_plan(target: str | Path, *, god: bool = False) -> list[CopyItem]:
+    """Compute the full copy plan (read-only; nothing is written).
+
+    ``target`` may be a ``str`` or a ``Path``; it is coerced to ``Path`` so a
+    caller cannot trip over ``str``/``Path`` path arithmetic.
+    """
+    target = Path(target)
     plan: list[CopyItem] = []
     plan += _copies_from("agents", "agents", target)
     plan += _copies_from("skills", "skills", target)
@@ -91,7 +96,7 @@ def scaffold_plan(target: Path, *, god: bool = False) -> list[CopyItem]:
 
 
 def scaffold(
-    target: Path,
+    target: str | Path,
     *,
     god: bool = False,
     dry_run: bool = False,
@@ -100,7 +105,7 @@ def scaffold(
     """Deploy the packaged templates to ``target``.
 
     Args:
-        target: destination config root (e.g. ~/.config/opencode).
+        target: destination config root (e.g. ~/.config/opencode); str or Path.
         god: also deploy the god-assistant subagents (analyst/advisor/reviewer).
         dry_run: compute + report the plan without writing anything.
         force: overwrite existing destination files (default: keep them).
@@ -108,6 +113,7 @@ def scaffold(
     Returns:
         A ScaffoldResult describing what was copied / skipped.
     """
+    target = Path(target)
     result = ScaffoldResult(target=target, god=god, dry_run=dry_run)
     plan = scaffold_plan(target, god=god)
     result.plan = plan
