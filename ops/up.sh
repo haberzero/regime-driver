@@ -30,6 +30,20 @@ else
   dx() { sg docker -c "docker $*"; }
 fi
 
+# --- source-drift detection ----------------------------------------------
+# Images are stamped with the git HEAD they were built from; a built image whose
+# label no longer matches the current HEAD is stale (regime-driver package /
+# baked config changed) and must be rebuilt even without --rebuild.
+GIT_HEAD="$(git -C "$HERE" rev-parse HEAD 2>/dev/null || echo unknown)"
+
+needs_rebuild() { # $1=image ; returns 0 when the image is missing or stale
+  local img="$1"
+  dx image inspect "$img" >/dev/null 2>&1 || return 0
+  local stamped
+  stamped="$(dx image inspect --format '{{index .Config.Labels "org.regime-driver.head"}}' "$img" 2>/dev/null || true)"
+  [[ "$stamped" != "$GIT_HEAD" ]]
+}
+
 # --- key ---------------------------------------------------------------
 read_key() { # $1=env_name $2=key_file ; sets the env var
   local name="$1" file="$2"
@@ -49,9 +63,10 @@ require_key() {
 # --- worker ------------------------------------------------------------
 up_worker() {
   local img="opencode-worker:${WORKER_TAG}" name="opencode-worker"
-  if [[ "$REBUILD" == 1 ]] || ! dx image inspect "$img" >/dev/null 2>&1; then
-    echo "== 构建 $img =="
-    dx build -f docker/Dockerfile.worker -t "$img" .
+  if [[ "$REBUILD" == 1 ]] || needs_rebuild "$img"; then
+    echo "== 构建 $img (HEAD=$GIT_HEAD) =="
+    dx build --label "org.regime-driver.head=$GIT_HEAD" \
+      -f docker/Dockerfile.worker -t "$img" .
   fi
   if dx ps -a --format '{{.Names}}' | grep -qx "$name"; then
     echo "== $name 已存在: 重启 =="
@@ -72,9 +87,10 @@ up_worker() {
 # --- god ---------------------------------------------------------------
 up_god() {
   local img="opencode-god:${TAG}" name="opencode-god"
-  if [[ "$REBUILD" == 1 ]] || ! dx image inspect "$img" >/dev/null 2>&1; then
-    echo "== 构建 $img (基于 worker) =="
-    dx build -f docker/Dockerfile.god -t "$img" .
+  if [[ "$REBUILD" == 1 ]] || needs_rebuild "$img"; then
+    echo "== 构建 $img (基于 worker, HEAD=$GIT_HEAD) =="
+    dx build --label "org.regime-driver.head=$GIT_HEAD" \
+      -f docker/Dockerfile.god -t "$img" .
   fi
   if dx ps -a --format '{{.Names}}' | grep -qx "$name"; then
     echo "== $name 已存在: 重启 =="
@@ -83,10 +99,16 @@ up_god() {
   require_key
   echo "== 启动 $name (host 网络, 端口 $GOD_PORT) =="
   # --network host 使容器内 127.0.0.1:<worker_port> 直达宿主的 worker
+  # 挂载当前文档 + 插件/agent 源: god A 路据此读操作手册, 且文档/插件变更
+  # 无需重建镜像即可生效 (消除 8-10 实践发现的"容器内文档缺失/旧插件"漂移)。
   dx run -d --name "$name" --network host \
     -e DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
     -e OPENCODE_GO_API_KEY="$OPENCODE_GO_API_KEY" \
     -e OPENCODE_PORT="$GOD_PORT" \
+    -v "$HERE/docs:/root/work/docs:ro" \
+    -v "$HERE/docker/god-config/opencode.json:/root/.config/opencode/opencode.json:ro" \
+    -v "$HERE/.opencode/agent/god.md:/root/.config/opencode/agent/god.md:ro" \
+    -v "$HERE/.opencode/plugins/regime-god.js:/root/.config/opencode/plugins/regime-god.js:ro" \
     "$img" >/dev/null
   wait_health "http://127.0.0.1:${GOD_PORT}/global/health" "$name"
 }

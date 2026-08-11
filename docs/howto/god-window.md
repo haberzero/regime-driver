@@ -61,4 +61,10 @@ c.send_message(sid, "请调用你的 regime_status 工具检查 worker 健康，
 - god 工具默认 `--base http://127.0.0.1:4097`（worker）；`--network host` 使其在本容器内直达宿主的 worker。
 - 若改用 docker 网络而非 host，需把插件 `BASE` 改为 worker 的可达地址。
 - 改 `regime-god.js` 后需 `docker cp` + `docker restart opencode-god` 生效（或重建镜像）。
+- **权限 ask 死锁（HTTP 驱动必读）**：god agent 的 bash 白名单外的命令会触发 `ask` 权限请求；
+  经 HTTP 程序化驱动时没有交互方应答，会话会永久挂起。列表与应答方式：
+  1. 查看待决请求：`GET /permission`（返回 `[{id, sessionID, permission, metadata.command, ...}]`）。
+  2. 应答：`POST /permission/{id}/reply`，body `{"reply":"once"|"always"|"reject"}`。
+  3. 亦可直接向会话发消息打断（`POST /session/{id}/message`），但最可靠的是应答权限请求。
+  放行原则：只读命令（ls/cat/head/tail/grep/find/which/wc）可 `once`；写操作谨慎，必要时 `reject`。
 - 生产长期运行应把 key 经 secret 管理，勿硬编码。

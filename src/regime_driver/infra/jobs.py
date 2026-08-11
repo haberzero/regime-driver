@@ -26,6 +26,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .proc import pid_alive
+
 
 class JobStatus:
     RUNNING = "running"
@@ -132,11 +134,7 @@ class JobRegistry:
                 data = None
         alive = False
         if data is None and record.get("pid") is not None:
-            try:
-                os.kill(record["pid"], 0)
-                alive = True
-            except (OSError, ProcessLookupError):
-                alive = False
+            alive = pid_alive(record["pid"])
         if data is not None or not alive:
             # subprocess exited (or already wrote its result); no result -> FAILED
             record["status"] = JobStatus.DONE if data is not None else JobStatus.FAILED

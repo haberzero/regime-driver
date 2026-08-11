@@ -1,6 +1,9 @@
 # 改进工作清单与规划（WORK_PLAN 6）— 发布就绪 / 对外宣传准备
 
 > 日期：2026-08-10 · 状态：**II/III/IV/V 大部分已完成（2026-08-10~11）；剩余 I（长期耐久）+ V 剩余（README 双语精校）**
+> 2026-08-11 增补：实践暴露问题已全自主修复（supervisor T2 stall 误报根治 + 僵尸进程 bug + god 容器漂移
+> + A-route 权限死锁 + reporter 噪音 + 易用性），真实 E2E 验证通过（198s COMPLETE 零 ladder）；347 测试绿。
+> 剩余：I 长期耐久验证（2h+）、V README 双语精校、e2e-real 密钥激活。
 > 依据：2026-08-10 复盘结论——内部地基与核心功能（WORK_PLAN5 F1–F11 等）已完整且检验通过，
 > 但**尚不足以对外发布宣传**。本计划把"发布就绪"的硬缺口固化为下一阶段工作重点。
 > 原则：每项过质量门 + 全量测试零回归 + code-review(general agent) + commit，并同步 HANDOVER/TASK/WORK_PLAN。

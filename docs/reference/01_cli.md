@@ -79,6 +79,8 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 | `--container` | str | worker docker 容器名（T1 失联时 L4 重启对象） |
 | `--stall` | int | 会话停滞检测秒数（T2） |
 | `--meta` | flag | 启用智能元分析（真实模型判停滞） |
+| `--reporter` | path | append-only 报告日志路径（单一真源） |
+| `--ledger` | path | 工作流事件 JSONL 账本路径 |
 | `--workspace` | str | 在专用 per-workspace worker 实例中运行 |
 | `--tasks-dir` | path | 受监管任务注册目录 |
 | `--async` | flag | 作为受监管后台任务提交 |
@@ -264,28 +266,28 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 列出受监管任务及其实时状态。
 
-**参数**：`--json`。
+**参数**：`--json`；`--tasks-dir <path>`（注册表目录，默认 `~/.regime/tasks`）。
 **输出**：任务数组，每项含 `{id,status,outcome,goal}`。
 
 ### `task status <task_id>`
 
 显示单个任务的状态与摘要。
 
-**参数**：`--json`。
+**参数**：`--json`；`--tasks-dir <path>`（注册表目录，默认 `~/.regime/tasks`）。
 **输出**：任务记录 JSON。
 
 ### `task logs <task_id>`
 
 打印一个任务捕获的输出。
 
-**参数**：无。
+**参数**：`--tasks-dir <path>`（注册表目录，默认 `~/.regime/tasks`）。
 **输出**：原始输出文本。
 
 ### `task stop <task_id>`
 
 停止运行中的任务（SIGTERM 其 supervisor）。
 
-**参数**：无。
+**参数**：`--tasks-dir <path>`（注册表目录，默认 `~/.regime/tasks`）。
 **输出**：`stopped <id>` 或失败退出码 1。
 **权限**：`clean`。
 
@@ -293,7 +295,7 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 删除一个任务的记录（json/out/summary）。
 
-**参数**：无。
+**参数**：`--tasks-dir <path>`（注册表目录，默认 `~/.regime/tasks`）。
 **输出**：`cleaned <id>`。
 **权限**：`clean`。
 

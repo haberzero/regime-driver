@@ -176,9 +176,21 @@
 > （E2E / god 容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
 > 见下方"下一 session 主线任务（优先级表）"。
 
-### 当前状态速览（2026-08-10）
+### 当前状态速览（2026-08-11）
 
-- **测试基线 333 passed（+6 skip）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 347 passed（+6 skip，覆盖 71%）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **实践暴露问题全自主修复 ✅（2026-08-11，真实 E2E 验证）**：
+  - **supervisor T2 stall 误报根治**：`SessionWatch` 的 `stall_sec` 原是死参数（一停顿即 abort，不等到 60s），
+    重写为时间窗语义 + SSE 活动兑底（排除 `server.connected` 握手）+ 恢复重置 consecutive + 每窗一射。
+    真实 E2E：同一 mini_regime 复刻任务从"连续 5 次误判 escalate→human + L4 重启"变"198s COMPLETE、零 ladder"。
+  - **僵尸进程 bug 根治**：新增 `infra/proc.py` `pid_alive()`（读 `/proc/<pid>/stat`，`Z/X` 判死），
+    `jobs.py`/`task.py` 接入 → 崩溃的 async job/task 不再永久 `running`。
+  - **god 容器环境漂移**：镜像打 `org.regime-driver.head` label，`ops/up.sh` 检测到 git HEAD 变化自动重建；
+    god 运行时挂载当前 docs/god.md/插件/opencode.json；`Dockerfile.god` COPY docs 入镜像。
+  - **A-route 权限死锁**：god.md bash 白名单扩只读命令；`god-window.md` 文档化
+    `GET /permission` + `POST /permission/{id}/reply` 应答（HTTP 驱动无交互时用）。
+  - **reporter 噪音**：drop 高频 `message.part.delta`（supervisor 仍计 raw 事件做 liveness）。
+  - **易用性**：`regime task list/status/logs/stop/clean --tasks-dir`；`regime drive --ledger`。
 - **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
   `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
   持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/
@@ -194,7 +206,7 @@
 - **发布就绪（WORK_PLAN6 III/IV/V 大部分 ✅）**：god 插件去硬编码（`REGIME_BIN`）、文档一致性、
   `README.en.md` 英文版、`SECURITY.md`/`CONTRIBUTING.md`、KNOWN_LIMITS 对外摘要、MIT License。
 - **项目已公开上传 GitHub public**：https://github.com/haberzero/regime-driver （`main`，SSH 认证，已获用户明确授权 push）。
-- 测试基线 333 passed。
+- 测试基线 347 passed。
 - **模型**：默认 `my-opencode-go/deepseek-v4-flash`（OpenCode Go），主机+worker/god 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
 - **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、

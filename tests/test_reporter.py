@@ -52,6 +52,17 @@ def test_worker_event_ingestion() -> None:
     assert rec.session_id == "abc"
 
 
+def test_worker_streaming_delta_dropped() -> None:
+    # high-frequency streaming deltas are noise; they must not pollute the journal
+    r = Reporter()
+    assert r.ingest_worker_event(
+        {"event": "message.part.delta", "data": {"sessionID": "abc"}}) is None
+    assert r.rollup() == []
+    # a meaningful event right after is still recorded
+    rec = r.ingest_worker_event({"event": "message.completed", "data": {"sessionID": "abc"}})
+    assert rec is not None and rec.event_type == "message.completed"
+
+
 def test_journal_persistence(tmp_path) -> None:
     path = tmp_path / "report.jsonl"
     r = Reporter(journal_path=path)

@@ -21,16 +21,7 @@ from pathlib import Path
 DEFAULT_TASKS_DIR = os.environ.get("REGIME_TASKS_DIR", str(Path.home() / ".regime" / "tasks"))
 
 
-def _pid_alive(pid) -> bool:
-    if not pid:
-        return False
-    try:
-        os.kill(int(pid), 0)
-        return True
-    except (PermissionError, ProcessLookupError):
-        return False
-    except (OSError, ValueError, TypeError):
-        return False
+from .infra.proc import pid_alive as _pid_alive
 
 
 def derive(t: dict) -> tuple[str, str | None]:

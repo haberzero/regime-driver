@@ -17,6 +17,15 @@ permission:
     "git log*": allow
     "ls*": allow
     "cat*": allow
+    "which*": allow
+    "head*": allow
+    "tail*": allow
+    "find*": allow
+    "grep*": allow
+    "rg*": allow
+    "wc*": allow
+    "pytest*": allow
+    "python3 -m pytest*": allow
   webfetch: allow
   websearch: deny
 ---

@@ -422,6 +422,8 @@ def drive(
         Settings().model, "--meta-model", help="model for meta-analysis"),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="append-only report journal path (single truth)"),
+    ledger: Optional[Path] = typer.Option(
+        None, "--ledger", help="JSONL event ledger path (workflow events)"),
     tasks_dir: Optional[Path] = typer.Option(
         None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
     skills_dir: Optional[Path] = typer.Option(
@@ -456,6 +458,7 @@ def drive(
             "base_url": base,
             "regime_path": str(regime) if regime else None,
             "default_deadline_sec": deadline,
+            "ledger_path": str(ledger) if ledger else None,
             "skills_dir": str(skills_dir) if skills_dir else None,
         },
     )
@@ -469,6 +472,7 @@ def drive(
             *(["--container", container] if container else []),
             *(["--stall", str(stall)] if stall != 60 else []),
             *(["--reporter", str(reporter)] if reporter else []),
+            *(["--ledger", str(ledger)] if ledger else []),
             *(["--tasks-dir", str(tasks_dir)] if tasks_dir else []),
             *(["--skills-dir", str(skills_dir)] if skills_dir else []),
             *(["--workspace", workspace] if workspace else []),
@@ -1367,12 +1371,14 @@ _task_app = typer.Typer(help="Supervised-task registry (replaces ops/oc-task.py)
 
 @_task_app.command("list")
 def task_list(
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """List supervised tasks with live status (single derive)."""
     from ..task import TaskRegistry
 
-    tasks = TaskRegistry().list()
+    tasks = TaskRegistry(tasks_dir).list()
     if json_out:
         _emit_json({"tasks": tasks})
         return
@@ -1387,12 +1393,14 @@ def task_list(
 @_task_app.command("status")
 def task_status(
     task_id: str = typer.Argument(..., help="task id"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Show one task's status and summary."""
     from ..task import TaskRegistry
 
-    rec = TaskRegistry().get(task_id)
+    rec = TaskRegistry(tasks_dir).get(task_id)
     if rec is None:
         _fail(f"unknown task: {task_id}")
     if json_out:
@@ -1405,21 +1413,25 @@ def task_status(
 @_task_app.command("logs")
 def task_logs(
     task_id: str = typer.Argument(..., help="task id"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
 ) -> None:
     """Print a task's captured output."""
     from ..task import TaskRegistry
 
-    console.print(TaskRegistry().logs(task_id))
+    console.print(TaskRegistry(tasks_dir).logs(task_id))
 
 
 @_task_app.command("stop")
 def task_stop(
     task_id: str = typer.Argument(..., help="task id"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
 ) -> None:
     """Stop a running task (SIGTERM its supervisor)."""
     from ..task import TaskRegistry
 
-    if TaskRegistry().stop(task_id):
+    if TaskRegistry(tasks_dir).stop(task_id):
         _ok(f"stopped {task_id}", markup=False)
     else:
         _fail(f"unknown task: {task_id}")
@@ -1428,11 +1440,13 @@ def task_stop(
 @_task_app.command("clean")
 def task_clean(
     task_id: str = typer.Argument(..., help="task id"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
 ) -> None:
     """Delete a task's records (json/out/summary)."""
     from ..task import TaskRegistry
 
-    TaskRegistry().clean(task_id)
+    TaskRegistry(tasks_dir).clean(task_id)
     _ok(f"cleaned {task_id}", markup=False)
 
 

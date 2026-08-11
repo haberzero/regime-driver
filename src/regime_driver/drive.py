@@ -30,9 +30,17 @@ from typing import Callable
 from .app.reporter import Reporter
 from .app.statechart_driver import StatechartDriver
 from .core.models import Outcome
+from .infra.ledger import Ledger
 from .infra.opencode import OpenCodeClient
 from .infra.settings import Settings
 from .supervisor import Supervisor
+
+
+def _ledger_for(settings: Settings) -> Ledger | None:
+    """Build a Ledger from settings when a ledger path is configured (None = off)."""
+    if not settings.ledger_path:
+        return None
+    return Ledger(settings.ledger_path)
 
 
 @dataclass
@@ -127,6 +135,7 @@ class Drive:
         """
         self.driver = StatechartDriver(
             self.settings, self.sm, self.client, reporter=self.reporter,
+            ledger=_ledger_for(self.settings),
             global_deadline_sec=self.deadline_sec,
         )
         t0 = time.time()
@@ -150,6 +159,8 @@ class Drive:
         )
         sup_outcome = sup.run(stop_when=lambda: "res" in self._result)
         t.join(timeout=5)
+        if self.driver.ledger is not None:
+            self.driver.ledger.close()
         if "res" not in self._result:
             outcome, end, detail = (Outcome.ERROR, None, "drive did not complete")
         else:

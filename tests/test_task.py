@@ -23,6 +23,20 @@ def test_derive_crashed_when_no_pid_no_summary() -> None:
     assert derive({"id": "t", "status": "running", "pid": None})[0] == "crashed"
 
 
+def test_derive_crashed_when_pid_is_zombie_no_summary() -> None:
+    """A zombie pid must not keep the task 'running' (regression)."""
+    import os
+    import time
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    time.sleep(0.3)
+    try:
+        assert derive({"id": "t", "status": "running", "pid": pid})[0] == "crashed"
+    finally:
+        os.waitpid(pid, 0)
+
+
 def test_derive_stopped() -> None:
     assert derive({"id": "t", "status": "stopped", "pid": None})[0] == "stopped"
 
@@ -44,9 +58,10 @@ def test_registry_list_and_status(tmp_path) -> None:
 def test_register_reuses_task_id_for_async_child(tmp_path) -> None:
     """Async drive child reuses the parent's task id (no duplicate record)."""
     reg = TaskRegistry(tmp_path)
-    parent = reg.register(goal="g", deadline=60, pid=111, out_file=str(tmp_path / "p.out"))
+    parent = reg.register(goal="g", deadline=60, pid=999_999_991,
+                          out_file=str(tmp_path / "p.out"))
     # the child re-enters `regime drive` with REGIME_TASK_ID set and re-registers
-    child = reg.register(goal="g", deadline=60, pid=222,
+    child = reg.register(goal="g", deadline=60, pid=999_999_992,
                          task_id=parent["id"])
     assert child["id"] == parent["id"]
     assert child["summary_file"] == parent["summary_file"]

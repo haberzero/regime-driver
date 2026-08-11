@@ -71,6 +71,34 @@ def test_status_refresh_failed_when_no_result(jobs_dir: Path) -> None:
     assert reg.get(job_id)["status"] == JobStatus.FAILED
 
 
+def test_status_refresh_failed_when_pid_is_zombie(jobs_dir: Path) -> None:
+    """A crashed subprocess left as a zombie must NOT keep the job RUNNING.
+
+    Regression: the naive ``os.kill(pid, 0)`` probe returns True for a zombie,
+    so a preflight-failed async run appeared stuck 'running' forever. A zombie
+    with no result file must be derived as FAILED.
+    """
+    import os
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    time.sleep(0.3)  # let the kernel turn it into a zombie
+    try:
+        reg = JobRegistry(jobs_dir)
+        job_id = "j3z"
+        record = {
+            "id": job_id, "type": "run", "title": "", "status": JobStatus.RUNNING,
+            "pid": pid, "created_at": time.time(), "started_at": time.time(),
+            "finished_at": None, "ledger": None,
+            "result_path": str(jobs_dir / f"{job_id}.result.json"),
+            "out_path": str(jobs_dir / f"{job_id}.stdout.log"), "argv": [],
+        }
+        reg._save([record])
+        assert reg.get(job_id)["status"] == JobStatus.FAILED
+    finally:
+        os.waitpid(pid, 0)  # reap the zombie so the test does not leak one
+
+
 def test_launch_subprocess_writes_result(jobs_dir: Path) -> None:
     """The background subprocess really writes a parseable result file."""
     reg = JobRegistry(jobs_dir)

@@ -23,6 +23,14 @@
 - **DELETE /session/{id} 返回 404**：当前 opencode-server（1.18.11）不支持删除远端 session。
   `regime sessions --clean`/`--kill` 只能 **abort**（释放 busy 状态），session 记录本身无法删除，
   会持续累积。归属：`infra/opencode.py` + `cli`。
+- **固化镜像依赖重建刷新**：`opencode-god`/`opencode-worker` 镜像把源码与配置烘焙进镜像；
+  源码变更后未重建（`ops/up.sh` 会在 git HEAD 变化时自动重建，或 `--rebuild` 强制）会导致
+  容器内运行旧包（如 god 无 `flow` 子命令、读不到新文档）。运行面已用 `-v` 挂载当前文档/插件，
+  但 Python 包本体（`regime-driver`）仍以镜像内版本为准。归属：`docker/` + `ops/up.sh`。
+- **HTTP 驱动 god 的权限 ask 需外部应答**：god agent 的 bash 白名单外命令触发 `ask` 权限请求；
+  经 HTTP 程序化驱动（无交互方）时会挂起。需协作者轮询 `GET /permission` 并
+  `POST /permission/{id}/reply`（`{"reply":"once"|"always"|"reject"}`）。详见
+  `docs/howto/god-window.md`。归属：`.opencode/agent/god.md` + opencode 权限系统。
 - **免费 provider 有排队**：`opencode/deepseek-v4-flash-free` 基线慢 4–6 倍于官方
   `deepseek-api/deepseek-v4-flash`（官方有排队时更甚）。系统已默认用官方 API。归属：`infra/settings.py`。
 - **`RolePolicy(transition_mode=ROTATE)` dataclass 遮蔽**：monkey 构造时字段默认值遮蔽类属性，

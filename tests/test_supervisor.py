@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from regime_driver.supervisor import (
@@ -66,13 +68,64 @@ def test_session_watch_first_observe_establishes_baseline():
     assert w.last_message_ts == 100.0
 
 
-def test_session_watch_stall_detection():
+def test_session_watch_not_stalled_within_stall_window():
+    # frozen & busy but only 30s into the 60s window -> NOT stalled (negative case)
     w = SessionWatch(last_output=5, last_message_ts=100.0)
-    # same output, no new message, past stall window -> stalled
+    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True, output=5) is False
+
+
+def test_session_watch_stall_detection_after_window():
+    # frozen & busy continuously past stall_sec -> stalled exactly once
+    w = SessionWatch(last_output=5, last_message_ts=100.0)
+    assert w.is_stalled(now=100.0, stall_sec=60.0, busy=True, output=5) is False
     assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5) is True
+    # window consumed: no re-fire on the next poll while still frozen
+    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=True, output=5) is False
+
+
+def test_session_watch_output_growth_resets_window():
     # output grew -> not stalled, bookkeeping updates
-    assert w.is_stalled(now=200.0, stall_sec=60.0, busy=True, output=9) is False
+    w = SessionWatch(last_output=5, last_message_ts=100.0)
+    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=9) is False
     assert w.last_output == 9
+
+
+def test_session_watch_sse_activity_resets_window():
+    # a long opencode-go generation freezes tokens.output but streams SSE deltas:
+    # SSE activity must keep the session alive, never stalled.
+    w = SessionWatch(last_output=5, last_message_ts=100.0)
+    # SSE delta at +29s resets the window; +30s poll sees no stall
+    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True, output=5,
+                        activity_ts=100.0 + 29.0) is False
+    # SSE keeps arriving (at +69s); +70s poll still no stall
+    assert w.is_stalled(now=100.0 + 70.0, stall_sec=60.0, busy=True, output=5,
+                        activity_ts=100.0 + 69.0) is False
+    # SSE stops at +69s; frozen for 60s afterwards (at +130s) -> finally stalled
+    assert w.is_stalled(now=100.0 + 130.0, stall_sec=60.0, busy=True, output=5,
+                        activity_ts=100.0 + 69.0) is True
+
+
+def test_session_watch_recovery_resets_consecutive_stalls():
+    # a stall window fires once; a recovery (idle) resets the consecutive
+    # counter so a later separate episode starts fresh (no cross-episode
+    # escalation leak).
+    w = SessionWatch(last_output=5, last_message_ts=100.0)
+    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5) is True
+    assert w.consecutive_stalls == 1
+    # session goes idle -> recovery
+    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=False, output=5) is False
+    assert w.consecutive_stalls == 0
+
+
+def test_is_progress_event():
+    from regime_driver.supervisor import _is_progress_event
+    # connection handshake must NOT count as activity (per-poll)
+    assert _is_progress_event("server.connected") is False
+    assert _is_progress_event(None) is False
+    # genuine progress events count
+    assert _is_progress_event("message.part.delta") is True
+    assert _is_progress_event("message.completed") is True
+    assert _is_progress_event("session.idle") is True
 
 
 def test_session_watch_not_stalled_when_idle():
@@ -199,9 +252,78 @@ def test_supervisor_ingests_events(monkeypatch):
     from regime_driver.app.reporter import Reporter
     from regime_driver.infra.opencode import OpenCodeClient
 
-    rep = Reporter(project_id="supervisor")
-    sup = Supervisor(OpenCodeClient("http://x:4097"), rep, session_id="s1")
-    n = sup.ingest_events(max_events=2, stream_timeout=5)
-    assert n == 2
-    recs = rep.journal_slice()
-    assert len(recs) == 2 if rep.journal_path else True  # in-memory ingestion works
+    import tempfile
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="supervisor")
+        sup = Supervisor(OpenCodeClient("http://x:4097"), rep, session_id="s1")
+        n = sup.ingest_events(max_events=2, stream_timeout=5)
+        assert n == 2
+        recs = rep.journal_slice()
+        assert len(recs) == 2  # both events recorded to the journal
+
+
+class _StallLoopClient:
+    """Scripted worker for the Supervisor run-loop T2 test.
+
+    ``events`` yields per-poll SSE streams; each stream starts with
+    ``server.connected`` (the real per-poll handshake) followed by any extra
+    events the test supplies. ``progress`` toggles whether genuine progress
+    events are emitted between polls.
+    """
+
+    def __init__(self, progress: bool):
+        self.progress = progress
+        self.aborts = 0
+        self._t = 0.0
+
+    def health(self):
+        return True
+
+    def event_stream(self, reconnect=False, max_retries=1):
+        yield {"event": "server.connected", "data": {}}
+        if self.progress:
+            yield {"event": "message.part.delta", "data": {"sessionID": "s1"}}
+
+    def session_status(self, sid):
+        return "busy"
+
+    def session_tokens(self, sid):
+        return 0, 5  # frozen output across polls
+
+    def abort_session(self, sid):
+        self.aborts += 1
+
+
+def test_supervisor_t2_fires_on_genuine_stall_not_on_handshake():
+    """Regression for the live-loop wiring: per-poll `server.connected` must not
+    count as session activity (or T2 would never fire); a genuinely frozen-busy
+    session must escalate after stall_sec."""
+    from regime_driver.supervisor import Supervisor, L2_ABORT
+
+    # stall=false: worker always streams progress -> T2 must NEVER fire
+    sup_ok = Supervisor(_StallLoopClient(progress=True), session_id="s1",
+                        stall_sec=0.1, health_poll_sec=0.01)
+    for _ in range(12):
+        sup_ok.ingest_events(max_events=5, stream_timeout=0.05)
+        if sup_ok.watch.is_stalled(
+                time.time(), sup_ok.stall_sec, True, 5,
+                activity_ts=sup_ok._last_activity_ts):
+            break
+    assert sup_ok.watch.consecutive_stalls == 0
+
+    # stall=true: only server.connected handshakes, never progress -> T2 fires
+    # (the frozen output stalls past stall_sec and escalates to abort)
+    sup_bad = Supervisor(_StallLoopClient(progress=False), session_id="s1",
+                         stall_sec=0.1, health_poll_sec=0.01)
+    t0 = time.monotonic()
+    fired = False
+    while time.monotonic() - t0 < 2.0:
+        sup_bad.ingest_events(max_events=5, stream_timeout=0.05)
+        if sup_bad.watch.is_stalled(
+                time.time(), sup_bad.stall_sec, True, 5,
+                activity_ts=sup_bad._last_activity_ts):
+            fired = True
+            break
+    assert fired, "T2 must fire on a genuinely frozen-busy session"
+    assert sup_bad.watch.consecutive_stalls >= 1
