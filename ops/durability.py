@@ -48,10 +48,10 @@ TASK_TEMPLATE = (
 CONTAINER_NAMES = ("opencode-worker", "opencode-god")
 
 
-def _run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], timeout: float = 60.0, **kw) -> subprocess.CompletedProcess:
     """Run a command; never raise — return the CompletedProcess as-is."""
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, **kw)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
     except Exception as exc:  # noqa: BLE001
         return subprocess.CompletedProcess(cmd, -1, stdout="", stderr=str(exc))
 
@@ -66,6 +66,8 @@ def _json(text: str):
 def _sample_session_counts() -> dict:
     p = _run(["conda", "run", "-n", "regime-driver", "regime",
               "sessions", "--json", "--base", BASE])
+    if p.returncode != 0:
+        return {"error": f"sessions cmd failed rc={p.returncode}: {p.stderr[:200]}"}
     data = _json(p.stdout) or {}
     sessions = data.get("sessions", []) if isinstance(data, dict) else []
     return {"sessions": len(sessions),
@@ -87,17 +89,23 @@ def _sample_tasks(root: Path) -> dict:
     tasks_dir = root / "tasks"
     if not tasks_dir.exists():
         return {"tasks": 0, "crashed": 0, "complete": 0, "bytes": 0}
-    files = [f for f in tasks_dir.glob("*.json") if not f.name.endswith(".summary.json")]
+    records = [f for f in tasks_dir.glob("*.json")
+               if not f.name.endswith(".summary.json")]
+    # The drive summary (with the REAL outcome) lands in <id>.summary.json;
+    # the registry record <id>.json keeps status "running" forever, so the
+    # outcome must come from the summary files (mirrors task.derive()).
+    summaries = list(tasks_dir.glob("*.summary.json"))
     crashed = complete = 0
-    for f in files:
+    for f in summaries:
         data = _json(f.read_text(encoding="utf-8"))
-        status = (data or {}).get("outcome") or (data or {}).get("status")
-        if status in ("crashed", "error"):
+        outcome = (data or {}).get("outcome")
+        if outcome in ("crashed", "error"):
             crashed += 1
-        elif status in ("complete", "done"):
+        elif outcome in ("complete", "done"):
             complete += 1
-    return {"tasks": len(files), "crashed": crashed, "complete": complete,
-            "bytes": sum(f.stat().st_size for f in files)}
+    return {"tasks": len(records), "crashed": crashed, "complete": complete,
+            "bytes": sum(f.stat().st_size for f in records)
+                     + sum(f.stat().st_size for f in summaries)}
 
 
 def _sample_docker() -> dict:
@@ -125,8 +133,13 @@ def sample(root: Path, run_round: int, elapsed: float) -> dict:
     return rec
 
 
-def drive_task(root: Path, n: int) -> None:
-    """Submit ONE real supervised drive (async) with fresh task dir/journal/ledger."""
+def drive_task(root: Path, n: int) -> int:
+    """Submit ONE real supervised drive (async); return the submit returncode.
+
+    Drives run on the default worker (opencode-worker). Concurrent submissions
+    stress session accumulation + resource growth, which is the point: the
+    harness observes whether sessions/containers/journal grow without bound.
+    """
     tasks_dir = root / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     journal = root / "journal.jsonl"
@@ -137,7 +150,8 @@ def drive_task(root: Path, n: int) -> None:
            "--deadline", "600", "--reporter", str(journal),
            "--ledger", str(ledger), "--tasks-dir", str(tasks_dir),
            "--async"]
-    _run(cmd)
+    p = _run(cmd, timeout=90.0)
+    return p.returncode
 
 
 def main() -> None:
@@ -153,13 +167,27 @@ def main() -> None:
                     help="min wall time between drive submissions")
     ap.add_argument("--rounds", type=int, default=0,
                     help="max drive submissions (0 = unlimited for the duration)")
+    ap.add_argument("--finalize", action="store_true",
+                    help="regenerate durability-report.json from collected data "
+                         "without running (for a run started by an older harness)")
     args = ap.parse_args()
 
     root = args.root
     root.mkdir(parents=True, exist_ok=True)
+    samples = root / "samples.jsonl"
+
+    if args.finalize:
+        rounds = _max_round(samples)
+        elapsed = _max_elapsed(samples)
+        summary = _summarize(root, rounds, elapsed, samples)
+        report = root / "durability-report.json"
+        report.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                          encoding="utf-8")
+        print(f"[durability] finalized -> {report}")
+        return
+
     # --minutes overrides --hours; both are in human units (hours * 3600).
     duration = (args.minutes if args.minutes > 0 else args.hours * 60.0) * 60.0
-    samples = root / "samples.jsonl"
     start = time.time()
     last_drive = 0.0
     round_no = 0
@@ -172,14 +200,20 @@ def main() -> None:
         if elapsed >= duration:
             break
         # submit a fresh drive when the min cadence has elapsed (round-limited)
+        last_submit_rc = 0
         if round_no == 0 or (elapsed - last_drive >= args.task_sec
                              and (args.rounds == 0 or round_no < args.rounds)):
             round_no += 1
             last_drive = elapsed
-            drive_task(root, round_no)
-            print(f"  [{elapsed:6.1f}s] submitted drive round {round_no}", flush=True)
+            last_submit_rc = drive_task(root, round_no)
+            if last_submit_rc != 0:
+                print(f"  [{elapsed:6.1f}s] WARNING drive round {round_no} "
+                      f"submit rc={last_submit_rc}", flush=True)
+            else:
+                print(f"  [{elapsed:6.1f}s] submitted drive round {round_no}", flush=True)
 
         rec = sample(root, round_no, elapsed)
+        rec["last_submit_rc"] = last_submit_rc
         with samples.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
@@ -199,21 +233,47 @@ def main() -> None:
     print(f"[durability] DONE {elapsed:.0f}s -> {report}", flush=True)
 
 
-def _summarize(root: Path, rounds: int, elapsed: float, samples: Path) -> dict:
-    rows = []
+def _max_round(samples: Path) -> int:
+    best = 0
+    for line in _yield_rows(samples):
+        best = max(best, int(line.get("round", 0)))
+    return best
+
+
+def _max_elapsed(samples: Path) -> float:
+    best = 0.0
+    for line in _yield_rows(samples):
+        best = max(best, float(line.get("t", 0.0)))
+    return best
+
+
+def _yield_rows(samples: Path):
+    """Yield parsed sample dicts, skipping torn lines."""
+    if not samples.exists():
+        return
     with samples.open(encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
-            if line:
-                rows.append(json.loads(line))
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
 
+
+def _summarize(root: Path, rounds: int, elapsed: float, samples: Path) -> dict:
+    rows = list(_yield_rows(samples))
+
+    # a sample that recorded an error is still data (marked), but its inner
+    # fields are missing — skip it when extracting the numeric series.
+    def _ok(r, key):
+        return key in r and isinstance(r[key], dict) and "error" not in r[key]
+
+    session_series = [r["sessions"]["sessions"] for r in rows if _ok(r, "sessions")]
+    busy_series = [r["sessions"]["busy"] for r in rows if _ok(r, "sessions")]
+    journal_series = [r["files"]["journal_bytes"] for r in rows if _ok(r, "files")]
     first, last = rows[0], rows[-1]
-    session_series = [r["sessions"]["sessions"] for r in rows if "sessions" in r
-                      and isinstance(r["sessions"], dict)]
-    busy_series = [r["sessions"]["busy"] for r in rows if "sessions" in r
-                   and isinstance(r["sessions"], dict)]
-    journal_series = [r["files"]["journal_bytes"] for r in rows if "files" in r
-                      and isinstance(r["files"], dict)]
 
     # event-ledger audit: outcome distribution + supervisor ladder events
     outcome_counts: dict[str, int] = {}
@@ -224,7 +284,10 @@ def _summarize(root: Path, rounds: int, elapsed: float, samples: Path) -> dict:
             line = line.strip()
             if not line:
                 continue
-            d = json.loads(line)
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             ev = d.get("event")
             if ev == "outcome":
                 outcome_counts[d.get("outcome", "?")] = outcome_counts.get(d.get("outcome", "?"), 0) + 1
