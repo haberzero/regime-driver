@@ -47,6 +47,35 @@ def test_policy_defaults_only_idle_true():
     assert p.min_age_sec == 0
 
 
+def test_policy_rejects_bool_max_sessions():
+    """bool is an int in Python — a JSON `"max_sessions": true` must NOT enable
+    a near-total teardown (code-review warning)."""
+    p = CleanupPolicy.from_config('{"max_sessions": true}')
+    assert p.enabled is False
+    p2 = CleanupPolicy.from_config('{"max_sessions": 5, "min_age_sec": true}')
+    assert p2.enabled is True
+    assert p2.min_age_sec == 0  # bool coerced to 0, not 1
+
+
+def test_plan_cleans_oldest_by_age_not_insertion():
+    """Oldest-first must follow actual age, not list order."""
+    now = NOW
+    sessions = [
+        {"id": "old", "time": {"created": int(now - 7200) * 1000}},
+        {"id": "mid", "time": {"created": int(now - 3600) * 1000}},
+        {"id": "new", "time": {"created": int(now - 100) * 1000}},
+        {"id": "n2", "time": {"created": int(now - 200) * 1000}},
+        {"id": "n3", "time": {"created": int(now - 300) * 1000}},
+    ]
+    p = CleanupPolicy.from_config('{"max_sessions": 2}')
+    res = plan_cleanup(sessions, p, now=now)
+    # delete 3 oldest: old(7200), mid(3600), n3(300) — NOT by insertion order
+    assert res.deleted_count == 3
+    assert res.deleted[0] == "old"
+    assert res.deleted[1] == "mid"
+    assert res.deleted[2] == "n3"
+
+
 def test_plan_cleans_oldest_excess():
     """120 sessions, cap 100 → delete 20 oldest."""
     sessions = _sessions(120, age_sec=7200)

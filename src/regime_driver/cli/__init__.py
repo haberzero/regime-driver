@@ -799,8 +799,8 @@ def doctor(
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
 
     # accumulated-session hygiene (L2, from durability finding): session records
-    # cannot be deleted (opencode 1.18.11), so a long-running worker accumulates
-    # them; warn at a threshold so the operator knows when to clean/rebuild.
+    # accumulate over long runs; warn at a threshold so the operator knows when
+    # to run the cleanup policy (`regime sessions --cleanup ... --perm clean`).
     if healthy:
         session_count = 0
         try:
@@ -1353,6 +1353,8 @@ def sessions(
     _gate(perm, ["sessions"]
           + (["--clean"] if clean else []) + (["--kill", kill] if kill else [])
           + (["--cleanup"] if cleanup else []))
+    if clean and cleanup is not None:
+        _fail("--clean and --cleanup are mutually exclusive")
 
     from ..app.session_cleanup import CleanupPolicy, run_cleanup
 
@@ -1369,6 +1371,10 @@ def sessions(
         return
     slist = client.list_sessions()
 
+    # Resolve the cleanup policy: explicit --cleanup flag wins; otherwise fall
+    # back to the configured `session_cleanup_policy` setting (reference model).
+    if cleanup is None:
+        cleanup = load_settings().session_cleanup_policy
     if cleanup is not None:
         policy = CleanupPolicy.from_config(cleanup)
         if not policy.enabled:

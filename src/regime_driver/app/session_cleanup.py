@@ -15,8 +15,10 @@ Semantics:
       this, delete enough oldest idle sessions to bring it back to this value.
     * ``min_age_sec`` (int): only delete sessions older than this many seconds
       (0 = any age).
-    * ``only_idle`` (bool, default true): only delete idle sessions; busy sessions
-      are NEVER deleted (deleting an in-flight session would corrupt the run).
+    * ``only_idle`` (bool, default true): the default safety posture.
+      **Safety floor (never configurable away)**: a session currently in the
+      worker's busy status map is NEVER deleted — deleting an in-flight session
+      would 404 the next send_message and break that run.
 
 Design rules:
     * Deterministic, pure: ``plan_cleanup`` returns a list of session ids to
@@ -28,6 +30,7 @@ Design rules:
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -54,10 +57,12 @@ class CleanupPolicy:
         if not isinstance(data, dict):
             return cls(enabled=False)
         max_sessions = data.get("max_sessions")
-        if not isinstance(max_sessions, int) or max_sessions <= 0:
+        # bools are ints in Python; `"max_sessions": true` must NOT enable a
+        # near-total teardown. Require an actual int.
+        if type(max_sessions) is not int or max_sessions <= 0:
             return cls(enabled=False)
         min_age = data.get("min_age_sec", 0)
-        if not isinstance(min_age, int) or min_age < 0:
+        if type(min_age) is not int or min_age < 0:
             min_age = 0
         only_idle = data.get("only_idle", True)
         if not isinstance(only_idle, bool):
@@ -139,10 +144,15 @@ def plan_cleanup(sessions: list[dict], policy: CleanupPolicy,
     if over <= 0:
         return result
 
+    # SAFETY FLOOR (independent of only_idle): a session the driver is actively
+    # using is NEVER eligible — deleting an in-flight/referenced session would
+    # 404 the next send_message and break that run. only_idle is the default
+    # posture; busy_ids from the live status map is the enforced subset.
     candidates: list[tuple[int, str]] = []  # (age, session_id)
     for s in sessions:
         sid = s.get("id")
         if not sid:
+            result.skipped_busy += 1  # unknown identity = not deletable
             continue
         if sid in busy_ids:
             result.skipped_busy += 1
@@ -177,7 +187,6 @@ def run_cleanup(client, sessions: list[dict], policy: CleanupPolicy,
             client.delete_session(sid)
             actually.append(sid)
         except Exception as exc:  # noqa: BLE001 — cleanup is best-effort
-            import logging
             logging.getLogger(__name__).warning(
                 "session cleanup: delete %s failed: %s", sid, exc)
     plan.deleted = actually
