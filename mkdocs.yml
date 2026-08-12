@@ -59,7 +59,7 @@ nav:
           - supervisor: subsystems/04_supervisor.md
           - chaos: subsystems/05_chaos.md
           - dialog control: subsystems/06_dialog_control.md
-          - dialog control 接入形态: subsystems/07_dialog_control_access.md
+          - dialog control 载体: subsystems/07_dialog_control_carrier.md
           - mock: subsystems/08_mock.md
           - 测试架构: subsystems/09_testing_architecture.md
       - 控制对话框容器验证窗: howto/dialog-control-window.md

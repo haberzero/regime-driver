@@ -90,7 +90,7 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 | `regime report --journal <path> --template milestone\|blocker\|period\|activity [--since ts] [--json]` | 规则化模板报告（关键转折/阻塞/时段/操作日志） |
 
 > 控制对话框一次 `regime report --json` 拿全量，无需反复 CLI。归属键区分 workflow/session/状态机。
-> 见 `../subsystems/07_dialog_control_access.md`。
+> 见 `../subsystems/07_dialog_control_carrier.md`。
 
 ### 3.7 对话式控制面（可选，程序化）
 | 命令 | 用途 |
@@ -141,5 +141,5 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 
 ## 7. 文档导航（需要时查阅）
 
-`docs/README.md`（导航）→ `docs/architecture/02_statechart_network.md`（架构）→ `docs/subsystems/07_dialog_control_access.md`
-（接入形态）→ `KNOWN_LIMITS.md`（边界）→ `docs/howto/*`（实操）。书写准则 `docs/WRITING_GUIDE.md`。
+`docs/README.md`（导航）→ `docs/architecture/02_statechart_network.md`（架构）→ `docs/subsystems/07_dialog_control_carrier.md`
+（载体决策）→ `KNOWN_LIMITS.md`（边界）→ `docs/howto/*`（实操）。书写准则 `docs/WRITING_GUIDE.md`。

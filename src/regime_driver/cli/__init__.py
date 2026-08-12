@@ -2264,7 +2264,7 @@ def events(
     """Read (or tail) the JSONL event ledger, one JSON event per line.
 
     Events are written by `regime run/run-many --ledger <path>` and by the
-    runtime's Ledger. This is the event-stream surface for the dialog control.
+    runtime's Ledger. This is the event-stream surface for the dialog carrier.
     """
     path = ledger or (Settings().ledger_path or None)
     if not path:

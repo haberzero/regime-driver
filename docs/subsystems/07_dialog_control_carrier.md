@@ -1,17 +1,17 @@
-# 控制对话框接入形态
+# 控制对话框载体决策
 
-> 本文记录控制对话框的接入形态：**opencode 作为人类对话承载（A 路）+ 自研 DialogControlUnit 作为
+> 本文记录控制对话框的载体选择：**opencode 作为人类对话载体（A 路）+ 自研 DialogControlUnit 作为
 > 程序化面（B 路）并行共存**，共用同一确定性后端与 CLI 契约。面向需要理解或接入控制对话框双路的开发者。
 
 ## 1. 结论（可行性量化）
 
 | 方案 | 可行性 | 说明 |
 |---|---|---|
-| opencode 作控制对话框承载 | **高 ~85%** | 对话层/UI/权限/工具调用全由 opencode 提供；剩余主要是 CLI 契约升级 |
+| opencode 作控制对话框载体 | **高 ~85%** | 对话层/UI/权限/工具调用全由 opencode 提供；剩余主要是 CLI 契约升级 |
 | 全自研 agent | 高但成本高 | 能拿到原生事件订阅/确定性/精确权限，但要重造 opencode |
 | 双路并行共存 | **高 ~80%，最佳终态** | 同一后端两个接入面，非替代关系 |
 
-## 2. opencode 支撑承载能力（调研结论）
+## 2. opencode 支撑载体能力（调研结论）
 
 - **Custom tools 插件**（`tool()` + Zod schema）：把 regime 命令注册成原生工具，比裸 bash 可靠。
 - **权限系统**：按工具/按 agent 的 `allow/ask/deny`、`external_directory`、`doom_loop`（同工具 3 次拦截）。

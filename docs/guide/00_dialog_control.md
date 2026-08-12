@@ -308,7 +308,7 @@ CLI 契约（regime 命令，唯一真源）        ← 对话框只说这一种
 |---|---|---|
 | 启动 | `opencode serve --pure`（**强制无插件**） | `opencode serve`（带插件） |
 | 插件 | 零插件 | `regime-dialog-control.js`（把 CLI 包装成 god 原生工具） |
-| 职责 | **干净地干活**：被 regime-driver 通过 HTTP 驱动，只执行不自治 | 承载控制对话框，对话承载 |
+| 职责 | **干净地干活**：被 regime-driver 通过 HTTP 驱动，只执行不自治 | 承载控制对话框，对话载体 |
 
 **为什么 worker 必须是干净的**：worker 只负责执行，所有"制度"（流程、审查、监督、报告）都住在
 regime-driver 这一层，通过 HTTP 驱动它。如果 worker 装了插件，它就有了"自己决定怎么做"的能力——
@@ -316,7 +316,7 @@ regime-driver 这一层，通过 HTTP 驱动它。如果 worker 装了插件，�
 流程确定性地执行，而不是被 worker 自己的插件干扰。
 
 **god 为什么带插件**：god 是对话层，`regime-dialog-control.js` 只是把 `regime` CLI 命令包装成 opencode
-原生工具，让对话框能调用底层命令。它属于"对话承载"，不是"执行器"。**它需要插件，但 worker 不需要。**
+原生工具，让对话框能调用底层命令。它属于"对话载体"，不是"执行器"。**它需要插件，但 worker 不需要。**
 
 所以：regime-driver 对 opencode 的依赖，全部是它原生提供的 **HTTP REST + SSE API**（session /
 message / health / event），在 `--pure`（无插件）下就完整可用。你**不需要**给 worker 装任何插件。

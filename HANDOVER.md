@@ -178,8 +178,10 @@
 > opencode-dialog-control、regime-god.js→regime-dialog-control.js、god.md→dialog-control.md、
 > `God>`→`Dialog>`、工作流 id 前缀 god-→dialog-、scaffold `--god`→`--assistants`）；
 > 舰队→**并行任务**（Fleet→Parallel、fleet.py→parallel.py、dialog 命令 fleet→parallel）；
-> 宪法→**安全看门狗**（ConstitutionUnit→WatchdogUnit、constitution_unit.py→watchdog_unit.py）；
-> 载体→承载/接入。tasks_docs 历史档案保留旧词。活文件旧词残留 grep=0（经 general review 复核并清零）。
+> 宪法→**安全看门狗**（ConstitutionUnit→WatchdogUnit、constitution_unit.py→watchdog_unit.py）。
+> **载体/承载（carrier）恢复原样**（用户指示：该词使用正常，无需修改；07 文件为
+> `07_dialog_control_carrier.md`，文档仍用"载体决策/对话载体/作载体"）。
+> tasks_docs 历史档案保留旧词。活文件旧词残留 grep=0（经 general review 复核并清零）。
 
 - **测试基线 413 collected（全绿，覆盖 72%）**，分支 `main`，干净工作树。
 - **文档站完整重构（✅ 2026-08-12）**：MkDocs + Read the Docs 主题（`https://haberzero.github.io/regime-driver/`）。
@@ -305,7 +307,7 @@
 
 阅读顺序：`docs/README.md`（导航，先看）→ `docs/CLI_REFERENCE.md`（命令/配置参考）→ `docs/guide/`（教程）→ `docs/ARCHITECTURE.md`（架构，`architecture/02_statechart_network.md` 最终架构）→ `docs/SUBSYSTEM_DESIGN.md`（子系统，`subsystems/*`）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`workflow-regime/skills/doc-governance/SKILL.md`。
 
-**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（看门狗=无智能状态机+根不变量运行时强制）**；**控制对话框双路：opencode 作承载（A 路）+ DialogControlUnit 程序化面（B 路），共用 CLI 契约**。
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（看门狗=无智能状态机+根不变量运行时强制）**；**控制对话框双路：opencode 作载体（A 路）+ DialogControlUnit 程序化面（B 路），共用 CLI 契约**。
 
 ### 里程碑进度
 

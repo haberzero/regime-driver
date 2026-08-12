@@ -6,7 +6,7 @@
 
 ## 控制对话框有两条路
 
-- **A 路（推荐，opencode 作承载）**：一个 opencode `dialog-control` agent，通过 `regime` CLI 契约控制/监控系统。
+- **A 路（推荐，opencode 作载体）**：一个 opencode `dialog-control` agent，通过 `regime` CLI 契约控制/监控系统。
   这是最接近"可对话的控制体系"的形态；操作手册 `docs/reference/05_dialog_control_contract.md` + `docs/KNOWN_LIMITS.md`。
 - **B 路（程序化 REPL）**：`regime dialog` 交互式提示符，是 CLI 的对话包装（对等状态机单元）。
 
@@ -55,4 +55,4 @@ regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker +
 - **权限**：写操作（start/design/talk/run/send/clean）统一走 `--perm` 分级门禁；
   CLI 显式开启（如 `regime dialog --perm run`）；程序化构造 `DialogControlUnit` 默认只读（`allow_write=False`）。
 - 对话框是**对等状态机单元**，共享同一 Runtime/黑板，故能实时看到 workflow 指标。见 `docs/subsystems/06_dialog_control.md`。
-- 接入形态见 `docs/subsystems/07_dialog_control_access.md`。
+- 载体决策见 `docs/subsystems/07_dialog_control_carrier.md`。

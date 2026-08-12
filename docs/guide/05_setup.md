@@ -70,7 +70,7 @@ ops/up.sh all
 worker 默认端口为 4097，dialog-control 默认端口为 4098。
 
 > **worker 与 dialog-control 是两个不同的 opencode 实例**：worker 是"干净的执行器"（无插件、只被
-> regime-driver 通过 HTTP 驱动干活），dialog-control 是"对话承载"（带插件，承载控制对话框）。
+> regime-driver 通过 HTTP 驱动干活），dialog-control 是"对话载体"（带插件，承载控制对话框）。
 > 为什么这样分层，见 [控制对话框（第一入口）](00_dialog_control.md)。
 
 ### 4. 方式 B：配置主机 opencode

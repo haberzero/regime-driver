@@ -4,7 +4,7 @@ The regime CLI contract is the single control surface. Its commands have side
 effects of varying severity, so we classify each into an ordered permission
 level and let an operator (human or the ``dialog-control`` agent) hold a level. Any
 operation requiring a higher level than held is rejected up front — a uniform
-gate shared by the CLI and the dialog-control surface (对接 DialogControlUnit.allow_write).
+gate shared by the CLI and the dialog carrier (对接 DialogControlUnit.allow_write).
 
 Levels (least -> most privileged)::
 
