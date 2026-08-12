@@ -53,25 +53,31 @@ conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --god 
 3. `python -m twine upload dist/*`（PyPI 正式源或 `--repository testpypi`）
 4. 发布后验证：`pip install regime-driver` → `regime doctor` → `regime scaffold`。
 
-### GitHub Pages 文档站（WORK_PLAN7 V-1，启用中）
+### GitHub Pages 文档站（WORK_PLAN7 V-1，MkDocs + Read the Docs 主题）
 
-用现有 `docs/`（Divio 结构）发布为静态站点。**启用步骤（维护者操作）**：
+用 MkDocs 把 `docs/` 构建为 Read the Docs 风格的静态站点（左侧导航、搜索、面包屑）。
 
-1. 仓库 Settings → **Pages**（左侧栏）。
-2. **Source / 构建与部署**：选 **Deploy from a branch** → **Branch** 选 `main` → 目录选 **`/docs`** → **Save**。
-3. 首次构建需等 1–3 分钟；构建成功后站点地址显示在 Pages 页顶部（
-   `https://haberzero.github.io/regime-driver/`）。
-4. 首页即 `docs/README.md`（Divio 导航枢纽），各子目录文档经其相对链接可达。
+**技术栈**：`mkdocs.yml`（`docs_dir: docs`，`theme: readthedocs`，完整 `nav` 导航）+ 内置 search 插件。
+生成物输出到 `site/`（gitignore，不入库）。
 
-**已知坑（已核实）**：GitHub Pages 默认用 Jekyll 渲染 Markdown，`.md` 相对链接在 HTML 站点里
-会 404。**两个可选对策**：
-- **A（推荐，零依赖）**：在仓库根加 `.nojekyll` 空文件 → Pages 以纯静态方式原样伺服 `docs/`，
-  `.md` 文件保留为可下载/可点开的原始 Markdown（GitHub 会自动渲染预览）。成本最低、不断链。
-- **B（完整站点）**：仓库根加 `_config.yml`（`include: [docs]` + 链接改写），或换用
-  `mkdocs`/`vitepress` 生成静态站点推到 `gh-pages` 分支——更美观但需维护生成配置。
+**部署方式（二选一）**：
 
-**当前建议**：先走 A（`.nojekyll`）保证断链零、成本零；未来需要精美站点再升级到 B。
-`.nojekyll` 文件在启用前由本仓库提交。
+- **A. GitHub Actions（推荐，自动）**：`.github/workflows/docs.yml` 在 push 到 `main`（改 `docs/` 或
+  `mkdocs.yml`）时自动 `mkdocs build` + 部署。**需要把 Pages 源改为 "GitHub Actions"**：
+  Settings → Pages → Source 选 **GitHub Actions**。
+- **B. 手动 gh-deploy**：本地 `conda run -n regime-driver mkdocs gh-deploy`（推 `site/` 到 `gh-pages`
+  分支）。**需要把 Pages 源改为 "Deploy from a branch: gh-pages / (root)"**。
+
+**启用步骤（A 案，推荐）**：
+1. 本仓库已提交 `mkdocs.yml` + `.github/workflows/docs.yml`。
+2. GitHub → Settings → **Pages** → **Source** 选 **GitHub Actions**。
+3. push 到 `main`（或手动触发 `docs` workflow）后，站点部署在
+   `https://haberzero.github.io/regime-driver/`。
+
+**本地预览**：`conda run -n regime-driver mkdocs serve`（http://127.0.0.1:8000）。
+
+**旧方案说明**：早期用 `.nojekyll`（Pages 从 `main/docs` 原样伺服 `.md`）效果为"纯 Markdown 无渲染"，
+已弃用——`.nojekyll` 保留但不再需要（MkDocs 生成的 HTML 站点替代）。
 
 ## 4. 许可与免责复核（对外发布前必须确认）
 

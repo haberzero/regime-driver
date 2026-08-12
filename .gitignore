@@ -36,5 +36,8 @@ docker/worker-config/.local.*
 .coverage
 htmlcov/
 
+# MkDocs 生成物（不入库；由 GitHub Actions / gh-deploy 构建部署）
+site/
+
 # 参考用另一项目文档（不入库）
 docs-ref/

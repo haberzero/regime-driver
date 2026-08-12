@@ -1,0 +1,75 @@
+site_name: regime-driver
+site_description: L1 制度流程机器人（OA 系统）— 把制度化流程编译成状态机，驱动干净 opencode worker 完成任务
+site_url: https://haberzero.github.io/regime-driver/
+repo_url: https://github.com/haberzero/regime-driver
+edit_uri: edit/main/docs/
+
+# Read the Docs 风格主题（用户指定）：蓝白、左侧导航、面包屑、搜索。
+theme:
+  name: readthedocs
+  highlightjs: true
+  prev_next_buttons_location: bottom
+  navigation_depth: 4
+  titles_only: false
+
+docs_dir: docs
+site_dir: site
+
+nav:
+  - 首页: README.md
+  - 教程:
+      - 心智模型: guide/00_00_mental_model.md
+      - 安装环境: guide/00_environment.md
+      - 配置模型与密钥: guide/01_setup.md
+      - 第一次跑任务: guide/02_first_run.md
+      - 设计并热重载流程: guide/03_design_flow.md
+      - 并发跑舰队: guide/04_run_fleet.md
+      - 上帝对话框: guide/05_god_dialog.md
+      - 发布教程: guide/06_release.md
+  - 命令行参考:
+      - CLI 参考总览: CLI_REFERENCE.md
+      - CLI 命令契约: reference/01_cli.md
+      - 配置参考: reference/02_configuration.md
+      - 流程规格: reference/03_flow_spec.md
+      - 权限门禁: reference/04_permissions.md
+      - 上帝对话框契约: reference/05_god_dialog_contract.md
+  - 架构:
+      - 架构总览: ARCHITECTURE.md
+      - 设计原则: architecture/01_principles.md
+      - 最终架构（状态机网络）: architecture/02_statechart_network.md
+      - 边界: architecture/03_boundary.md
+  - 子系统:
+      - 子系统总览: SUBSYSTEM_DESIGN.md
+      - drive: subsystems/01_drive.md
+      - worker 隔离: subsystems/02_worker_isolation.md
+      - fleet: subsystems/03_fleet.md
+      - supervisor: subsystems/04_supervisor.md
+      - chaos: subsystems/05_chaos.md
+      - god dialog: subsystems/06_god_dialog.md
+      - god dialog carrier: subsystems/07_god_dialog_carrier.md
+      - mock: subsystems/08_mock.md
+      - 测试架构: subsystems/09_testing_architecture.md
+  - 操作指南:
+      - howto 总览: howto/README.md
+      - 跑真实 E2E: howto/run-e2e.md
+      - 用 mock 离线调试: howto/debug-with-mock.md
+      - 并发多 workflow: howto/run-many-sessions.md
+      - 上帝对话框操作: howto/god-dialog.md
+      - god 容器验证窗: howto/god-window.md
+      - 主机模式 agent: howto/host-mode-agents.md
+  - 边界与治理:
+      - 已知限制: KNOWN_LIMITS.md
+      - 技术债: TECH_DEBT.md
+      - 书写准则: WRITING_GUIDE.md
+      - 耐久报告: durability_report.md
+      - 供给就绪审查: release_readiness_audit.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
+  - admonition
+
+plugins:
+  - search
