@@ -45,10 +45,10 @@
 | [边界](architecture/03_boundary.md) | 系统边界与责任划分 |
 | [子系统总览](SUBSYSTEM_DESIGN.md) | 各子系统实现导航 |
 | [上帝对话框契约](reference/05_god_dialog_contract.md) | 对话控制契约 |
-| [技术债登记](TECH_DEBT.md) | 已知问题清单（开发前必读） |
 | [书写准则](WRITING_GUIDE.md) | 文档书写纪律（强制） |
-| [耐久性报告](durability_report.md) | 2h 真实运行验证记录 |
-| [供给就绪审查](release_readiness_audit.md) | 对外发布缺口审查快照 |
+
+> **内部过程/审计文档**（技术债、耐久报告、供给就绪审查）属工程过程产物，不进公开文档站；
+> 存于仓库 `tasks_docs/` 与根目录，供内部查阅。
 
 > **说明**：供 agent 执行的内部配置（skills、god 助手、workflow-regime 流程模板）是机器专用内容，
 > **不在本站点**。它们随 wheel 打包，经 `regime scaffold` 部署到运行环境。

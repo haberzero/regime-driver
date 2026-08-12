@@ -155,7 +155,7 @@
 - **`opencode-god` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + god.md + regime-god 插件，非 `--pure`。见 `docs/howto/god-window.md`。
 - **测试基线**：255 passed（+2 skip E2E 门控）。真实 worker E2E 已打通（REGIME_E2E=1）+ god A 路 HTTP 驱动打通。死代码守卫 + CLI 命令级测试已加。
 - **CLI 契约**：`regime` 命令集 `run/run-many/validate --deep/preflight/gate/status/sessions/session/events/dialog/job/report/task/supervisor` 全部 `--json` + 权限门禁（`--perm`，配置 ceiling 不可自提权）。
-- **技术债治理完成**：G1–G14 全清（`docs/TECH_DEBT.md`）；权限/保障默认强制；文档单点真理收口。
+- **技术债治理完成**：G1–G14 全清（`TECH_DEBT.md`）；权限/保障默认强制；文档单点真理收口。
 - 工作区已清理测试产物。
 
 ## 7. 主目录污染清单（已迁移/清理完成）
@@ -182,7 +182,7 @@
 - **长期耐久验证（WORK_PLAN6 I L1+L3 ✅，2026-08-12）**：2h 真实运行（7205s，38 drive）零崩溃/
   停滞/重启（ladder=0），资源线性有界增长（session 16→96、内存 +231MB/2h、journal 3.4MB），
   worker 全程健康。完成率 27/38（11 个 timeout 命中 600s deadline，根因=验证过度订阅单 worker，
-  非系统缺陷）。报告 `docs/durability_report.md`；结果记入 KNOWN_LIMITS。
+  非系统缺陷）。报告 `tasks_docs/durability_report.md`；结果记入 KNOWN_LIMITS。
 - **L2 资源治理（✅ 2026-08-12）**：`regime doctor` 增 "session hygiene" 检查（累积 session ≥
   `session_hygiene_threshold`(默认100) 警告清理/重建）；`regime drive` 增 `--prune-max-records/
   --prune-max-age`（收尾自动 journal 保留，best-effort）。
@@ -246,7 +246,7 @@
   **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）+
   **`Fleet` 并发隔离舰队** + **`chaos` 故障注入/恢复演练**。
 - **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild，注入 opencode-go key）。
-- **技术债**：G1–G14 全清（`docs/TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
+- **技术债**：G1–G14 全清（`TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
 - **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/god_dialog/worker/fleet/chaos）+
   CLI 命令级测试 `test_cli.py`。

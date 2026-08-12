@@ -30,7 +30,6 @@ nav:
       - 设计并热重载流程: guide/03_design_flow.md
       - 并发跑舰队: guide/04_run_fleet.md
       - 上帝对话框入门: guide/05_god_dialog.md
-      - 发布教程: guide/06_release.md
       - 操作指南:
           - howto 总览: howto/README.md
           - 跑真实 E2E: howto/run-e2e.md
@@ -63,10 +62,8 @@ nav:
           - 测试架构: subsystems/09_testing_architecture.md
       - 上帝对话框契约: reference/05_god_dialog_contract.md
       - god 容器验证窗: howto/god-window.md
-      - 技术债登记: TECH_DEBT.md
+      - 发布教程（维护者）: guide/06_release.md
       - 书写准则: WRITING_GUIDE.md
-      - 耐久性报告: durability_report.md
-      - 供给就绪审查: release_readiness_audit.md
 
 markdown_extensions:
   - toc:

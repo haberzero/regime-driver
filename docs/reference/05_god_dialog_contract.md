@@ -1,8 +1,9 @@
 # 上帝对话框操作手册
 
-> 对象：充当"上帝对话框"的 opencode agent（即你，读本手册并照此操作 regime-driver）。
-> 目标：让你仅凭本文档 + CLI 的 `--help`/`--json` 就能**完备、精确、准确**地控制/监控整个系统，
-> 无需猜测。任何不一致以 `regime <cmd> --help` 与源代码为准；有疑问先查 `docs/KNOWN_LIMITS.md`。
+> 面向：需要对话式控制/监控整个系统的使用者，以及实现对话框的开发者。
+> 内容：CLI 契约 + 操作流程。任何不一致以 `regime <cmd> --help` 与源代码为准；
+> 有疑问先查 `docs/KNOWN_LIMITS.md`。
+> 注：供 god agent 执行的对话操作手册是机器专用配置，由 `regime scaffold --god` 部署，不在此站展示。
 
 ---
 
@@ -129,9 +130,10 @@
 ## 6. 红线 / 须知
 
 - **写操作有权限门禁**：CLI 程序化构造的 `GodDialogUnit` 默认只读（`allow_write=False`）；
-  REPL `regime dialog` 已显式开启写。你用 CLI 时，`run/run-many/session send/sessions --clean/--kill` 是写操作。
-- **安全兜底在确定性后端**（宪法/根不变量，`Runtime.start` 强制），你作为对话层无需、也不能绕过。
-- **事实以源代码为准**；文档如有矛盾，报"待验证"，勿擅改代码。
+  REPL `regime dialog` 已显式开启写。`run/run-many/session send/sessions --clean/--cleanup/--kill`
+  是写操作，需相应 `--perm`。
+- **安全兜底在确定性后端**（宪法/根不变量，`Runtime.start` 强制）；对话层无需也不能绕过。
+- **事实以源代码为准**；文档如有矛盾，报告"待验证"，勿擅改代码。
 - 变更历史归 git；本文档只描述当前状态。
 
 ## 7. 文档导航（需要时查阅）

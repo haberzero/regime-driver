@@ -23,7 +23,7 @@
 > **零崩溃/停滞/重启/升级（ladder=0）；资源线性有界增长（session 16→96、内存 466→697MB、
 > journal 3.4MB）；worker 全程健康。** 完成率 27/38——11 个 `supervisor=timeout` 命中 600s deadline，
 > 根因是验证自身过度订阅（单 worker 每 150s 发一个、积压至并发 busy 13），**非系统缺陷**（supervisor
-> deadline 执行正确）。报告见 `docs/durability_report.md`。
+> deadline 执行正确）。报告见 `tasks_docs/durability_report.md`。
 
 > 现状：L1–L3 未验证；"2h+ 不泄漏/能恢复"是核心卖点却未被证明，对外宣传站不住。
 

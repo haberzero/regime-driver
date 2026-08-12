@@ -8,9 +8,9 @@
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
 > - **耐久验证（2h+）**：2026-08-12 完成 2h 真实验证——零崩溃/停滞/重启，资源线性有界增长
->   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。结论与数据见
->   `docs/durability_report.md`。已知边界：**session 记录无法删除只能 abort**（见下方行为限制），
->   长期（多天）运行需定期清理或重建容器。
+>   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。完整记录见仓库
+>   `tasks_docs/durability_report.md`（内部验证产物，不进公开站）。已知边界：**session 记录累积**
+>   （见下方行为限制），长期（多天）运行可用 `regime sessions --cleanup` 清理或重建容器。
 > - **GitHub 真实模型 E2E 已封存**：CI 内不再跑真实 worker E2E（2026-08-11 起，长期不列入计划；
 >   需 `OPENCODE_GO_API_KEY` secret）。`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 > - **项目特定默认**：默认模型（`deepseek-api/deepseek-v4-flash`，DeepSeek 官方 API）、端口、目录为项目配置，需自行适配。
@@ -32,8 +32,8 @@
 - **~~DELETE /session/{id} 返回 404~~（已更正 2026-08-12）**：实测 opencode 1.18.11 的
   `DELETE /session/{id}` **真正删除** session 记录（从 `GET /session` 列表与 `/session/status` map
   都移除，含 idle 与 busy 会话）。早期"无法删除只能 abort"的结论有误。`regime sessions --clean`
-  现可真正清理累积 session。自动清理策略见 `docs/durability_report.md §4.3` + 配置
-  `session_cleanup_*`（可自定义，参考模型非强制）。归属：`infra/opencode.py` + `cli`。
+  现可真正清理累积 session。自动清理策略配置 `session_cleanup_*`（可自定义，参考模型非强制）。
+  归属：`infra/opencode.py` + `cli`。
 - **session 状态不一致（message 404 + status busy）**：容器重启后，旧 session 的 `/session/{id}/message`
   可能 404，但 `/session/status` 仍报 busy（状态 map 残留）。受影响的 workflow 会在该会话上卡住
   （`_step_judge`/`_step_agent` 轮询死会话）。规避：`regime sessions --clean`（现可真正删除）或重启容器；

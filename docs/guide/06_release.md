@@ -8,7 +8,7 @@
 
 项目已公开于 GitHub（`haberzero/regime-driver`）。"发布"不等于"clone 源码跑"——
 pip 安装的 wheel 必须自带官方模板（agents/skills/god 助手/docker 配方），否则用户
-`regime preflight` 必败。硬缺口的审查快照见 `docs/release_readiness_audit.md`。
+`regime preflight` 必败。硬缺口的审查快照见 `tasks_docs/release_readiness_audit.md`。
 
 **当前状态**：模板已随 wheel 打包（`src/regime_driver/data/`），`regime scaffold`
 一键生成配置，单一真源 + CI 漂移守卫已就位。
@@ -85,7 +85,7 @@ conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --god 
   `CONTRIBUTING.md`（工作流/约定）、README 中英免责声明 — 均已就位。
 - `docs/KNOWN_LIMITS.md` 按"对外使用"姿态复核：默认模型/端口/目录为项目特定配置，
   需用户自行适配；无外部安全审计。**耐久验证已完成**（2h 真实运行稳定、资源有界增长，
-  见 `docs/durability_report.md`）。
+  见 `tasks_docs/durability_report.md`）。
 
 ## 5. 发布后收尾
 
