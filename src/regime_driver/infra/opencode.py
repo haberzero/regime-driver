@@ -277,6 +277,49 @@ class OpenCodeClient:
         except OpenCodeError:
             return False
 
+    def health_info(self) -> dict:
+        """Return the raw health payload (healthy flag + server version, if any).
+
+        Best-effort: on transport failure returns ``{"healthy": False}`` so
+        callers can distinguish "unreachable" from "reported unhealthy".
+        """
+        try:
+            res = self._request("GET", "/global/health", timeout=5.0)
+            if not isinstance(res, dict):
+                return {"healthy": False}
+            return res
+        except OpenCodeError:
+            return {"healthy": False}
+
+    def check_version(self, supported: str | None = None) -> tuple[bool, str | None]:
+        """Verify the worker's reported opencode version against the pinned one.
+
+        Returns ``(ok, server_version)``. ``ok`` is True when the version is
+        unknown (server did not report one) or matches the pinned major.minor —
+        the pinned contract (SSE/session endpoints) is checked at major.minor
+        granularity, not patch. ``supported`` defaults to ``SUPPORTED_OPCODE``.
+        """
+        info = self.health_info()
+        version = info.get("version") if isinstance(info, dict) else None
+        if not version:
+            return True, None
+        supported = supported or SUPPORTED_OPCODE
+        return _version_compatible(version, supported), version
+
+
+# opencode server contract version this package is built & tested against.
+# The client depends on internal HTTP API surface (SSE /event, session
+# endpoints, message.completed timing) that can drift between major.minor.
+SUPPORTED_OPCODE = "1.18.11"
+
+
+def _version_compatible(server: str, supported: str) -> bool:
+    """major.minor match is required; patch may differ (bugfixes are safe)."""
+    def _mm(v: str) -> str:
+        parts = v.strip().split(".")
+        return ".".join(parts[:2])
+    return _mm(server) == _mm(supported)
+
 
 def _model_obj(model: str) -> dict:
     """'deepseek-api/deepseek-v4-flash' -> {'providerID','modelID'} (message

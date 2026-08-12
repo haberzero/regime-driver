@@ -14,7 +14,9 @@
 > - **GitHub 真实模型 E2E 已封存**：CI 内不再跑真实 worker E2E（2026-08-11 起，长期不列入计划；
 >   需 `OPENCODE_GO_API_KEY` secret）。`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 > - **项目特定默认**：默认模型（`deepseek-api/deepseek-v4-flash`，DeepSeek 官方 API）、端口、目录为项目配置，需自行适配。
-> - **依赖 opencode 内部 HTTP API**（`/event` SSE、session 端点），并锁定 opencode 1.18.11，版本漂移可能破坏。
+> - **依赖 opencode 内部 HTTP API**（`/event` SSE、session 端点），并锁定 opencode 1.18.x，
+>   版本漂移可能破坏。**护栏**：`regime doctor` 会校验 worker 版本（major.minor 匹配才通过，
+>   `check_version`）；`OpenCodeClient.health_info()`/`check_version()` 供程序化检测。
 > - **强副作用**：驱动真实 AI 模型与 Docker，可自动执行代码——务必在隔离沙箱运行并审查其行为（见 `SECURITY.md`）。
 > - **对外安装通道**：`pip install regime-driver` 后先 `regime scaffold` 生成官方模板，再 `regime doctor` 自检；
 >   发布自检清单见 `docs/guide/06_release.md`。

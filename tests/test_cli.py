@@ -337,3 +337,38 @@ def test_doctor_survives_bad_env(monkeypatch):
     data = json.loads(res.output)
     assert data["ok"] is False
     assert "worker health" in [c["check"] for c in data["checks"]]
+
+
+def test_version_compatible_major_minor():
+    from regime_driver.infra.opencode import _version_compatible
+    assert _version_compatible("1.18.11", "1.18.11")
+    assert _version_compatible("1.18.4", "1.18.11")   # patch drift is safe
+    assert not _version_compatible("1.19.0", "1.18.11")
+    assert not _version_compatible("2.0.0", "1.18.11")
+    assert _version_compatible("1.18", "1.18.11")     # server reports major.minor only
+
+
+def test_doctor_version_drift_flags(monkeypatch):
+    """A worker reporting an incompatible major.minor must flip the version check."""
+    import regime_driver.cli as cli
+
+    class _Fake:
+        def health(self):
+            return True
+
+        def check_version(self, supported=None):
+            return False, "2.0.0"
+
+        def list_sessions(self):
+            return []
+
+    original = cli.OpenCodeClient
+    cli.OpenCodeClient = lambda base, timeout: _Fake()  # noqa: E731
+    try:
+        res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:9", "--json"])
+    finally:
+        cli.OpenCodeClient = original
+    data = json.loads(res.output)
+    ver = [c for c in data["checks"] if c["check"] == "opencode version"]
+    assert ver and ver[0]["ok"] is False
+    assert "drift" in ver[0]["detail"]

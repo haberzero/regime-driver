@@ -750,13 +750,26 @@ def doctor(
     model = settings.model
     provider = model.split("/")[0] if "/" in model else model
     checks: list[dict] = []
+    probe_base = settings.base_url  # resolved base (explicit --base > env/config > default)
 
     # 1) worker health
     try:
-        healthy = OpenCodeClient(base, timeout=5).health()
+        healthy = OpenCodeClient(probe_base, timeout=5).health()
     except Exception:
         healthy = False
-    checks.append({"check": "worker health", "ok": healthy, "base": base})
+    checks.append({"check": "worker health", "ok": healthy, "base": probe_base})
+
+    # 1b) opencode version contract (coupled internal HTTP API; major.minor must match)
+    if healthy:
+        try:
+            ok, version = OpenCodeClient(probe_base, timeout=5).check_version()
+            checks.append({"check": "opencode version", "ok": ok,
+                           "version": version or "unknown",
+                           "supported": "1.18.x",
+                           "detail": "version drift may break the coupled API"
+                           if not ok else ""})
+        except Exception:
+            checks.append({"check": "opencode version", "ok": True, "version": "unknown"})
 
     # 2) key readiness (presence only, never the value)
     def _key_file(name: str) -> bool:
@@ -791,7 +804,7 @@ def doctor(
     if healthy:
         session_count = 0
         try:
-            sessions = OpenCodeClient(base, timeout=5).list_sessions()
+            sessions = OpenCodeClient(probe_base, timeout=5).list_sessions()
             session_count = len(sessions) if isinstance(sessions, list) else 0
         except Exception:
             session_count = -1
