@@ -88,6 +88,29 @@ def test_packaged_example_flow_preflights_clean():
     assert res["ok"] is True, f"example preflight failed: {res}"
 
 
+def test_example_flow_rework_branch_recovers():
+    """The example's route/rework path must actually work: a developer that
+    produces no report (have_report fails) loops to rework, then a report appears
+    and the flow reaches review → wrap. Proves the branch is not dead code."""
+    from regime_driver.app.statechart_driver import StatechartDriver
+    from regime_driver.core.models import Outcome
+    from regime_driver.infra.regime_loader import load_regime
+    from regime_driver.infra.settings import Settings
+    from regime_driver.testing import MockClient
+
+    sm = load_regime(PKG / "data" / "examples" / "verify_then_report.json")
+    client = MockClient(sm=sm)
+    # First implement produces ONLY the work-done marker (empty report) → the
+    # have_report tool fails → route sends us to rework. Rework then produces a
+    # normal report → review → wrap.
+    client.rule("developer", "implement", reply="\n[WORK_DONE]")
+    d = StatechartDriver(Settings(monitor_enabled=False, poll_sec=0.1),
+                         sm, client, enforce_invariants=True)
+    outcome, end, _ = d.run("示例任务")
+    assert outcome == Outcome.COMPLETE, (outcome, end)
+    assert end == "wrap"
+
+
 def test_packaged_templates_match_true_sources():
     """Single-source-of-truth guard (WORK_PLAN7 III): the packaged data/ copies
     must stay byte-identical to their true sources, so no drift is possible."""

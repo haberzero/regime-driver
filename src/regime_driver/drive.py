@@ -178,8 +178,12 @@ class Drive:
             try:
                 self.reporter.retain(max_age_sec=self.prune_max_age,
                                      max_records=self.prune_max_records)
-            except Exception:  # noqa: BLE001 — prune is best-effort
-                pass
+            except Exception as exc:  # noqa: BLE001 — prune is best-effort
+                # audit the failure (a silent swallow would make retention
+                # problems invisible in long-run durability)
+                import logging
+                logging.getLogger(__name__).warning(
+                    "journal prune skipped: %s", exc)
         return DriveResult(
             outcome=outcome.value, end=end, detail=detail,
             supervisor=sup_outcome, elapsed_sec=round(time.time() - t0, 1),

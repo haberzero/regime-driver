@@ -834,9 +834,14 @@ def doctor(
         if not healthy:
             console.print("  · 容器化：`ops/up.sh all`（构建+起 worker/god）")
             console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
-        if provider == "my-opencode-go" and not checks[1]["ok"]:
+        # look up the key check by name (its list index is health-dependent after
+        # the version check was inserted); avoid a spurious key suggestion when
+        # the actual failure is a version drift.
+        key_ok = next((c["ok"] for c in checks
+                       if c["check"] == f"key for {provider}"), True)
+        if provider == "my-opencode-go" and not key_ok:
             console.print("  · 设 OPENCODE_GO_API_KEY 或写 ~/.regime/keys/opencode-go.key")
-        if provider == "deepseek-api" and not checks[1]["ok"]:
+        if provider == "deepseek-api" and not key_ok:
             console.print("  · 设 DEEPSEEK_API_KEY 或写 ~/.regime/keys/deepseek.key")
         raise typer.Exit(1)
     console.print("\n✓ 配置就绪：可用 `regime run/drive`（默认模型 deepseek-api）")
