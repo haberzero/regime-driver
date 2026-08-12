@@ -215,6 +215,28 @@ CLI 契约（regime 命令，唯一真源）        ← 对话框只说这一种
 对话框不重新发明能力——它**复用** regime-driver 的全部底层能力，只是把"记命令、写配置"变成了
 "说话"。你通过对话框下达意图，体系负责确定性的执行与监督。
 
+## 为什么 worker 是干净的执行器，god 是带插件的对话面
+
+你可能注意到体系里有两个 opencode 实例：**worker**（干活）和 **god**（对话）。它们的区别不是
+偶然，而是架构分层的必然：
+
+| | opencode-worker（执行器） | opencode-god（对话面） |
+|---|---|---|
+| 启动 | `opencode serve --pure`（**强制无插件**） | `opencode serve`（带插件） |
+| 插件 | 零插件 | `regime-god.js`（把 CLI 包装成 god 原生工具） |
+| 职责 | **干净地干活**：被 regime-driver 通过 HTTP 驱动，只执行不自治 | 承载上帝对话框，对话载体 |
+
+**为什么 worker 必须是干净的**：worker 只负责执行，所有"制度"（流程、审查、监督、报告）都住在
+regime-driver 这一层，通过 HTTP 驱动它。如果 worker 装了插件，它就有了"自己决定怎么做"的能力——
+这恰恰违背"智能负责自由裁量，机制负责确定性约束"的原则。worker 干净，才能保证你的元指令被
+流程确定性地执行，而不是被 worker 自己的插件干扰。
+
+**god 为什么带插件**：god 是对话层，`regime-god.js` 只是把 `regime` CLI 命令包装成 opencode
+原生工具，让对话框能调用底层命令。它属于"对话载体"，不是"执行器"。**它需要插件，但 worker 不需要。**
+
+所以：regime-driver 对 opencode 的依赖，全部是它原生提供的 **HTTP REST + SSE API**（session /
+message / health / event），在 `--pure`（无插件）下就完整可用。你**不需要**给 worker 装任何插件。
+
 ## 你现在应该明白
 
 - 上帝对话框是 regime-driver 的**主要使用入口**，不是附加功能。
