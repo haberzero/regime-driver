@@ -302,7 +302,8 @@ def test_doctor_session_hygiene_warns_on_low_threshold(monkeypatch):
     hygiene = [c for c in data["checks"] if c["check"] == "session hygiene"]
     assert hygiene and hygiene[0]["ok"] is False
     assert hygiene[0]["sessions"] == 2
-    assert "abort/rebuild advised" in hygiene[0]["detail"]
+    assert "cleanup advised" in hygiene[0]["detail"]
+    assert "--cleanup" in hygiene[0]["detail"]
 
 
 def test_doctor_session_hygiene_ok_below_threshold(monkeypatch):

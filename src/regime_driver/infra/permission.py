@@ -83,7 +83,7 @@ def classify(argv: list[str]) -> PermissionLevel:
     base = _COMMAND_LEVEL.get(cmd, PermissionLevel.READ)
     flags = set(argv)
 
-    if cmd == "sessions" and ({"--clean", "--kill"} & flags):
+    if cmd == "sessions" and ({"--clean", "--kill", "--cleanup"} & flags):
         return PermissionLevel.CLEAN
     if cmd == "session":
         sub = tokens[1] if len(tokens) > 1 else ""

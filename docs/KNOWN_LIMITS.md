@@ -29,12 +29,14 @@
 
 ## 行为限制
 
-- **DELETE /session/{id} 返回 404**：当前 opencode-server（1.18.11）不支持删除远端 session。
-  `regime sessions --clean`/`--kill` 只能 **abort**（释放 busy 状态），session 记录本身无法删除，
-  会持续累积。归属：`infra/opencode.py` + `cli`。
+- **~~DELETE /session/{id} 返回 404~~（已更正 2026-08-12）**：实测 opencode 1.18.11 的
+  `DELETE /session/{id}` **真正删除** session 记录（从 `GET /session` 列表与 `/session/status` map
+  都移除，含 idle 与 busy 会话）。早期"无法删除只能 abort"的结论有误。`regime sessions --clean`
+  现可真正清理累积 session。自动清理策略见 `docs/durability_report.md §4.3` + 配置
+  `session_cleanup_*`（可自定义，参考模型非强制）。归属：`infra/opencode.py` + `cli`。
 - **session 状态不一致（message 404 + status busy）**：容器重启后，旧 session 的 `/session/{id}/message`
   可能 404，但 `/session/status` 仍报 busy（状态 map 残留）。受影响的 workflow 会在该会话上卡住
-  （`_step_judge`/`_step_agent` 轮询死会话）。规避：`regime sessions --clean` 释放，或重启容器；
+  （`_step_judge`/`_step_agent` 轮询死会话）。规避：`regime sessions --clean`（现可真正删除）或重启容器；
   严重时需重建容器（`docker rm -f` + `ops/up.sh`）。归属：opencode 1.18.11 行为 + `workflow_unit.py`。
 - **god 助手 subagent 读外部目录需授权**：god 委派的 subagent（`analyst`/`advisor`）读 `/tmp` 等
   容器外/工作区外文件时，会触发 opencode 的 `external_directory` 权限 ask；headless 无交互时会挂起，

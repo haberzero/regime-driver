@@ -813,8 +813,9 @@ def doctor(
             ok = session_count < threshold
             checks.append({"check": "session hygiene",
                            "ok": ok, "sessions": session_count,
-                           "detail": (f"abort/rebuild advised beyond {threshold} "
-                                      "accumulated sessions") if not ok else ""})
+                           "detail": (f"cleanup advised beyond {threshold} sessions — "
+                                      f"`regime sessions --cleanup "
+                                      f'{{\"max_sessions\": {threshold}}} --perm clean`') if not ok else ""})
 
     all_ok = all(c["ok"] for c in checks)
     if json_out:
@@ -1333,15 +1334,28 @@ def status(
 @app.command("sessions")
 def sessions(
     base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
-    clean: bool = typer.Option(False, "--clean", help="abort all sessions"),
+    clean: bool = typer.Option(False, "--clean", help="abort AND delete all sessions"),
+    cleanup: Optional[str] = typer.Option(
+        None, "--cleanup",
+        help="apply a session-cleanup policy (JSON string) and delete eligible sessions"),
     kill: Optional[str] = typer.Option(None, "--kill", help="abort a specific session id"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     perm: str = typer.Option("read", "--perm", help="held permission level "
                              "(read|interact|run|clean); gates write ops"),
 ) -> None:
-    """List all opencode sessions on the worker with their live status."""
+    """List opencode sessions; --clean / --cleanup / --kill are write ops.
+
+    --clean  abort AND delete every session (true removal, verified on 1.18.11).
+    --cleanup <json>  apply a user-defined retention policy and delete the
+        eligible (idle/old) excess sessions. Example policy JSON:
+        {"max_sessions": 100, "min_age_sec": 3600, "only_idle": true}
+    """
     _gate(perm, ["sessions"]
-          + (["--clean"] if clean else []) + (["--kill", kill] if kill else []))
+          + (["--clean"] if clean else []) + (["--kill", kill] if kill else [])
+          + (["--cleanup"] if cleanup else []))
+
+    from ..app.session_cleanup import CleanupPolicy, run_cleanup
+
     client = OpenCodeClient(base)
     if kill:
         try:
@@ -1354,17 +1368,39 @@ def sessions(
         _ok(f"aborted session {kill}", markup=False)
         return
     slist = client.list_sessions()
+
+    if cleanup is not None:
+        policy = CleanupPolicy.from_config(cleanup)
+        if not policy.enabled:
+            _fail("invalid or empty cleanup policy "
+                  "(need {\"max_sessions\": N, ...})")
+        busy = set(client.session_status_map().keys())
+        result = run_cleanup(client, slist, policy, busy_ids=busy)
+        if json_out:
+            _emit_json(result.to_dict())
+            return
+        _ok(f"cleanup: scanned={result.scanned} eligible={result.deleted_count} "
+            f"deleted={len(result.deleted)}", markup=False)
+        return
+
     if clean:
         ids = [s.get("id") for s in slist if s.get("id")]
+        aborted = deleted = 0
         for sid in ids:
             try:
                 client.abort_session(sid)
+                aborted += 1
             except Exception as exc:
                 console.print(f"[dim]abort {sid} failed: {exc}[/dim]")
+            try:
+                client.delete_session(sid)
+                deleted += 1
+            except Exception as exc:
+                console.print(f"[dim]delete {sid} failed: {exc}[/dim]")
         if json_out:
-            _emit_json({"aborted": len(ids)})
+            _emit_json({"aborted": aborted, "deleted": deleted})
             return
-        _ok(f"aborted {len(ids)} sessions", markup=False)
+        _ok(f"aborted {aborted} + deleted {deleted} sessions", markup=False)
         return
     busy = client.session_status_map()
     if json_out:

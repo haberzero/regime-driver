@@ -54,8 +54,18 @@ class Settings(BaseModel):
     monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="monitor poll interval")
     session_hygiene_threshold: int = Field(
         default=100, ge=1,
-        description="doctor warns when accumulated worker sessions exceed this (L2: "
-                    "session records cannot be deleted, only aborted)"
+        description="doctor warns when accumulated worker sessions exceed this (L2)"
+    )
+    # Automatic session cleanup — a USER-CONFIGURABLE policy (reference model, not
+    # enforced by default). Empty/None = disabled. Example value (JSON):
+    #   {"max_sessions": 100, "min_age_sec": 3600, "only_idle": true}
+    #   - max_sessions: 当 worker 累积 session 数超过此值时清理到该值以下
+    #   - min_age_sec:  只清理存在超过该秒数的 session（0 = 不限）
+    #   - only_idle:    true 只清理 idle 会话（默认 true，绝不删 busy）
+    # 被 `regime sessions --cleanup` / doctor 提示 / supervisor 周期动作使用。
+    session_cleanup_policy: str | None = Field(
+        default=None,
+        description="JSON session-cleanup policy (see docstring); None = disabled"
     )
     stall_sec: int = Field(default=120, ge=1, description="busy but no token growth beyond this -> stall")
     on_stall: Literal["abort", "report_user", "none"] = Field(
