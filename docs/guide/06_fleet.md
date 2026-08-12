@@ -26,17 +26,22 @@
 同一工作区绝不启动第二个实例。
 角色仍以 session 区分，原有模型不变。
 
-```text
-任务 A ──► 工作区 wsA ──► opencode-worker-wsA ──► 端口 4200 ──► 挂载目录 wsA/
-任务 B ──► 工作区 wsB ──► opencode-worker-wsB ──► 端口 4201 ──► 挂载目录 wsB/
-任务 C ──► 工作区 wsC ──► opencode-worker-wsC ──► 端口 4202 ──► 挂载目录 wsC/
-            │               │                        │
-            └───────────────┴────────────────────────┘
-                        物理隔离，产物互不污染
+```mermaid
+flowchart TB
+    subgraph 工作区A["工作区 wsA"]
+        A["任务 A"] --> WA["opencode-worker-wsA<br/>端口 4200 · 挂载目录 wsA/"]
+    end
+    subgraph 工作区B["工作区 wsB"]
+        B["任务 B"] --> WB["opencode-worker-wsB<br/>端口 4201 · 挂载目录 wsB/"]
+    end
+    subgraph 工作区C["工作区 wsC"]
+        C["任务 C"] --> WC["opencode-worker-wsC<br/>端口 4202 · 挂载目录 wsC/"]
+    end
 ```
 
-跑在 A 的模型、读写 A 的文件，不会碰到 B 和 C。
-（舰队实例端口从 4200 起分配，与默认单 worker 的 4097 不同——两者互不干扰。）
+> 图例：每个工作区是独立的一条线（容器 + 端口 + 挂载目录），三线互不相连——跑在 A 的模型、
+> 读写 A 的文件，不会碰到 B 和 C。（舰队实例端口从 4200 起分配，与默认单 worker 的 4097
+> 不同——两者互不干扰。）
 
 ## 步骤
 

@@ -148,23 +148,57 @@ understand ──► read_code ──► design ──► implement ──► te
    它按代码审查规则检查。
 5. **wrap**（developer 收尾）。
 
+把上面 5 步画成一张**时序图**（从上到下为先后顺序，箭头为一条条消息）：
+
+```mermaid
+sequenceDiagram
+    participant 你 as 你
+    participant 对话框 as 上帝对话框
+    participant 体系 as regime-driver 工作流
+    participant 干活 as developer 会话
+    participant 审查 as reviewer 会话
+    participant 账本 as 报告 / 事件账本
+
+    你->>对话框: 「实现 add(x,y) 并写 pytest」
+    对话框->>体系: 选 code_workflow → 编译 → 启动
+    体系->>干活: understand / read_code（理解上下文）
+    干活-->>体系: 汇报
+    体系->>审查: design（按 design-philosophy 审查方案）
+    审查-->>体系: verdict（advance / 其它）
+    体系->>干活: implement（审查通过后实现）
+    干活-->>体系: 完成汇报
+    体系->>审查: test（按 code-review 检查实现）
+    审查-->>体系: verdict
+    体系->>干活: wrap（收尾）
+    体系->>账本: 每步写入报告 / 事件账本（事件种类见下表）
+```
+
+> 图例：实线箭头 = 体系发出的指令（干活或审查），虚线箭头 = 会话的回报。
+> 注意干活与审查**交替**出现，且每次都要等审查 verdict 通过才往下走。
+
 **为什么你的元指令能被执行**：因为流程是**编译后的结构**，不是对话里的请求。每个节点
 "谁来做、做什么、按什么规则"都是固定的；审查节点不过关就卡住不前进；监督器盯着整条运行。
 所以"写完代码先检查"从一句可能被遗忘的话，变成了 `test` 节点里一定会执行的 `code-review` 审查。
 
 **审查判定是闭环，不是一句话**：judge 节点的判定不直接采信，而是先过一道确定性门：
 
-```text
-reviewer 收到：方案/实现 + 该节点的技能
-      │  输出 verdict（advance / 其它判定 + 置信度 + 理由）
-      ▼
-确定性门（纯函数，白名单 + 置信度下限）
-   ├─ 通过 ─────► 前进到下一节点
-   ├─ 不通过 ───► 让 reviewer 重试（有限次数）
-   └─ 重试耗尽 ─► 流程以"审查耗尽"终止（不会无限打转）
+```mermaid
+flowchart TD
+    A["reviewer 输出 verdict<br/>（advance / 其它判定 + 置信度 + 理由）"]
+    G["确定性门（纯函数，白名单 + 置信度下限）"]
+    C["前进到下一节点"]
+    D["让 reviewer 重试（有限次数）"]
+    E["以『审查耗尽』终止<br/>（不会无限打转）"]
+
+    A --> G
+    G -->|通过| C
+    G -->|不通过| D
+    D -->|还有次数| A
+    D -->|耗尽| E
 ```
 
-"过不过关"由机制判定，不由 reviewer 自己说了算——这正是确定性门的意义。
+> 图例：边标签 = 门的判定结果；回环边 = 重试。"过不过关"由机制判定，
+> 不由 reviewer 自己说了算——这正是确定性门的意义。
 
 ### 5. 每个节点记录什么、发送什么
 

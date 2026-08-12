@@ -54,6 +54,23 @@ God> flow list
 官方示例流程 `verify_then_report` 就是"tool 检查 → route 分支 → 再回环"的结构，
 加载方式见 [流程规格：示例流程](../reference/03_flow_spec.md)。
 
+## 一个设计好的流程长什么样
+
+当你对对话框说"设计一个**先实现、再审查、再测试**的流程"，它编译出的成品大致长这样：
+
+```mermaid
+flowchart LR
+    A["先实现<br/>agent · developer"] --> B["再审查<br/>judge · reviewer"]
+    B -->|通过| C["再测试<br/>judge · reviewer"]
+    B -->|不通过| A
+    C -->|通过| D["收尾<br/>agent · developer"]
+    C -->|不通过| A
+```
+
+> 图例：实线 = 顺序推进；带标签的边 = 审查判定结果；回环边 = 审查不过关，回到前面的
+> 实现步骤重做。这里能看到 `agent`（干活）与 `judge`（审查）如何拼成一条可执行路径；
+> `tool` / `route` 用于"按实际结果分支"的流程，见上方节点类型表。
+
 ## 热重载
 
 流程定义变更后可以热重载到运行中的系统（运行中的任务保持旧快照，不受影响）。

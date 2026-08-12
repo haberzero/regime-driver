@@ -233,6 +233,27 @@ StatechartUnit {
 - `subscribe` 需在 `register` 之后（`register` 设置 `unit.bus`）。
 - 黑板变更即事件：工作流写指标 → 宪法/遥测读黑板 + 订阅 `blackboard.changed`。
 
+**一次"宪法拦截"的完整信号时序**：
+
+```mermaid
+sequenceDiagram
+    participant 工作流 as WorkflowUnit
+    participant 宪法 as ConstitutionUnit（watchdog）
+    participant 黑板 as Blackboard
+
+    工作流->>工作流: 逐节点执行（发派 session / 轮询）
+    工作流->>宪法: REPORT 信号（session_id / status / output / latest_text）
+    工作流->>黑板: 写指标（heartbeat / start_time …）
+    黑板-->>宪法: blackboard.changed 事件
+    宪法->>宪法: 死循环 / 卡死 / 停滞检测（确定性、无智能）
+    宪法->>工作流: STOP 信号（点到点，只停出问题 workflow）
+    宪法->>宪法: 发 watchdog_fire 事件（可观测）
+    工作流->>工作流: 中止当前节点 → 结果 blocked（monitor: …）
+```
+
+> 图例：实线箭头 = 消息/信号，虚线箭头 = 订阅推送事件。宪法不产生智能指令，
+> 只做确定性检测并发出控制信号；STOP 是点到点，不影响其它并行 workflow。
+
 ---
 
 ## 11. 多 workflow 并发 + 可视化（v1.2）

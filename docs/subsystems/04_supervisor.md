@@ -65,6 +65,35 @@
 - **进程外**（宿主，独立时钟）：进程健康/重启、会话级停滞兜底、期限、纠正阶梯、元分析。
 - 二者通过 **Reporter/journal（唯一事件真源）** 通信，而非各自独立记账。
 
+### 2.3 监督循环（每轮）
+
+```mermaid
+flowchart TD
+    P(["每轮监督循环<br/>宿主进程 · 独立时钟"])
+    T2{"T2 停滞：<br/>busy 但长时间无新输出？"}
+    T1{"T1 健康：<br/>worker 进程 / 容器活着？"}
+    DD{"超过 deadline？"}
+    LAD(["纠正阶梯 L1–L5<br/>nudge → abort → 换模型 → 重启 → 人工<br/>（连续停滞逐级升级）"])
+    R(["L4 重启容器（docker）"])
+    AB(["按 deadline 终止"])
+    END(["写 Reporter：ladder / deadline / unhealthy 等事件<br/>（与 workflow 事件同一 journal）"])
+
+    P --> T2
+    T2 -->|是| LAD
+    LAD --> END
+    T2 -->|否| T1
+    T1 -->|否| R
+    R --> END
+    T1 -->|是| DD
+    DD -->|是| AB
+    AB --> END
+    DD -->|否| P
+```
+
+> 图例：菱形 = 判定，圆角矩形 = 动作。正常路径每轮回到循环起点；异常路径最终都
+> 落到 Reporter 记账（唯一事件真源）。T2 阶梯中"换模型 / 重启 / 人工"由 `LadderState`
+> 限界，一次尝试内至多触发一次；主机模式（无容器）T1 异常时记为 `unhealthy` 而不重启。
+
 ---
 
 ## 3. 风险与护栏

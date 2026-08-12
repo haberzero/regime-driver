@@ -28,8 +28,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install MkDocs + Read the Docs theme
-        run: pip install mkdocs
+      - name: Install MkDocs + Read the Docs theme + mermaid2
+        run: pip install mkdocs 'mkdocs-mermaid2-plugin==1.2.3'
       - name: Build site
         # NOTE: `--strict` not used because docs/README.md (the repo-level doc
         # map) legitimately shares a basename with index.md (the portal home);
