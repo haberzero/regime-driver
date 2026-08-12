@@ -125,13 +125,18 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
 
 ## Documentation
 
-- Navigation & reading order: `docs/README.md`. Design/usability:
-  `docs/guide/00_environment.md`. God Dialog operator manual:
-  `docs/reference/05_god_dialog_contract.md`. Known limits: `docs/KNOWN_LIMITS.md`.
-- Work plans: `WORK_PLAN.md`–`WORK_PLAN7.md` (current main line: external-supply
-  readiness, `WORK_PLAN7.md`).
+- Documentation site (MkDocs + Read the Docs theme):
+  `https://haberzero.github.io/regime-driver/` — start at the portal home
+  (what/why/features/what-you-can-do), organized by reader: **User Guide**
+  (run/configure/operate), **Reference** (CLI/config/flow spec), **Developer
+  Guide** (architecture/subsystems/how-to-develop).
+- In-repo navigation: `docs/README.md`. Known limits: `docs/KNOWN_LIMITS.md`.
+  Writing standards: `docs/WRITING_GUIDE.md`.
+- Work plans: `WORK_PLAN.md`–`WORK_PLAN7.md`.
 - Note: `docs-ref/` is a reference copy of another project's docs — it is **not
-  committed** (gitignored), kept only as writing guidance.
+  committed** (gitignored), kept only as writing guidance. Agent-only internals
+  (skills / god assistants / workflow-regime templates) stay machine-specific
+  and are not part of the docs site.
 
 ## License & disclaimer
 

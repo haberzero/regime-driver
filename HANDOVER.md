@@ -189,7 +189,9 @@
 - **版本耦合护栏（✅ 2026-08-12）**：`OpenCodeClient.health_info/check_version`（major.minor 匹配，
   SUPPORTED_OPCODE=1.18.11）+ `regime doctor` "opencode version" 检查（漂移即警告）。
 - **示例流程 + 上手文档（✅ 2026-08-12）**：`src/regime_driver/data/examples/verify_then_report.json`
-  （tool+route 分支示例，随 wheel 打包）；`docs/guide/00_00_mental_model.md` 外部读者心智模型。
+  （tool+route 分支示例，随 wheel 打包）；站点门户首页 `docs/index.md`（外部读者心智模型）。
+- **文档站重构（✅ 2026-08-12）**：MkDocs + Read the Docs 主题；用户/开发者/agent 三层分层，
+  agent 提示词从人类文档移除（改由 `regime scaffold` 提供模板）；`00_00_mental_model` 并入 `index.md`。
 - **e2e-real 已封存（用户决定，2026-08-11）**：GitHub 真实模型 E2E 长期不列入计划；CI 已移除
   `e2e-real` job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 - **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，

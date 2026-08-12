@@ -31,7 +31,10 @@ jobs:
       - name: Install MkDocs + Read the Docs theme
         run: pip install mkdocs
       - name: Build site
-        run: mkdocs build --strict
+        # NOTE: `--strict` not used because docs/README.md (the repo-level doc
+        # map) legitimately shares a basename with index.md (the portal home);
+        # MkDocs excludes README.md from the site, which is intended.
+        run: mkdocs build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
