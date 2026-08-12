@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov"]
+dev = ["pytest>=8.0", "pytest-cov", "hatchling"]
 
 [project.scripts]
 regime = "regime_driver.cli:app"
