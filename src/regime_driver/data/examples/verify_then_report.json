@@ -1,0 +1,76 @@
+{
+  "version": "0.3",
+  "description": "示例流程：带确定性工具与条件分支（tool/route）的审查流程。与内置 code_workflow 互补——演示 tool 节点把'是否满足条件'变成确定性判定（have_report），route 节点据此分支（有报告→review，无→rework），judge 节点做最终门禁。替换 have_report 为 report_mentions/context_mentions（含 words）即可演示按内容条件分支。",
+  "meta": {
+    "source": [
+      "workflow-regime/skills/code-workflow/SKILL.md",
+      "docs/reference/03_flow_spec.md"
+    ],
+    "session_turn_check": 5,
+    "work_done_marker": "[WORK_DONE]"
+  },
+  "flows": {
+    "verify_then_report": {
+      "nodes": {
+        "understand": {
+          "id": "understand",
+          "desc": "理解任务：明确验收词（context 中需出现的词）",
+          "role": "developer",
+          "type": "agent",
+          "next": "implement"
+        },
+        "implement": {
+          "id": "implement",
+          "desc": "实现任务并产出报告",
+          "role": "developer",
+          "type": "agent",
+          "next": "check_coverage"
+        },
+        "check_coverage": {
+          "id": "check_coverage",
+          "desc": "确定性检查：开发者是否产出了非空报告（tool 节点，无模型判定）",
+          "role": "developer",
+          "type": "tool",
+          "tool": "have_report",
+          "next": "branch"
+        },
+        "branch": {
+          "id": "branch",
+          "desc": "按检查结果分支：有报告→review，无报告→rework",
+          "role": "developer",
+          "type": "route",
+          "branches": [
+            { "when": "ok", "goto": "review" },
+            { "when": "not ok", "goto": "rework" }
+          ]
+        },
+        "rework": {
+          "id": "rework",
+          "desc": "报告不满足验收词，返工补充",
+          "role": "developer",
+          "type": "agent",
+          "next": "check_coverage"
+        },
+        "review": {
+          "id": "review",
+          "desc": "最终审查：代码质量与正确性判定",
+          "role": "reviewer",
+          "type": "judge",
+          "skill": "code-review",
+          "next": "wrap"
+        },
+        "wrap": {
+          "id": "wrap",
+          "desc": "收尾",
+          "role": "developer",
+          "type": "agent",
+          "next": null
+        }
+      }
+    }
+  },
+  "entry": {
+    "flow": "verify_then_report",
+    "start_node": "understand"
+  }
+}

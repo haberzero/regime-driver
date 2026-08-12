@@ -24,6 +24,7 @@ docs/
 ├── SUBSYSTEM_DESIGN.md    子系统设计手册索引 → subsystems/
 │
 ├── guide/                 入门教程（按序阅读）
+│   ├── 00_00_mental_model.md  心智模型（外部读者先读）
 │   ├── 00_environment.md
 │   ├── 01_setup.md
 │   ├── 02_first_run.md
@@ -70,7 +71,7 @@ docs/
 
 | 角色 | 推荐阅读顺序 |
 |------|------------|
-| **新加入的开发者** | 根 `README.md` -> `docs/guide/00_environment.md` -> `01_setup.md` -> `02_first_run.md` -> `CLI_REFERENCE.md` -> `ARCHITECTURE.md` |
+| **新加入的开发者** | 根 `README.md` -> `docs/guide/00_00_mental_model.md`（心智模型）-> `00_environment.md` -> `01_setup.md` -> `02_first_run.md` -> `CLI_REFERENCE.md` -> `ARCHITECTURE.md` |
 | **写流程/用 CLI 的用户** | 根 `README.md` -> `guide/` 教程 -> `CLI_REFERENCE.md`（查命令/配置）-> `KNOWN_LIMITS.md`（查边界） |
 | **要理解最终架构的人** | `ARCHITECTURE.md` -> `architecture/02_statechart_network.md` -> `architecture/01_principles.md` |
 | **要改某子系统的人** | `SUBSYSTEM_DESIGN.md` -> 对应 `subsystems/NN_*.md` -> 源码 |

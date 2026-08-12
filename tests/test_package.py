@@ -75,6 +75,19 @@ def test_default_regime_is_packaged():
     assert DEFAULT_REGIME.is_file()
 
 
+def test_packaged_example_flow_preflights_clean():
+    """The shipped example flow must stay valid AND preflight COMPLETE, or it is
+    a broken example (external readers load it to learn tool/route branching)."""
+    from regime_driver.app.preflight import preflight
+    from regime_driver.infra.regime_loader import load_regime
+
+    example = PKG / "data" / "examples" / "verify_then_report.json"
+    assert example.is_file()
+    sm = load_regime(example)
+    res = preflight(sm)
+    assert res["ok"] is True, f"example preflight failed: {res}"
+
+
 def test_packaged_templates_match_true_sources():
     """Single-source-of-truth guard (WORK_PLAN7 III): the packaged data/ copies
     must stay byte-identical to their true sources, so no drift is possible."""
@@ -159,6 +172,7 @@ def test_wheel_contains_templates(tmp_path):
         "regime_driver/data/docker/Dockerfile.worker",
         "regime_driver/data/docker/Dockerfile.god",
         "regime_driver/data/regime.json",
+        "regime_driver/data/examples/verify_then_report.json",
     ]:
         assert entry in entries, f"wheel missing packaged template: {entry}"
 

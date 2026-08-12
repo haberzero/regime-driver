@@ -100,6 +100,21 @@
 `version=0.design` 与 `meta.work_done_marker`。两种形式都经统一入口 `compile_spec`
 编译为校验过的 StateMachine。
 
+## 示例流程
+
+**定位**：`src/regime_driver/data/examples/` 提供可直接加载的示例流程，随 wheel 打包。
+
+| 文件 | 演示点 |
+|---|---|
+| `verify_then_report.json` | 与内置 `code_workflow` 互补——演示 **tool 节点**（`have_report`，无模型确定性判定）、**route 节点**（按 `ok`/`not ok` 分支到 review/rework）、再回环至 tool 的条件分支结构。把 `have_report` 换成 `report_mentions`/`context_mentions`（配 `words`）即可按报告内容分支。 |
+
+加载并离线验证：
+
+```bash
+regime flow validate src/regime_driver/data/examples/verify_then_report.json --json
+regime preflight --regime src/regime_driver/data/examples/verify_then_report.json --json
+```
+
 ## FlowRegistry 热加载/热重载
 
 **定位**：`FlowRegistry` 是命名流程的唯一真源，提供编译、校验、加载与原子热重载。
