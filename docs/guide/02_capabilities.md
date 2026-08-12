@@ -17,29 +17,20 @@
 为了理解"你的编程指令如何被制度化地执行"，先看官方自带的流程模板 `code_workflow`。
 它不是"一个 agent 自由发挥"，而是一条**结构化的制度路径**：
 
-| 节点 | 角色 | 类型 | 技能 | 职责 |
-|---|---|---|---|---|
-| understand | developer | agent | — | 理解任务上下文 |
-| read_code | developer | agent | — | 理解代码上下文 |
-| design | reviewer | judge | design-philosophy | 按设计哲学审查方案 |
-| implement | developer | agent | — | 实现 |
-| test | reviewer | judge | code-review | 按代码审查规则检查实现 |
-| wrap | developer | agent | — | 收尾 |
+```
+understand → read_code → design → implement → test → wrap
+   (干活)       (干活)     (审查)     (干活)     (审查)   (干活)
+  developer   developer   reviewer  developer  reviewer  developer
+```
 
-**这条模板说明了核心机制**：
-
-- **你的指令是目标，不是命令**。当你说"用 code_workflow 实现某某"，系统不会把你的话原样丢给
-  一个 agent，而是：结合你的需求（任务上下文）、结合这条流程的全部信息（各节点/角色/技能）、
-  结合 regime-driver 的可用能力（驱动/监督/审查/报告），**从制度驱动的角度规划如何实现**——
-  选定流程 → 编译成状态机 → 按节点驱动。
-- **干活与审查分离**。developer 负责 understand/read_code/implement/wrap（做事），
-  reviewer 负责 design/test（判定）。审查不过关，流程**不前进**。
-- **技能按节点注入**。design 节点注入 `design-philosophy`，test 节点注入 `code-review`——
+- **干活与审查分离**：`developer`（干活）走 understand / read_code / implement / wrap；
+  `reviewer`（审查判定）走 design / test。审查不过关，流程**不前进**。
+- **技能按节点注入**：design 节点注入 `design-philosophy`，test 节点注入 `code-review`——
   给审查角色它恰好需要的规则，不常驻、不稀释。
-- **全程记录**。每一步（节点进入/完成/审查判定/流转/最终结果）都写入报告与事件账本，可复盘。
+- **全程记录**：每一步（节点进入/完成/审查判定/流转/最终结果）都写入报告与事件账本，可复盘。
 
-> 为什么这么设计：制度驱动意味着"流程是结构，不是建议"。你的指令接上制度后，
-> 每一步谁做、按什么规则做、做完怎么验证，都是确定的——这正是"元指令不会遗忘"的保证。
+> 逐步展开这张表（每个节点做什么、审查如何判定、为什么这样走）见
+> [上帝对话框：对话背后发生了什么](00_god_dialog.md)。
 
 ## 三、用对话设计流程
 
@@ -89,7 +80,7 @@
 
 ## 下一步
 
-- 想动手装环境：[安装运行环境](03_environment.md)
+- 想动手装环境：[安装运行环境](04_environment.md)
 - 想深挖某个能力的技术细节：见"查询参考"（CLI/配置/流程规格）
 - 想理解为什么这样设计：见"开发者指南"
 

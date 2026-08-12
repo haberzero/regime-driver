@@ -2,7 +2,6 @@
 
 > 本文描述测试架构与职责定位：**开发 session ≠ 被测对象**；E2E / 上帝对话框验证走 HTTP 程序化驱动，
 > 而非交互式 TUI。澄清各 opencode 实例（worker/god/开发）的运行位置与驱动方式。面向测试维护者。
-> 状态：分析定案（待实施）。
 
 ---
 
@@ -27,7 +26,7 @@
 
 | 概念 | 职责 | 运行位置 | 驱动方式 | 是否被测对象 |
 |---|---|---|---|---|
-| **本 session（opencode host 1.18.15）** | **开发**：写 regime-driver 代码与测试 | 宿主 | 交互 | **否**（开发，不被测） |
+| **本 session（开发宿主）** | **开发**：写 regime-driver 代码与测试 | 宿主 | 交互 | **否**（开发，不被测） |
 | **worker 容器（opencode 1.18.11, `serve --pure`）** | **执行器（L2）**：干任务节点，无插件干净环境 | 容器（4097） | HTTP | **是**（E2E 在此执行） |
 | **regime-driver（Python 包）** | **编排/驱动（L1）**：编译流程、驱动 worker、监督、报告 | 宿主或容器 | CLI / 被调用 | 单元测 + E2E 驱动者 |
 | **regime-driver.supervisor** | **进程外监督**：独立时钟、T1/T2、deadline、纠正阶梯 | 宿主或容器 | CLI | 真实验证 |
@@ -99,13 +98,13 @@ regime run <flow>  ──HTTP──▶  worker 容器(:4097)  真正干任务
 
 ---
 
-## 6. 关键设计决策（请确认）
+## 6. 关键设计决策
 
-1. **god 会话宿主选哪个容器**：
-   - (a) 复用 **worker 容器**（加装 god.md/plugin/env）——简单，但违反"worker 只执行"的纯净原则。
-   - (b) **新建/复用 autopilot 容器**当 god 宿主（`opencode web` 天然是交互窗）——角色分离更干净。
-   - 我建议 **(b)**：worker 保持纯净执行，autopilot 当 god/验证窗。
-2. **E2E 是否容器化 regime-driver**（T-D）：可选增强；先做 T-A（宿主驱动真实 worker）足够验证。
+1. **god 会话宿主用独立 god 容器**：新建 `opencode-god` 容器（`docker/Dockerfile.god`，端口
+   4098，`--network host`）承载上帝对话框 A 路；worker 保持纯净执行（`serve --pure`，无插件）。
+   采用 (b) 方案：worker 纯净、god 独立，角色不混用。
+2. **E2E 不容器化 regime-driver**（原 T-D 可选）：保持宿主驱动真实 worker 容器即可，
+   已验证足够；代码部署进容器不在当前范围。
 
 ---
 

@@ -1,6 +1,6 @@
 # 快速开始：用对话跑通第一个任务
 
-> 本篇让你**最快**用上 regime-driver。前提是你已经装好环境（见 [安装](03_environment.md)）。
+> 本篇让你**最快**用上 regime-driver。前提是你已经装好环境（见 [安装](04_environment.md)）。
 > 重点不是学命令，而是感受"和对话框对话"就能完成任务。
 
 ## 1. 打开上帝对话框
@@ -10,7 +10,9 @@ conda run -n regime-driver regime dialog --live --perm run
 ```
 
 看到 `God>` 提示符，就进入了上帝对话框。
-`--live` 表示连接真实 worker，`--perm run` 允许启动任务。
+`--live` 表示连接真实 worker，`--perm run` 声明你持有 `run` 级权限（允许启动任务）。
+权限分 `read < interact < run < clean` 四级：读命令恒可执行，写操作按等级门禁；
+`--perm` 只能降低、不能升高（详情见 [权限门禁](../reference/04_permissions.md)）。
 
 ## 2. 先问一句"现在什么状态"
 
@@ -65,7 +67,7 @@ God> watch
 而且你体验了核心的用法：**用一句话把你的元指令变成一定会被执行的流程**。
 
 接下来，看看 [你能做什么](02_capabilities.md) 了解全部能力；
-或者 [安装环境](03_environment.md) 如果你想从零搭建。
+或者 [安装环境](04_environment.md) 如果你想从零搭建。
 
 ## 深入指引
 

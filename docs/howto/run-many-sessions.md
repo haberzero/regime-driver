@@ -17,13 +17,19 @@ regime run-many "实现 add(x,y)" "实现 mul(x,y)" --base http://127.0.0.1:4097
 
 ## Session 管理
 
+每次运行都会在 worker 上留下 session 记录，长期运行会累积。可以列出、中止、清理：
+
 ```bash
 regime sessions                          # 列出所有 session（id/title/agent/status/tokens）
 regime sessions --kill <session_id>      # 中止指定 session
-regime sessions --clean                  # abort 全部 session（释放 busy 状态）
+regime sessions --clean                  # 中止并删除全部 session（真正清理）
 ```
 
-- session 记录因 `DELETE /session` 不受支持而无法删除，`--clean`/`--kill` 只能 abort（见 `KNOWN_LIMITS.md`）。
+- **累积会增长**：`DELETE /session/{id}` 在 opencode 1.18.11 上**真正删除** session 记录，
+  `--clean` 因此可以真清理（早期"只能 abort 不能删"的结论已更正，见 `KNOWN_LIMITS.md`）。
+- **按策略自动清理**：`regime sessions --cleanup '{"max_sessions": 100, "only_idle": true}'`
+  按策略删除超额 idle 会话（busy 会话绝不删）；对应配置项 `session_cleanup_policy`。
+  `regime doctor` 的 "session hygiene" 检查会在累积达到阈值时提醒。
 
 ## 深入
 

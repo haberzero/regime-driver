@@ -16,18 +16,24 @@
 
 ---
 
-L1 制度流程机器人（OA 系统）。把 `workflow-regime/` 制度化流程编译成状态机，驱动一个干净无插件的
-opencode worker（L2）完成任务，并由只读审查者（L0）判定、确定性门把关。
+把"你给 opencode 下达的元指令"变成**一定会被执行的确定性流程**。
 
-**最终架构**：对等多状态机网络（宪法 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
+regime-driver 把一条**流程**（一组有顺序、有角色的步骤：理解 → 设计 → 实现 → 审查 → 收尾）
+编译成状态机，在一个干净无插件的 opencode worker 上**逐节点驱动**执行：
+
+- **干活与审查分离**：干活节点由开发者会话完成，审查节点由只读审查者判定；
+- **确定性门把关**：审查判定过不了确定性门就**不前进**；
+- **进程外监督**：独立时钟盯着卡死/停滞/超时，按阶梯自动纠正；
+- **全程可复盘**：每次运行都写入事件账本与报告日志。
+
+**核心架构**：对等多状态机网络（宪法 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
 详见 `docs/architecture/02_statechart_network.md`。
 
 > **Status / 状态**
 >
 > - 测试：全量 `python -m pytest` 绿（覆盖 71%+）；真实 worker E2E 本地可用（`REGIME_E2E=1`，CI 内已封存）。
 > - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离舰队、上帝对话框）已完成；
->   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）见 `tasks_docs/WORK_PLAN7.md`；
->   长期耐久验证见 `tasks_docs/WORK_PLAN6.md`。
+>   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）与长期耐久验证（2h+ 真实运行）均已完成。
 
 ## Install
 
@@ -61,6 +67,10 @@ ops/up.sh all          # worker + god
 ops/up.sh god --rebuild   # 强制重建固化镜像
 ```
 
+> `ops/up.sh` 是源码仓库脚本（wheel 安装不含）。仅 wheel 安装的用户可用"主机模式"
+> 直接驱动本机 opencode，或用 `regime worker up <ws>` 起每工作区实例（需先有
+> `opencode-worker` 镜像，配方见 `src/regime_driver/data/docker/`）。
+
 **主机模式**——直接驱动宿主机上的 opencode 服务：
 
 ```bash
@@ -72,7 +82,7 @@ regime run "任务" --base http://<主机 opencode 端口>
 - worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设
   env）；密钥零入库。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
-- 详见 `docs/guide/03_environment.md`。
+- 详见 `docs/guide/04_environment.md`。
 
 ## 快速上手
 
@@ -124,11 +134,8 @@ conda run -n regime-driver pytest
 
 **环境变量覆盖**：任意 Settings 字段可用 `REGIME_<大写字段>` 覆盖，如 `REGIME_MODEL`、`REGIME_STALL_SEC`、`REGIME_POLL_SEC`。
 
-**模型密钥**：默认模型 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API）。密钥零入库：
-- worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设 env）；
-  OpenCode Go 回退 provider 用 `OPENCODE_GO_API_KEY` / `~/.regime/keys/opencode-go.key`。
-- 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
-- 详见 `docs/guide/03_environment.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。
+**模型密钥**：默认模型 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），密钥零入库。
+配置方式见上方"部署 3 配模型密钥"与 `docs/guide/04_environment.md`；自检：`regime doctor`。
 
 ## License 与免责声明
 

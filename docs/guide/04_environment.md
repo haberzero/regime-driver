@@ -7,9 +7,18 @@
 ## 你将会学到
 
 - 用 conda 创建隔离的 Python 环境。
-- 用 `pip install -e ".[dev]"` 安装项目与开发依赖。
-- 区分项目运行时依赖与 dev 依赖分组。
+- 安装 regime-driver（源码方式 / wheel 方式）。
 - 验证环境安装正确。
+
+## 两种安装方式
+
+| 方式 | 场景 | 命令 |
+|---|---|---|
+| **从源码（可编辑）** | 你要开发/修改 regime-driver 本身 | `pip install -e ".[dev]"`（在本仓库根目录） |
+| **从 wheel（发布后）** | 你只是用它跑任务 | `pip install regime-driver` |
+
+> 本仓库目前仍在开发中、未发布到 PyPI，所以当前实际上用源码方式安装。
+> wheel 方式在发布后可用；两种方式都自带官方模板（`regime scaffold` 一键部署）。
 
 ## 前置要求
 

@@ -8,8 +8,7 @@
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
 > - **耐久验证（2h+）**：2026-08-12 完成 2h 真实验证——零崩溃/停滞/重启，资源线性有界增长
->   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。完整记录见仓库
->   `tasks_docs/durability_report.md`（内部验证产物，不进公开站）。已知边界：**session 记录累积**
+>   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。已知边界：**session 记录累积**
 >   （见下方行为限制），长期（多天）运行可用 `regime sessions --cleanup` 清理或重建容器。
 > - **GitHub 真实模型 E2E 已封存**：CI 内不再跑真实 worker E2E（2026-08-11 起，长期不列入计划；
 >   需 `OPENCODE_GO_API_KEY` secret）。`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
@@ -19,7 +18,7 @@
 >   `check_version`）；`OpenCodeClient.health_info()`/`check_version()` 供程序化检测。
 > - **强副作用**：驱动真实 AI 模型与 Docker，可自动执行代码——务必在隔离沙箱运行并审查其行为（见 `SECURITY.md`）。
 > - **对外安装通道**：`pip install regime-driver` 后先 `regime scaffold` 生成官方模板，再 `regime doctor` 自检；
->   发布自检清单见 `docs/guide/06_release.md`。
+>   发布自检清单见 `docs/guide/07_release.md`。
 > - 详细开发视角限制见下方各节（含"现象+影响+归属"）。
 
 ## 未实现 / 恒空项

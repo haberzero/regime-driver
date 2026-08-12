@@ -9,10 +9,10 @@
 
 ## 1. 系统是什么（30 秒版）
 
-`regime-driver` 是 L1 制度流程机器人：把 `workflow-regime/` 制度化流程编译成**状态机**，驱动一个
-干净无插件的 opencode worker（L2）完成开发任务，并由只读审查者（L0）判定、确定性门把关。
-**最终架构**是对等多状态机网络（宪法=无智能状态机+信号协议+根不变量）。详细见
-`docs/README.md` 导航 + `docs/architecture/02_statechart_network.md`。
+`regime-driver` 把一条**流程**（有顺序、有角色的步骤）编译成状态机，驱动一个干净无插件的
+opencode worker 完成开发任务，并由只读审查者判定、确定性门把关；进程外监督器用独立时钟
+盯着卡死/停滞/超时。**核心架构**是对等多状态机网络（宪法=无智能状态机+信号协议+根不变量）。
+详细见 `docs/README.md` 导航 + `docs/architecture/02_statechart_network.md`。
 
 **角色**：developer=干活（agent 节点）、reviewer=审查判定（judge 节点）。内核角色无关，只是注册实例。
 
@@ -26,6 +26,9 @@
 
 所有命令支持 `--json`（结构化、供程序/你消费）；默认是人类可读 rich 表格。**优先用 `--json`** 以便精确解析。
 执行命令统一：`conda run -n regime-driver regime <cmd> ...`（或已装 `regime` 直接调用）。
+
+> 下表是上帝对话框常用命令**速览**；完整命令签名/参数/权限/输出见
+> [CLI 命令契约](01_cli.md)（权威），权限等级见 [权限门禁](04_permissions.md)。
 
 ### 3.1 校验与诊断（含预检）
 | 命令 | 用途 | 关键输出(--json) |
@@ -89,12 +92,12 @@
 > 上帝对话框一次 `regime report --json` 拿全量，无需反复 CLI。归属键区分 workflow/session/状态机。
 > 见 `../subsystems/07_god_dialog_carrier.md`。
 
-### 3.8 对话式控制面（可选，程序化）
+### 3.7 对话式控制面（可选，程序化）
 | 命令 | 用途 |
 |---|---|
 | `regime dialog [--live] [--base url] [--model m]` | 交互式 REPL（设计/启动/监控/talk/解释）。作为替代面 |
 
-### 3.7 权限门禁（--perm）
+### 3.8 权限门禁（--perm）
 写操作受统一分级门禁，等级由低到高：`read` < `interact` < `run` < `clean`。
 | 等级 | 允许 |
 |---|---|

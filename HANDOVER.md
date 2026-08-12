@@ -22,7 +22,7 @@
 - 主机：Linux，用户 `haber`，内存/GPU 充足。Docker 29.7.0。
 - **docker 权限**：`haber` 已在 docker 组，但本 shell 是旧组，需用 `sg docker -c '...'` 包装 docker 命令。
 - **网络**：Docker Hub 被墙 → 用镜像 `docker.m.daocloud.io` 拉基础镜像；npm 用 `registry.npmmirror.com`。
-- **模型授权**：默认模型为 DeepSeek 官方 API `deepseek-api/deepseek-v4-flash`（密钥 `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`）；`my-opencode-go/deepseek-v4-flash`（OpenCode Go）作回退。详见 `docs/guide/03_environment.md`。自检 `regime doctor`。
+- **模型授权**：默认模型为 DeepSeek 官方 API `deepseek-api/deepseek-v4-flash`（密钥 `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`）；`my-opencode-go/deepseek-v4-flash`（OpenCode Go）作回退。详见 `docs/guide/04_environment.md`。自检 `regime doctor`。
 - opencode 版本：1.18.11（镜像 `opencode-mvp:1.18.11`）。
 
 ### 3.x 自主运行配置（下游会话必须遵守）
@@ -183,6 +183,12 @@
   - 框架展示细化：对话背后发生了什么（制度驱动规划 → 角色/节点出现 → 会话按角色分配 → 逐节点配合 →
     事件记录）；为什么 skill 不直接加载进对话框（上下文/专注度/结构性保证三重考量）。
   - worker 干净执行器 / god 带插件对话面的分层说明。
+- **初学者读者视角文档批评 + 落地（✅ 2026-08-12）**：以普通读者视角通读全部对外文档产出批评报告
+  （`tasks_docs/docs_reader_critique.md`），逐条核实代码后全面改进——guide 编号去重（03 双号→00-07）、
+  reference/05 契约归位"参考"区、README 中英去 L0/L1/L2 代号与密钥段重复、去 stale 表述（DELETE 真删、
+  CLI 契约已就绪、架构文档对齐实现）、概念去重（code_workflow 表 / worker-god 表收敛单一归属）、
+  新增图解（index 系统全景图 / 审查判定闭环 / 监督纠正阶梯 / 事件链时间线 / 舰队隔离图）。零回归、
+  0 死链、general review 无 blocker。
 - **长期耐久验证（WORK_PLAN6 I L1+L3 ✅，2026-08-12）**：2h 真实运行（7205s，38 drive）零崩溃/
   停滞/重启（ladder=0），资源线性有界增长（session 16→96、内存 +231MB/2h、journal 3.4MB），
   worker 全程健康。完成率 27/38（11 个 timeout 命中 600s deadline，根因=验证过度订阅单 worker，

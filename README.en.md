@@ -12,12 +12,21 @@ Read this in [中文](./README.md).
 
 ---
 
-An L1 institutional-process robot (OA system). It compiles an institutional
-workflow (`workflow-regime/`) into a **state machine** and drives a clean,
-plugin-free `opencode` worker (L2) to complete tasks, with a read-only reviewer
-(L0) judging and a deterministic gate guarding each step.
+Turns the "meta-instructions" you give opencode into **deterministic flows that
+are always executed**. regime-driver compiles a workflow (an ordered set of
+role-aware steps: understand → design → implement → review → wrap) into a
+**state machine** and drives a clean, plugin-free opencode worker node by node:
 
-**Final architecture**: a peer state-machine network — a "constitution"
+- **Work and review are separated**: work nodes run on a developer session,
+  review nodes are judged by a read-only reviewer.
+- **A deterministic gate guards each step**: a review that fails the gate does
+  **not** advance.
+- **Out-of-process supervision**: an independent clock watches for stalls,
+  freezes and timeouts, and escalates through a correction ladder.
+- **Everything is replayable**: every run is written to an event ledger and a
+  report journal.
+
+**Core architecture**: a peer state-machine network — a "constitution"
 (intelligent-free state machines + a signal protocol + runtime-enforced root
 invariants) supervising agentic workflow units. See
 `docs/architecture/02_statechart_network.md`.
@@ -32,8 +41,8 @@ invariants) supervising agentic workflow units. See
   per-workspace isolated worker fleet (`regime worker` / `drive-many`),
   fault-injection/recovery (`regime chaos`), God Dialog (A/B dual surface).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
-  source of truth / release docs) tracked in `tasks_docs/WORK_PLAN7.md`; long-run durability
-  in `tasks_docs/WORK_PLAN6.md`.
+  source of truth / release docs) and long-run durability (2h+ real run) are
+  complete.
 
 ## Install
 
@@ -68,6 +77,11 @@ ops/up.sh all            # worker + god
 ops/up.sh god --rebuild  # force-rebuild the pinned image
 ```
 
+> `ops/up.sh` lives in the source repo (not shipped in the wheel). Wheel-only
+> users can use host mode below, or `regime worker up <ws>` for per-workspace
+> instances (requires an `opencode-worker` image; recipes in
+> `src/regime_driver/data/docker/`).
+
 **Host mode** — drive an opencode service running on the host directly:
 
 ```bash
@@ -81,7 +95,7 @@ regime run "task" --base http://<host-opencode-port>
   OpenCode Go fallback provider uses `OPENCODE_GO_API_KEY`.
 - Interactive opencode stores keys via `/connect` in
   `~/.local/share/opencode/auth.json`.
-- See `docs/guide/03_environment.md`.
+- See `docs/guide/04_environment.md`.
 
 ## Quick start
 

@@ -79,7 +79,7 @@
 
 > ✅ **已完成（2026-08-11）**：README 中英死链修复（调试段改 `regime preflight`/`REGIME_E2E`/
 > `regime report`）+ 新增「部署」小节（scaffold + up.sh + 主机模式 + key + doctor）+ docs-ref 不入库
-> 说明 + 新增 `docs/guide/06_release.md` 发布教程（构建自检清单 + GitHub/PyPI/Pages 渠道 + 许可复核）+
+> 说明 + 新增 `docs/guide/07_release.md` 发布教程（构建自检清单 + GitHub/PyPI/Pages 渠道 + 许可复核）+
 > CLI_REFERENCE / reference/01_cli / docs/README 登记 scaffold + KNOWN_LIMITS 对外摘要更新。
 > 测试冻结数字（`333 passed`）按数字纪律移除。
 
@@ -90,13 +90,13 @@
 - **IV-2**：README 新增「部署」小节：Docker 起栈（`ops/up.sh all`）+ 主机模式 + `regime scaffold` 获取模板
   + key 配置 + `regime doctor` 自检。中英双语同步。
 - **IV-3**：README/`docs/README.md` 说明 `docs-ref/` 不入库（参考实现参考）。
-- **IV-4**：新增 `docs/guide/06_release.md` 或 README 发布章节：发布渠道（GitHub + PyPI）、发布自检清单
+- **IV-4**：新增 `docs/guide/07_release.md` 或 README 发布章节：发布渠道（GitHub + PyPI）、发布自检清单
   （wheel 含模板、preflight 无源码树可跑、scaffold 可用、README 无死链）、许可/免责复核。
 
 ## V. 平台与发布通道（P2）
 
 > ⏳ **部分完成（2026-08-11）**：V-3 ✅（KNOWN_LIMITS 对外姿态复核，含 scaffold 通道 + 官方模型表述）。
-> V-1（GitHub Pages）/V-2（PyPI）标记"可选"：发布路径已文档化于 `docs/guide/06_release.md`；
+> V-1（GitHub Pages）/V-2（PyPI）标记"可选"：发布路径已文档化于 `docs/guide/07_release.md`；
 > 实际执行需维护者授权/凭据（PyPI token、Pages 启用），不在无人值守范围。
 
 > 现状：只靠 GitHub public 仓库 clone；无独立文档站，无 PyPI 包内教程入口。
@@ -120,7 +120,7 @@
 > 1. ✅ 纯 wheel 隔离安装下 preflight `ok:true` + scaffold 临时目录落位 + doctor 全绿（含模板检查）。
 > 2. ✅ `tests/test_package.py` 构建真实 wheel 断言四类模板在包内。
 > 3. ✅ 根副本删除 + CI 漂移守卫 + 同步脚本；断链清零。
-> 4. ✅ README 中英死链修复 + 部署/发布章节；`docs/guide/06_release.md` 发布教程。
+> 4. ✅ README 中英死链修复 + 部署/发布章节；`docs/guide/07_release.md` 发布教程。
 > 5. ✅ 388 collected 全绿（382 passed + 6 skip E2E 门控）；文档同步见本文件 + TASK + HANDOVER。
 
 > 建议顺序：I（模板进包）→ II（scaffold）→ III（单一真源）→ IV（文档）→ V（平台）。

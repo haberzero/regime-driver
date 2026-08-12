@@ -28,9 +28,9 @@ nav:
       - 快速开始: guide/01_quickstart.md
       - 你能做什么: guide/02_capabilities.md
       - 设计你自己的流程: guide/03_design_flow.md
-      - 安装运行环境: guide/03_environment.md
-      - 配置模型与密钥: guide/04_setup.md
-      - 多工作区并行跑任务: guide/05_fleet.md
+      - 安装运行环境: guide/04_environment.md
+      - 配置模型与密钥: guide/05_setup.md
+      - 多工作区并行跑任务: guide/06_fleet.md
       - 操作指南:
           - howto 总览: howto/README.md
           - 跑真实 E2E: howto/run-e2e.md
@@ -44,6 +44,7 @@ nav:
       - 配置参考: reference/02_configuration.md
       - 流程规格: reference/03_flow_spec.md
       - 权限门禁: reference/04_permissions.md
+      - 上帝对话框契约: reference/05_god_dialog_contract.md
       - 已知限制: KNOWN_LIMITS.md
   - 开发者指南:
       - 架构总览: ARCHITECTURE.md
@@ -61,9 +62,8 @@ nav:
           - god dialog carrier: subsystems/07_god_dialog_carrier.md
           - mock: subsystems/08_mock.md
           - 测试架构: subsystems/09_testing_architecture.md
-      - 上帝对话框契约: reference/05_god_dialog_contract.md
       - god 容器验证窗: howto/god-window.md
-      - 发布教程（维护者）: guide/06_release.md
+      - 发布教程（维护者）: guide/07_release.md
       - 书写准则: WRITING_GUIDE.md
 
 markdown_extensions:

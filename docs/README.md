@@ -12,9 +12,9 @@
 | [快速开始](guide/01_quickstart.md) | 用对话跑通第一个任务 |
 | [你能做什么](guide/02_capabilities.md) | 能力一览（少量"为什么这样设计"） |
 | [设计你自己的流程](guide/03_design_flow.md) | 用对话/简单方式设计流程 |
-| [安装运行环境](guide/03_environment.md) | conda 环境、pip 安装、容器配方 |
-| [配置模型与密钥](guide/04_setup.md) | worker/god 启动、模型密钥、`regime doctor` 自检 |
-| [多工作区并行跑任务](guide/05_fleet.md) | 多工作区并行、隔离 |
+| [安装运行环境](guide/04_environment.md) | conda 环境、pip 安装、容器配方 |
+| [配置模型与密钥](guide/05_setup.md) | worker/god 启动、模型密钥、`regime doctor` 自检 |
+| [多工作区并行跑任务](guide/06_fleet.md) | 多工作区并行、隔离 |
 
 ### 操作指南（按问题查阅）
 
@@ -34,6 +34,7 @@
 | [配置参考](reference/02_configuration.md) | 全部配置字段、环境变量、密钥 |
 | [流程规格](reference/03_flow_spec.md) | regime.json / flow spec 结构 |
 | [权限门禁](reference/04_permissions.md) | 权限等级与门禁规则 |
+| [上帝对话框契约](reference/05_god_dialog_contract.md) | 对话框命令速览与操作流程 |
 | [已知限制](KNOWN_LIMITS.md) | 边界、未实现项、行为限制 |
 
 ## 开发者（理解/扩展 regime-driver）
@@ -44,8 +45,8 @@
 | [最终架构（状态机网络）](architecture/02_statechart_network.md) | 对等状态机网络 + 宪法 |
 | [边界](architecture/03_boundary.md) | 系统边界与责任划分 |
 | [子系统总览](SUBSYSTEM_DESIGN.md) | 各子系统实现导航 |
-| [上帝对话框契约](reference/05_god_dialog_contract.md) | 对话控制契约 |
-| [发布教程（维护者）](guide/06_release.md) | 构建/发布/Pages 部署 |
+| [god 容器验证窗](howto/god-window.md) | A 路验证容器搭建 |
+| [发布教程（维护者）](guide/07_release.md) | 构建/发布/Pages 部署 |
 | [书写准则](WRITING_GUIDE.md) | 文档书写纪律（强制） |
 
 > **内部过程/审计文档**（技术债、耐久报告、供给就绪审查）属工程过程产物，不进公开文档站；

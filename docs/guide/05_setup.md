@@ -69,23 +69,9 @@ ops/up.sh all
 `ops/up.sh` 从密钥文件读取并注入 `DEEPSEEK_API_KEY`。
 worker 默认端口为 4097，god 默认端口为 4098。
 
-> **worker 与 god 的分层**：
->
-> | | opencode-worker（执行器） | opencode-god（对话面） |
-> |---|---|---|
-> | 启动 | `opencode serve --pure`（**强制无插件**） | `opencode serve`（带插件） |
-> | 插件 | 零插件 | `regime-god.js`（把 CLI 包装成 god 原生工具） |
-> | 职责 | **干净地干活**：被 regime-driver 通过 HTTP 驱动，只执行不自治 | 承载上帝对话框，是对话载体 |
-> | 端口 | 4097 | 4098 |
->
-> **为什么 worker 必须是干净的**：worker 只负责执行，所有"制度"（流程、审查、监督、报告）都住在
-> regime-driver 这一层，通过 HTTP 驱动它。如果 worker 装了插件，它就有了"自己决定怎么做"的能力，
-> 这恰恰违背"智能负责自由裁量，机制负责确定性约束"的原则——worker 干净，才能保证你的元指令
-> 被流程确定性地执行，而不是被 worker 自己的插件干扰。
->
-> **god 为什么带插件**：god 是对话层，`regime-god.js` 只是把 `regime` CLI 命令包装成 opencode
-> 原生工具，让上帝对话框能调用底层命令。它属于"对话载体"，不是"执行器"。**它需要插件，但 worker
-> 不需要。**
+> **worker 与 god 是两个不同的 opencode 实例**：worker 是"干净的执行器"（无插件、只被
+> regime-driver 通过 HTTP 驱动干活），god 是"对话载体"（带插件，承载上帝对话框）。
+> 为什么这样分层，见 [上帝对话框（第一入口）](00_god_dialog.md)。
 
 ### 4. 方式 B：配置主机 opencode
 

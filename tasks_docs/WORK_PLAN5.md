@@ -10,7 +10,7 @@
 
 ## 0. 方向定案
 
-- **模型**：默认 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），已在全实例统一（见 docs/guide/03_environment.md）。
+- **模型**：默认 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），已在全实例统一（见 docs/guide/04_environment.md）。
 - **主线转向"流程定义生命周期"**：目前 flow 只在启动时 `load_regime(path)` 读一次 + god `design` 内存注册。
   下一步建设 **热编译检查 + 热加载/热重载** 的一套基础设施——这是"可自我修改元系统"愿景的关键闭环
   （上帝对话框设计/编辑/重载 workflow，无需重启整个系统）。

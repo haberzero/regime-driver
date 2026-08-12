@@ -1,6 +1,6 @@
 # 主机模式 agent（方式 B）
 
-> 目的：当把"主机 opencode"当作 regime worker（`guide/03_environment.md` 方式 B，无 Docker）时，
+> 目的：当把"主机 opencode"当作 regime worker（`guide/04_environment.md` 方式 B，无 Docker）时，
 > regime 用 `developer` / `reviewer` 两个 agent 驱动会话。
 
 ## 做法
