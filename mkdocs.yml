@@ -24,12 +24,13 @@ site_dir: site
 nav:
   - 首页: index.md
   - 用户指南:
-      - 安装运行环境: guide/00_environment.md
-      - 配置模型与密钥: guide/01_setup.md
-      - 第一次跑任务: guide/02_first_run.md
-      - 设计并热重载流程: guide/03_design_flow.md
-      - 并发跑舰队: guide/04_run_fleet.md
-      - 上帝对话框入门: guide/05_god_dialog.md
+      - 上帝对话框（第一入口）: guide/00_god_dialog.md
+      - 快速开始: guide/01_quickstart.md
+      - 你能做什么: guide/02_capabilities.md
+      - 设计你自己的流程: guide/03_design_flow.md
+      - 安装运行环境: guide/03_environment.md
+      - 配置模型与密钥: guide/04_setup.md
+      - 多工作区并行跑任务: guide/05_fleet.md
       - 操作指南:
           - howto 总览: howto/README.md
           - 跑真实 E2E: howto/run-e2e.md

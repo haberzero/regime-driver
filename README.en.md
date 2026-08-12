@@ -81,7 +81,7 @@ regime run "task" --base http://<host-opencode-port>
   OpenCode Go fallback provider uses `OPENCODE_GO_API_KEY`.
 - Interactive opencode stores keys via `/connect` in
   `~/.local/share/opencode/auth.json`.
-- See `docs/guide/00_environment.md`.
+- See `docs/guide/03_environment.md`.
 
 ## Quick start
 

@@ -8,13 +8,13 @@
 
 | 文档 | 内容 |
 |---|---|
-| [安装运行环境](guide/00_environment.md) | conda 环境、pip 安装、容器配方 |
-| [配置模型与密钥](guide/01_setup.md) | worker/god 启动、模型密钥、`regime doctor` 自检 |
-| [第一次跑任务](guide/02_first_run.md) | 校验 → 预检 → 跑真实任务 → drive 一键栈 |
-| [设计并热重载流程](guide/03_design_flow.md) | 设计自己的流程并热加载 |
-| [并发跑舰队](guide/04_run_fleet.md) | 多工作区并行、隔离 |
-| [上帝对话框入门](guide/05_god_dialog.md) | 对话式控制整个系统 |
-| [发布教程](guide/06_release.md) | 构建/发布/Pages 部署 |
+| [上帝对话框（第一入口）](guide/00_god_dialog.md) | 为什么有它、好处、设计思路、功能、与体系配合 |
+| [快速开始](guide/01_quickstart.md) | 用对话跑通第一个任务 |
+| [你能做什么](guide/02_capabilities.md) | 能力一览（少量"为什么这样设计"） |
+| [设计你自己的流程](guide/03_design_flow.md) | 用对话/简单方式设计流程 |
+| [安装运行环境](guide/03_environment.md) | conda 环境、pip 安装、容器配方 |
+| [配置模型与密钥](guide/04_setup.md) | worker/god 启动、模型密钥、`regime doctor` 自检 |
+| [多工作区并行跑任务](guide/05_fleet.md) | 多工作区并行、隔离 |
 
 ### 操作指南（按问题查阅）
 
@@ -45,6 +45,7 @@
 | [边界](architecture/03_boundary.md) | 系统边界与责任划分 |
 | [子系统总览](SUBSYSTEM_DESIGN.md) | 各子系统实现导航 |
 | [上帝对话框契约](reference/05_god_dialog_contract.md) | 对话控制契约 |
+| [发布教程（维护者）](guide/06_release.md) | 构建/发布/Pages 部署 |
 | [书写准则](WRITING_GUIDE.md) | 文档书写纪律（强制） |
 
 > **内部过程/审计文档**（技术债、耐久报告、供给就绪审查）属工程过程产物，不进公开文档站；

@@ -22,7 +22,7 @@
 - 主机：Linux，用户 `haber`，内存/GPU 充足。Docker 29.7.0。
 - **docker 权限**：`haber` 已在 docker 组，但本 shell 是旧组，需用 `sg docker -c '...'` 包装 docker 命令。
 - **网络**：Docker Hub 被墙 → 用镜像 `docker.m.daocloud.io` 拉基础镜像；npm 用 `registry.npmmirror.com`。
-- **模型授权**：默认模型为 DeepSeek 官方 API `deepseek-api/deepseek-v4-flash`（密钥 `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`）；`my-opencode-go/deepseek-v4-flash`（OpenCode Go）作回退。详见 `docs/guide/00_environment.md`。自检 `regime doctor`。
+- **模型授权**：默认模型为 DeepSeek 官方 API `deepseek-api/deepseek-v4-flash`（密钥 `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`）；`my-opencode-go/deepseek-v4-flash`（OpenCode Go）作回退。详见 `docs/guide/03_environment.md`。自检 `regime doctor`。
 - opencode 版本：1.18.11（镜像 `opencode-mvp:1.18.11`）。
 
 ### 3.x 自主运行配置（下游会话必须遵守）

@@ -72,7 +72,7 @@ regime run "任务" --base http://<主机 opencode 端口>
 - worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设
   env）；密钥零入库。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
-- 详见 `docs/guide/00_environment.md`。
+- 详见 `docs/guide/03_environment.md`。
 
 ## 快速上手
 
@@ -128,7 +128,7 @@ conda run -n regime-driver pytest
 - worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设 env）；
   OpenCode Go 回退 provider 用 `OPENCODE_GO_API_KEY` / `~/.regime/keys/opencode-go.key`。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
-- 详见 `docs/guide/00_environment.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。
+- 详见 `docs/guide/03_environment.md`（主机 vs Docker、密钥安全、多场景安装）。自检：`regime doctor`。
 
 ## License 与免责声明
 

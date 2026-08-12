@@ -75,9 +75,12 @@ regime dialog --live --base http://127.0.0.1:4097
 
 ## 从这里开始
 
-- **我是使用者**（想用它跑任务）→ [快速上手](guide/02_first_run.md) · [安装](guide/00_environment.md) · [CLI 参考](reference/01_cli.md)
+- **我是使用者，想最快用上** → [上帝对话框（第一入口）](guide/00_god_dialog.md) 然后 [快速开始](guide/01_quickstart.md)
+- **我想看全部能力** → [你能做什么](guide/02_capabilities.md)
 - **我是开发者**（想理解/扩展它）→ [总体设计思路](architecture/01_principles.md) · [子系统实现](SUBSYSTEM_DESIGN.md) · [流程规格](reference/03_flow_spec.md)
 - **我想看边界** → [已知限制](KNOWN_LIMITS.md)
+- **我想查技术细节**（命令/配置/JSON）→ [CLI 参考](reference/01_cli.md) · [配置参考](reference/02_configuration.md) · [流程规格](reference/03_flow_spec.md)
 
-> 本站导航完全按读者分层：**使用者** → "用户指南" 与 "参考"；**开发者** → "开发者指南"。
-> 供 agent 执行的内部配置（skills / god 助手 / workflow-regime）**不在此站点**，保持机器专用。
+> 本站导航按读者分层：**使用者** → "用户指南"（能做什么 + 少量为什么）与"参考"（查技术细节）；
+> **开发者** → "开发者指南"。供 agent 执行的内部配置（skills / god 助手 / workflow-regime）**不在此站点**，
+> 保持机器专用。
