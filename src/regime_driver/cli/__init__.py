@@ -459,6 +459,12 @@ def drive(
                              "(read|interact|run|clean); gates write ops"),
     no_preflight: bool = typer.Option(
         False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"),
+    prune_max_records: Optional[int] = typer.Option(
+        None, "--prune-max-records",
+        help="after the drive, keep only this many tail journal records (L2 retention)"),
+    prune_max_age: Optional[float] = typer.Option(
+        None, "--prune-max-age",
+        help="after the drive, drop journal records older than this many seconds (L2 retention)"),
 ) -> None:
     """Bring up the whole self-driving stack with one command.
 
@@ -499,6 +505,8 @@ def drive(
             *(["--skills-dir", str(skills_dir)] if skills_dir else []),
             *(["--workspace", workspace] if workspace else []),
             *(["--no-preflight"] if no_preflight else []),
+            *(["--prune-max-records", str(prune_max_records)] if prune_max_records is not None else []),
+            *(["--prune-max-age", str(prune_max_age)] if prune_max_age is not None else []),
         ]
         registry = TaskRegistry(tasks_dir or TaskRegistry().dir)
         rec = registry.submit(
@@ -547,6 +555,7 @@ def drive(
         settings, sm, client, rep, container=container,
         deadline_sec=deadline, stall_sec=stall,
         meta_enabled=meta, meta_model=meta_model,
+        prune_max_records=prune_max_records, prune_max_age=prune_max_age,
     )
     try:
         # render live progress in the foreground

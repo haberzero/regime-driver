@@ -85,9 +85,13 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 | `--tasks-dir` | path | 受监管任务注册目录 |
 | `--async` | flag | 作为受监管后台任务提交 |
 | `--perm` | str | 持有权限等级 |
+| `--prune-max-records` | int | 收尾时 journal 仅保留尾部 N 条（L2 保留策略） |
+| `--prune-max-age` | float | 收尾时丢弃超过该秒数的 journal 记录（L2 保留策略） |
 
 **输出**：结果含 `{outcome,end,elapsed_sec,supervisor,session_id}`。非 COMPLETE 时退出码 1。
 **权限**：`run`。
+**L2 保留**：传 `--prune-max-records`/`--prune-max-age` 时，drive 结束后对共享 journal 执行
+`Reporter.retain`（best-effort，失败不影响结果），用于长跑脚本控制 journal 无限增长。
 
 ### `drive-many`
 

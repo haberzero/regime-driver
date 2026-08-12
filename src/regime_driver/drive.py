@@ -86,6 +86,8 @@ class Drive:
         session_discovery_timeout: float = 60.0,
         meta_enabled: bool = False,
         meta_model: str | None = None,
+        prune_max_records: int | None = None,
+        prune_max_age: float | None = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -98,6 +100,10 @@ class Drive:
         self.session_discovery_timeout = session_discovery_timeout
         self.meta_enabled = meta_enabled
         self.meta_model = meta_model
+        # L2 retention: bound the shared journal at drive teardown (both params
+        # optional; enabled only when the caller passes at least one).
+        self.prune_max_records = prune_max_records
+        self.prune_max_age = prune_max_age
         self.driver: StatechartDriver | None = None
         self._session_id: str | None = None
         self._result: dict = {}
@@ -165,6 +171,15 @@ class Drive:
             outcome, end, detail = (Outcome.ERROR, None, "drive did not complete")
         else:
             outcome, end, detail = self._result["res"]
+        # L2 retention: bound the shared journal at teardown so long-run scripts
+        # do not grow the journal without limit (best-effort, never fails a run).
+        if self.reporter is not None and (
+                self.prune_max_records is not None or self.prune_max_age is not None):
+            try:
+                self.reporter.retain(max_age_sec=self.prune_max_age,
+                                     max_records=self.prune_max_records)
+            except Exception:  # noqa: BLE001 — prune is best-effort
+                pass
         return DriveResult(
             outcome=outcome.value, end=end, detail=detail,
             supervisor=sup_outcome, elapsed_sec=round(time.time() - t0, 1),

@@ -117,3 +117,29 @@ def test_drive_stall_supervisor_escalates(tmp_path):
     # the supervisor took a ladder action (recorded to the journal).
     assert dr.outcome in {Outcome.ABORTED.value, Outcome.BLOCKED.value,
                           Outcome.ERROR.value, Outcome.TIMEOUT.value}
+
+
+def test_drive_prunes_journal_on_teardown(tmp_path):
+    """L2: with prune_max_records, the shared journal is bounded after the run."""
+    s = Settings(monitor_enabled=False, stall_sec=2, poll_sec=0.1)
+    sm = load_regime()
+    client = FakeClient()
+    rep = Reporter(journal_path=tmp_path / "journal.jsonl")
+    d = Drive(s, sm, client, rep, deadline_sec=600, stall_sec=60,
+              prune_max_records=1)
+    dr = d.run("实现反转函数")
+    assert dr.outcome == Outcome.COMPLETE.value
+    rep.close()
+
+    lines = [l for l in (tmp_path / "journal.jsonl").read_text().splitlines() if l.strip()]
+    assert len(lines) == 1, f"expected 1 kept record after prune, got {len(lines)}"
+    assert json.loads(lines[0]).get("outcome") == "complete"
+
+
+def test_drive_no_prune_by_default(tmp_path):
+    """Without retention params, the full journal is kept."""
+    d, client, rep = _drive(tmp_path)
+    dr = d.run("实现反转函数")
+    rep.close()
+    lines = [l for l in (tmp_path / "journal.jsonl").read_text().splitlines() if l.strip()]
+    assert len(lines) > 1  # many events, untouched
