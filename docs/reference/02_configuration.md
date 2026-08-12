@@ -29,7 +29,8 @@
 | `permission_ceiling` | str | `clean` | 写权限硬上限 |
 | `monitor_enabled` | bool | true | 启用 watchdog 监控线程 |
 | `monitor_poll_sec` | float | 3.0 | 监控轮询间隔 |
-| `session_hygiene_threshold` | int | 100 | doctor 对累积 worker session 数的警告阈值（L2：session 记录不可删只能 abort） |
+| `session_hygiene_threshold` | int | 100 | doctor 对累积 worker session 数的警告阈值（L2） |
+| `session_cleanup_policy` | str\|null | null | session 自动清理策略（JSON 字符串，见 `session_cleanup` 命令；null=关闭） |
 | `stall_sec` | int | 120 | busy 且无输出增长超过此秒 → 判卡死 |
 | `on_stall` | enum | `abort` | 停滞动作：abort\|report_user\|none |
 | `meta_analyze_enabled` | bool | false | 用独立模型确认停滞再行动 |

@@ -272,9 +272,13 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 列出 worker 上的全部 opencode 会话及实时状态（busy/idle）。
 
-**参数**：`--base`、`--json`、`--clean`（abort 全部）、`--kill <id>`（abort 指定）、`--perm`。
-**输出**：会话数组，每项含 `{id,title,agent,status,tokens}`。
-**权限**：列出 `read`；`--clean`/`--kill` 为 `clean`。
+**参数**：`--base`、`--json`、`--clean`（abort+delete 全部，真正清理）、`--cleanup <json>`（按策略删除）、`--kill <id>`（abort 指定）、`--perm`。
+**`--cleanup` 策略**：JSON 字符串 `{"max_sessions": N, "min_age_sec": S, "only_idle": true}`——
+累积超过 `max_sessions` 时删除最老的超额 idle 会话；`only_idle=false` 时仍**绝不删 busy**（安全边界）。
+**输出**：会话数组；`--cleanup` 输出 `{enabled,max_sessions,scanned,deleted_count,deleted,skipped_busy,skipped_young}`。
+**权限**：列出 `read`；`--clean`/`--kill`/`--cleanup` 为 `clean`。
+**说明**：opencode 1.18.11 `DELETE /session/{id}` 会真正删除 session 记录（已核实）；清理策略为
+可配置参考模型（`session_cleanup_policy` 配置项），默认关闭，非强制。
 
 ### `session send <session_id> <message>`
 

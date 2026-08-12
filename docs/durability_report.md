@@ -73,11 +73,14 @@ worker 全程健康。**系统"2h+ 能持续运行"的核心声明成立**。
   观察"稳态无积压"下的完成率；预计接近 100%。
 
 ### 4.3 L2 资源治理（下一步）
-- session 累积是**真实、有界、但无上限**的运营成本：长期（多天）运行需定期
-  `regime sessions --clean`（abort 旧 session）或重建容器。建议把"session 数 > N 则提示清理"
-  纳入 `regime doctor` 或 supervisor 周期动作。
-  **✅ 已落地（2026-08-12）**：`regime doctor` 增 "session hygiene" 检查（worker 健康时统计 session
-  数，≥100 警告"abort/rebuild advised"），阈值 `session_hygiene_threshold` 可配。
+- session 累积是**真实、有界、但无上限**的运营成本：长期（多天）运行需定期清理或重建容器。
+  **✅ 已落地（2026-08-12）**：
+  - 核实 opencode 1.18.11 **DELETE /session/{id} 真正删除**（非 abort）——早期"无法删除"结论更正。
+  - `regime sessions --cleanup '{"max_sessions": 100}' --perm clean`：可配置清理策略
+    （`max_sessions` / `min_age_sec` / `only_idle`），`session_cleanup_policy` 配置项可自定义
+    （默认关闭的参考模型，非强制）；`--clean` 改 abort+delete 真正清理。
+  - `regime doctor` 超阈值时给出可复制的 cleanup 建议命令。
+  - 示例策略（cron 每 6h 清理）：`regime sessions --cleanup '{"max_sessions": 100, "min_age_sec": 3600}' --perm clean`
 - journal/ledger 线性增长：长跑脚本收尾建议自动 `regime report --prune`（L2 待接入）。
 
 ### 4.4 C3 参数校准

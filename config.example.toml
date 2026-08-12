@@ -11,6 +11,14 @@ model = "deepseek-api/deepseek-v4-flash"  # 所有 session 的模型（默认 De
 request_timeout = 600.0                      # 每个 message POST 的流式超时(秒)（慢 judge 需较大值）
 max_driver_wait_sec = 3600.0                 # driver.run() 无显式 deadline 时的等待上限(秒)
 session_hygiene_threshold = 100              # doctor 对累积 session 数的警告阈值(L2)
+# session 自动清理策略（可自定义参考模型，默认关闭）。
+# JSON 字符串；None/空 = 关闭。字段：
+#   max_sessions  (int)  累积超过此值时清理到该值以下
+#   min_age_sec   (int)  只清理存在超过该秒数的 session（0 = 不限）
+#   only_idle     (bool) true 只清理 idle（默认，绝不删 busy）
+# 用法：`regime sessions --cleanup '{"max_sessions": 100}' --perm clean`
+# 或经 cron 周期性执行。详见 docs/durability_report.md §4.3。
+#session_cleanup_policy = '{"max_sessions": 100, "min_age_sec": 3600, "only_idle": true}'
 agent_reviewer = "reviewer"                  # 审查者 agent 名
 
 # --- 流程控制 ---
