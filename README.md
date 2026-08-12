@@ -26,8 +26,8 @@ opencode worker（L2）完成任务，并由只读审查者（L0）判定、确�
 >
 > - 测试：全量 `python -m pytest` 绿（覆盖 71%+）；真实 worker E2E 本地可用（`REGIME_E2E=1`，CI 内已封存）。
 > - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离舰队、上帝对话框）已完成；
->   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）见 `WORK_PLAN7.md`；
->   长期耐久验证见 `WORK_PLAN6.md`。
+>   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）见 `tasks_docs/WORK_PLAN7.md`；
+>   长期耐久验证见 `tasks_docs/WORK_PLAN6.md`。
 
 ## Install
 
@@ -113,7 +113,7 @@ conda run -n regime-driver pytest
 （是什么/为什么/功能/能做到什么）开始，按读者分层：**用户指南**（跑任务/配置/操作）、**参考**（CLI/
 配置/流程规格）、**开发者指南**（架构/子系统/如何开发）。仓库内导航见 `docs/README.md`；
 已知限制见 `docs/KNOWN_LIMITS.md`；书写准则见 `docs/WRITING_GUIDE.md`。
-改进工作清单见 `WORK_PLAN*.md`。
+历史工作清单见 `tasks_docs/WORK_PLAN*.md`。
 > 注：`docs-ref/` 是另一项目文档的参考副本，**不入库**（gitignore），仅作写作参考。
 > 供 agent 执行的内部配置（skills / god 助手 / workflow-regime 模板）是机器专用内容，不进文档站。
 

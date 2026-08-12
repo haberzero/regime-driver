@@ -13,10 +13,9 @@ __pycache__/
 .pytest_cache/
 .venv*/
 
-# opencode runtime
-workspaces/opencode-autopilot/.opencode/
-workspaces/opencode-autopilot/*.txt
-workspaces/opencode-worker/
+# opencode runtime / 历史工作区（运行时产物，不入库）
+workspaces/
+workshops/
 
 # node
 node_modules/

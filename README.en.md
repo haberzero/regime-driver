@@ -32,8 +32,8 @@ invariants) supervising agentic workflow units. See
   per-workspace isolated worker fleet (`regime worker` / `drive-many`),
   fault-injection/recovery (`regime chaos`), God Dialog (A/B dual surface).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
-  source of truth / release docs) tracked in `WORK_PLAN7.md`; long-run durability
-  in `WORK_PLAN6.md`.
+  source of truth / release docs) tracked in `tasks_docs/WORK_PLAN7.md`; long-run durability
+  in `tasks_docs/WORK_PLAN6.md`.
 
 ## Install
 
@@ -132,7 +132,7 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
   Guide** (architecture/subsystems/how-to-develop).
 - In-repo navigation: `docs/README.md`. Known limits: `docs/KNOWN_LIMITS.md`.
   Writing standards: `docs/WRITING_GUIDE.md`.
-- Work plans: `WORK_PLAN.md`–`WORK_PLAN7.md`.
+- Work plans (historical): `tasks_docs/WORK_PLAN*.md`.
 - Note: `docs-ref/` is a reference copy of another project's docs — it is **not
   committed** (gitignored), kept only as writing guidance. Agent-only internals
   (skills / god assistants / workflow-regime templates) stay machine-specific

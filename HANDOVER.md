@@ -1,7 +1,7 @@
 # 会话交接文档（HANDOVER）
 
 > 供新工作区开启的新 session 读取，完整了解本项目背景、已做成果、当前状态与下一步。
-> 新会话请先读本文件 + `PLANNING.md` + `docs/README.md`（技术文档导航）。
+> 新会话请先读本文件 + `docs/README.md`（技术文档导航）；历史规划/任务档案见 `tasks_docs/`。
 
 ---
 
@@ -31,8 +31,8 @@
   用户硬性决定（同仓库根 `AGENTS.md`）。每完成里程碑/阶段即用 `general` 独立只读 review，
   修复其 blocker/warning 后方可标记完成并 commit。
 - **push 已授权（2026-08-10 起）**：项目已公开上传 `https://github.com/haberzero/regime-driver`（`main`，
-  SSH 认证），用户明确授权 push。默认远端 = `origin`（SSH）；本地分支 `autonomous-2026-08-05` 直接
-  `git push origin autonomous-2026-08-05:main` 即同步。push 会触发 GitHub Actions（CI 已绿）。
+  SSH 认证），用户明确授权 push。默认远端 = `origin`（SSH）；当前工作分支 = `main`，
+  `git push origin main:main` 即同步。push 会触发 GitHub Actions（CI 已绿）。
 - **破坏性重构授权**：符合一般工程/架构原则且经分析确实优于既有设计，允许破坏性重构（用户多次指示"彻底重构，不用关心兼容"）。
 - **自主推进偏好**：偏向无人值守，最大限度自我决定；只有确实无法决定才上报。日志纪律："只记录，不断决"。
 - **上报阈值**：`blocked` / `human_escalate` / 架构级方向调整 → 上报；审查发现的 blocker 必须修复后才能标记完成。
@@ -56,15 +56,10 @@
 - `opencode-mvp:1.18.11`：Ubuntu 24.04 + Node 22 + opencode-ai@1.18.11 + Python 3.12 + git + curl。
 - 入口 `opencode web --hostname 0.0.0.0 --port 4096`（`OPENCODE_PORT` 可覆盖）。
 
-### 4.2 容器 opencode-autopilot（执行面，运行中）
-- 端口 `0.0.0.0:4096->4096`，`--restart unless-stopped`。
-- 挂载：
-  - `~/.config/opencode` → `/root/.config/opencode`（双向同步，含 skills/agents）
-  - `~/.local/share/opencode/auth.json` → 容器凭据
-  - `/home/haber/oc-meta/workspaces/opencode-autopilot` → `/root/ws`（工作区）
-  - `/home/haber/oc-meta/ops` → `/root/control`（监督器+策略）
-- 工作区 `opencode.json` 激活 goal-plugin + goal 命令。
-- 访问：`http://192.168.1.3:4096`（web 界面）。
+### 4.2 容器 opencode-autopilot（M0 遗产，**已退役删除 2026-08-12**）
+> 该容器是 M0 时代（goal-plugin + stall-watchdog + supervisor.py 三件套）的执行面，已被
+> `regime drive`（executor + supervisor + reporter 一栈）取代。**2026-08-12 交接清理时删除**，
+> 工作区产物一并移除（root 权限残留由运维清理）。历史信息保留如下供参考。
 
 ### 4.3 配置注入（全局 `~/.config/opencode/`）
 - 3 个 skill：`code-review`、`quality-gate`、`self-reflection`（SKILL.md，frontmatter 规范）。
@@ -178,20 +173,28 @@
 
 ### 当前状态速览（2026-08-12）
 
-- **测试基线 400 collected（全绿，覆盖 72%）**，分支 `autonomous-2026-08-05`，干净工作树。
+- **测试基线 413 collected（全绿，覆盖 72%）**，分支 `main`，干净工作树。
+- **文档站完整重构（✅ 2026-08-12）**：MkDocs + Read the Docs 主题（`https://haberzero.github.io/regime-driver/`）。
+  三层受众彻底分层：**用户指南**（上帝对话框第一入口 → 快速开始 → 你能做什么 → 设计流程 → 安装/配置/
+  舰队）+ **参考**（查技术细节）+ **开发者指南**（架构/子系统/契约/治理）。agent 专用内容（skills /
+  god 助手 / workflow-regime 模板）完全隔离，不入站，由 `regime scaffold` 提供。
+  - 首页以"元指令会遗忘"叙事切入（你给 opencode 的约束在多轮对话后会被遗忘 → regime-driver 把运行
+    制度变成确定性流程 → 你仍只需对话）。
+  - 框架展示细化：对话背后发生了什么（制度驱动规划 → 角色/节点出现 → 会话按角色分配 → 逐节点配合 →
+    事件记录）；为什么 skill 不直接加载进对话框（上下文/专注度/结构性保证三重考量）。
+  - worker 干净执行器 / god 带插件对话面的分层说明。
 - **长期耐久验证（WORK_PLAN6 I L1+L3 ✅，2026-08-12）**：2h 真实运行（7205s，38 drive）零崩溃/
   停滞/重启（ladder=0），资源线性有界增长（session 16→96、内存 +231MB/2h、journal 3.4MB），
   worker 全程健康。完成率 27/38（11 个 timeout 命中 600s deadline，根因=验证过度订阅单 worker，
   非系统缺陷）。报告 `tasks_docs/durability_report.md`；结果记入 KNOWN_LIMITS。
 - **L2 资源治理（✅ 2026-08-12）**：`regime doctor` 增 "session hygiene" 检查（累积 session ≥
   `session_hygiene_threshold`(默认100) 警告清理/重建）；`regime drive` 增 `--prune-max-records/
-  --prune-max-age`（收尾自动 journal 保留，best-effort）。
+  --prune-max-age`（收尾自动 journal 保留，best-effort）。**session 清理策略**：`sessions --cleanup`
+  （可配置参考模型，`session_cleanup_policy`），已核实 opencode 1.18.11 DELETE /session 真正删除。
 - **版本耦合护栏（✅ 2026-08-12）**：`OpenCodeClient.health_info/check_version`（major.minor 匹配，
   SUPPORTED_OPCODE=1.18.11）+ `regime doctor` "opencode version" 检查（漂移即警告）。
-- **示例流程 + 上手文档（✅ 2026-08-12）**：`src/regime_driver/data/examples/verify_then_report.json`
-  （tool+route 分支示例，随 wheel 打包）；站点门户首页 `docs/index.md`（外部读者心智模型）。
-- **文档站重构（✅ 2026-08-12）**：MkDocs + Read the Docs 主题；用户/开发者/agent 三层分层，
-  agent 提示词从人类文档移除（改由 `regime scaffold` 提供模板）；`00_00_mental_model` 并入 `index.md`。
+- **示例流程（✅ 2026-08-12）**：`src/regime_driver/data/examples/verify_then_report.json`
+  （tool+route 分支示例，随 wheel 打包）。
 - **e2e-real 已封存（用户决定，2026-08-11）**：GitHub 真实模型 E2E 长期不列入计划；CI 已移除
   `e2e-real` job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 - **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，
@@ -206,8 +209,7 @@
   - **单一真源收敛**：根 `agents/`、`skills/` 副本删除；真源 = `docker/*-config/agents` +
     `workflow-regime/skills`；打包派生 = `src/regime_driver/data/`，CI 漂移守卫
     `test_packaged_templates_match_true_sources` + 同步脚本 `ops/sync_templates.py [--check]`。
-  - **文档**：README 中英死链修复 + 部署章节；`docs/guide/06_release.md` 发布教程；CLI_REFERENCE 登记 scaffold。
-  - V-1（GitHub Pages）/ V-2（PyPI）标可选，路径已文档化，执行需授权/凭据。
+  - V-1（GitHub Pages 已启用）/ V-2（PyPI，用户近期处理）。
 - **上帝对话框制度设计闭环（P0 主线）✅（2026-08-11）**：
   - `regime flow design <name> '<spec>'`：inline 注册新流程（无需文件），上帝对话框设计制度主入口；
   - `regime status --deep`：一次拿全聚合态势（健康+会话+busy+流程+任务+reporter rollup）；
@@ -237,10 +239,9 @@
 - 测试基线 356 passed。
 - **模型**：默认 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），主机+worker/god 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
-- **容器**：`opencode-god`（4098，A 路验证窗，host 网络）、`opencode-worker`（4097，默认执行器）、
-  `opencode-setup`（4105，web 配置窗，挂载顶层 config/auth）、
-  以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker` 管理，物理隔离）、
-  `opencode-autopilot`（4096，web，M0 遗产已退役监督）。
+- **容器**：`opencode-worker`（4097，默认执行器，`--pure` 无插件）、`opencode-god`（4098，A 路验证窗，
+  host 网络，带 regime-god 插件）、以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker`
+  管理，物理隔离）。`opencode-autopilot` / `opencode-setup`（M0/web 旧窗）**已退役删除（2026-08-12）**。
 - **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
   `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈** +
   **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）+
@@ -254,10 +255,10 @@
 ### 下一 session 主线任务（优先级表，我的判断）
 
 > **当前主线（唯一指针，2026-08-12）**：**对外供给就绪（WORK_PLAN7）✅ + 长期耐久验证（WORK_PLAN6 I）✅
-> + L2 资源治理 + 版本护栏 + 示例/上手文档**。全部核心工作已完成。
-> 剩余可选：**V-1（GitHub Pages）/ V-2（PyPI）需授权/凭据**；**夜间稳态耐久二次验证**（限并发，
-> 消除上次"过度订阅"干扰，验证 ~100% 完成率）。
-> 已完成的上一主线：**WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久验证 + L2/版本/示例收尾**。
+> + L2 资源治理 + 版本护栏 + 示例/上手文档 + 文档站重构**。全部核心工作已完成，进入交接态。
+> 剩余可选：**V-2（PyPI，用户近期处理）**；**夜间稳态耐久二次验证**（限并发，消除"过度订阅"干扰，
+> 验证 ~100% 完成率）。
+> 已完成的上一主线：**WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久验证 + L2/版本/示例收尾 + 文档站重构**。
 
 | # | 任务 | 视角 | 说明 |
 |---|---|---|---|
@@ -265,14 +266,14 @@
 | **P0** | **`regime scaffold` 一键配置（II）** | 易用 | WORK_PLAN7 II ✅ |
 | **P1** | **单一真源收敛（III）** | 数据分层 | WORK_PLAN7 III ✅ |
 | **P1** | **文档修复与发布教程（IV）** | 发布 | WORK_PLAN7 IV ✅ |
-| P2 | **平台通道（V）**：Pages/PyPI（需授权/凭据） | 发布 | WORK_PLAN7 V ⏳（V-3 ✅） |
+| P2 | **平台通道（V）**：Pages ✅ 已启用 / PyPI（用户近期处理） | 发布 | WORK_PLAN7 V ⏳（V-1✅ V-3✅；V-2 待用户） |
 | **P1** | **长期耐久验证（I）**：2h+ 真实运行 + 报告 | 可靠 | WORK_PLAN6 I ✅（L1+L3；L2 ✅） |
 | P1 | **稳态耐久二次验证**（限并发，夜间） | 可靠 | 待夜间执行 |
-| P1 | **示例 flow + 上手文档** | 易用 | ✅（examples/ + 00_00_mental_model） |
+| P1 | **文档站重构**：三层分层 + 门户 + 框架展示 | 易用 | ✅（MkDocs RTD 主题） |
 
-> 已完成：**WORK_PLAN7 I–IV + V-3、WORK_PLAN6 I（2h 耐久）+ L2、版本护栏、示例 flow/上手文档、
-> e2e-real 封存、D1/G10 小债**。400 测试全绿（覆盖 72%）。
-> 若只做一件：**夜间稳态耐久二次验证**（消除过度订阅干扰）或 **V-1 Pages（待授权）**。
+> 已完成：**WORK_PLAN7 I–IV + V-3、WORK_PLAN6 I（2h 耐久）+ L2、版本护栏、示例 flow、文档站重构、
+> e2e-real 封存、D1/G10 小债**。413 测试全绿（覆盖 72%）。历史规划/任务文档已归档到 `tasks_docs/`。
+> 若只做一件：**V-2 PyPI（待用户）** 或 **夜间稳态耐久二次验证**。
 
 ### 已完成主线（历史，参考）
 
@@ -389,7 +390,5 @@ sg docker -c 'docker build -f docker/Dockerfile.god -t opencode-god:1.18.11 .'
 sg docker -c 'docker rm -f opencode-god; docker run -d --name opencode-god --network host -e DEEPSEEK_API_KEY="$(cat /tmp/dk.txt)" -e OPENCODE_PORT=4098 opencode-god:1.18.11'
 curl -s http://127.0.0.1:4098/global/health
 
-# 启动监督器（旧方式，容器内；现已被 oc-task 取代）
-docker exec -d opencode-autopilot python3 /root/control/supervisor.py \
-  --goal "<目标>" --policy /root/control/policy.json
+# （旧 M0 监督器命令已删除；现行用 `regime drive`/`regime supervisor`）
 ```

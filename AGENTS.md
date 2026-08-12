@@ -1,6 +1,6 @@
 # AGENTS.md — 本仓库对 opencode/agent 的硬性约定
 
-> 供任何在本仓库工作的 agent 读取并遵守。与 `HANDOVER.md §3.x`、`TASK.md`、`WORK_PLAN*.md` 共同构成工作契约。
+> 供任何在本仓库工作的 agent 读取并遵守。与 `HANDOVER.md §3.x`、`tasks_docs/TASK.md`、`tasks_docs/WORK_PLAN*.md` 共同构成工作契约。
 
 ## 代码审查（必须遵守）
 
