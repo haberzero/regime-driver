@@ -6,7 +6,7 @@
 > （见 `reference/04_permissions.md`）。
 >
 > 命令分组：执行入口、自驱动栈、流程生命周期、校验与预检、检查与报告、会话、
-> 受监管任务、后台任务、工作区实例、混沌注入、监管、上帝对话框、门禁。
+> 受监管任务、后台任务、工作区实例、混沌注入、监管、控制对话框、门禁。
 
 公共约定：
 
@@ -85,25 +85,25 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 | `--tasks-dir` | path | 受监管任务注册目录 |
 | `--async` | flag | 作为受监管后台任务提交 |
 | `--perm` | str | 持有权限等级 |
-| `--prune-max-records` | int | 收尾时 journal 仅保留尾部 N 条（L2 保留策略） |
-| `--prune-max-age` | float | 收尾时丢弃超过该秒数的 journal 记录（L2 保留策略） |
+| `--prune-max-records` | int | 收尾时 journal 仅保留尾部 N 条（资源治理保留策略） |
+| `--prune-max-age` | float | 收尾时丢弃超过该秒数的 journal 记录（资源治理保留策略） |
 
 **输出**：结果含 `{outcome,end,elapsed_sec,supervisor,session_id}`。非 COMPLETE 时退出码 1。
 **权限**：`run`。
-**L2 保留**：传 `--prune-max-records`/`--prune-max-age` 时，drive 结束后对共享 journal 执行
+**journal 保留**：传 `--prune-max-records`/`--prune-max-age` 时，drive 结束后对共享 journal 执行
 `Reporter.retain`（best-effort，失败不影响结果），用于长跑脚本控制 journal 无限增长。
 
 ### `drive-many`
 
-并发跑一支舰队：每个任务在独立 workspace worker 实例中跑完整自驱动栈。
+并发跑一支并行任务：每个任务在独立 workspace worker 实例中跑完整自驱动栈。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `contexts` | 位置参数 | 每舰队成员一个任务上下文 |
+| `contexts` | 位置参数 | 每任务成员一个任务上下文 |
 | `--workspaces` / `-w` | str | 逗号分隔 workspace，一个任务一个 |
-| `--workers` | int | 最大并发舰队成员 |
+| `--workers` | int | 最大并发任务成员 |
 | `--deadline` | int | 每成员全局期限（秒） |
 | `--perm` | str | 持有权限等级 |
 
@@ -146,7 +146,7 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ### `flow design <name> '<spec>'`
 
-从**内联规格**（无需文件）设计并注册一个新流程——上帝对话框 A 路设计制度的入口。
+从**内联规格**（无需文件）设计并注册一个新流程——控制对话框 A 路设计制度的入口。
 规格可为完整 regime JSON 或紧凑格式 `{"entry":"a","nodes":[{id,desc,role,type,next}]}`；
 统一经 `compile_spec` 编译 + F9 深检门 + 持久注册（写入 `REGIME_FLOW_STORE`）。
 
@@ -210,20 +210,20 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ### `scaffold`
 
-把包内官方模板（agents/skills/god 助手）一键部署到 opencode 配置根目录，无需 clone 源码仓库。
+把包内官方模板（agents/skills/控制对话框助手）一键部署到 opencode 配置根目录，无需 clone 源码仓库。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `--target` | path | 目标配置根（默认 `~/.config/opencode`） |
-| `--god` | flag | 同时部署上帝对话框助手 subagent（analyst/advisor/reviewer） |
+| `--assistants` | flag | 同时部署控制对话框助手 subagent（analyst/advisor/reviewer） |
 | `--dry-run` | flag | 只打印计划，不写任何文件 |
 | `--force` | flag | 覆盖已存在文件（默认保留） |
 | `--json` | flag | 机器可读输出 |
 | `--perm` | str | 持有的权限等级（默认 run） |
 
-**输出**：`{target,god,dry_run,copied,skipped,plan}`。
+**输出**：`{target,assistants,dry_run,copied,skipped,plan}`。
 **行为**：幂等——已存在的目标文件默认跳过，除非 `--force`。
 
 ### `doctor`
@@ -388,7 +388,7 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ### `worker prune`
 
-回收无会话的空闲 worker 实例，约束舰队资源增长。
+回收无会话的空闲 worker 实例，约束并行任务资源增长。
 
 **参数**：`--dry-run`（只报告不删除）、`--max-instances`（设置 `worker up` 的实例上限）、`--json`。
 **输出**：`{reclaimed,dry_run,cap}`。
@@ -442,11 +442,11 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ---
 
-## 上帝对话框
+## 控制对话框
 
 ### `dialog`
 
-打开上帝对话框：一个自然语言控制/监控界面。
+打开控制对话框：一个自然语言控制/监控界面。
 
 **参数**：`--live`（用真实 worker，否则离线 MockClient）、`--model`、`--perm`。
 **输出**：交互式 REPL。写能力仅在有效持有权限 `>= run` 时启用。

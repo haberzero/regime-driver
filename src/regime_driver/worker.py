@@ -10,7 +10,7 @@ one per workspace:
     own mounted workspace directory, own port);
   * the same workspace never spawns a duplicate instance (the no-duplicate
     invariant — enforced by querying docker, so it holds across processes);
-  * within a workspace instance, roles (developer/reviewer/god) are still
+  * within a workspace instance, roles (developer/reviewer/dialog-control) are still
     distinguished as SESSIONS (the normal per-role session model).
 
 This replaces the old single shared worker that all workflows wrote to (collision
@@ -360,7 +360,7 @@ class WorkerPool:
 
         An instance that has no opencode sessions (nothing running, nothing to
         resume) is considered idle and can be reclaimed to bound resource growth
-        of the fleet. With `dry_run=True` only reports (does not remove). Returns
+        of the parallel batch. With `dry_run=True` only reports (does not remove). Returns
         the workspaces reclaimed.
         """
         reclaimed = []

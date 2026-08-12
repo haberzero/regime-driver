@@ -1,6 +1,6 @@
 # 权限门禁
 
-> 本文档描述 regime CLI 与上帝对话框的权限等级、分类规则与配置天花板。
+> 本文档描述 regime CLI 与控制对话框的权限等级、分类规则与配置天花板。
 > 面向需要理解命令写操作边界的操作者。阅读前需了解 CLI 命令
 > （见 `reference/01_cli.md`）与配置（见 `reference/02_configuration.md`）。
 
@@ -59,9 +59,9 @@ regime run "任务" --perm clean   # 有效等级被截断为 run
 3. `flow` 的 load/reload/rm 升为 run，其余为 read。
 4. `task` 的 stop/clean 升为 clean，submit 为 run，其余为 read。
 
-## 上帝对话框写门禁
+## 控制对话框写门禁
 
-**定位**：`GodDialogUnit.allow_write` 开关控制对话框的写能力。
+**定位**：`DialogControlUnit.allow_write` 开关控制对话框的写能力。
 
 **语义**：对话框默认只读，避免困惑的 LLM 回复触发副作用。`allow_write=False`
 映射到 read；`allow_write=True` 映射到 clean（完全）。CLI 的 `dialog` 在有效持有
@@ -71,5 +71,5 @@ regime run "任务" --perm clean   # 有效等级被截断为 run
 
 ```python
 # 构造时显式授权写操作（否则 start/design/talk 被拒）
-unit = GodDialogUnit(..., allow_write=True)
+unit = DialogControlUnit(..., allow_write=True)
 ```

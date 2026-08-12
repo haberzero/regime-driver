@@ -13,7 +13,7 @@ Behavior is deterministic + scriptable:
   ``worker_done`` marker (``[WORK_DONE]``). This alone drives a full flow to
   COMPLETE offline.
 * **Per-(agent, node) rules** via ``rules``: an explicit reply, a simulated
-  generation ``delay``, a ``stall`` (never completes -> constitution STOP), or an
+  generation ``delay``, a ``stall`` (never completes -> watchdog STOP), or an
   ``error`` (a failed message). This is the fault-injection surface used to
   exercise timeout / stall / gate-error paths deterministically.
 * **``send_message`` is run from the workflow's dispatch thread pool**, so a rule
@@ -45,7 +45,7 @@ class MockRule:
     ``reply``: explicit reply text. ``builder``: callable(node_id, text) -> str,
     mutually exclusive with ``reply``. ``delay``: simulated generation seconds
     (sleeps on the dispatch thread). ``stall``: never produce a completing reply
-    (the constitution's stall detection is the backstop). ``error``: emit a
+    (the watchdog's stall detection is the backstop). ``error``: emit a
     message carrying this error string.
     """
 

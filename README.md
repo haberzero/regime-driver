@@ -26,13 +26,13 @@ regime-driver 把一条**流程**（一组有顺序、有角色的步骤：理�
 - **进程外监督**：独立时钟盯着卡死/停滞/超时，按阶梯自动纠正；
 - **全程可复盘**：每次运行都写入事件账本与报告日志。
 
-**核心架构**：对等多状态机网络（宪法 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
+**核心架构**：对等多状态机网络（看门狗 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
 详见 `docs/architecture/02_statechart_network.md`。
 
 > **Status / 状态**
 >
 > - 测试：全量 `python -m pytest` 绿（覆盖 71%+）；真实 worker E2E 本地可用（`REGIME_E2E=1`，CI 内已封存）。
-> - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离舰队、上帝对话框）已完成；
+> - 主线：内部核心功能（流程热编译/热加载、drive 一键栈、多实例隔离并行任务、控制对话框）已完成；
 >   对外供给就绪（模板进包 / scaffold / 单一真源 / 发布文档）与长期耐久验证（2h+ 真实运行）均已完成。
 
 ## Install
@@ -42,7 +42,7 @@ conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
 
-> pip 安装（wheel）自带官方模板（agents/skills/god 助手/docker 配方），无需 clone 仓库即可
+> pip 安装（wheel）自带官方模板（agents/skills/控制对话框助手/docker 配方），无需 clone 仓库即可
 > `regime scaffold` 生成全套配置；`regime doctor` 自检就绪度。
 
 ## 部署
@@ -52,19 +52,19 @@ conda run -n regime-driver pip install -e ".[dev]"
 ```bash
 # 从包内模板生成 ~/.config/opencode/{agents,skills}（幂等；--dry-run 预览）
 regime scaffold
-# 需要上帝对话框助手 subagent（analyst/advisor/reviewer）时
-regime scaffold --god
+# 需要控制对话框助手 subagent（analyst/advisor/reviewer）时
+regime scaffold --assistants
 # 自检：worker 健康 / 模型密钥 / 模板就绪
 regime doctor
 ```
 
 ### 2. 起执行面
 
-**容器化（推荐）**——一键构建 + 拉起 worker/god 容器并等健康：
+**容器化（推荐）**——一键构建 + 拉起 worker/控制对话框容器并等健康：
 
 ```bash
-ops/up.sh all          # worker + god
-ops/up.sh god --rebuild   # 强制重建固化镜像
+ops/up.sh all          # worker + dialog-control
+ops/up.sh dialog-control --rebuild   # 强制重建固化镜像
 ```
 
 > `ops/up.sh` 是源码仓库脚本（wheel 安装不含）。仅 wheel 安装的用户可用"主机模式"
@@ -79,7 +79,7 @@ regime run "任务" --base http://<主机 opencode 端口>
 
 ### 3. 配模型密钥
 
-- worker/god 容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设
+- worker/控制对话框容器经 `DEEPSEEK_API_KEY` env 注入（`ops/up.sh` 从 `~/.regime/keys/deepseek.key` 读，或自设
   env）；密钥零入库。
 - 交互式 opencode 经 `/connect` 存 `~/.local/share/opencode/auth.json`。
 - 详见 `docs/guide/04_environment.md`。
@@ -95,7 +95,7 @@ regime gate '{"node":"design","verdict":"advance","action":"advance","next_state
 regime status --base http://127.0.0.1:4097
 regime sessions [--clean|--kill <id>] --base http://127.0.0.1:4097
 
-# 上帝对话框（唯一对话控制面）
+# 控制对话框（唯一对话控制面）
 regime dialog --live --base http://127.0.0.1:4097
 ```
 
@@ -125,7 +125,7 @@ conda run -n regime-driver pytest
 已知限制见 `docs/KNOWN_LIMITS.md`；书写准则见 `docs/WRITING_GUIDE.md`。
 历史工作清单见 `tasks_docs/WORK_PLAN*.md`。
 > 注：`docs-ref/` 是另一项目文档的参考副本，**不入库**（gitignore），仅作写作参考。
-> 供 agent 执行的内部配置（skills / god 助手 / workflow-regime 模板）是机器专用内容，不进文档站。
+> 供 agent 执行的内部配置（skills / 控制对话框助手 / workflow-regime 模板）是机器专用内容，不进文档站。
 
 ## 配置与密钥
 

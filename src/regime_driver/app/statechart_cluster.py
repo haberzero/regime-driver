@@ -1,8 +1,8 @@
 """Multi-workflow concurrent orchestration (app layer).
 
 Runs several WorkflowUnits in parallel on one Runtime, sharing a single
-ConstitutionUnit (watchdog) and a shared blackboard. Each workflow is isolated on
-the blackboard by its own id and drives its own task; the constitution stops only
+WatchdogUnit (watchdog) and a shared blackboard. Each workflow is isolated on
+the blackboard by its own id and drives its own task; the watchdog stops only
 the offending workflow (point-to-point), so one stalled run does not kill the
 others. This is the "peer state machines, no hierarchy" model applied to many
 concurrent runs.
@@ -17,35 +17,35 @@ from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
-from .constitution_unit import ConstitutionUnit
+from .watchdog_unit import WatchdogUnit
 from .statechart_runtime import Runtime, ThreadedUnit
 from .workflow_unit import WorkflowUnit
 
 
 class StatechartCluster:
-    """A Runtime hosting one constitution + many concurrent workflows."""
+    """A Runtime hosting one watchdog + many concurrent workflows."""
 
     def __init__(
         self,
         client: OpenCodeClient,
         ledger: Ledger | None = None,
         reporter: "Reporter | None" = None,
-        constitution: ThreadedUnit | None = None,
+        watchdog: ThreadedUnit | None = None,
         enforce_invariants: bool = True,
-        **constitution_kwargs,
+        **watchdog_kwargs,
     ) -> None:
         self.client = client
         self.ledger = ledger
         self.reporter = reporter
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
-        self.constitution = constitution or ConstitutionUnit(
-            unit_id="constitution", control_dst="*", bus=self.runtime.bus,
-            **constitution_kwargs,
+        self.watchdog = watchdog or WatchdogUnit(
+            unit_id="watchdog", control_dst="*", bus=self.runtime.bus,
+            **watchdog_kwargs,
         )
-        if self.constitution.bus is None:
-            self.constitution.bus = self.runtime.bus
+        if self.watchdog.bus is None:
+            self.watchdog.bus = self.runtime.bus
         self.workflows: dict[str, WorkflowUnit] = {}
-        self.runtime.register(self.constitution)
+        self.runtime.register(self.watchdog)
 
     # -- workflow management -------------------------------------------------
 
@@ -71,7 +71,7 @@ class StatechartCluster:
     # -- lifecycle -----------------------------------------------------------
 
     def register_unit(self, unit: ThreadedUnit) -> ThreadedUnit:
-        """Join a peer unit (e.g. GodDialogUnit) onto this cluster's runtime so
+        """Join a peer unit (e.g. DialogControlUnit) onto this cluster's runtime so
         it shares the same bus/blackboard and observes the workflows live."""
         self.runtime.register(unit)
         return unit

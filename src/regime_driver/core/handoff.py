@@ -1,6 +1,6 @@
 """Handoff model — the explicit collaboration channel between roles (pure domain).
 
-Core v2 idea: reviewer (L0) and developer (L2) are INDEPENDENT individuals, each
+Core v2 idea: reviewer and developer are INDEPENDENT individuals, each
 with a private session memory. They do NOT share context; they collaborate via
 structured handoffs. This module defines the handoff documents that carry work
 between roles, and the lightweight convergence detector for multi-round

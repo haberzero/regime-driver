@@ -125,7 +125,7 @@ Action = Literal[
 
 
 class ReviewerVerdict(BaseModel):
-    """The fixed JSON contract between L1 (fixed code) and L0 (reviewer)."""
+    """The fixed JSON contract between the driver (fixed code) and the reviewer."""
 
     node: str
     verdict: Verdict

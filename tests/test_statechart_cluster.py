@@ -99,12 +99,12 @@ def test_blackboard_metrics_isolated_per_workflow():
 
 
 def test_one_stall_does_not_kill_the_other():
-    """workflow-1 stalls -> constitution stops only it; workflow-2 completes."""
+    """workflow-1 stalls -> watchdog stops only it; workflow-2 completes."""
     c, client = _cluster(stall_ids={"workflow-1"}, stall_sec=0.5)
     results = c.run_all({"workflow-1": "会卡住", "workflow-2": "正常"},
                         timeout_sec=15)
     r1 = results["workflow-1"]
     r2 = results["workflow-2"]
-    assert r1[0] == Outcome.BLOCKED  # workflow-1 stopped by the constitution
+    assert r1[0] == Outcome.BLOCKED  # workflow-1 stopped by the watchdog
     assert "monitor" in (r1[2] or "")
     assert r2[0] == Outcome.COMPLETE  # workflow-2 unaffected

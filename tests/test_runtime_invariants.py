@@ -1,4 +1,4 @@
-"""Tests for stage-4 root safety invariants (runtime-enforced constitution)."""
+"""Tests for stage-4 root safety invariants (runtime-enforced watchdog)."""
 
 import pytest
 
@@ -18,7 +18,7 @@ def _governed(unit_id="work"):
     return ThreadedUnit(unit_id, role=ROLE_GOVERNED)
 
 
-def _watchdog(unit_id="constitution"):
+def _watchdog(unit_id="watchdog"):
     u = ThreadedUnit(unit_id, role=ROLE_WATCHDOG)
     u.register(SignalKind.STOP, lambda s: None)
     return u

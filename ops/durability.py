@@ -45,7 +45,7 @@ TASK_TEMPLATE = (
     "写一个Python函数 f(x)=x*{n} 保存到 dur_{n}.py 并运行确认结果打印"
 )
 
-CONTAINER_NAMES = ("opencode-worker", "opencode-god")
+CONTAINER_NAMES = ("opencode-worker", "opencode-dialog-control")
 
 
 def _run(cmd: list[str], timeout: float = 60.0, **kw) -> subprocess.CompletedProcess:

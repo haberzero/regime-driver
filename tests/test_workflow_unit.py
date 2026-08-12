@@ -90,19 +90,19 @@ def test_stop_signal_aborts():
     unit.start()
     unit.submit("实现一个反转函数")
     time.sleep(0.1)
-    unit.deliver(_sig(unit, "constitution", SignalKind.STOP, {"reason": "test stop"}))
+    unit.deliver(_sig(unit, "watchdog", SignalKind.STOP, {"reason": "test stop"}))
     outcome, end, detail = _wait_result(unit)
     unit.stop()
     assert outcome == Outcome.BLOCKED
     assert "monitor" in detail
 
 
-def test_constitution_reports_emitted():
+def test_watchdog_reports_emitted():
     from regime_driver.core.statechart import Bus, SignalKind, StatechartUnit
 
     bus = Bus()
     got = []
-    cons = StatechartUnit("constitution")
+    cons = StatechartUnit("watchdog")
     cons.register(SignalKind.REPORT, lambda s: got.append(s.payload))
     bus.register(cons)
     s = Settings(monitor_enabled=False)
@@ -115,7 +115,7 @@ def test_constitution_reports_emitted():
     while not got and time.time() < deadline:
         time.sleep(0.02)
     unit.stop()
-    assert got, "workflow never reported its session state to the constitution"
+    assert got, "workflow never reported its session state to the watchdog"
     assert got[0].get("session_id")  # report carries the alive session id
 
 

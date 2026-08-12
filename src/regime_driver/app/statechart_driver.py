@@ -4,13 +4,13 @@ This is the top-level entry that replaces the old `RegimeDriver`'s inline
 monitor integration. It assembles a Runtime with:
 
   * a WorkflowUnit (governed) that drives the regime flow via a single-threaded
-    mixed loop, reporting its alive session state to the constitution;
-  * a ConstitutionUnit (watchdog) that detects stalls/dead-loops from those
+    mixed loop, reporting its alive session state to the watchdog;
+  * a WatchdogUnit (watchdog) that detects stalls/dead-loops from those
     REPORT signals and broadcasts STOP to interrupt the workflow.
 
 The Runtime enforces the root invariants (at least one watchdog, an
 inextinguishable STOP channel, meta-iteration bound) before starting. A user may
-supply their own constitution unit in place of the built-in one.
+supply their own watchdog unit in place of the built-in one.
 """
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
-from .constitution_unit import ConstitutionUnit
+from .watchdog_unit import WatchdogUnit
 from .statechart_runtime import Runtime, ThreadedUnit
 from .workflow_unit import WorkflowUnit
 
 
 class StatechartDriver:
-    """Assembly: Runtime + WorkflowUnit + ConstitutionUnit (+ optional override)."""
+    """Assembly: Runtime + WorkflowUnit + WatchdogUnit (+ optional override)."""
 
     def __init__(
         self,
@@ -37,7 +37,7 @@ class StatechartDriver:
         ledger: Ledger | None = None,
         reporter: "Reporter | None" = None,
         roles: RoleRegistry | None = None,
-        constitution: ThreadedUnit | None = None,
+        watchdog: ThreadedUnit | None = None,
         enforce_invariants: bool = True,
         global_deadline_sec: float | None = None,
         max_global_nodes: int | None = None,
@@ -52,8 +52,8 @@ class StatechartDriver:
         self.roles = roles or default_roles()
         self.run_id = run_id or self._gen_run_id()
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
-        self.constitution = constitution or ConstitutionUnit(
-            unit_id="constitution",
+        self.watchdog = watchdog or WatchdogUnit(
+            unit_id="watchdog",
             stall_sec=float(settings.stall_sec),
             control_dst="workflow",
             bus=self.runtime.bus,
@@ -61,16 +61,16 @@ class StatechartDriver:
             max_global_nodes=max_global_nodes,
             heartbeat_stale_sec=heartbeat_stale_sec,
         )
-        if self.constitution.bus is None:
-            # a custom constitution created without a bus: give it the runtime's
+        if self.watchdog.bus is None:
+            # a custom watchdog created without a bus: give it the runtime's
             # bus so its send()/emit() work (it manages its own subscriptions).
-            self.constitution.bus = self.runtime.bus
+            self.watchdog.bus = self.runtime.bus
         self.workflow = WorkflowUnit(
             settings, state_machine, client, ledger,
             reporter=reporter, roles=self.roles,
             unit_id="workflow", run_id=self.run_id, bus=self.runtime.bus,
         )
-        self.runtime.register(self.constitution)
+        self.runtime.register(self.watchdog)
         self.runtime.register(self.workflow)
 
     @staticmethod

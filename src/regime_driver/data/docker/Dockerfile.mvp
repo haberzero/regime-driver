@@ -1,7 +1,7 @@
 # regime-driver BASE image: opencode-mvp:1.18.11 — self-contained build recipe.
 #
 # Ubuntu 24.04 + Node 22 + opencode-ai@1.18.11 (global npm) + system python3 +
-# git + curl. This is the base that Dockerfile.worker / Dockerfile.god build on.
+# git + curl. This is the base that Dockerfile.worker / Dockerfile.dialog-control build on.
 # Committed so a fresh CI runner (network-open) can build the whole stack from
 # source instead of depending on a pre-built local image.
 #
@@ -23,5 +23,5 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # headless web service (port 4096; OPENCODE_PORT override). M0-era entrypoint;
-# the worker/god images override ENTRYPOINT.
+# the worker/dialog-control images override ENTRYPOINT.
 ENTRYPOINT ["/bin/sh","-c","exec opencode web --hostname 0.0.0.0 --port ${OPENCODE_PORT:-4096} \"$@\"" "--"]

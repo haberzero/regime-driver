@@ -14,7 +14,7 @@ def test_unit_dispatches_signal_to_handler():
     unit = StatechartUnit("work")
     seen = []
     unit.register(SignalKind.CHECKPOINT, lambda s: seen.append(s.get("node")))
-    handled = unit.on_signal(Signal(SignalKind.CHECKPOINT, "constitution", "work",
+    handled = unit.on_signal(Signal(SignalKind.CHECKPOINT, "watchdog", "work",
                                     {"node": "design"}))
     assert handled is True
     assert seen == ["design"]
@@ -29,13 +29,13 @@ def test_unhandled_signal_returns_false():
 def test_bus_routes_point_to_point():
     bus = Bus()
     called = []
-    governor = StatechartUnit("constitution")
+    governor = StatechartUnit("watchdog")
     work = StatechartUnit("work")
     work.register(SignalKind.STOP, lambda s: called.append(("stop", s.src)))
     bus.register(governor).register(work)
-    result = bus.dispatch("constitution", "work", SignalKind.STOP)
+    result = bus.dispatch("watchdog", "work", SignalKind.STOP)
     assert result is True
-    assert called == [("stop", "constitution")]
+    assert called == [("stop", "watchdog")]
 
 
 def test_bus_unknown_target_returns_false():
@@ -51,7 +51,7 @@ def test_bus_broadcast_to_all_handlers():
         u = StatechartUnit(name)
         u.register(SignalKind.NUDGE, lambda s, n=name: got.append(n))
         bus.register(u)
-    handled = bus.broadcast("constitution", SignalKind.NUDGE)
+    handled = bus.broadcast("watchdog", SignalKind.NUDGE)
     assert handled == 3
     assert sorted(got) == ["w1", "w2", "w3"]
 
@@ -61,16 +61,16 @@ def test_unit_send_via_bus_and_emit():
     got = []
     work = StatechartUnit("work")
     work.register(SignalKind.RETRY, lambda s: got.append(s.get("reason")))
-    constitution = StatechartUnit("constitution", bus=bus)
-    bus.register(constitution).register(work)
-    constitution.send("work", SignalKind.RETRY, {"reason": "stall"})
+    watchdog = StatechartUnit("watchdog", bus=bus)
+    bus.register(watchdog).register(work)
+    watchdog.send("work", SignalKind.RETRY, {"reason": "stall"})
     assert got == ["stall"]
-    constitution.emit("watchdog_ok")
-    assert bus.events()[0][0:2] == ("constitution", "watchdog_ok")
+    watchdog.emit("watchdog_ok")
+    assert bus.events()[0][0:2] == ("watchdog", "watchdog_ok")
 
 
 def test_signal_helpers():
-    s = Signal(SignalKind.REPORT, "work", "constitution", {"node": "implement"})
+    s = Signal(SignalKind.REPORT, "work", "watchdog", {"node": "implement"})
     assert s.has("node") is True
     assert s.has("missing") is False
     assert s.get("node") == "implement"
@@ -91,8 +91,8 @@ def test_node_trigger_via_signal():
     work.register(SignalKind.CHECKPOINT, lambda s: entered.append("self_assess"))
     work.register(SignalKind.STOP, lambda s: entered.append("aborted"))
     bus.register(work)
-    constitution = StatechartUnit("constitution", bus=bus)
-    bus.register(constitution)
-    constitution.send("work", SignalKind.CHECKPOINT)
-    constitution.send("work", SignalKind.STOP)
+    watchdog = StatechartUnit("watchdog", bus=bus)
+    bus.register(watchdog)
+    watchdog.send("work", SignalKind.CHECKPOINT)
+    watchdog.send("work", SignalKind.STOP)
     assert entered == ["self_assess", "aborted"]

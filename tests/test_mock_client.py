@@ -53,7 +53,7 @@ def test_mock_rule_delay_observed():
     assert time.monotonic() - t0 >= 0.3
 
 
-def test_mock_rule_stall_triggers_constitution_stop():
+def test_mock_rule_stall_triggers_watchdog_stop():
     c = MockClient(sm=load_regime())
     c.rule("developer", "understand", stall=True)
     d = StatechartDriver(Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=1),

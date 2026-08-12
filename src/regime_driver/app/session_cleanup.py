@@ -1,4 +1,4 @@
-"""Session cleanup policy (L2 resource governance).
+"""Session cleanup policy (resource governance).
 
 The worker accumulates session records over long runs (each drive creates
 developer+reviewer sessions). opencode 1.18.11 supports true deletion via

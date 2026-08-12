@@ -3,7 +3,7 @@
 Reads a skill's SKILL.md from the workflow-regime skills directory, strips the
 YAML frontmatter, and returns the body text for injection into the reviewer
 prompt. Skills are never preset into any session; they are injected per node
-by the L1 robot at the moment of a reviewer call.
+by the robot at the moment of a reviewer call.
 """
 
 from __future__ import annotations

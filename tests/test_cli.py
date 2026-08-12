@@ -173,7 +173,7 @@ def test_flow_load_rejects_invalid_keeps_registry_clean(tmp_path):
 
 
 def test_flow_design_inline_registers(tmp_path):
-    """flow design takes an inline spec (no file) and persists it (P0 god design)."""
+    """flow design takes an inline spec (no file) and persists it (P0 dialog-control design)."""
     compact = ('{"entry":"start","nodes":['
                '{"id":"start","desc":"理解","role":"developer","type":"agent","next":"judge"},'
                '{"id":"judge","desc":"判定","role":"reviewer","type":"judge","next":null}]}')
@@ -279,7 +279,7 @@ def test_doctor_readonly_reports_unhealthy():
 
 
 def test_doctor_session_hygiene_warns_on_low_threshold(monkeypatch):
-    """L2: with a tiny threshold, doctor must flag accumulated sessions (ok=False)."""
+    """with a tiny threshold, doctor must flag accumulated sessions (ok=False)."""
     monkeypatch.setenv("REGIME_SESSION_HYGIENE_THRESHOLD", "1")
     # Force a healthy fake client instead of the real worker.
     import regime_driver.cli as cli
@@ -307,7 +307,7 @@ def test_doctor_session_hygiene_warns_on_low_threshold(monkeypatch):
 
 
 def test_doctor_session_hygiene_ok_below_threshold(monkeypatch):
-    """L2 pass path: sessions below threshold keep doctor green."""
+    """pass path: sessions below threshold keep doctor green."""
     monkeypatch.setenv("REGIME_SESSION_HYGIENE_THRESHOLD", "100")
     import regime_driver.cli as cli
 

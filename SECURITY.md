@@ -17,7 +17,7 @@ We aim to acknowledge reports within 7 days.
 
 - **Keys are never committed.** Model API keys live in `~/.regime/keys/*.key`
   (gitignored) or env vars (`OPENCODE_GO_API_KEY`, `DEEPSEEK_API_KEY`), and are
-  injected into worker/god containers only at runtime (`-e` env).
+  injected into worker/dialog-control containers only at runtime (`-e` env).
 - Repo `docker/*/opencode.json` and `config.example.toml` use `{env:...}`
   placeholders only — never real keys.
 - `regime doctor` reports key **presence only**, never the value.

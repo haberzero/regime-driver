@@ -3,11 +3,11 @@
     A simple key/value store shared across statechart units, with optional change
     notification. This addresses the "global variable / shared state" gap: units can
     publish runtime metrics (current node, phase, budget, counters) to a central
-    place that other units (the constitution, the god dialog) can read and
+    place that other units (the watchdog, the dialog control) can read and
     subscribe to changes.
 
 Thread safety: all access is guarded by a reentrant lock, so the workflow thread
-(writer) and the constitution/observer threads (readers) can share it safely.
+(writer) and the watchdog/observer threads (readers) can share it safely.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from typing import Callable
 CHANGED_EVENT = "blackboard.changed"
 
 # workflow metrics keys that form a per-workflow status view (single source of
-# truth shared by the god dialog and the report bus)
+# truth shared by the dialog control and the report bus)
 WORKFLOW_METRICS = ("node", "phase", "node_count", "state", "heartbeat",
                     "start_time", "wait_sid", "waiting_s")
 
@@ -30,7 +30,7 @@ def workflow_status(bb: "Blackboard") -> dict[str, dict]:
 
     Keys are `{workflow_id}.{metric}` (multi-workflow isolation on a shared
     blackboard). Only `WORKFLOW_METRICS` keys are surfaced. Shared by the
-    GodDialog/report so the view logic lives in exactly one place.
+    DialogControl/report so the view logic lives in exactly one place.
     """
     out: dict[str, dict] = {}
     if bb is None:
@@ -45,7 +45,7 @@ def workflow_status(bb: "Blackboard") -> dict[str, dict]:
     return out
 
 
-# human-readable labels for the status view (readability, shared by god dialog/report)
+# human-readable labels for the status view (readability, shared by dialog control/report)
 STATE_LABELS = {"running": "运行中", "done": "完成", "aborted": "中止",
                 "error": "错误", "idle": "空闲", "blocked": "阻塞"}
 PHASE_LABELS = {"agent_wait": "待执行", "judge_wait": "待审查", "none": "-"}

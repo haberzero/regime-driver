@@ -7,7 +7,7 @@
 
 ## 1. 项目一句话
 
-在 Docker 里构建"可多人值守自主推进的 opencode 工作体系"，并进一步演进为**可自我修改、含反循环保证的元系统（上帝对话框）**。
+在 Docker 里构建"可多人值守自主推进的 opencode 工作体系"，并进一步演进为**可自我修改、含反循环保证的元系统（控制对话框）**。
 
 ## 2. 用户目标（原话要点）
 
@@ -130,25 +130,25 @@
 
 ### 4.10 本会话成果（2026-08-05~06，分支 `autonomous-2026-08-05`）
 
-- **P1 排查并修复 E2E 卡顿**：新增 `ops/probe_node_timing.py`（全流程节点耗时剖析）+ `ops/e2e_debug.py`（逐操作计时）+ `ops/probe_judge_stall.py`（并发观察 reasoning/output）。**根因 = 发派线程池饱和**：streaming `POST /message` 晚于 `message.completed`/`[WORK_DONE]` 返回，workflow 提前 advance 发下一 node，前 node POST 仍占线程 → 2 个 trailing POST 占满 `max_workers=2` → judge 发派永久排队 → 宪法误判 stall。修复：`workflow._dispatch` await 前一 POST future（`_await_prior_dispatch`，保持 STOP 响应）。真实 E2E 两次 COMPLETE；judge 长推理 21-60s 确认为长推理非永久卡。
+- **P1 排查并修复 E2E 卡顿**：新增 `ops/probe_node_timing.py`（全流程节点耗时剖析）+ `ops/e2e_debug.py`（逐操作计时）+ `ops/probe_judge_stall.py`（并发观察 reasoning/output）。**根因 = 发派线程池饱和**：streaming `POST /message` 晚于 `message.completed`/`[WORK_DONE]` 返回，workflow 提前 advance 发下一 node，前 node POST 仍占线程 → 2 个 trailing POST 占满 `max_workers=2` → judge 发派永久排队 → 看门狗误判 stall。修复：`workflow._dispatch` await 前一 POST future（`_await_prior_dispatch`，保持 STOP 响应）。真实 E2E 两次 COMPLETE；judge 长推理 21-60s 确认为长推理非永久卡。
 - **P1 mock 机制**：`src/regime_driver/testing/mock_client.py`（MockClient/MockRule，同接口 drop-in，默认 reviewer advance + developer [WORK_DONE]，规则 `(agent,node)` 二段匹配，delay/stall/error 故障注入，消息累积非替换）。`ops/mock_feasibility.py` 5/5 离线通过。设计见 `docs/subsystems/08_mock.md`。
-- **上帝对话框 MVP**：`app/god_dialog.py`（GodDialogUnit 对等状态机单元，role=human，订阅总线实时监控 + 命令路由 status/monitor/start/inspect/watch/talk/design/config/help + 自由文本→LLM worker 线程非阻塞解释 + 权限门控默认只读）。`regime dialog` CLI + `ops/god_dialog.py` 演示。设计/可行性定案见 `docs/subsystems/06_god_dialog.md`（结论：**对话框应在状态机体系内**）。
-- **测试基线**：192 单测全绿（含崩坏回归：`test_dispatch_serializes_prior_post`、`test_judge_waits_for_new_reply_not_stale`、`test_god_dialog.py` 等）。
+- **控制对话框 MVP**：`app/dialog_control.py`（DialogControlUnit 对等状态机单元，role=human，订阅总线实时监控 + 命令路由 status/monitor/start/inspect/watch/talk/design/config/help + 自由文本→LLM worker 线程非阻塞解释 + 权限门控默认只读）。`regime dialog` CLI + `ops/dialog_control.py` 演示。设计/可行性定案见 `docs/subsystems/06_dialog_control.md`（结论：**对话框应在状态机体系内**）。
+- **测试基线**：192 单测全绿（含崩坏回归：`test_dispatch_serializes_prior_post`、`test_judge_waits_for_new_reply_not_stale`、`test_dialog_control.py` 等）。
 
 ## 5. 关键决策与踩坑记录
 
 - **插件不能做周期/定时唤醒**：opencode 插件 hook 是事件驱动，无独立时钟契约 → 周期检测必须靠独立进程脚本。
 - **控制面应是确定性脚本，而非又一个 agent**：agent 守不住固定流程；固定流程须用具体脚本硬约束。
-- **"对话脚本"= 脚本是对象，对话是操控它的界面**（用户命名：上帝对话框）。用户要的是可对话、可自我修改、含反循环保证的元系统。
+- **"对话脚本"= 脚本是对象，对话是操控它的界面**（用户命名：控制对话框）。用户要的是可对话、可自我修改、含反循环保证的元系统。
 - **后台进程存活**：bash 工具每次调用结束会清掉后台进程，长驻服务须用独立进程/容器（`setsid`/docker 常驻）。
 - **docker 权限**：`sg docker -c` 包装。
 
 ## 6. 当前运行状态
 
-- **架构：对等多状态机网络**（宪法=无智能状态机+根不变量运行时强制 I1/I2/I3）+ **进程外 `supervisor`**（T1/T2/deadline/纠正阶梯，收编 M0）+ **`task` 注册表** + **`Reporter` 报告总线** + god 双路。旧 `app/telemetry.py`/`monitor.py`/`meta_analyzer.py`/`segment_runner.py` 已删除；旧 `ops/supervisor.py`/`oc-task.py`/`oc-run.sh`/`stall-watchdog.js` 已收编删除。
+- **架构：对等多状态机网络**（看门狗=无智能状态机+根不变量运行时强制 I1/I2/I3）+ **进程外 `supervisor`**（T1/T2/deadline/纠正阶梯，收编 M0）+ **`task` 注册表** + **`Reporter` 报告总线** + 控制对话框双路。旧 `app/telemetry.py`/`monitor.py`/`meta_analyzer.py`/`segment_runner.py` 已删除；旧 `ops/supervisor.py`/`oc-task.py`/`oc-run.sh`/`stall-watchdog.js` 已收编删除。
 - **`opencode-worker` 容器**：端口 4097，`serve --pure` 无插件执行器，镜像 `opencode-worker:1.18.11`。
-- **`opencode-god` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + god.md + regime-god 插件，非 `--pure`。见 `docs/howto/god-window.md`。
-- **测试基线**：255 passed（+2 skip E2E 门控）。真实 worker E2E 已打通（REGIME_E2E=1）+ god A 路 HTTP 驱动打通。死代码守卫 + CLI 命令级测试已加。
+- **`opencode-dialog-control` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 `--pure`。见 `docs/howto/dialog-control-window.md`。
+- **测试基线**：255 passed（+2 skip E2E 门控）。真实 worker E2E 已打通（REGIME_E2E=1）+ 控制对话框 A 路 HTTP 驱动打通。死代码守卫 + CLI 命令级测试已加。
 - **CLI 契约**：`regime` 命令集 `run/run-many/validate --deep/preflight/gate/status/sessions/session/events/dialog/job/report/task/supervisor` 全部 `--json` + 权限门禁（`--perm`，配置 ceiling 不可自提权）。
 - **技术债治理完成**：G1–G14 全清（`TECH_DEBT.md`）；权限/保障默认强制；文档单点真理收口。
 - 工作区已清理测试产物。
@@ -168,26 +168,34 @@
 ## 8. 下一步（下一 session 主线任务）
 
 > **当前主线（唯一指针，2026-08-08）**：完成技术债治理（G1–G14 全清）+ 测试架构闭环
-> （E2E / god 容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
+> （E2E / 控制对话框容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
 > 见下方"下一 session 主线任务（优先级表）"。
 
 ### 当前状态速览（2026-08-12）
 
+> **术语已整体改名（2026-08-12，用户拍板，全仓无遗漏）**：上帝对话框→**控制对话框**
+> （GodDialogUnit→DialogControlUnit、god_dialog.py→dialog_control.py、opencode-god→
+> opencode-dialog-control、regime-god.js→regime-dialog-control.js、god.md→dialog-control.md、
+> `God>`→`Dialog>`、工作流 id 前缀 god-→dialog-、scaffold `--god`→`--assistants`）；
+> 舰队→**并行任务**（Fleet→Parallel、fleet.py→parallel.py、dialog 命令 fleet→parallel）；
+> 宪法→**安全看门狗**（ConstitutionUnit→WatchdogUnit、constitution_unit.py→watchdog_unit.py）；
+> 载体→承载/接入。tasks_docs 历史档案保留旧词。活文件旧词残留 grep=0（经 general review 复核并清零）。
+
 - **测试基线 413 collected（全绿，覆盖 72%）**，分支 `main`，干净工作树。
 - **文档站完整重构（✅ 2026-08-12）**：MkDocs + Read the Docs 主题（`https://haberzero.github.io/regime-driver/`）。
-  三层受众彻底分层：**用户指南**（上帝对话框第一入口 → 快速开始 → 你能做什么 → 设计流程 → 安装/配置/
-  舰队）+ **参考**（查技术细节）+ **开发者指南**（架构/子系统/契约/治理）。agent 专用内容（skills /
-  god 助手 / workflow-regime 模板）完全隔离，不入站，由 `regime scaffold` 提供。
+  三层受众彻底分层：**用户指南**（控制对话框第一入口 → 快速开始 → 你能做什么 → 设计流程 → 安装/配置/
+  并行任务）+ **参考**（查技术细节）+ **开发者指南**（架构/子系统/契约/治理）。agent 专用内容（skills /
+  控制对话框助手 / workflow-regime 模板）完全隔离，不入站，由 `regime scaffold` 提供。
   - 首页以"元指令会遗忘"叙事切入（你给 opencode 的约束在多轮对话后会被遗忘 → regime-driver 把运行
     制度变成确定性流程 → 你仍只需对话）。
   - 框架展示细化：对话背后发生了什么（制度驱动规划 → 角色/节点出现 → 会话按角色分配 → 逐节点配合 →
     事件记录）；为什么 skill 不直接加载进对话框（上下文/专注度/结构性保证三重考量）。
-  - worker 干净执行器 / god 带插件对话面的分层说明。
+  - worker 干净执行器 / dialog-control 带插件对话面的分层说明。
 - **初学者读者视角文档批评 + 落地（✅ 2026-08-12）**：以普通读者视角通读全部对外文档产出批评报告
   （`tasks_docs/docs_reader_critique.md`），逐条核实代码后全面改进——guide 编号去重（03 双号→00-07）、
   reference/05 契约归位"参考"区、README 中英去 L0/L1/L2 代号与密钥段重复、去 stale 表述（DELETE 真删、
-  CLI 契约已就绪、架构文档对齐实现）、概念去重（code_workflow 表 / worker-god 表收敛单一归属）、
-  新增图解（index 系统全景图 / 审查判定闭环 / 监督纠正阶梯 / 事件链时间线 / 舰队隔离图）。零回归、
+  CLI 契约已就绪、架构文档对齐实现）、概念去重（code_workflow 表 / worker-dialog-control 表收敛单一归属）、
+  新增图解（index 系统全景图 / 审查判定闭环 / 监督纠正阶梯 / 事件链时间线 / 并行任务隔离图）。零回归、
   0 死链、general review 无 blocker。
 - **长期耐久验证（WORK_PLAN6 I L1+L3 ✅，2026-08-12）**：2h 真实运行（7205s，38 drive）零崩溃/
   停滞/重启（ladder=0），资源线性有界增长（session 16→96、内存 +231MB/2h、journal 3.4MB），
@@ -204,58 +212,58 @@
 - **e2e-real 已封存（用户决定，2026-08-11）**：GitHub 真实模型 E2E 长期不列入计划；CI 已移除
   `e2e-real` job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 - **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，
-  快一个数量级）；`my-opencode-go/...`（OpenCode Go）作回退。主机+worker/god 全统一。key：
+  快一个数量级）；`my-opencode-go/...`（OpenCode Go）作回退。主机+worker/dialog-control 全统一。key：
   `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`。自检 `regime doctor`。
 - **对外供给就绪（WORK_PLAN7 I–IV + V-3 ✅，2026-08-11）**：
-  - **模板进包**：wheel 现含 `data/{skills,agents,god-assistants,docker}`（hatchling 自动纳入包内 data/）；
+  - **模板进包**：wheel 现含 `data/{skills,agents,dialog-control-assistants,docker}`（hatchling 自动纳入包内 data/）；
     纯 wheel 隔离安装下 `regime preflight --json` 实测 `ok:true, outcome:complete`（此前必败）。
     `DEFAULT_SKILLS_DIR` 已改为包内 `data/skills`（去源码树假设）。
-  - **`regime scaffold`**：一键从包内模板生成 `~/.config/opencode/{agents,skills}`（+`--god` 助手；
+  - **`regime scaffold`**：一键从包内模板生成 `~/.config/opencode/{agents,skills}`（+`--assistants` 助手；
     幂等/`--dry-run`/`--force`）；`regime doctor` 增"packaged templates"就绪检查。
   - **单一真源收敛**：根 `agents/`、`skills/` 副本删除；真源 = `docker/*-config/agents` +
     `workflow-regime/skills`；打包派生 = `src/regime_driver/data/`，CI 漂移守卫
     `test_packaged_templates_match_true_sources` + 同步脚本 `ops/sync_templates.py [--check]`。
   - V-1（GitHub Pages 已启用）/ V-2（PyPI，用户近期处理）。
-- **上帝对话框制度设计闭环（P0 主线）✅（2026-08-11）**：
-  - `regime flow design <name> '<spec>'`：inline 注册新流程（无需文件），上帝对话框设计制度主入口；
+- **控制对话框制度设计闭环（P0 主线）✅（2026-08-11）**：
+  - `regime flow design <name> '<spec>'`：inline 注册新流程（无需文件），控制对话框设计制度主入口；
   - `regime status --deep`：一次拿全聚合态势（健康+会话+busy+流程+任务+reporter rollup）；
-  - `regime run/drive --flow <name>`：按名执行注册流程（god 设计的流程可运行）；
+  - `regime run/drive --flow <name>`：按名执行注册流程（dialog-control 设计的流程可运行）；
   - **终止 judge 节点 gate 修复**：advance+null next_state 仅当 terminal 节点放行（此前"最终审查 judge
     流程永远无法完成"，preflight gate exhausted）；
-  - god 插件新增 `regime_flow_design/summary/load/report` + `regime_run --flow`；
-  - god.md bash 改 `*: allow`（headless HTTP 死锁根治；安全靠 edit/write deny + --perm 门禁）。
-  - 真实 E2E：god 设计 mini_wf → 注册 → 运行 → 正确诊断；官方模型下 drive --flow 31.4s COMPLETE 零 ladder。
-- **实践暴露问题修复 ✅（2026-08-11）**：supervisor T2 stall 误报根治 + 僵尸进程 bug + god 容器漂移 +
+  - 控制对话框插件新增 `regime_flow_design/summary/load/report` + `regime_run --flow`；
+  - dialog-control.md bash 改 `*: allow`（headless HTTP 死锁根治；安全靠 edit/write deny + --perm 门禁）。
+  - 真实 E2E：dialog-control 设计 mini_wf → 注册 → 运行 → 正确诊断；官方模型下 drive --flow 31.4s COMPLETE 零 ladder。
+- **实践暴露问题修复 ✅（2026-08-11）**：supervisor T2 stall 误报根治 + 僵尸进程 bug + 控制对话框容器漂移 +
   A-route 权限死锁 + reporter 噪音 + 易用性（见 TASK 验证记录）。
 - **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
   `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
   持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/
-  reload/rm/inspect`（权限门禁）+ god A/B 路接入（B 路 `flow list/validate/reload/doctor` 命令、A 路
-  plugin `regime_flow_*` 工具）。god 原 `self.flows` 冗余第二真源已归并删除。
+  reload/rm/inspect`（权限门禁）+ dialog-control A/B 路接入（B 路 `flow list/validate/reload/doctor` 命令、A 路
+  plugin `regime_flow_*` 工具）。dialog-control 原 `self.flows` 冗余第二真源已归并删除。
 - **L1 预演修复 async drive 双注册任务缺陷 ✅（真实 E2E）**：`drive --async` 子进程现经
   `REGIME_TASK_ID` env + `register(task_id=)` 复用父任务记录（单 id、正确 done/complete，
   消除成功误报 crashed/任务孤儿/重复记录）。**覆盖率基线 C1 ✅**（pytest-cov，floor 68 防矩阵抖动）；
-  **god doctor 自检 C2 ✅**；**主机模式 agent 模板 C4 ✅**（`docs/howto/host-mode-agents.md`）。
+  **dialog-control doctor 自检 C2 ✅**；**主机模式 agent 模板 C4 ✅**（`docs/howto/host-mode-agents.md`）。
 - **真实 CI 已转绿（WORK_PLAN6 II ✅）**：GitHub Actions 上 `unit · py3.11/py3.12` + `real-worker E2E`
   全 success（修复 `secrets` 不可用于 job 级 if + worker `ensure()` 死 api_key 测试隔离缺陷）。
   见 `https://github.com/haberzero/regime-driver/actions`。
-- **发布就绪（WORK_PLAN6 III/IV/V 大部分 ✅）**：god 插件去硬编码（`REGIME_BIN`）、文档一致性、
+- **发布就绪（WORK_PLAN6 III/IV/V 大部分 ✅）**：控制对话框插件去硬编码（`REGIME_BIN`）、文档一致性、
   `README.en.md` 英文版、`SECURITY.md`/`CONTRIBUTING.md`、KNOWN_LIMITS 对外摘要、MIT License。
 - **项目已公开上传 GitHub public**：https://github.com/haberzero/regime-driver （`main`，SSH 认证，已获用户明确授权 push）。
 - 测试基线 356 passed。
-- **模型**：默认 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），主机+worker/god 全统一；
+- **模型**：默认 `deepseek-api/deepseek-v4-flash`（DeepSeek 官方 API），主机+worker/dialog-control 全统一；
   key 在 `~/.regime/keys/opencode-go.key`（gitignore）或 auth.json；自检 `regime doctor`。
-- **容器**：`opencode-worker`（4097，默认执行器，`--pure` 无插件）、`opencode-god`（4098，A 路验证窗，
-  host 网络，带 regime-god 插件）、以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker`
+- **容器**：`opencode-worker`（4097，默认执行器，`--pure` 无插件）、`opencode-dialog-control`（4098，A 路验证窗，
+  host 网络，带 regime-dialog-control 插件）、以及**每工作区一个的 `opencode-worker-<ws>` 实例**（`regime worker`
   管理，物理隔离）。`opencode-autopilot` / `opencode-setup`（M0/web 旧窗）**已退役删除（2026-08-12）**。
-- **架构**：对等多状态机网络（宪法根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
-  `task` 注册表 + `Reporter` 报告总线 + god 双路 + **`drive` 一键自驱动栈** +
+- **架构**：对等多状态机网络（看门狗根不变量）+ 进程外 `supervisor`（收编 M0，含智能元分析）+
+  `task` 注册表 + `Reporter` 报告总线 + 控制对话框双路 + **`drive` 一键自驱动栈** +
   **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）+
-  **`Fleet` 并发隔离舰队** + **`chaos` 故障注入/恢复演练**。
-- **一键起栈**：`ops/up.sh`（worker/god 一键构建+拉起+等健康，sg fallback，--rebuild，注入 opencode-go key）。
+  **`Parallel` 并发隔离并行任务** + **`chaos` 故障注入/恢复演练**。
+- **一键起栈**：`ops/up.sh`（worker/dialog-control 一键构建+拉起+等健康，sg fallback，--rebuild，注入 opencode-go key）。
 - **技术债**：G1–G14 全清（`TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
 - **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
-  T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/god_dialog/worker/fleet/chaos）+
+  T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
 ### 下一 session 主线任务（优先级表，我的判断）
@@ -284,12 +292,12 @@
 ### 已完成主线（历史，参考）
 
 - **P0#1/P0#2/P1#3/P1#4/P2#5** ✅：见上方表格。
-- **worker 工作区隔离 / 舰队 / 混沌 / 舰队控制面 / 模型统一 / 易用性** ✅：见上方表格 + `docs/subsystems/*`。
-- **T1/T2 A 路验证** ✅：经专用 god 容器 + HTTP 驱动打通；修 regime-god.js 三个真 bug。
+- **worker 工作区隔离 / 并行任务 / 混沌 / 并行任务控制面 / 模型统一 / 易用性** ✅：见上方表格 + `docs/subsystems/*`。
+- **T1/T2 A 路验证** ✅：经专用 控制对话框容器 + HTTP 驱动打通；修 regime-dialog-control.js 三个真 bug。
 - **T3/T4/T5/T7/T6** ✅：非阻塞作业、插件 job 工具、权限策略、文档同步、FakeClient 评估定案。
 - **WORK_PLAN4** ✅：I1/I2 保障、E1 SSE 摄入+重连、R-A/R-B/R-C（Reporter 报告总线 + `regime report` 看板 + 模板 + 保留策略）。
 - **技术债治理** ✅：G1–G14 全清（含 G6 M0 系统化收编、死代码守卫、静默兜底修复、权限强制、文档单点真理）。
-- **测试架构** ✅：T-A E2E 系统化、T-B god 容器、T-C A 路打通、T-E 交接收口。
+- **测试架构** ✅：T-A E2E 系统化、T-B 控制对话框容器、T-C A 路打通、T-E 交接收口。
 
 **历史里程碑**：M0–M4 ✅、架构 v2/v3/v4 ✅、对等多状态机重构 ✅、E2E 卡顿修复 ✅、mock ✅、WORK_PLAN1/2/3 ✅。
 
@@ -297,7 +305,7 @@
 
 阅读顺序：`docs/README.md`（导航，先看）→ `docs/CLI_REFERENCE.md`（命令/配置参考）→ `docs/guide/`（教程）→ `docs/ARCHITECTURE.md`（架构，`architecture/02_statechart_network.md` 最终架构）→ `docs/SUBSYSTEM_DESIGN.md`（子系统，`subsystems/*`）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/`（实操）。书写准则：`docs/WRITING_GUIDE.md`；文档治理：`workflow-regime/skills/doc-governance/SKILL.md`。
 
-**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（宪法=无智能状态机+根不变量运行时强制）**；**上帝对话框双路：opencode 作载体（A 路）+ GodDialogUnit 程序化面（B 路），共用 CLI 契约**。
+**关键决策速记**：审查者常驻 session（只读不可跑命令，可要求开发者跑）；开发者 1 个 session（基础 AGENTS.md，不自查，段末 `[WORK_DONE]` 汇报，5 轮里程碑询问）；**角色是独立个体，靠交接单协作，审查者只读汇报单不读开发者记忆**；**session 自评驱动脑容量交接（40% 自评/70% 紧急），非机器人硬掐断**；**审查者流转时开发者 session 禁止切换（稳定锚点）**；交接文档 session 直接写工作区，载体文件系统 + Ledger 审计；策略可编程（Python+模板，参考策略预置）；JSON 契约与镜像自主决定；全局状态清单（开发者不可见）单独设计；**安全监控独立线程 + 确定性 abort 紧急停止**；**对等多状态机网络（看门狗=无智能状态机+根不变量运行时强制）**；**控制对话框双路：opencode 作承载（A 路）+ DialogControlUnit 程序化面（B 路），共用 CLI 契约**。
 
 ### 里程碑进度
 
@@ -349,7 +357,7 @@ conda run -n regime-driver regime report <object> --trace --journal /tmp/rep.jso
 conda run -n regime-driver regime report --journal /tmp/rep.jsonl --template milestone|blocker|period|activity
 conda run -n regime-driver regime report --journal /tmp/rep.jsonl --prune --max-records 500
 
-# 会话 / 事件 / 上帝对话框
+# 会话 / 事件 / 控制对话框
 conda run -n regime-driver regime sessions|session <id> send|reply|events --ledger ... --json
 conda run -n regime-driver regime dialog --live --base http://127.0.0.1:4097 --perm run
 
@@ -359,13 +367,13 @@ conda run -n regime-driver regime task list|status|logs|stop|clean <task-id> [--
 # 进程外监督（收编 supervisor；宿主独立时钟 + docker 控制）
 conda run -n regime-driver regime supervisor --base http://127.0.0.1:4097 --session <id> --container opencode-worker --reporter /tmp/sup.jsonl [--meta] [--once]
 
-# 一键起栈（P1#3: worker/god 容器构建+拉起+等健康）
-ops/up.sh all          # worker+god
-ops/up.sh god --rebuild   # 强制重建固化镜像再起
+# 一键起栈（P1#3: worker/控制对话框容器构建+拉起+等健康）
+ops/up.sh all          # worker+dialog-control
+ops/up.sh dialog-control --rebuild   # 强制重建固化镜像再起
 
 # 多 opencode 实例工作区隔离（P2: 每工作区一个实例, 无重复, 角色用session）
 export REGIME_WORKSPACE_ROOT=~/oc-meta/workspaces   # 工作区根(默认)
-export REGIME_WORKER_MAX_INSTANCES=8                # 可选: 舰队实例上限
+export REGIME_WORKER_MAX_INSTANCES=8                # 可选: 并行任务实例上限
 conda run -n regime-driver regime worker up <ws>     # 起/复用工作区实例(不重复)
 conda run -n regime-driver regime worker list        # 列实例+健康
 conda run -n regime-driver regime worker base <ws>   # 工作区实例 base_url
@@ -373,9 +381,9 @@ conda run -n regime-driver regime worker down <ws>   # 停止并移除实例(含
 conda run -n regime-driver regime worker prune [--dry-run] [--max-instances N]  # 回收空闲实例/设上限
 conda run -n regime-driver regime drive "<任务>" --workspace <ws> --container opencode-worker-<ws> --reporter /tmp/rep.jsonl   # 在隔离工作区跑整套栈
 
-# 并发隔离舰队（P2: N个任务各自工作区并行全栈）
+# 并发隔离并行任务（P2: N个任务各自工作区并行全栈）
 conda run -n regime-driver regime drive-many "t1" "t2" "t3" \
-  --workspaces "wsA,wsB,wsC" --workers 2 --deadline 600 --reporter /tmp/fleet.jsonl
+  --workspaces "wsA,wsB,wsC" --workers 2 --deadline 600 --reporter /tmp/parallel.jsonl
 
 # 混沌/故障演练（P2）
 conda run -n regime-driver regime chaos list                              # 场景列表
@@ -391,9 +399,9 @@ sg docker -c 'docker ps --format "{{.Names}} {{.Status}}"'
 sg docker -c 'docker restart opencode-worker'
 sg docker -c 'docker build -f docker/Dockerfile.worker -t opencode-worker:1.18.11 .'
 
-# 上帝对话框 A 路验证窗（opencode-god 容器, host 网络, 4098）— 见 docs/howto/god-window.md
-sg docker -c 'docker build -f docker/Dockerfile.god -t opencode-god:1.18.11 .'
-sg docker -c 'docker rm -f opencode-god; docker run -d --name opencode-god --network host -e DEEPSEEK_API_KEY="$(cat /tmp/dk.txt)" -e OPENCODE_PORT=4098 opencode-god:1.18.11'
+# 控制对话框 A 路验证窗（opencode-dialog-control 容器, host 网络, 4098）— 见 docs/howto/dialog-control-window.md
+sg docker -c 'docker build -f docker/Dockerfile.dialog-control -t opencode-dialog-control:1.18.11 .'
+sg docker -c 'docker rm -f opencode-dialog-control; docker run -d --name opencode-dialog-control --network host -e DEEPSEEK_API_KEY="$(cat /tmp/dk.txt)" -e OPENCODE_PORT=4098 opencode-dialog-control:1.18.11'
 curl -s http://127.0.0.1:4098/global/health
 
 # （旧 M0 监督器命令已删除；现行用 `regime drive`/`regime supervisor`）

@@ -16,7 +16,7 @@ regime-driver 是一个把制度化流程编译成状态机、驱动干净 openc
 | 02 | [02_configuration](reference/02_configuration.md) | 配置 | `config.example.toml` 字段、环境变量覆盖、模型/密钥/端口 |
 | 03 | [03_flow_spec](reference/03_flow_spec.md) | 流程规格 | regime.json / flow spec 的 JSON 结构、节点类型、角色、flow 热重载 |
 | 04 | [04_permissions](reference/04_permissions.md) | 权限门禁 | 权限等级 read/interact/run/clean、`--perm`、配置 ceiling |
-| 05 | [05_god_dialog_contract](reference/05_god_dialog_contract.md) | 上帝对话框契约 | A/B 双路、CLI 契约全命令 + --json schema + 操作流程 |
+| 05 | [05_dialog_control_contract](reference/05_dialog_control_contract.md) | 控制对话框契约 | A/B 双路、CLI 契约全命令 + --json schema + 操作流程 |
 
 ## 阅读路径
 
@@ -26,7 +26,7 @@ regime-driver 是一个把制度化流程编译成状态机、驱动干净 openc
 | 配 worker/模型 | 02 |
 | 写流程 | 03 |
 | 运维/权限 | 04 |
-| 上帝对话框操作者 | 05 |
+| 控制对话框操作者 | 05 |
 
 > 命令速查（简）：
 > ```bash
@@ -35,8 +35,8 @@ regime-driver 是一个把制度化流程编译成状态机、驱动干净 openc
 > regime drive "任务" --base :4097         # 一键自驱动栈
 > regime flow list|validate|load|reload    # 流程热生命周期
 > regime worker up|list|down|prune <ws>    # 工作区实例
-> regime drive-many "t1" "t2" --workspaces # 并发舰队
-> regime dialog --live                     # 上帝对话框
-> regime scaffold [--god] [--dry-run]      # 一键生成官方模板配置
+> regime drive-many "t1" "t2" --workspaces # 并发并行任务
+> regime dialog --live                     # 控制对话框
+> regime scaffold [--assistants] [--dry-run]      # 一键生成官方模板配置
 > regime doctor                            # 自检
 > ```

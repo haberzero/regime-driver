@@ -54,7 +54,7 @@ class Settings(BaseModel):
     monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="monitor poll interval")
     session_hygiene_threshold: int = Field(
         default=100, ge=1,
-        description="doctor warns when accumulated worker sessions exceed this (L2)"
+        description="doctor warns when accumulated worker sessions exceed this"
     )
     # Automatic session cleanup — a USER-CONFIGURABLE policy (reference model, not
     # enforced by default). Empty/None = disabled. Example value (JSON):

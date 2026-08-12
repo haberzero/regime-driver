@@ -1,12 +1,12 @@
-"""Reviewer interaction (app layer): invoke the L0 reviewer and parse its reply.
+"""Reviewer interaction (app layer): invoke the reviewer and parse its reply.
 
 The reviewer is a fixed-code-independent opencode session (read-only agent).
-The L1 robot assembles a prompt (node + skill + developer report + task context +
+The robot assembles a prompt (node + skill + developer report + task context +
 the explicit valid-node list), asks for a STRICT JSON verdict, parses it, and
 runs it through the deterministic gate (core/contract). The gate is exact: no
 fuzzy matching. A failed call is retried with the gate's rejection reason fed
-back so the reviewer can correct itself. This is the ONLY channel between L1
-and L0.
+back so the reviewer can correct itself. This is the ONLY channel between the driver
+and the reviewer.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from ..infra.opencode import OpenCodeClient
 from ..infra.skill_loader import load_skill
 
 SYSTEM_PROMPT = (
-    "You are the independent reviewer (L0) in an institutional-process robot. "
+    "You are the independent reviewer in an institutional-process robot. "
     "You are read-only: you cannot run commands or edit files. You judge the "
     "developer's work. Your ENTIRE reply must be EXACTLY ONE STRICT JSON OBJECT "
     "and NOTHING ELSE — no prose, no analysis, no commentary, no reasoning, no "

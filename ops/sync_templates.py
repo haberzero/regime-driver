@@ -4,7 +4,7 @@
 Single-source-of-truth (WORK_PLAN7 III): the official agent/skill templates live
 in ONE place per asset class —
     agents   → docker/worker-config/agents/   (developer/reviewer)
-    god      → docker/god-config/agents/      (analyst/advisor/reviewer)
+    dialog-control → docker/dialog-control-config/agents/  (analyst/advisor/reviewer)
     skills   → workflow-regime/skills/        (runtime skills)
 and the packaged copies under src/regime_driver/data/ are DERIVED — they ship in
 the wheel so a pip user gets the templates without cloning the repo.
@@ -31,7 +31,7 @@ DATA = REPO / "src" / "regime_driver" / "data"
 # (packaged subdir, true source dir)
 PAIRS = [
     ("agents", REPO / "docker" / "worker-config" / "agents"),
-    ("god-assistants", REPO / "docker" / "god-config" / "agents"),
+    ("dialog-control-assistants", REPO / "docker" / "dialog-control-config" / "agents"),
     ("skills", REPO / "workflow-regime" / "skills"),
     ("docker", REPO / "docker"),
 ]

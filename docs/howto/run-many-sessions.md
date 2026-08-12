@@ -13,7 +13,7 @@ regime run-many "实现 add(x,y)" "实现 mul(x,y)" --base http://127.0.0.1:4097
 
 - 实时进度：rich Live 表同时显示所有 workflow 的 node/state。
 - 结束打印每个 workflow 的结果（outcome/node/耗时）。
-- **单点失败隔离**：一个 workflow 卡住只被宪法点到点 STOP，不拖垮其它。
+- **单点失败隔离**：一个 workflow 卡住只被看门狗点到点 STOP，不拖垮其它。
 
 ## Session 管理
 

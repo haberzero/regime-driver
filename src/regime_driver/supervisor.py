@@ -7,7 +7,7 @@ M0 system.
 
 Why process-external: stall detection (absence of events), deadline enforcement
 and container restart need an independent clock + docker control that the
-in-process ConstitutionUnit cannot have (platform limit). This runs on the host
+in-process WatchdogUnit cannot have (platform limit). This runs on the host
 (setsid / systemd) with its own clock.
 
 The watchdog loop is fully wired (no dead ladder): each poll it

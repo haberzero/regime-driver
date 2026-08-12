@@ -113,14 +113,14 @@ def test_drive_stall_supervisor_escalates(tmp_path):
     d, client, rep = _drive(tmp_path, stall=True)
     dr = d.run("实现反转函数")
     rep.close()
-    # The in-process constitution also fires; the drive still returns promptly and
+    # The in-process watchdog also fires; the drive still returns promptly and
     # the supervisor took a ladder action (recorded to the journal).
     assert dr.outcome in {Outcome.ABORTED.value, Outcome.BLOCKED.value,
                           Outcome.ERROR.value, Outcome.TIMEOUT.value}
 
 
 def test_drive_prunes_journal_on_teardown(tmp_path):
-    """L2: with prune_max_records, the shared journal is bounded after the run."""
+    """with prune_max_records, the shared journal is bounded after the run."""
     s = Settings(monitor_enabled=False, stall_sec=2, poll_sec=0.1)
     sm = load_regime()
     client = FakeClient()

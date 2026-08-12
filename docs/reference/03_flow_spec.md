@@ -121,7 +121,7 @@ regime preflight --regime src/regime_driver/data/examples/verify_then_report.jso
 
 **语义**：
 
-1. 任何流程（内置 / 上帝对话框设计 / 文件加载）都是注册表中的一个命名条目。
+1. 任何流程（内置 / 控制对话框设计 / 文件加载）都是注册表中的一个命名条目。
 2. `load` 先编译 + 深度校验，任一门禁失败即抛 `FlowError`，注册表不变。
 3. `reload` 重新读取权威源，编译 + 深度校验新版本后**原子交换**注册表条目。
 4. 运行中的 workflow 持有旧 StateMachine 对象的引用，永不被修改，故保持旧快照。

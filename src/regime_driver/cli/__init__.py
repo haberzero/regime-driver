@@ -29,7 +29,7 @@ console = Console()
 
 app = typer.Typer(
     name="regime",
-    help="L1 institutional-process robot: drive a clean opencode worker.",
+    help="institutional-process robot: drive a clean opencode worker.",
     add_completion=False,
 )
 
@@ -195,7 +195,7 @@ def run(
 def _sm_from_flow_or_regime(flow: str | None, regime: Path | None):
     """Resolve the StateMachine to run: a named registry flow or a regime file.
 
-    ``--flow`` takes precedence (God-Dialog-designed flows); ``--regime`` is the
+    ``--flow`` takes precedence (Dialog-Control-designed flows); ``--regime`` is the
     file-based fallback; neither means the packaged default descriptor.
     """
     from ..core.state_machine import StateMachineError
@@ -461,10 +461,10 @@ def drive(
         False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"),
     prune_max_records: Optional[int] = typer.Option(
         None, "--prune-max-records",
-        help="after the drive, keep only this many tail journal records (L2 retention)"),
+        help="after the drive, keep only this many tail journal records (retention)"),
     prune_max_age: Optional[float] = typer.Option(
         None, "--prune-max-age",
-        help="after the drive, drop journal records older than this many seconds (L2 retention)"),
+        help="after the drive, drop journal records older than this many seconds (retention)"),
 ) -> None:
     """Bring up the whole self-driving stack with one command.
 
@@ -624,22 +624,22 @@ def _write_drive_summary(summary_file: str, data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# drive-many (concurrent isolated fleet: N full-stack drives, one per workspace)
+# drive-many (concurrent isolated parallel batch: N full-stack drives, one per workspace)
 # ---------------------------------------------------------------------------
 @app.command("drive-many")
 def drive_many(
-    contexts: list[str] = typer.Argument(..., help="one task context per fleet member"),
+    contexts: list[str] = typer.Argument(..., help="one task context per parallel member"),
     workspaces: str = typer.Option(
         None, "--workspaces", "-w", help="comma-separated workspaces, one per task "
         "(auto-assigned if fewer; each task runs in its own isolated worker instance)"),
     workers: int = typer.Option(
-        None, "--workers", help="max concurrent fleet members (default: all at once)"),
+        None, "--workers", help="max concurrent parallel members (default: all at once)"),
     base: str = typer.Option(None, "--base", help="ignored when --workspaces used"),
     config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
     regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
-    deadline: int = typer.Option(None, "--deadline", help="global deadline (sec) per fleet member"),
+    deadline: int = typer.Option(None, "--deadline", help="global deadline (sec) per parallel member"),
     reporter: Optional[Path] = typer.Option(
-        None, "--reporter", help="append-only report journal path (single truth for the fleet)"),
+        None, "--reporter", help="append-only report journal path (single truth for the batch)"),
     skills_dir: Optional[Path] = typer.Option(
         None, "--skills-dir", help="path to workflow-regime skills dir"),
     meta: bool = typer.Option(
@@ -652,7 +652,7 @@ def drive_many(
     no_preflight: bool = typer.Option(
         False, "--no-preflight", help="SKIP the mandatory offline preflight trial (not recommended)"),
 ) -> None:
-    """Run a fleet of isolated full-stack drives in parallel.
+    """Run isolated full-stack drives in parallel (a batch).
 
     Each task runs in its OWN workspace worker instance (physical isolation via
     the multi-instance WorkerPool), sharing ONE reporter journal. This is the
@@ -663,7 +663,7 @@ def drive_many(
     from ..app.preflight import preflight
     from ..app.reporter import Reporter
     from ..core.state_machine import StateMachineError
-    from ..fleet import Fleet, FleetTask
+    from ..parallel import Parallel, ParallelTask
 
     settings = load_settings(
         config_file=config,
@@ -686,25 +686,25 @@ def drive_many(
 
     task_ids = [f"w{i + 1}" for i in range(len(contexts))]
     requested = [w.strip() for w in (workspaces or "").split(",") if w.strip()]
-    ws = Fleet.auto_workspaces(task_ids, requested)
-    tasks = [FleetTask(task_ids[i], contexts[i], ws[i])
+    ws = Parallel.auto_workspaces(task_ids, requested)
+    tasks = [ParallelTask(task_ids[i], contexts[i], ws[i])
              for i in range(len(contexts))]
     journal = str(reporter) if reporter else None
-    rep = Reporter(journal_path=journal, project_id="fleet")
-    fleet = Fleet(
+    rep = Reporter(journal_path=journal, project_id="parallel")
+    batch = Parallel(
         settings, sm, rep, deadline_sec=deadline,
         meta_enabled=meta, meta_model=meta_model,
     )
     try:
-        _ok(f"fleet of {len(tasks)} starting: {', '.join(f'{t.task_id}@{t.workspace}' for t in tasks)}",
+        _ok(f"parallel batch of {len(tasks)} starting: {', '.join(f'{t.task_id}@{t.workspace}' for t in tasks)}",
             markup=False)
-        results = fleet.run(tasks, worker_count=workers)
+        results = batch.run(tasks, worker_count=workers)
         if json_out:
             _emit_json({"results": {tid: dr.to_dict() for tid, dr in results.items()}})
             if any(dr.outcome != Outcome.COMPLETE.value for dr in results.values()):
                 raise typer.Exit(1)
             return
-        print(f"\n=== drive-many fleet 结果 ({len(results)} tasks) ===")
+        print(f"\n=== drive-many 并行任务结果 ({len(results)} tasks) ===")
         ws_by_id = {t.task_id: t.workspace for t in tasks}
         for tid, dr in results.items():
             mark = "✓" if dr.outcome == Outcome.COMPLETE.value else "✗"
@@ -713,8 +713,8 @@ def drive_many(
         bad = [tid for tid, dr in results.items()
                if dr.outcome != Outcome.COMPLETE.value]
         if bad:
-            _fail(f"{len(bad)} fleet member(s) not complete: {', '.join(bad)}", markup=False)
-        _ok(f"all {len(results)} fleet members done", markup=False)
+            _fail(f"{len(bad)} parallel member(s) not complete: {', '.join(bad)}", markup=False)
+        _ok(f"all {len(results)} parallel members done", markup=False)
     finally:
         rep.close()
 
@@ -798,7 +798,7 @@ def doctor(
     _tpl = templates_ready()
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
 
-    # accumulated-session hygiene (L2, from durability finding): session records
+    # accumulated-session hygiene (from durability finding): session records
     # accumulate over long runs; warn at a threshold so the operator knows when
     # to run the cleanup policy (`regime sessions --cleanup ... --perm clean`).
     if healthy:
@@ -833,7 +833,7 @@ def doctor(
     if not all_ok:
         console.print("\n[bold]建议：[/bold]")
         if not healthy:
-            console.print("  · 容器化：`ops/up.sh all`（构建+起 worker/god）")
+            console.print("  · 容器化：`ops/up.sh all`（构建+起 worker/dialog-control）")
             console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
         # look up the key check by name (its list index is health-dependent after
         # the version check was inserted); avoid a spurious key suggestion when
@@ -917,7 +917,7 @@ def report_cmd(
     Reads a journal written by `regime run ... --reporter <path>`. Rollups are
     O(1) counters; history is the bounded append-only slice. Templates produce
     rule-based formatted reports (milestone/blocker/period/activity). This is the
-    macro project-management surface for the God Dialog (WORK_PLAN4 III).
+    macro project-management surface for the Dialog Control (WORK_PLAN4 III).
     """
     from ..app.reporter import Reporter
 
@@ -1252,7 +1252,7 @@ def status(
 ) -> None:
     """Check worker health; with --deep, an aggregate situational summary.
 
-    ``--deep`` returns everything the God Dialog needs to judge global state in
+    ``--deep`` returns everything the Dialog Control needs to judge global state in
     one call: worker health, live sessions, registered flows, supervised tasks,
     and (with --reporter) the report-bus rollup. Read-only.
     """
@@ -1450,9 +1450,9 @@ def dialog(
     perm: str = typer.Option("run", "--perm", help="held permission level "
                              "(read|interact|run|clean); gates write ops"),
 ) -> None:
-    """Open the God Dialog: one natural-language control/monitor surface.
+    """Open the Dialog Control: one natural-language control/monitor surface.
 
-    In the 'God>' prompt you can (Chinese/English both work):
+    In the 'Dialog>' prompt you can (Chinese/English both work):
       status | monitor [field]      live workflow snapshot
       watch [n] [topic]             recent events (watchdog/blackboard/notify)
       start [flow] <task>           non-blockingly launch a workflow
@@ -1654,7 +1654,7 @@ _flow_app = typer.Typer(
 
 # Lazily-seeded shared registry, scoped to THIS process (a fresh regime process
 # gets its own registry; each `regime flow` invocation re-derives from disk).
-# Not shared with the god-dialog process — see dialog_app which seeds its own.
+# Not shared with the dialog-control process — see dialog_app which seeds its own.
 _flow_registry = None
 
 
@@ -1800,8 +1800,8 @@ def flow_design(
 
     Compiles the spec (full regime JSON or compact flow spec) via the unified
     ``compile_spec`` entry, runs the F9 deep gate, and registers it into the
-    persistent FlowRegistry — the same design path the god dialog B-route uses,
-    exposed for the A-route god / CLI without requiring file-system write access.
+    persistent FlowRegistry — the same design path the dialog control B-route uses,
+    exposed for the A-route dialog-control / CLI without requiring file-system write access.
     """
     _gate(perm, ["flow", "design", name])
     from ..flow import FlowError, compile_spec
@@ -2024,9 +2024,9 @@ def worker_prune(
         None, "--max-instances", help="hard cap on concurrent instances (for up)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
-    """Reclaim idle worker instances (no sessions) to bound fleet resource growth.
+    """Reclaim idle worker instances (no sessions) to bound parallel-batch resource growth.
 
-    Also accepts --max-instances to set the fleet cap enforced by `worker up`.
+    Also accepts --max-instances to set the parallel cap enforced by `worker up`.
     """
     from ..worker import WorkerPool
 
@@ -2042,7 +2042,7 @@ def worker_prune(
         _ok(f"reclaimed {len(reclaimed)} idle instance(s): {reclaimed or '(none)'}",
             markup=False)
         if max_instances is not None:
-            _ok(f"fleet instance cap set to {max_instances}", markup=False)
+            _ok(f"parallel instance cap set to {max_instances}", markup=False)
 
 
 app.add_typer(_worker_app, name="worker")
@@ -2205,8 +2205,8 @@ app.add_typer(_job_app, name="job")
 def scaffold_cmd(
     target: Optional[Path] = typer.Option(
         None, "--target", help="opencode config root (default ~/.config/opencode)"),
-    god: bool = typer.Option(False, "--god",
-                             help="also deploy the god-assistant subagents (analyst/advisor/reviewer)"),
+    assistants: bool = typer.Option(False, "--assistants",
+                             help="also deploy the dialog-control-assistant subagents (analyst/advisor/reviewer)"),
     dry_run: bool = typer.Option(False, "--dry-run",
                                  help="show what would be written without writing"),
     force: bool = typer.Option(False, "--force",
@@ -2216,7 +2216,7 @@ def scaffold_cmd(
 ) -> None:
     """Deploy the packaged official templates into an opencode config root.
 
-    A fresh install (pip wheel) carries the agent/skill/god templates inside the
+    A fresh install (pip wheel) carries the agent/skill/dialog-control templates inside the
     package; ``scaffold`` copies them to ``~/.config/opencode`` so no source
     clone is needed. Idempotent: existing files are kept unless --force.
     """
@@ -2227,7 +2227,7 @@ def scaffold_cmd(
 
     from ..scaffold import scaffold as _scaffold
 
-    result = _scaffold(dest, god=god, dry_run=dry_run, force=force)
+    result = _scaffold(dest, assistants=assistants, dry_run=dry_run, force=force)
 
     if json_out:
         _emit_json(result.to_dict())
@@ -2248,7 +2248,7 @@ def scaffold_cmd(
                   f"(kept {len(result.skipped)}) → {dest}")
     if not dry_run:
         console.print("\n[bold]next steps[/bold]")
-        console.print("  · 起栈：`ops/up.sh all`（构建+拉起 worker/god 容器）")
+        console.print("  · 起栈：`ops/up.sh all`（构建+拉起 worker/控制对话框容器）")
         console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
         console.print("  · 配模型密钥：`regime doctor`（设 DEEPSEEK_API_KEY 或 ~/.regime/keys/deepseek.key）")
 
@@ -2264,7 +2264,7 @@ def events(
     """Read (or tail) the JSONL event ledger, one JSON event per line.
 
     Events are written by `regime run/run-many --ledger <path>` and by the
-    runtime's Ledger. This is the event-stream surface for the dialog carrier.
+    runtime's Ledger. This is the event-stream surface for the dialog control.
     """
     path = ledger or (Settings().ledger_path or None)
     if not path:

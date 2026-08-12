@@ -1,7 +1,7 @@
 """FlowRegistry — the named-flow single source of truth + hot compile/reload.
 
 WORK_PLAN5 (F4-F6, F9-F11): the flow-definition lifecycle. Any flow — builtin
-(packaged regime.json), user-designed (god dialog), or file-loaded — is a named
+(packaged regime.json), user-designed (dialog control), or file-loaded — is a named
 entry in one registry. This lets a running system:
 
   * hot-compile any spec (file / compact JSON / full regime dict) through one
@@ -14,8 +14,8 @@ entry in one registry. This lets a running system:
   * gate every load/reload on deep validation (F9) and rely on deep_validate's
     cycle detection + runtime max_total_nodes for anti-loop safety (F11).
 
-The God Dialog's former ad-hoc `self.flows` dict is merged into this registry
-(app/god_dialog.py) so there is a single source of truth for named flows.
+The Dialog Control's former ad-hoc `self.flows` dict is merged into this registry
+(app/dialog_control.py) so there is a single source of truth for named flows.
 """
 
 from __future__ import annotations

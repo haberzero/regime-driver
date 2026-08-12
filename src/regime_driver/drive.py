@@ -100,7 +100,7 @@ class Drive:
         self.session_discovery_timeout = session_discovery_timeout
         self.meta_enabled = meta_enabled
         self.meta_model = meta_model
-        # L2 retention: bound the shared journal at drive teardown (both params
+        # journal retention: bound the shared journal at drive teardown (both params
         # optional; enabled only when the caller passes at least one).
         self.prune_max_records = prune_max_records
         self.prune_max_age = prune_max_age
@@ -171,7 +171,7 @@ class Drive:
             outcome, end, detail = (Outcome.ERROR, None, "drive did not complete")
         else:
             outcome, end, detail = self._result["res"]
-        # L2 retention: bound the shared journal at teardown so long-run scripts
+        # journal retention: bound the shared journal at teardown so long-run scripts
         # do not grow the journal without limit (best-effort, never fails a run).
         if self.reporter is not None and (
                 self.prune_max_records is not None or self.prune_max_age is not None):

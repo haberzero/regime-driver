@@ -12,7 +12,7 @@
 
 - 每个实例 = 一个 `opencode-worker` 容器 + **自己的挂载工作区目录** + 独立端口；
 - **同一工作区绝不启动第二个实例**（no-duplicate 不变量，经 docker 查询持久保证）；
-- 实例内角色（developer/reviewer/god）仍以 **session** 区分（原有每角色一 session 模型不变）。
+- 实例内角色（developer/reviewer/dialog-control）仍以 **session** 区分（原有每角色一 session 模型不变）。
 
 ## 架构
 

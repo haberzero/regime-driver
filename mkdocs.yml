@@ -20,23 +20,23 @@ site_dir: site
 #   - 用户指南：使用者（跑任务、配置、操作）
 #   - 参考：使用者查契约（CLI/配置/流程规格）
 #   - 开发者指南：内部贡献者（架构/子系统/接口/如何开发/治理）
-# 供 agent 执行的内部配置（workflow-regime/skills、.opencode/god、god 助手）不入本站点。
+# 供 agent 执行的内部配置（workflow-regime/skills、.opencode/dialog-control、控制对话框助手）不入本站点。
 nav:
   - 首页: index.md
   - 用户指南:
-      - 上帝对话框（第一入口）: guide/00_god_dialog.md
+      - 控制对话框（第一入口）: guide/00_dialog_control.md
       - 快速开始: guide/01_quickstart.md
       - 你能做什么: guide/02_capabilities.md
       - 设计你自己的流程: guide/03_design_flow.md
       - 安装运行环境: guide/04_environment.md
       - 配置模型与密钥: guide/05_setup.md
-      - 多工作区并行跑任务: guide/06_fleet.md
+      - 多工作区并行跑任务: guide/06_parallel.md
       - 操作指南:
           - howto 总览: howto/README.md
           - 跑真实 E2E: howto/run-e2e.md
           - 用 mock 离线调试: howto/debug-with-mock.md
           - 并发多 workflow: howto/run-many-sessions.md
-          - 上帝对话框操作: howto/god-dialog.md
+          - 控制对话框操作: howto/dialog-control.md
           - 主机模式 agent: howto/host-mode-agents.md
   - 参考:
       - CLI 参考总览: CLI_REFERENCE.md
@@ -44,7 +44,7 @@ nav:
       - 配置参考: reference/02_configuration.md
       - 流程规格: reference/03_flow_spec.md
       - 权限门禁: reference/04_permissions.md
-      - 上帝对话框契约: reference/05_god_dialog_contract.md
+      - 控制对话框契约: reference/05_dialog_control_contract.md
       - 已知限制: KNOWN_LIMITS.md
   - 开发者指南:
       - 架构总览: ARCHITECTURE.md
@@ -55,14 +55,14 @@ nav:
           - 子系统总览: SUBSYSTEM_DESIGN.md
           - drive: subsystems/01_drive.md
           - worker 隔离: subsystems/02_worker_isolation.md
-          - fleet: subsystems/03_fleet.md
+          - parallel: subsystems/03_parallel.md
           - supervisor: subsystems/04_supervisor.md
           - chaos: subsystems/05_chaos.md
-          - god dialog: subsystems/06_god_dialog.md
-          - god dialog carrier: subsystems/07_god_dialog_carrier.md
+          - dialog control: subsystems/06_dialog_control.md
+          - dialog control 接入形态: subsystems/07_dialog_control_access.md
           - mock: subsystems/08_mock.md
           - 测试架构: subsystems/09_testing_architecture.md
-      - god 容器验证窗: howto/god-window.md
+      - 控制对话框容器验证窗: howto/dialog-control-window.md
       - 发布教程（维护者）: guide/07_release.md
       - 书写准则: WRITING_GUIDE.md
 

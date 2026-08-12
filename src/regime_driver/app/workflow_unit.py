@@ -1,16 +1,16 @@
 """Workflow as a peer state machine unit (app layer, full refactor).
 
 The final architecture makes the workflow itself a *governed* statechart unit
-that runs in the same Runtime as the constitution (watchdog) unit. It drives the
+that runs in the same Runtime as the watchdog (watchdog) unit. It drives the
 regime flow node by node from a **single-threaded mixed loop**: in one thread it
-(a) drains inbound signals (STOP from the constitution, etc.), (b) polls the
+(a) drains inbound signals (STOP from the watchdog, etc.), (b) polls the
 session it dispatched work to, and (c) steps the node machine. Because the work
 is dispatched to remote sessions (which generate asynchronously), the loop stays
 free between polls to react to control signals — this is the "single-thread
 mixed loop" principle from ARCHITECTURE-statechart-network §5.2.1.
 
-The unit reports its alive session state to the constitution via REPORT signals,
-and the constitution can interrupt it with a STOP signal (abort).
+The unit reports its alive session state to the watchdog via REPORT signals,
+and the watchdog can interrupt it with a STOP signal (abort).
 """
 
 from __future__ import annotations
@@ -156,7 +156,7 @@ class WorkflowUnit(ThreadedUnit):
             time.sleep(min(self.poll_sec, 0.1))
 
     def _drain_signals(self) -> None:
-        """Process inbound signals (STOP from the constitution, etc.)."""
+        """Process inbound signals (STOP from the watchdog, etc.)."""
         while True:
             try:
                 sig = self._q.get_nowait()
@@ -171,7 +171,7 @@ class WorkflowUnit(ThreadedUnit):
     # -- control handlers -----------------------------------------------------
 
     def _on_stop(self, signal: Signal) -> None:
-        self._monitor_stop = signal.get("reason") or "constitution stop"
+        self._monitor_stop = signal.get("reason") or "watchdog stop"
         self._cancel_running()
 
     def _cancel_running(self) -> None:
@@ -216,7 +216,7 @@ class WorkflowUnit(ThreadedUnit):
 
         The remote session generates asynchronously; this unit observes progress
         by polling the session. A send failure is retried with backoff so a slow
-        judge/agent is not dropped; the constitution's heartbeat/stall detection
+        judge/agent is not dropped; the watchdog's heartbeat/stall detection
         is the final backstop.
 
         Crucial: the streaming POST /message only returns once the turn finishes,
@@ -374,7 +374,7 @@ class WorkflowUnit(ThreadedUnit):
                 self._enter_judge(judge_node)  # re-judge after rework
             else:
                 self._advance()
-        self._report_to_constitution()
+        self._report_to_watchdog()
 
     def _latest_agent_done(self, messages) -> tuple[bool, str | None]:
         """Detect whether the developer finished this node's work.
@@ -407,7 +407,7 @@ class WorkflowUnit(ThreadedUnit):
             return
         latest = self._latest_assistant(messages)
         if latest is None:
-            self._report_to_constitution()
+            self._report_to_watchdog()
             return
         # skip a reply we have already processed: the judge session accumulates
         # messages, so _latest_text alone would re-parse the previous (failure)
@@ -419,7 +419,7 @@ class WorkflowUnit(ThreadedUnit):
         key = ("id", mid) if mid else (
             "text", (getattr(latest, "reply", "") or "") + (getattr(latest, "text", "") or ""))
         if key == self._last_judged_key:
-            self._report_to_constitution()
+            self._report_to_watchdog()
             return
         self._last_judged_key = key
         text = (getattr(latest, "reply", "") or "") or (getattr(latest, "text", "") or "")
@@ -437,7 +437,7 @@ class WorkflowUnit(ThreadedUnit):
                 self._result = (Outcome.ERROR, self._node, "reviewer gate exhausted")
             else:
                 self._send_judge_prompt(reviewer, self._node)
-        self._report_to_constitution()
+        self._report_to_watchdog()
 
     def _handle_verdict(self, result) -> None:
         verdict = result.verdict
@@ -568,8 +568,8 @@ class WorkflowUnit(ThreadedUnit):
 
     # -- helpers --------------------------------------------------------------
 
-    def _report_to_constitution(self) -> None:
-        """Feed the alive session's state to the constitution as a REPORT.
+    def _report_to_watchdog(self) -> None:
+        """Feed the alive session's state to the watchdog as a REPORT.
 
         A REPORT must always be sent; a read failure must never silently drop it
         (that would blind the watchdog into a false stall/loop verdict). Failures
@@ -594,7 +594,7 @@ class WorkflowUnit(ThreadedUnit):
                 (payload["report_error"] + "; " if payload["report_error"] else "")
                 + f"read: {exc}")
             self._log("report_error", session=self._wait_sid, err=str(exc))
-        self.send("constitution", SignalKind.REPORT, payload)
+        self.send("watchdog", SignalKind.REPORT, payload)
 
     def _get_reviewer(self, role_id: str) -> Reviewer:
         if role_id not in self.reviewers:

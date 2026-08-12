@@ -1,10 +1,10 @@
-"""Fine-grained permission levels for the regime CLI / God Dialog gate.
+"""Fine-grained permission levels for the regime CLI / Dialog Control gate.
 
 The regime CLI contract is the single control surface. Its commands have side
 effects of varying severity, so we classify each into an ordered permission
-level and let an operator (human or the ``god`` agent) hold a level. Any
+level and let an operator (human or the ``dialog-control`` agent) hold a level. Any
 operation requiring a higher level than held is rejected up front — a uniform
-gate shared by the CLI and the dialog carrier (对接 GodDialogUnit.allow_write).
+gate shared by the CLI and the dialog-control surface (对接 DialogControlUnit.allow_write).
 
 Levels (least -> most privileged)::
 
@@ -14,8 +14,8 @@ Levels (least -> most privileged)::
     RUN        + ``run`` / ``run-many`` (launch workflows, incl. async jobs).
     CLEAN      + ``sessions --clean`` / ``--kill`` (destructive teardown).
 
-Mapping to GodDialogUnit.allow_write: ``allow_write=False`` == READ;
-``allow_write=True`` == CLEAN (full). See DESIGN-god-dialog.md.
+Mapping to DialogControlUnit.allow_write: ``allow_write=False`` == READ;
+``allow_write=True`` == CLEAN (full). See docs/subsystems/06_dialog_control.md.
 """
 
 from __future__ import annotations
@@ -115,8 +115,8 @@ def require(held: PermissionLevel, needed: PermissionLevel) -> None:
             f"held '{held.value}'")
 
 
-def from_god_dialog(allow_write: bool) -> PermissionLevel:
-    """Map the GodDialogUnit.allow_write flag onto a permission level."""
+def from_dialog_control(allow_write: bool) -> PermissionLevel:
+    """Map the DialogControlUnit.allow_write flag onto a permission level."""
     return PermissionLevel.CLEAN if allow_write else PermissionLevel.READ
 
 

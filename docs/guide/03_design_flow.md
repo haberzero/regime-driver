@@ -5,22 +5,22 @@
 
 ## 用对话设计流程（推荐）
 
-在上帝对话框里，用自然语言描述你想要的流程：
+在控制对话框里，用自然语言描述你想要的流程：
 
 ```text
-God> design my_flow 设计一个先实现、再审查、再测试的流程
+Dialog> design my_flow 设计一个先实现、再审查、再测试的流程
 ```
 
 对话框把它编译成流程并注册为可运行（`my_flow`）。之后你可以这样启动它：
 
 ```text
-God> start my_flow 实现某个功能
+Dialog> start my_flow 实现某个功能
 ```
 
 ## 查看已注册流程
 
 ```text
-God> flow list
+Dialog> flow list
 ```
 
 列出所有可运行流程（内置 `code_workflow` + 你自己设计的）。
@@ -80,4 +80,4 @@ flowchart LR
 
 - 流程 JSON 结构与字段：`../reference/03_flow_spec.md`
 - 流程生命周期命令：`../reference/01_cli.md`
-- 流程设计概念：`../guide/00_god_dialog.md`
+- 流程设计概念：`../guide/00_dialog_control.md`

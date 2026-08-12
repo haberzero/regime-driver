@@ -1,7 +1,7 @@
 """Packaged-template regression tests (WORK_PLAN7 I).
 
 Guards the "对外供给就绪" hard gap: the distributed wheel must carry the
-templates that the runtime depends on (skills / agents / god-assistants /
+templates that the runtime depends on (skills / agents / dialog-control-assistants /
 docker recipes / regime.json), and the runtime must resolve them from the
 package rather than from a source-tree checkout.
 
@@ -35,12 +35,12 @@ PKG = REPO / "src" / "regime_driver"
     "data/skills/design-philosophy/SKILL.md",
     "data/skills/code-review/SKILL.md",
     "data/agents/reviewer.md",
-    "data/god-assistants/analyst.md",
-    "data/god-assistants/advisor.md",
+    "data/dialog-control-assistants/analyst.md",
+    "data/dialog-control-assistants/advisor.md",
     "data/docker/Dockerfile.worker",
-    "data/docker/Dockerfile.god",
+    "data/docker/Dockerfile.dialog-control",
     "data/docker/worker-config/opencode.json",
-    "data/docker/god-config/opencode.json",
+    "data/docker/dialog-control-config/opencode.json",
 ])
 def test_packaged_template_file_exists(relative: str):
     assert (PKG / relative).is_file(), f"missing packaged template: {relative}"
@@ -54,8 +54,8 @@ def test_packaged_templates_complete():
 
     packaged_agents = {p.name for p in (PKG / "data" / "agents").iterdir()}
     assert "reviewer.md" in packaged_agents, packaged_agents
-    god_agents = {p.name for p in (PKG / "data" / "god-assistants").iterdir()}
-    assert {"analyst.md", "advisor.md", "reviewer.md"} <= god_agents, god_agents
+    control_agents = {p.name for p in (PKG / "data" / "dialog-control-assistants").iterdir()}
+    assert {"analyst.md", "advisor.md", "reviewer.md"} <= control_agents, control_agents
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ def test_packaged_templates_match_true_sources():
     must stay byte-identical to their true sources, so no drift is possible."""
     pairs = [
         ("data/agents", "docker/worker-config/agents"),
-        ("data/god-assistants", "docker/god-config/agents"),
+        ("data/dialog-control-assistants", "docker/dialog-control-config/agents"),
         ("data/skills", "workflow-regime/skills"),
         ("data/docker", "docker"),
     ]
@@ -129,13 +129,13 @@ def test_packaged_templates_match_true_sources():
             f"drift between {pkg_rel} and {src_rel}: {_dir_diff(pkg_dir, src_dir)}"
         )
 
-    # reviewer.md ships in BOTH data/agents and data/god-assistants (both map
+    # reviewer.md ships in BOTH data/agents and data/dialog-control-assistants (both map
     # to the same target agents/reviewer.md). If their true sources ever
     # diverge, scaffold's dedupe silently drops one — so require them equal.
     import filecmp
     assert filecmp.cmp(
         REPO / "docker" / "worker-config" / "agents" / "reviewer.md",
-        REPO / "docker" / "god-config" / "agents" / "reviewer.md",
+        REPO / "docker" / "dialog-control-config" / "agents" / "reviewer.md",
         shallow=False,
     )
 
@@ -190,10 +190,10 @@ def test_wheel_contains_templates(tmp_path):
         "regime_driver/data/skills/design-philosophy/SKILL.md",
         "regime_driver/data/skills/code-review/SKILL.md",
         "regime_driver/data/agents/reviewer.md",
-        "regime_driver/data/god-assistants/analyst.md",
-        "regime_driver/data/god-assistants/advisor.md",
+        "regime_driver/data/dialog-control-assistants/analyst.md",
+        "regime_driver/data/dialog-control-assistants/advisor.md",
         "regime_driver/data/docker/Dockerfile.worker",
-        "regime_driver/data/docker/Dockerfile.god",
+        "regime_driver/data/docker/Dockerfile.dialog-control",
         "regime_driver/data/regime.json",
         "regime_driver/data/examples/verify_then_report.json",
     ]:

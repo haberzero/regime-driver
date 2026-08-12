@@ -7,7 +7,7 @@
 ## 1. 发布姿态与硬缺口
 
 项目已公开于 GitHub（`haberzero/regime-driver`）。"发布"不等于"clone 源码跑"——
-pip 安装的 wheel 必须自带官方模板（agents/skills/god 助手/docker 配方），否则用户
+pip 安装的 wheel 必须自带官方模板（agents/skills/控制对话框助手/docker 配方），否则用户
 `regime preflight` 必败。硬缺口的审查快照见 `tasks_docs/release_readiness_audit.md`。
 
 **当前状态**：模板已随 wheel 打包（`src/regime_driver/data/`），`regime scaffold`
@@ -32,7 +32,7 @@ cd /tmp && unzip -q /tmp/wheeltest/regime_driver-*.whl -d /tmp/wheeltest/extract
   python -m regime_driver.cli preflight --json   # 期望 {"ok":true,"outcome":"complete"}
 
 # 5) scaffold 可用：向临时目录生成全套配置（--dry-run 不写）
-conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --god --dry-run
+conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --assistants --dry-run
 
 # 6) README 无死链（全仓跨引用扫描在 CI / doc-governance 流程）
 ```

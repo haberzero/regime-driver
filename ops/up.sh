@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# 一键起栈: 构建(如缺) + 拉起 regime-driver 的 worker 与 god 容器, 并等健康。
+# 一键起栈: 构建(如缺) + 拉起 regime-driver 的 worker 与 控制对话框容器, 并等健康。
 # 用法:
-#   ops/up.sh              # 起 worker + god (默认 all)
+#   ops/up.sh              # 起 worker + dialog-control (默认 all)
 #   ops/up.sh worker       # 只起 worker
-#   ops/up.sh god          # 只起 god
+#   ops/up.sh dialog-control  # 只起 dialog-control
 #   ops/up.sh all --rebuild   # 强制重建镜像再起
 #
-# 依据: docs/howto/god-window.md, DESIGN-testing-architecture.md (worker=执行, god=A路验证窗)
+# 依据: docs/howto/dialog-control-window.md, DESIGN-testing-architecture.md (worker=执行, dialog-control=A路验证窗)
 # 环境:
 #   DEEPSEEK_API_KEY       模型 key(必需, 或从 $HOME/.regime/keys/deepseek.key 读取)
-#   REGIME_GOD_PORT        覆盖 god 端口(默认 4098)
+#   REGIME_DIALOG_CONTROL_PORT        覆盖 dialog-control 端口(默认 4098)
 #   REGIME_WORKER_PORT     覆盖 worker 端口(默认 4097)
-#   REGIME_GOD_TAG / REGIME_WORKER_TAG  覆盖镜像 tag(默认 1.18.11)
+#   REGIME_DIALOG_CONTROL_TAG / REGIME_WORKER_TAG  覆盖镜像 tag(默认 1.18.11)
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
 
-TAG="${REGIME_GOD_TAG:-1.18.11}"
+TAG="${REGIME_DIALOG_CONTROL_TAG:-1.18.11}"
 WORKER_TAG="${REGIME_WORKER_TAG:-$TAG}"
-GOD_PORT="${REGIME_GOD_PORT:-4098}"
+DIALOG_PORT="${REGIME_DIALOG_CONTROL_PORT:-4098}"
 WORKER_PORT="${REGIME_WORKER_PORT:-4097}"
 REBUILD=0
 
@@ -84,34 +84,34 @@ up_worker() {
   wait_health "http://127.0.0.1:${WORKER_PORT}/global/health" "$name"
 }
 
-# --- god ---------------------------------------------------------------
-up_god() {
-  local img="opencode-god:${TAG}" name="opencode-god"
+# --- dialog-control ---------------------------------------------------------------
+up_dialog_control() {
+  local img="opencode-dialog-control:${TAG}" name="opencode-dialog-control"
   if [[ "$REBUILD" == 1 ]] || needs_rebuild "$img"; then
     echo "== 构建 $img (基于 worker, HEAD=$GIT_HEAD) =="
     dx build --label "org.regime-driver.head=$GIT_HEAD" \
-      -f docker/Dockerfile.god -t "$img" .
+      -f docker/Dockerfile.dialog-control -t "$img" .
   fi
   if dx ps -a --format '{{.Names}}' | grep -qx "$name"; then
     echo "== $name 已存在: 重启 =="
     dx rm -f "$name" >/dev/null
   fi
   require_key
-  echo "== 启动 $name (host 网络, 端口 $GOD_PORT) =="
+  echo "== 启动 $name (host 网络, 端口 $DIALOG_PORT) =="
   # --network host 使容器内 127.0.0.1:<worker_port> 直达宿主的 worker
-  # 挂载当前文档 + 插件/agent 源: god A 路据此读操作手册, 且文档/插件变更
+  # 挂载当前文档 + 插件/agent 源: 控制对话框 A 路据此读操作手册, 且文档/插件变更
   # 无需重建镜像即可生效 (消除 8-10 实践发现的"容器内文档缺失/旧插件"漂移)。
   dx run -d --name "$name" --network host \
     -e DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
     -e OPENCODE_GO_API_KEY="$OPENCODE_GO_API_KEY" \
-    -e OPENCODE_PORT="$GOD_PORT" \
+    -e OPENCODE_PORT="$DIALOG_PORT" \
     -v "$HERE/docs:/root/work/docs:ro" \
-    -v "$HERE/docker/god-config/opencode.json:/root/.config/opencode/opencode.json:ro" \
-    -v "$HERE/.opencode/agent/god.md:/root/.config/opencode/agent/god.md:ro" \
-    -v "$HERE/.opencode/plugins/regime-god.js:/root/.config/opencode/plugins/regime-god.js:ro" \
-    -v "$HERE/docker/god-config/agents:/root/.config/opencode/agents:ro" \
+    -v "$HERE/docker/dialog-control-config/opencode.json:/root/.config/opencode/opencode.json:ro" \
+    -v "$HERE/.opencode/agent/dialog-control.md:/root/.config/opencode/agent/dialog-control.md:ro" \
+    -v "$HERE/.opencode/plugins/regime-dialog-control.js:/root/.config/opencode/plugins/regime-dialog-control.js:ro" \
+    -v "$HERE/docker/dialog-control-config/agents:/root/.config/opencode/agents:ro" \
     "$img" >/dev/null
-  wait_health "http://127.0.0.1:${GOD_PORT}/global/health" "$name"
+  wait_health "http://127.0.0.1:${DIALOG_PORT}/global/health" "$name"
 }
 
 wait_health() {
@@ -134,9 +134,9 @@ TARGET="${1:-all}"
 
 case "$TARGET" in
   worker) up_worker ;;
-  god)    up_god ;;
-  all)    up_worker; up_god ;;
-  *) echo "未知目标: $TARGET (worker|god|all)" >&2; exit 1 ;;
+  dialog-control)  up_dialog_control ;;
+  all)    up_worker; up_dialog_control ;;
+  *) echo "未知目标: $TARGET (worker|dialog-control|all)" >&2; exit 1 ;;
 esac
 
 echo "== 完成: $TARGET 就绪 =="

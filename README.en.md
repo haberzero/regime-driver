@@ -26,7 +26,7 @@ role-aware steps: understand → design → implement → review → wrap) into 
 - **Everything is replayable**: every run is written to an event ledger and a
   report journal.
 
-**Core architecture**: a peer state-machine network — a "constitution"
+**Core architecture**: a peer state-machine network — a "watchdog"
 (intelligent-free state machines + a signal protocol + runtime-enforced root
 invariants) supervising agentic workflow units. See
 `docs/architecture/02_statechart_network.md`.
@@ -38,8 +38,8 @@ invariants) supervising agentic workflow units. See
 - **CI is green**: unit tests pass on Python 3.11 & 3.12 (offline, no key needed).
 - Core features implemented & verified: hot flow compile/reload
   (`FlowRegistry` + `regime flow`), one-command self-driving stack (`regime drive`),
-  per-workspace isolated worker fleet (`regime worker` / `drive-many`),
-  fault-injection/recovery (`regime chaos`), God Dialog (A/B dual surface).
+  per-workspace isolated worker batch (`regime worker` / `drive-many`),
+  fault-injection/recovery (`regime chaos`), Dialog Control (A/B dual surface).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
   source of truth / release docs) and long-run durability (2h+ real run) are
   complete.
@@ -51,7 +51,7 @@ conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
 
-> The pip wheel ships the official templates (agents/skills/god-assistants/docker
+> The pip wheel ships the official templates (agents/skills/dialog-control-assistants/docker
 > recipes), so you can `regime scaffold` a full config without cloning the repo.
 
 ## Deployment
@@ -62,19 +62,19 @@ conda run -n regime-driver pip install -e ".[dev]"
 # generate ~/.config/opencode/{agents,skills} from the packaged templates
 # (idempotent; --dry-run previews without writing)
 regime scaffold
-# also deploy the god-dialog assistant subagents (analyst/advisor/reviewer)
-regime scaffold --god
+# also deploy the dialog-control assistant subagents (analyst/advisor/reviewer)
+regime scaffold --assistants
 # self-check: worker health / model key / templates ready
 regime doctor
 ```
 
 ### 2. Bring up the execution surface
 
-**Containerized (recommended)** — build + start worker/god containers and wait for health:
+**Containerized (recommended)** — build + start worker/dialog-control containers and wait for health:
 
 ```bash
-ops/up.sh all            # worker + god
-ops/up.sh god --rebuild  # force-rebuild the pinned image
+ops/up.sh all            # worker + dialog-control
+ops/up.sh dialog-control --rebuild  # force-rebuild the pinned image
 ```
 
 > `ops/up.sh` lives in the source repo (not shipped in the wheel). Wheel-only
@@ -90,7 +90,7 @@ regime run "task" --base http://<host-opencode-port>
 
 ### 3. Configure the model key
 
-- worker/god containers receive `DEEPSEEK_API_KEY` at runtime (`ops/up.sh` reads
+- worker/dialog-control containers receive `DEEPSEEK_API_KEY` at runtime (`ops/up.sh` reads
   `~/.regime/keys/deepseek.key` or your env); keys are never committed. The
   OpenCode Go fallback provider uses `OPENCODE_GO_API_KEY`.
 - Interactive opencode stores keys via `/connect` in
@@ -111,11 +111,11 @@ regime sessions [--clean|--kill <id>] --base http://127.0.0.1:4097
 # hot flow lifecycle (single source of truth for named flows)
 regime flow list | validate <file> [--watch] | load <file> | reload <name> | rm <name> | inspect <name>
 
-# self-driving stack & fleet
+# self-driving stack & parallel batch
 regime drive "task" --base http://127.0.0.1:4097 --container opencode-worker
 regime drive-many "t1" "t2" --workspaces "wsA,wsB"
 
-# God Dialog (single conversational control surface)
+# Dialog Control (single conversational control surface)
 regime dialog --live --base http://127.0.0.1:4097
 ```
 
@@ -149,7 +149,7 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.p
 - Work plans (historical): `tasks_docs/WORK_PLAN*.md`.
 - Note: `docs-ref/` is a reference copy of another project's docs — it is **not
   committed** (gitignored), kept only as writing guidance. Agent-only internals
-  (skills / god assistants / workflow-regime templates) stay machine-specific
+  (skills / dialog-control assistants / workflow-regime templates) stay machine-specific
   and are not part of the docs site.
 
 ## License & disclaimer

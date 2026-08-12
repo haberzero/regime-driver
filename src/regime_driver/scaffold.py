@@ -1,13 +1,13 @@
 """regime scaffold: one-shot deployment of the packaged official templates.
 
 The distributed wheel ships the templates under ``regime_driver/data/`` (skills,
-agents, god-assistant subagents, docker recipes, regime.json). ``scaffold`` copies
+agents, dialog-control-assistant subagents, docker recipes, regime.json). ``scaffold`` copies
 them to an opencode config target (default ``~/.config/opencode``) so a fresh
 user does not need to clone the source repository:
 
 - agents   → <target>/agents/       (developer/reviewer templates)
 - skills   → <target>/skills/       (the runtime skills the flows reference)
-- --god    → also copies the god-assistant subagents (analyst/advisor/reviewer)
+- --assistants    → also copies the dialog-control-assistant subagents (analyst/advisor/reviewer)
            → <target>/agents/
 
 Design rules:
@@ -38,7 +38,7 @@ class CopyItem:
 @dataclass
 class ScaffoldResult:
     target: Path
-    god: bool
+    assistants: bool
     dry_run: bool
     copied: list[CopyItem] = field(default_factory=list)
     skipped: list[CopyItem] = field(default_factory=list)
@@ -47,7 +47,7 @@ class ScaffoldResult:
     def to_dict(self) -> dict:
         return {
             "target": str(self.target),
-            "god": self.god,
+            "assistants": self.assistants,
             "dry_run": self.dry_run,
             "copied": [c.to_dict() for c in self.copied],
             "skipped": [c.to_dict() for c in self.skipped],
@@ -69,7 +69,7 @@ def _copies_from(data_subdir: str, target_subdir: str, target: Path) -> list[Cop
     return items
 
 
-def scaffold_plan(target: str | Path, *, god: bool = False) -> list[CopyItem]:
+def scaffold_plan(target: str | Path, *, assistants: bool = False) -> list[CopyItem]:
     """Compute the full copy plan (read-only; nothing is written).
 
     ``target`` may be a ``str`` or a ``Path``; it is coerced to ``Path`` so a
@@ -79,11 +79,11 @@ def scaffold_plan(target: str | Path, *, god: bool = False) -> list[CopyItem]:
     plan: list[CopyItem] = []
     plan += _copies_from("agents", "agents", target)
     plan += _copies_from("skills", "skills", target)
-    if god:
-        plan += _copies_from("god-assistants", "agents", target)
+    if assistants:
+        plan += _copies_from("dialog-control-assistants", "agents", target)
 
     # Dedupe by destination (reviewer.md ships in both data/agents and
-    # data/god-assistants; first occurrence wins, content is identical).
+    # data/dialog-control-assistants; first occurrence wins, content is identical).
     seen: set[str] = set()
     unique: list[CopyItem] = []
     for item in plan:
@@ -98,7 +98,7 @@ def scaffold_plan(target: str | Path, *, god: bool = False) -> list[CopyItem]:
 def scaffold(
     target: str | Path,
     *,
-    god: bool = False,
+    assistants: bool = False,
     dry_run: bool = False,
     force: bool = False,
 ) -> ScaffoldResult:
@@ -106,7 +106,7 @@ def scaffold(
 
     Args:
         target: destination config root (e.g. ~/.config/opencode); str or Path.
-        god: also deploy the god-assistant subagents (analyst/advisor/reviewer).
+        assistants: also deploy the dialog-control-assistant subagents (analyst/advisor/reviewer).
         dry_run: compute + report the plan without writing anything.
         force: overwrite existing destination files (default: keep them).
 
@@ -114,8 +114,8 @@ def scaffold(
         A ScaffoldResult describing what was copied / skipped.
     """
     target = Path(target)
-    result = ScaffoldResult(target=target, god=god, dry_run=dry_run)
-    plan = scaffold_plan(target, god=god)
+    result = ScaffoldResult(target=target, assistants=assistants, dry_run=dry_run)
+    plan = scaffold_plan(target, assistants=assistants)
     result.plan = plan
 
     for item in plan:
@@ -136,7 +136,7 @@ def templates_ready() -> dict:
     subdirs = {
         "skills": ["design-philosophy", "code-review"],
         "agents": ["reviewer.md"],
-        "god-assistants": ["analyst.md", "advisor.md"],
+        "dialog-control-assistants": ["analyst.md", "advisor.md"],
     }
     checks: list[dict] = []
     for subdir, expected in subdirs.items():

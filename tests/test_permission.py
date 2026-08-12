@@ -9,7 +9,7 @@ from regime_driver.infra.permission import (
     PermissionLevel,
     classify,
     clamp,
-    from_god_dialog,
+    from_dialog_control,
     require,
 )
 
@@ -56,9 +56,9 @@ def test_require_ordering() -> None:
         require(PermissionLevel.INTERACT, PermissionLevel.CLEAN)
 
 
-def test_from_god_dialog() -> None:
-    assert from_god_dialog(False) == PermissionLevel.READ
-    assert from_god_dialog(True) == PermissionLevel.CLEAN
+def test_from_dialog_control() -> None:
+    assert from_dialog_control(False) == PermissionLevel.READ
+    assert from_dialog_control(True) == PermissionLevel.CLEAN
 
 
 def test_clamp_cannot_self_elevate() -> None:

@@ -1,6 +1,6 @@
 """Root safety invariants, enforced by the runtime (app layer, stage 4).
 
-The "constitution layer" is now a *peer* state machine, so its *specific*
+The "watchdog layer" is now a *peer* state machine, so its *specific*
 detection policy is user-overridable. But three root invariants must survive any
 overriding — otherwise an AI could "turn off its own jail". These invariants are
 therefore enforced by the **runtime**, not by any single (overridable) state
@@ -13,7 +13,7 @@ I2. **An inextinguishable stop/Esc channel** — at least one unit that is *not*
      path always exists and cannot be fully removed by an overridden model.
 I3. **Meta-iteration bound** — self-modification / self-inspection recursion is
      capped (meta_depth < max_meta_depth), so an AI cannot recurse infinitely
-     through "customizing its own constitution".
+     through "customizing its own watchdog".
 
 This module is pure logic (no I/O); the Runtime calls `enforce` at deployment.
 """

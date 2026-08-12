@@ -2,7 +2,7 @@
 
 ## 问题
 
-调试状态机 / 并发 / 超时 / 宪法检测时，依赖真实 LLM 慢且不确定。想快速、确定、可复现地跑同一套代码。
+调试状态机 / 并发 / 超时 / 看门狗检测时，依赖真实 LLM 慢且不确定。想快速、确定、可复现地跑同一套代码。
 
 ## 步骤
 
@@ -19,7 +19,7 @@
 
    ```python
    client.rule("reviewer", "design", delay=0.4)          # 慢 judge
-   client.rule("developer", "understand", stall=True)     # 卡死 -> 触发宪法 STOP
+   client.rule("developer", "understand", stall=True)     # 卡死 -> 触发看门狗 STOP
    client.rule("reviewer", "design", builder=lambda n, t: "散文非JSON")  # gate 拒绝
    ```
 
@@ -29,7 +29,7 @@
 
 ## 预期结果
 
-完整流程毫秒级 `COMPLETE`；注入 stall 得 `BLOCKED`（宪法 STOP）；慢 judge 出现可观测延迟；非法 reply 得 `reviewer gate exhausted`。
+完整流程毫秒级 `COMPLETE`；注入 stall 得 `BLOCKED`（看门狗 STOP）；慢 judge 出现可观测延迟；非法 reply 得 `reviewer gate exhausted`。
 
 ## 深入
 

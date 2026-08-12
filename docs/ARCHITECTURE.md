@@ -5,7 +5,7 @@
 
 ## 架构定位
 
-regime-driver 采用**对等多状态机网络**：宪法（无智能状态机 + 信号协议 + 根不变量运行时强制）监督
+regime-driver 采用**对等多状态机网络**：看门狗（无智能状态机 + 信号协议 + 根不变量运行时强制）监督
 agentic 工作流单元；进程外 supervisor 提供独立时钟的自我监管。最终架构见 `architecture/02_statechart_network.md`。
 
 ## 章节索引
@@ -13,8 +13,8 @@ agentic 工作流单元；进程外 supervisor 提供独立时钟的自我监管
 | 章 | 文件 | 主题 | 说明 |
 |----|------|------|------|
 | 01 | [01_principles](architecture/01_principles.md) | 架构原则与设计理念 | 层级/依赖规则/核心原则/角色与确定性门 |
-| 02 | [02_statechart_network](architecture/02_statechart_network.md) | 对等多状态机网络（最终架构） | 信号协议、并行运行时、宪法、根不变量、WorkflowUnit+StatechartDriver、消息机制 |
-| 03 | [03_boundary](architecture/03_boundary.md) | 宪法 vs 用户特化边界 | 内核定死 vs 用户可覆写的边界、运行时强制 |
+| 02 | [02_statechart_network](architecture/02_statechart_network.md) | 对等多状态机网络（最终架构） | 信号协议、并行运行时、看门狗、根不变量、WorkflowUnit+StatechartDriver、消息机制 |
+| 03 | [03_boundary](architecture/03_boundary.md) | 看门狗 vs 用户特化边界 | 内核定死 vs 用户可覆写的边界、运行时强制 |
 
 ## 阅读路径
 

@@ -1,7 +1,7 @@
 """Statechart network primitives (pure domain, stage 1).
 
 The long-term architecture (see ARCHITECTURE-statechart-network.md) replaces the
-special-cased "constitution layer" with a set of *peer* state machines that
+special-cased "watchdog layer" with a set of *peer* state machines that
 coordinate by exchanging signals. This module lays the foundation: a statechart
 unit that can (a) receive signals and be woken into a callback/node, (b) send
 signals to other units, and (c) emit audit events. Everything here is pure (no
@@ -21,7 +21,7 @@ from typing import Callable
 class SignalKind(str, Enum):
     """Semantic kinds of signals exchanged between statechart units.
 
-    Control (constitution -> governed): STOP / RETRY / ESCALATE / NUDGE /
+    Control (watchdog -> governed): STOP / RETRY / ESCALATE / NUDGE /
     PAUSE / RESUME. Probe (a unit asks another for a checkpoint): CHECKPOINT.
     Report (a unit replies with its state/timestamps): REPORT. Generic: NOTIFY.
     These are the *verbs*; the payload carries the details.

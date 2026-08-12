@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "regime-driver"
 dynamic = ["version"]
-description = "L1 institutional-process robot: compile workflow-regime into a state machine and drive a clean opencode worker."
+description = "institutional-process robot: compile workflow-regime into a state machine and drive a clean opencode worker."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

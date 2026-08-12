@@ -1,4 +1,4 @@
-"""Tests for StatechartDriver: WorkflowUnit + ConstitutionUnit on a Runtime."""
+"""Tests for StatechartDriver: WorkflowUnit + WatchdogUnit on a Runtime."""
 
 import json
 import re
@@ -74,21 +74,21 @@ def test_statechart_driver_full_flow():
     assert end == "wrap"
 
 
-def test_statechart_driver_stall_triggers_constitution_stop():
-    # stall=True: developer never produces [WORK_DONE]; constitution should STOP
+def test_statechart_driver_stall_triggers_watchdog_stop():
+    # stall=True: developer never produces [WORK_DONE]; watchdog should STOP
     d = _driver(stall=True)
     outcome, end, detail = d.run("实现反转函数")
     assert outcome == Outcome.BLOCKED
     assert "monitor" in (detail or "")
 
 
-def test_statechart_driver_accepts_custom_constitution():
+def test_statechart_driver_accepts_custom_watchdog():
     from regime_driver.app.statechart_runtime import ThreadedUnit
     from regime_driver.core.statechart import SignalKind
 
-    class AlwaysStopConstitution(ThreadedUnit):
+    class AlwaysStopWatchdog(ThreadedUnit):
         def __init__(self):
-            super().__init__("constitution", None, role="watchdog")
+            super().__init__("watchdog", None, role="watchdog")
             self.register(SignalKind.REPORT, self._r)
             self.register(SignalKind.STOP, lambda s: None)  # I2
 
@@ -98,7 +98,7 @@ def test_statechart_driver_accepts_custom_constitution():
     s = Settings(monitor_enabled=False, poll_sec=0.1)
     sm = load_regime()
     client = FakeClient()
-    d = StatechartDriver(s, sm, client, constitution=AlwaysStopConstitution(),
+    d = StatechartDriver(s, sm, client, watchdog=AlwaysStopWatchdog(),
                          enforce_invariants=True)
     outcome, end, detail = d.run("任务")
     assert outcome == Outcome.BLOCKED

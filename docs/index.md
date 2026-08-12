@@ -49,11 +49,11 @@ flowchart TB
         U["你（只说自然语言）"]
     end
     subgraph 对话层
-        GD["上帝对话框（对话 agent）<br/>替你：设计流程 / 注册 / 校验 / 启动 / 监控"]
+        GD["控制对话框（对话 agent）<br/>替你：设计流程 / 注册 / 校验 / 启动 / 监控"]
     end
     subgraph 确定性体系
         SM["流程状态机<br/>逐节点执行，审查不过关不前进"]
-        CON["宪法看门狗<br/>死循环 / 卡死检测（运行时强制，不可关）"]
+        CON["看门狗<br/>死循环 / 卡死检测（运行时强制，不可关）"]
     end
     subgraph 执行与监督
         W["opencode worker<br/>干净执行器 → 真实模型"]
@@ -72,7 +72,7 @@ flowchart TB
 ```
 
 > 图例：实线箭头 = 主流程走向，虚线箭头 = 监督与回报。一个任务 = 状态机按节点推进 +
-> 宪法盯着 + 监督器兜底 + 全程记账，全部自动。
+> 看门狗盯着 + 监督器兜底 + 全程记账，全部自动。
 
 ## 而且，你不需要自己写流程
 
@@ -80,13 +80,13 @@ flowchart TB
 
 **不需要。** 你要做的所有事，仍然只是**和一个 opencode 窗口对话**。
 
-这就是 **上帝对话框**——regime-driver 的第一入口：
+这就是 **控制对话框**——regime-driver 的第一入口：
 
 ```
 你（只说自然语言）
   │  "设计一个先实现、再审查的流程，跑起来"
   ▼
-上帝对话框（对话 agent）
+控制对话框（对话 agent）
   │  替你：设计流程 / 注册 / 校验 / 启动 / 监控 / 解释
   ▼
 regime-driver（确定性体系）
@@ -121,24 +121,24 @@ regime-driver（确定性体系）
 
 ## 官方提供什么
 
-- **开箱即用的官方模板**：agent 模板、skills、god 助手、docker 配方——随 wheel 打包，
+- **开箱即用的官方模板**：agent 模板、skills、控制对话框助手、docker 配方——随 wheel 打包，
   `regime scaffold` 一条命令生成全套配置。
 - **CLI**：`regime` 命令集（run/drive/report/dialog/flow/worker/chaos/doctor/scaffold/…）。
 - **文档站**：你正在读的这份（用户指南 / 开发者指南 / 参考）。
-- **容器配方**：`ops/up.sh` 一键构建 + 拉起 worker/god 容器。
+- **容器配方**：`ops/up.sh` 一键构建 + 拉起 worker/控制对话框容器。
 - **许可**：MIT License（Copyright © 2026 Nan Shi 施楠）。
 
 ---
 
 ## 从这里开始
 
-- **我是使用者，想最快用上** → [上帝对话框（第一入口）](guide/00_god_dialog.md) 然后 [快速开始](guide/01_quickstart.md)
-- **我想理解"为什么要有上帝对话框"** → [上帝对话框](guide/00_god_dialog.md)
+- **我是使用者，想最快用上** → [控制对话框（第一入口）](guide/00_dialog_control.md) 然后 [快速开始](guide/01_quickstart.md)
+- **我想理解"为什么要有控制对话框"** → [控制对话框](guide/00_dialog_control.md)
 - **我想看全部能力** → [你能做什么](guide/02_capabilities.md)
 - **我是开发者**（想理解/扩展它）→ [总体设计思路](architecture/01_principles.md) · [子系统实现](SUBSYSTEM_DESIGN.md) · [流程规格](reference/03_flow_spec.md)
 - **我想看边界** → [已知限制](KNOWN_LIMITS.md)
 - **我想查技术细节**（命令/配置/JSON）→ [CLI 参考](reference/01_cli.md) · [配置参考](reference/02_configuration.md) · [流程规格](reference/03_flow_spec.md)
 
 > 本站导航按读者分层：**使用者** → "用户指南"（能做什么 + 少量为什么）与"参考"（查技术细节）；
-> **开发者** → "开发者指南"。供 agent 执行的内部配置（skills / god 助手 / workflow-regime）**不在此站点**，
+> **开发者** → "开发者指南"。供 agent 执行的内部配置（skills / 控制对话框助手 / workflow-regime）**不在此站点**，
 > 保持机器专用。

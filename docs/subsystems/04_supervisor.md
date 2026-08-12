@@ -32,7 +32,7 @@
 │  regime-driver（单一系统，消除双通道）                        │
 │                                                            │
 │  进程内（worker 内）：                                       │
-│    · ConstitutionUnit 看门狗（根不变量 I1/I2/I3 强制）       │
+│    · WatchdogUnit 看门狗（根不变量 I1/I2/I3 强制）       │
 │    · WorkflowUnit 状态机驱动                                 │
 │    · Reporter 报告总线（journal + rollup，统一真源）          │
 │                                                            │
@@ -61,7 +61,7 @@
    不再有两个 derive 逻辑（消除 `oc_tasks._derive` vs `oc-task.derive` 双写）。
 
 ### 2.2 明确职责边界（写入文档，防止未来再分裂）
-- **进程内**（worker 内）：状态机驱动、turn 级 thinking/停滞首道防线、宪法看门狗根不变量、报告写入。
+- **进程内**（worker 内）：状态机驱动、turn 级 thinking/停滞首道防线、看门狗根不变量、报告写入。
 - **进程外**（宿主，独立时钟）：进程健康/重启、会话级停滞兜底、期限、纠正阶梯、元分析。
 - 二者通过 **Reporter/journal（唯一事件真源）** 通信，而非各自独立记账。
 

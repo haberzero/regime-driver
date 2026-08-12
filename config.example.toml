@@ -10,7 +10,7 @@ model = "deepseek-api/deepseek-v4-flash"  # 所有 session 的模型（默认 De
 # 备选回退: my-opencode-go/deepseek-v4-flash（OpenCode Go）；需要 provider + key 见 DESIGN-usability.md
 request_timeout = 600.0                      # 每个 message POST 的流式超时(秒)（慢 judge 需较大值）
 max_driver_wait_sec = 3600.0                 # driver.run() 无显式 deadline 时的等待上限(秒)
-session_hygiene_threshold = 100              # doctor 对累积 session 数的警告阈值(L2)
+session_hygiene_threshold = 100              # doctor 对累积 session 数的警告阈值
 # session 自动清理策略（可自定义参考模型，默认关闭）。
 # JSON 字符串；None/空 = 关闭。字段：
 #   max_sessions  (int)  累积超过此值时清理到该值以下
@@ -36,7 +36,7 @@ session_turn_check = 5                       # 开发者轮次检查节奏
 # skills_dir = "path/to/workflow-regime/skills"
 # task_control_dir = "path/to/project"         # 任务控制文档目录
 
-# --- 监控 / 宪法 ---
+# --- 监控 / 看门狗 ---
 monitor_enabled = true                       # 启用 watchdog 监控
 monitor_poll_sec = 3.0                       # 监控轮询间隔
 stall_sec = 120                              # busy 且无输出增长超过此秒 -> 判卡死

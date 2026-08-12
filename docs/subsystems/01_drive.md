@@ -58,6 +58,6 @@ regime report --tasks-dir ~/.regime/tasks   # 宏观看板并轨
 - 前台模式受监管任务由 `TaskRegistry.register` 登记当前 pid；`regime task stop`
   对前台进程 SIGTERM（+SIGKILL 升级）终止整个 drive。
 - T2 监督主用 anchor（developer）session；ROTATE 换会话后的新会话由进程内
-  ConstitutionUnit 兜底，进程外 T2 仍盯原 anchor（诚实记录）。
+  WatchdogUnit 兜底，进程外 T2 仍盯原 anchor（诚实记录）。
 - supervisor 若先于工作流触发 L5 人工升级/重启，工作流线程以 `timeout_sec`
   兜底返回，不会无限挂起。

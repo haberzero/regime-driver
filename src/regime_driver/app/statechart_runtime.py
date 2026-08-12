@@ -8,7 +8,7 @@ drive each other by posting signals, and point-to-point delivery is thread-safe
 (queue.Queue).
 
 The Runtime is deliberately independent of the existing RegimeDriver main flow
-(at this stage). It is pure concurrency plumbing; wiring the constitution unit
+(at this stage). It is pure concurrency plumbing; wiring the watchdog unit
 into the real run is stage 3.
 """
 

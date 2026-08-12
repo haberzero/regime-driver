@@ -7,7 +7,7 @@ errors (a reviewer gate that can never advance, a flow with no terminal, a
 node whose role cannot be served) before touching a real worker/session.
 
 A clean flow yields COMPLETE quickly. `fault` optionally injects a developer
-stall (to confirm the constitution backstop) or a reviewer delay (timing).
+stall (to confirm the watchdog backstop) or a reviewer delay (timing).
 """
 
 from __future__ import annotations

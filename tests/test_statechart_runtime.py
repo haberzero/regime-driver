@@ -52,7 +52,7 @@ def test_runtime_ping_pong_between_units():
     b.register(SignalKind.STOP, b_on_stop)
 
     rt.register(a).register(b).start()
-    rt.post("constitution", "B", SignalKind.STOP)
+    rt.post("watchdog", "B", SignalKind.STOP)
     assert done.wait(timeout=5.0), "A never received the RETRY from B"
     rt.stop()
     assert result == ["B"]
@@ -66,7 +66,7 @@ def test_broadcast_delivers_to_all_units():
         u.register(SignalKind.NUDGE, lambda s, n=name: got.append(n))
         rt.register(u)
     rt.start()
-    rt.broadcast("constitution", SignalKind.NUDGE)
+    rt.broadcast("watchdog", SignalKind.NUDGE)
     deadline = _deadline()
     while len(got) < 2 and _now() < deadline:
         pass

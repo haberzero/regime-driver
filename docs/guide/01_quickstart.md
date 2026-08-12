@@ -3,23 +3,23 @@
 > 本篇让你**最快**用上 regime-driver。前提是你已经装好环境（见 [安装](04_environment.md)）。
 > 重点不是学命令，而是感受"和对话框对话"就能完成任务。
 
-## 1. 打开上帝对话框
+## 1. 打开控制对话框
 
 ```bash
 conda run -n regime-driver regime dialog --live --perm run
 ```
 
-看到 `God>` 提示符，就进入了上帝对话框。
+看到 `Dialog>` 提示符，就进入了控制对话框。
 `--live` 表示连接真实 worker，`--perm run` 声明你持有 `run` 级权限（允许启动任务）。
 权限分 `read < interact < run < clean` 四级：读命令恒可执行，写操作按等级门禁；
 `--perm` 只能降低、不能升高（详情见 [权限门禁](../reference/04_permissions.md)）。
 
 ## 2. 先问一句"现在什么状态"
 
-在 `God>` 后输入：
+在 `Dialog>` 后输入：
 
 ```text
-God> status
+Dialog> status
 ```
 
 它会告诉你 worker 是否健康、有没有正在运行的任务。用自然语言提问也可以，例如：
@@ -28,7 +28,7 @@ God> status
 ## 3. 用一句话启动一个任务
 
 ```text
-God> start code_workflow 实现一个函数 f(x)=x*2 并写测试
+Dialog> start code_workflow 实现一个函数 f(x)=x*2 并写测试
 ```
 
 对话框非阻塞启动这个任务，给你一个编号。你可以继续问别的，不用干等。
@@ -38,13 +38,13 @@ God> start code_workflow 实现一个函数 f(x)=x*2 并写测试
 除了跑现成流程，你还可以直接用自然语言表达你的约束或期望。例如：
 
 ```text
-God> design 质量检查流程 以后每次代码写完，先按代码质量原则检查刚写的代码，再报告结果
+Dialog> design 质量检查流程 以后每次代码写完，先按代码质量原则检查刚写的代码，再报告结果
 ```
 
 对话框把它编译成一个可运行流程并注册。之后每次说：
 
 ```text
-God> start 质量检查流程 检查刚才改的代码
+Dialog> start 质量检查流程 检查刚才改的代码
 ```
 
 就能让这条"元指令"被确定性地执行——而不是靠它留在对话记忆里碰运气。
@@ -52,7 +52,7 @@ God> start 质量检查流程 检查刚才改的代码
 ## 5. 看任务跑到哪了
 
 ```text
-God> watch
+Dialog> watch
 ```
 
 查看最近事件，观察任务推进。
@@ -71,6 +71,6 @@ God> watch
 
 ## 深入指引
 
-- 想了解上帝对话框为什么存在、怎么设计：`00_god_dialog.md`
+- 想了解控制对话框为什么存在、怎么设计：`00_dialog_control.md`
 - 全部能力清单：`02_capabilities.md`
-- 对话框命令细节（查询用）：`../reference/05_god_dialog_contract.md`
+- 对话框命令细节（查询用）：`../reference/05_dialog_control_contract.md`

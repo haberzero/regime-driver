@@ -1,7 +1,7 @@
 """Task-control document read/write (infra: file I/O).
 
 Provides a thin, safe interface over the workflow-regime task-control documents
-(NEXT_STEPS, WORKLOG, PENDING_TASKS). The L1 robot reads them to build reviewer
+(NEXT_STEPS, WORKLOG, PENDING_TASKS). The robot reads them to build reviewer
 context and updates them to record progress. The developer never touches these
 directly (they work through the robot's distilled instructions).
 """

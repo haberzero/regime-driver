@@ -1,6 +1,6 @@
 # 你能做什么：能力一览
 
-> 本篇按"你能达成什么目标"组织，不按命令/参数组织。所有操作都可以通过上帝对话框对话完成；
+> 本篇按"你能达成什么目标"组织，不按命令/参数组织。所有操作都可以通过控制对话框对话完成；
 > 底层命令只在你想手动操作时用（细节见"查询参考"）。
 
 ## 一、用对话完成任务
@@ -30,7 +30,7 @@ understand → read_code → design → implement → test → wrap
 - **全程记录**：每一步（节点进入/完成/审查判定/流转/最终结果）都写入报告与事件账本，可复盘。
 
 > 逐步展开这张表（每个节点做什么、审查如何判定、为什么这样走）见
-> [上帝对话框：对话背后发生了什么](00_god_dialog.md)。
+> [控制对话框：对话背后发生了什么](00_dialog_control.md)。
 
 ## 三、用对话设计流程
 
@@ -58,7 +58,7 @@ understand → read_code → design → implement → test → wrap
 ## 六、并发与隔离
 
 - **多任务并行**：同时跑多个任务，互不干扰（`run-many`）。
-- **工作区隔离**：每个任务在独立的 worker 实例里跑，产物互不污染（`drive --workspace` / 舰队）。
+- **工作区隔离**：每个任务在独立的 worker 实例里跑，产物互不污染（`drive --workspace` / 并行任务）。
 
 > 为什么这么设计：真实使用中会有多个任务。物理隔离保证它们不互相踩踏。
 
@@ -91,4 +91,4 @@ understand → read_code → design → implement → test → wrap
 | [CLI 命令契约](../reference/01_cli.md) | 全部命令的签名/参数/权限 |
 | [配置参考](../reference/02_configuration.md) | 配置文件字段与含义 |
 | [流程规格](../reference/03_flow_spec.md) | 流程 JSON 结构（手写时才需要） |
-| [上帝对话框契约](../reference/05_god_dialog_contract.md) | 对话框命令细节 |
+| [控制对话框契约](../reference/05_dialog_control_contract.md) | 对话框命令细节 |

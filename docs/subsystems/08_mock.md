@@ -6,7 +6,7 @@
 ## 1. 为什么
 
 E2E 调试依赖真实 opencode worker + 官方 LLM，慢、非确定、贵。调试状态机 / 并发 /
-超时 / 宪法检测时，需要一种**无网络、无 LLM、确定性**的快速路径：同一个
+超时 / 看门狗检测时，需要一种**无网络、无 LLM、确定性**的快速路径：同一个
 `WorkflowUnit` / `StatechartDriver` / `StatechartCluster` 代码，注入一个 mock 客户端，
 即可离线、毫秒级、可复现地跑。
 
@@ -34,7 +34,7 @@ session_status/session_tokens/abort_session/delete_session/ask_and_get_text/heal
    - `reply`：显式回复文本
    - `builder`：`(node_id, text) -> str` 回调，灵活脚本化
    - `delay`：模拟生成耗时（秒）
-   - `stall`：永不给出完成回复 → 触发宪法 stall 检测 / STOP
+   - `stall`：永不给出完成回复 → 触发看门狗 stall 检测 / STOP
    - `error`：产出携带 error 的消息 → 测失败路径
 4. **默认行为**：reviewer 恒 advance 到当前节点第一个后继（需传 `sm`）；
    developer 恒返回 `[WORK_DONE]`。这足以驱动完整流程离线到 COMPLETE。
@@ -50,5 +50,5 @@ session_status/session_tokens/abort_session/delete_session/ask_and_get_text/heal
 1. `WorkflowUnit` 完整流程 → COMPLETE（无网络）
 2. `StatechartDriver` 完整流程 → COMPLETE
 3. 注入 `delay` 的慢 judge → 观察到生成耗时（>delay）
-4. 注入 `stall` 的 developer → 宪法 STOP → BLOCKED
+4. 注入 `stall` 的 developer → 看门狗 STOP → BLOCKED
 5. 注入 `error` 的 judge → 失败路径可复现

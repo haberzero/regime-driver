@@ -12,7 +12,7 @@
 
 | # | 死能力 | 现象 | 危害 | 归属 |
 |---|---|---|---|---|
-| A1 | **SSE `event_stream()`** | `infra/opencode.py` 实现 + 单测；但 grep 全生产代码**无任何消费方**。 | "事件实时推送"是用户点2/点3 的核心诉求，实际一条都没接进运行中的 driver。上帝对话框拿不到实时事件。 | `infra/opencode.py` |
+| A1 | **SSE `event_stream()`** | `infra/opencode.py` 实现 + 单测；但 grep 全生产代码**无任何消费方**。 | "事件实时推送"是用户点2/点3 的核心诉求，实际一条都没接进运行中的 driver。控制对话框拿不到实时事件。 | `infra/opencode.py` |
 | A2 | **`ingest_worker_event()`** | `reporter.py` 实现，**仅测试调用**，生产零调用。 | Reporter 的 SSE 摄入路径是死的；归属键里的 worker 维度从未真正工作。 | `app/reporter.py` |
 | A3 | **`prompt_async/fork/children/todo/summarize`** | 客户端方法实现+单测，生产零调用。 | "会话谱系/异步交互/摘要"能力只是壳。 | `infra/opencode.py` |
 
@@ -95,7 +95,7 @@
 ### G5. 权限门禁=可完全绕过 + 权限提升（blocker / 假安全）
 - `_gate` 用操作者**自声明** `--perm`，服务端/配置**零强制**；`--perm clean` 即全通。
 - `dialog_app.py:68` `allow_write=True` **无条件硬编码**；dialog 内部 `_write_gate` 只查该布尔，**从不查 `PermissionLevel`**（`permission.py` 整层对 dialog 空转）。→ **RUN 持有人进 dialog 即可做 CLEAN 级操作 = 权限提升**。
-- `permission.from_god_dialog()` 生产零消费者（半接通）。
+- `permission.from_dialog_control()` 生产零消费者（半接通）。
 
 ### G6. 整仓双通道：新 `regime_driver` 包 vs 旧 M0 系统（blocker / 系统级分叉）
 `ops/supervisor.py`、`oc-run.sh`、`oc-task.py`、`run-ledger.jsonl`、`policy.json`、`stall-watchdog.js` 是**独立旧 M0 执行/监控真源**，与 regime-driver 包并存。HANDOVER 明言 supervisor"已被 oc-task 取代"且 regime-driver"未整合"。两套"regime"同仓 = 双通道。需明确**合并或删除**其一，不能"顺手保留"。
@@ -104,7 +104,7 @@
 `ops/oc-task.py:66-83` 的 `derive()` 与 `src/regime_driver/infra/oc_tasks.py:29-47` 的 `_derive()` 是两份几乎相同的"pid 存活 + summary→outcome"逻辑，独立演化必漂移。
 
 ### G8. 多处掩盖型静默兜底（warning，违红线 1 / fail-fast）
-- `workflow_unit.py:565-571` `_report_to_constitution`：对 `session_status/session_tokens` 异常 `return`、`read_messages` 异常 `pass` → **REPORT 静默丢失**，宪法 watchdog 失明，stall/死循环检测失效。
+- `workflow_unit.py:565-571` `_report_to_watchdog`：对 `session_status/session_tokens` 异常 `return`、`read_messages` 异常 `pass` → **REPORT 静默丢失**，看门狗 watchdog 失明，stall/死循环检测失效。
 - `workflow_unit.py:644` `_apply_transition` 吞 transition/policy 错误后继续。
 - `workflow_unit.py:662` `_check_session_capacity` 吞容量评估错误 → 伪装成"无需轮换"。
 - `self_assess.py:79` `_usage` 异常返回 `0.0` → 上下文占用算 0 → 会话永不轮换。
@@ -118,12 +118,12 @@
 - `workflow_unit.py` 三个"取最新 assistant"helper（`_latest_agent_done`/`_latest_text`/`_latest_assistant`）语义各有差异。
 
 ### G10. 常量/状态名单点真理缺失（warning）
-- `blackboard.py:24` `WORKFLOW_METRICS` 与 `constitution_unit.py:133`、`workflow_unit.py:692-701`、`cli/__init__.py:320-321` **同一事实四处维护**。
+- `blackboard.py:24` `WORKFLOW_METRICS` 与 `watchdog_unit.py:133`、`workflow_unit.py:692-701`、`cli/__init__.py:320-321` **同一事实四处维护**。
 - `workflow_unit.py:48-49` 状态常量与 `blackboard.py:49-51` `STATE_LABELS/PHASE_LABELS` 人工镜像同步。
 - 超时字面量散落：`opencode.py` 15.0/30.0/240.0、cli 120.0、settings 600.0。
 
 ### G11. 死脚本 + 魔法绝对路径（nit）
-`ops/mock_feasibility.py`（`sys.path.insert("/home/haber/oc-meta/src")`，功能已被单测覆盖）、`demo_cluster.py`、`e2e_debug.py`、`god_dialog.py`、`probe_*.py` 硬编码绝对路径，不可移植；部分与单测重复。
+`ops/mock_feasibility.py`（`sys.path.insert("/home/haber/oc-meta/src")`，功能已被单测覆盖）、`demo_cluster.py`、`e2e_debug.py`、`dialog_control.py`、`probe_*.py` 硬编码绝对路径，不可移植；部分与单测重复。
 
 ### G12. 文档漂移 / 双主线（warning/nit）
 - **`TECH_DEBT.md` 没登记进 `docs/README.md`**——最重要的"问题清单"文档不在导航，新 session 会错过。
@@ -133,8 +133,8 @@
 - `GOD_DIALOG_OPERATOR.md:85` 宣称"归属键区分 workflow/session/状态机"，与 G1/C1 矛盾。
 - **skill 双树**：顶层 `skills/` 与 `workflow-regime/skills/` 并存（含重复的 code-review/doc-governance），归属未决。
 
-### G13. `regime-god.js` 默认持高位权限 + shell 注入风险被低估（warning）
-`.opencode/plugins/regime-god.js:35` `regime_sessions` 默认 `perm="clean"`，run/send 默认 run/interact——god 载体不显式降权即恒持最高权限。且 `:11` 把含**用户可控上下文/消息**的 args `.join(" ")` 后走 shell `$\`${cmd}\`` 解析，`session send` 的 message 含空格/分号即可注入。KNOWN_LIMITS 记为"注入风险低"（仅指机器 id），**低估了用户可控输入的风险**。
+### G13. `regime-dialog-control.js` 默认持高位权限 + shell 注入风险被低估（warning）
+`.opencode/plugins/regime-dialog-control.js:35` `regime_sessions` 默认 `perm="clean"`，run/send 默认 run/interact——god 载体不显式降权即恒持最高权限。且 `:11` 把含**用户可控上下文/消息**的 args `.join(" ")` 后走 shell `$\`${cmd}\`` 解析，`session send` 的 message 含空格/分号即可注入。KNOWN_LIMITS 记为"注入风险低"（仅指机器 id），**低估了用户可控输入的风险**。
 
 ### G14. 验证缺口实锤 + 缺死代码守卫（warning）
 - 无任何 **CLI 命令级测试**（run/run-many/report/dialog/job/events/sessions 零覆盖）。
@@ -152,7 +152,7 @@
 | **P0** | G5 权限升级为不可绕过门禁 + 修 dialog 权限提升 | 否则"权限/安全"主张不成立，且现为权限提升漏洞 |
 | **P0** | B1 修 skill_loader 默认路径（parents[3]） | 真 bug，低风险 |
 | **P0** | C3 把 preflight/深检设为**默认强制** | 保障必须是强制门禁 |
-| **P1** | G8 修三处静默兜底（_report_to_constitution/_apply_transition/_check_session_capacity/self_assess） | watchdog 失明 + fail-fast 失效，掩盖型兜底最危险 |
+| **P1** | G8 修三处静默兜底（_report_to_watchdog/_apply_transition/_check_session_capacity/self_assess） | watchdog 失明 + fail-fast 失效，掩盖型兜底最危险 |
 | **P1** | G2/G3 补 run --async/run-many 的 reporter 接线 | 消除接线遗漏假能力 |
 | **P1** | B2/G7 统一真源：ledger→reporter + oc-task 派生单一化 | 消双写真相 |
 | **P1** | D1 修超时无 outcome + D2 保留策略加备份 | 数据完整性 |
