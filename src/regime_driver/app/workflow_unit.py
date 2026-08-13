@@ -30,6 +30,7 @@ from ..core.tools import UnknownToolError, run_tool
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
+from ..infra.skill_loader import SkillNotFoundError, load_skill
 from ..infra.task_control import TaskControl
 from .reviewer import Reviewer
 from .session_lifecycle import SessionLifecycle, SessionRotator
@@ -319,8 +320,8 @@ class WorkflowUnit(ThreadedUnit):
     def _enter_agent(self, node_id: str) -> None:
         role = self.sm.node(node_id).role
         sid = self.sessions.ensure(role).session_id
-        instruction = self._build_instruction(node_id, self._context, role)
         try:
+            instruction = self._build_instruction(node_id, self._context, role)
             self._dispatch(sid, instruction, self.sessions.agent_for(role))
         except Exception as exc:
             self._state = _ST_ERROR
@@ -646,13 +647,25 @@ class WorkflowUnit(ThreadedUnit):
             f"\n工作区：你只在 {ws['work_dir']} 目录内工作变更，可读可见目录：{', '.join(ws['visible'])}，"
             f"可写目录：{', '.join(ws['writable'])}。"
         )
-        return (
-            f"【当前节点：{node_id}】{node.desc}\n"
-            f"任务上下文：{context}\n"
-            f"{ws_hint}\n"
-            f"请完成本节点工作。完成后直接用你的最终回复给出简短结构化汇报："
-            f"改动文件 / 测试命令与结果 / 技术债 / 待决点。"
+        parts = [
+            f"【当前节点：{node_id}】{node.desc}",
+            f"任务上下文：{context}",
+            ws_hint,
+        ]
+        skill = getattr(node, "skill", None)
+        if skill:
+            # a node's declared skill is injected into the WORKER prompt (same
+            # mechanism as judge nodes): it gives the executing developer the
+            # methodology/self-check for THIS node (e.g. developer-quality).
+            # A missing skill is a config error -> fail loudly, not silently
+            # degrade the instruction.
+            skill_text = load_skill(skill, self.settings.skills_dir)
+            parts.append(f"应用技能（{skill}）：\n{skill_text}")
+        parts.append(
+            "请完成本节点工作。完成后直接用你的最终回复给出简短结构化汇报："
+            "改动文件 / 测试命令与结果 / 技术债 / 待决点。"
         )
+        return "\n".join(parts)
 
     def _latest_text(self, messages) -> str:
         text = ""

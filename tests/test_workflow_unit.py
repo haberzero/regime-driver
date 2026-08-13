@@ -619,6 +619,35 @@ def test_workflow_workspace_hint_in_instruction():
     assert "code" in instr
 
 
+def test_agent_node_skill_injected_into_instruction():
+    """WORK_PLAN8 stage-2: a node's declared skill must be injected into the
+    WORKER (agent) instruction, not only into reviewer prompts. Previously the
+    agent-node skill field in regime.json was dead config — `_build_instruction`
+    ignored it, so implement/wrap could never carry developer-quality."""
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT,
+              skill="developer-quality", next=None)], {})
+    instr = unit._build_instruction("a", "ctx", "developer")
+    assert "应用技能（developer-quality）" in instr
+    assert "Developer 质量自律" in instr
+
+
+def test_agent_node_skill_missing_fails_loudly():
+    """A node declaring a nonexistent skill is a config error: building the
+    instruction must raise (fail loudly), not silently degrade."""
+    from regime_driver.core.models import Node, NodeType
+    from regime_driver.infra.skill_loader import SkillNotFoundError
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT,
+              skill="no-such-skill", next=None)], {})
+    try:
+        unit._build_instruction("a", "ctx", "developer")
+        assert False, "expected SkillNotFoundError"
+    except SkillNotFoundError:
+        pass
+
+
 # --- transition policy (anchor / rotate) -----------------------------------
 
 def _transition_unit(roles, node_role="reviewer"):

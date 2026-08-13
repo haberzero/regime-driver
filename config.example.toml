@@ -36,6 +36,14 @@ session_turn_check = 5                       # 开发者轮次检查节奏
 # skills_dir = "path/to/workflow-regime/skills"
 # task_control_dir = "path/to/project"         # 任务控制文档目录
 
+# --- skill ↔ 节点映射（默认 code_workflow）---
+# 节点可在 regime.json 中声明 skill，运行时注入该节点的指令/提示词：
+#   design  (reviewer judge) -> design-philosophy   # 方案设计的架构取舍方法论
+#   implement (developer)    -> developer-quality   # 实现节点的卫生自查
+#   test    (reviewer judge) -> code-review         # 审查门的方法论
+#   wrap    (developer)      -> developer-quality   # 收尾交付自查
+# 自定义 flow 可为任意节点挂任意已部署 skill（scaffold 部署的是 data/skills 全集）。
+
 # --- 监控 / 看门狗 ---
 monitor_enabled = true                       # 启用 watchdog 监控
 monitor_poll_sec = 3.0                       # 监控轮询间隔

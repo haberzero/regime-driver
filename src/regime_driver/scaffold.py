@@ -134,7 +134,7 @@ def scaffold(
 def templates_ready() -> dict:
     """Doctor-style check: are the packaged templates present and non-empty?"""
     subdirs = {
-        "skills": ["design-philosophy", "code-review"],
+        "skills": ["design-philosophy", "code-review", "developer-quality"],
         "agents": ["reviewer.md"],
         "dialog-control-assistants": ["analyst.md", "advisor.md"],
     }

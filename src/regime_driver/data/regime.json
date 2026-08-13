@@ -40,6 +40,7 @@
           "desc": "实现",
           "role": "developer",
           "type": "agent",
+          "skill": "developer-quality",
           "next": "test"
         },
         "test": {
@@ -55,6 +56,7 @@
           "desc": "收尾与清理",
           "role": "developer",
           "type": "agent",
+          "skill": "developer-quality",
           "next": null
         }
       }
