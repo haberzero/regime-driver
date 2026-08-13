@@ -1,0 +1,44 @@
+{
+  "id": "shop_inventory",
+  "task_id": "task-20260813-205157-4c7e",
+  "elapsed_sec": 401.4,
+  "outcome": "complete",
+  "detail": null,
+  "host_pytest": {
+    "verifiable": true,
+    "rc": 0,
+    "passed": 72,
+    "failed": 0,
+    "errors": 0,
+    "snippet": "........................................................................ [100%]\n72 passed in 0.05s\n"
+  },
+  "reviewer": {
+    "verdicts": 2,
+    "advances": 2,
+    "gate_exhausted": 0,
+    "reworks": 0,
+    "inquiries": 0
+  },
+  "covers": [
+    "refactoring",
+    "code-odor",
+    "read-existing-code",
+    "design-node",
+    "api-design",
+    "error-isolation",
+    "multi-module",
+    "integration",
+    "edge-cases",
+    "wrap-hygiene"
+  ],
+  "flow": null,
+  "archive": "/tmp/nightly-run/archive/shop_inventory",
+  "sessions_snapshotted": [
+    "ses_004d213ceffe5EywGQ3lT3djDz",
+    "ses_004cec508ffetU4Sg6D5LHTIXT"
+  ],
+  "slices": {
+    "journal": 95,
+    "events": 20
+  }
+}

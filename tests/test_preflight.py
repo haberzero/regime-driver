@@ -65,3 +65,31 @@ def test_returns_json_serializable() -> None:
     sm = _flow({"a": _node("a")})
     res = preflight(sm, timeout_sec=10)
     json.dumps(res)  # must not raise
+
+
+def test_preflight_delay_long_generation_not_false_stalled():
+    """A slow-but-streaming generation (delay rule) must COMPLETE, not stall.
+
+    WORK_PLAN10 regression: a long single-step generation reports busy the whole
+    time while token counts stay 0. Liveness must come from SSE activity (which
+    the mock emits for a `delay` session), so the watchdog must NOT misclassify
+    a slow streaming session as a stall.
+    """
+    from regime_driver.testing import MockClient
+    from regime_driver.app.statechart_driver import StatechartDriver
+    from regime_driver.infra.regime_loader import load_regime
+    from regime_driver.infra.settings import Settings
+    from regime_driver.core.models import Outcome
+
+    sm = load_regime()
+    client = MockClient(sm=sm)
+    # a slow-but-streaming generation: delay clearly exceeds the watchdog stall
+    # window, but the session is busy AND streaming (emits SSE deltas) the whole
+    # time, so it must NOT be misclassified as a stall.
+    start = getattr(sm, "start", None)
+    client.rule(sm.node(start).role, start, delay=1.5)
+    settings = Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=1)
+    driver = StatechartDriver(settings, sm, client, enforce_invariants=True)
+    outcome, end, detail = driver.run("长思考任务", timeout_sec=20.0)
+    assert outcome == Outcome.COMPLETE, f"slow streaming must not stall: {detail}"
+    assert end == "wrap"

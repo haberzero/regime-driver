@@ -1,0 +1,44 @@
+{
+  "id": "kv_cluster",
+  "task_id": "task-20260813-205843-d2bd",
+  "elapsed_sec": 405.5,
+  "outcome": "complete",
+  "detail": null,
+  "host_pytest": {
+    "verifiable": true,
+    "rc": 0,
+    "passed": 32,
+    "failed": 0,
+    "errors": 0,
+    "snippet": " warnings.warn(\n\n../.local/lib/python3.12/site-packages/_pytest/pathlib.py:95\n  /home/haber/.local/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-a5fd2a53-179c-4ecb-bd1b-4965ef01d767\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-a5fd2a53-179c-4ecb-bd1b-4965ef01d767'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n32 passed, 12 warnings in 0.07s\n"
+  },
+  "reviewer": {
+    "verdicts": 2,
+    "advances": 2,
+    "gate_exhausted": 0,
+    "reworks": 0,
+    "inquiries": 0
+  },
+  "covers": [
+    "multi-module",
+    "cross-module-contract",
+    "concurrency-testing",
+    "thread-safety",
+    "error-isolation",
+    "design-node",
+    "api-design",
+    "tradeoff-documentation",
+    "integration",
+    "edge-cases"
+  ],
+  "flow": null,
+  "archive": "/tmp/nightly-run/archive/kv_cluster",
+  "sessions_snapshotted": [
+    "ses_004cbe2ceffe9CZ1rhmjQ7hhMl",
+    "ses_004c86bdfffeuxlkBlS2xiYblS"
+  ],
+  "slices": {
+    "journal": 137,
+    "events": 20
+  }
+}

@@ -1,10 +1,13 @@
-"""Tests for stage-3 watchdog-as-statechart-unit (signal-protocol watchdog).
+"""Tests for the watchdog-as-statechart-unit (signal-protocol watchdog).
 
 Proves the "watchdog = intelligence-free peer state machine" thesis: a
-WatchdogUnit fed REPORT signals reproduces the current Monitor's dead-loop
-and stall detection, and emits a STOP control signal over the bus. The existing
-Monitor is untouched (zero regression); this establishes capability equivalence
-on the signal protocol.
+WatchdogUnit fed REPORT signals reproduces dead-loop and stall detection, and
+emits a STOP control signal over the bus.
+
+Stall semantics (WORK_PLAN10): liveness is the SSE-activity timestamp carried
+in the REPORT (`activity_ts`). A busy session with no SSE progress for
+`stall_sec` is stalled. Token counts are deliberately NOT used (opencode's
+session_tokens are step-granular and stale during long generations).
 """
 
 import time
@@ -13,9 +16,10 @@ from regime_driver.app.watchdog_unit import WatchdogUnit
 from regime_driver.core.statechart import Bus, Signal, SignalKind, StatechartUnit
 
 
-def _report(session, status="busy", output=100, latest="", reasoning=0):
-    return {"session_id": session, "status": status, "output": output,
-            "latest_text": latest, "reasoning": reasoning}
+def _report(session, status="busy", activity_ts=None, latest=""):
+    return {"session_id": session, "status": status,
+            "activity_ts": activity_ts if activity_ts is not None else time.time(),
+            "latest_text": latest}
 
 
 def _feed(unit, payload):
@@ -33,8 +37,8 @@ def test_healthy_report_no_control_signal():
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(s))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=100))
-    _feed(cons, _report("s1", output=200))  # output growing -> healthy
+    _feed(cons, _report("s1", activity_ts=100))
+    _feed(cons, _report("s1", activity_ts=200))  # activity advances -> healthy
     assert stopped == []
 
 
@@ -45,10 +49,11 @@ def test_stall_detected_emits_stop():
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(s.get("watchdog")))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=100))  # baseline
-    _feed(cons, _report("s1", output=100))  # output stops growing -> clock starts
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))   # baseline (last SSE activity)
+    _feed(cons, _report("s1", activity_ts=t0))   # frozen: same activity -> silent
     time.sleep(0.15)
-    _feed(cons, _report("s1", output=100))  # past stall_sec, still busy -> fire
+    _feed(cons, _report("s1", activity_ts=t0))   # past stall_sec, still busy -> fire
     assert stopped == [True]
 
 
@@ -72,11 +77,12 @@ def test_stall_fires_once_per_session():
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(1))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=100))  # baseline
-    _feed(cons, _report("s1", output=100))  # clock starts
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))  # baseline
+    _feed(cons, _report("s1", activity_ts=t0))  # silent
     time.sleep(0.15)
-    _feed(cons, _report("s1", output=100))  # fires once
-    _feed(cons, _report("s1", output=100))  # same output, already fired
+    _feed(cons, _report("s1", activity_ts=t0))  # fires once
+    _feed(cons, _report("s1", activity_ts=t0))  # same activity, already fired
     assert len(stopped) == 1
 
 
@@ -87,11 +93,12 @@ def test_idle_report_resets_stall():
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(1))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=100))  # baseline
-    _feed(cons, _report("s1", output=100))  # clock starts
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))  # baseline
+    _feed(cons, _report("s1", activity_ts=t0))  # silent
     time.sleep(0.15)
-    _feed(cons, _report("s1", status="idle", output=100))  # not busy -> reset
-    _feed(cons, _report("s1", status="busy", output=100))  # fresh stall window
+    _feed(cons, _report("s1", status="idle", activity_ts=t0))  # not busy -> reset
+    _feed(cons, _report("s1", status="busy", activity_ts=t0))  # fresh stall window
     assert stopped == []
 
 
@@ -101,58 +108,61 @@ def test_audit_event_logged_on_fire():
     work = StatechartUnit("work")
     work.register(SignalKind.STOP, lambda s: None)
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=100))  # baseline
-    _feed(cons, _report("s1", output=100))  # clock starts
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))  # baseline
+    _feed(cons, _report("s1", activity_ts=t0))  # silent
     time.sleep(0.15)
-    _feed(cons, _report("s1", output=100))  # fires
+    _feed(cons, _report("s1", activity_ts=t0))  # fires
     fired = [e for e in bus.events() if e[1] == "watchdog_fire"]
     assert fired and fired[0][2]["kind"] == "stall"
 
 
-def test_reasoning_growth_prevents_false_stall():
-    """Deep-reasoning: output frozen but reasoning growing must NOT stall."""
+def test_sse_activity_growth_prevents_false_stall():
+    """Long deep-reasoning: SSE activity keeps advancing -> must NOT stall."""
     bus = Bus()
     cons = WatchdogUnit(stall_sec=0.1, bus=bus)
     work = StatechartUnit("work")
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(s.get("watchdog")))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=0, reasoning=10))   # baseline
-    _feed(cons, _report("s1", output=0, reasoning=20))   # reasoning grows
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))        # baseline
+    _feed(cons, _report("s1", activity_ts=t0 + 0.05)) # activity advances
     time.sleep(0.15)
-    _feed(cons, _report("s1", output=0, reasoning=40))   # still thinking -> alive
+    _feed(cons, _report("s1", activity_ts=time.time()))  # still streaming -> alive
     assert stopped == []
 
 
-def test_frozen_output_and_reasoning_still_stalls():
-    """Both output and reasoning frozen and busy -> genuine stall fires."""
+def test_frozen_activity_still_stalls():
+    """No SSE progress and busy -> genuine stall fires."""
     bus = Bus()
     cons = WatchdogUnit(stall_sec=0.1, bus=bus)
     work = StatechartUnit("work")
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(s.get("watchdog")))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=0, reasoning=10))  # baseline
-    _feed(cons, _report("s1", output=0, reasoning=10))  # both frozen -> clock
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))  # baseline
+    _feed(cons, _report("s1", activity_ts=t0))  # silent
     time.sleep(0.15)
-    _feed(cons, _report("s1", output=0, reasoning=10))  # past stall_sec -> fire
+    _feed(cons, _report("s1", activity_ts=t0))  # past stall_sec -> fire
     assert stopped == [True]
 
 
-def test_reasoning_growth_resets_stall_clock():
-    """Output frozen, then reasoning resumes mid-window -> clock resets."""
+def test_activity_growth_resets_stall_clock():
+    """Activity frozen, then SSE resumes mid-window -> clock resets."""
     bus = Bus()
     cons = WatchdogUnit(stall_sec=0.1, bus=bus)
     work = StatechartUnit("work")
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(1))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", output=0, reasoning=10))  # baseline
-    _feed(cons, _report("s1", output=0, reasoning=10))  # frozen -> clock starts
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))  # baseline
+    _feed(cons, _report("s1", activity_ts=t0))  # silent -> clock starts
     time.sleep(0.05)
-    _feed(cons, _report("s1", output=0, reasoning=30))  # reasoning grows -> reset
-    time.sleep(0.15)
-    _feed(cons, _report("s1", output=0, reasoning=30))  # new frozen window, short
+    _feed(cons, _report("s1", activity_ts=time.time()))  # SSE resumes -> reset
+    _feed(cons, _report("s1", activity_ts=time.time()))  # busy, just resumed -> alive
     assert stopped == []
 
 

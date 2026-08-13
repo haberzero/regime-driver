@@ -13,12 +13,18 @@
 | 功能 | 本质 | 能否进程内替代 |
 |---|---|---|
 | T1 进程健康轮询 + docker 重启（L4） | **进程外**、独立时钟、需 docker 控制权 | 不能：进程内无独立时钟、无 docker 控制权 |
-| T2 会话停滞（busy 但无新消息）→ abort | **进程外**、独立时钟 | 不能 |
+| T2 会话停滞（busy 但无 SSE 活性）→ abort | **进程外**、独立时钟 | 能：进程内 watchdog 同用 SSE 活性信号（WORK_PLAN10） |
 | 期限强制（deadline 永不无限跑） | **进程外**、独立时钟 | 不能 |
 | 纠正阶梯 L1–L5（abort/回退/重启/人工） | **进程外**编排 | 不能 |
 | 元分析（模型判 verdict + 确定性门） | 独立模型复盘 | 可（复用 Reporter/模型调用） |
-| 停滞首道防线（thinking/静默停滞检测） | **进程内** | 可 |
+| 停滞首道防线（SSE 活性停滞检测，进程内 watchdog） | **进程内** | 可 |
 | 任务注册表 / 提交接口 | 任务管理 | 可 |
+
+> **活性信号（WORK_PLAN10）**：停滞判定统一基于 opencode SSE `/event` 事件流
+> （`message.part.delta` 等即时推送）——token 计数（`session_tokens`）是 step 粒度
+> 记账（processor.ts 在 step-finish 才落账 + 异步 projector 写库），单步长思考期间
+> 恒为 0，不能作为流式活性信号。进程内 watchdog 与进程外 supervisor 共用同一
+> SSE 活性判定。
 
 **结论**：进程外独立时钟监督是架构性必需的。监督功能作为 regime-driver 一等公民（`regime supervisor` /
 `regime task`），提供一套统一的进程外监督面。

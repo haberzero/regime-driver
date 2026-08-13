@@ -242,7 +242,7 @@ sequenceDiagram
     participant 黑板 as Blackboard
 
     工作流->>工作流: 逐节点执行（发派 session / 轮询）
-    工作流->>看门狗: REPORT 信号（session_id / status / output / latest_text）
+    工作流->>看门狗: REPORT 信号（session_id / status / activity_ts / latest_text）
     工作流->>黑板: 写指标（heartbeat / start_time …）
     黑板-->>看门狗: blackboard.changed 事件
     看门狗->>看门狗: 死循环 / 卡死 / 停滞检测（确定性、无智能）

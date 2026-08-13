@@ -1,0 +1,42 @@
+{
+  "id": "etl_pipeline",
+  "task_id": "task-20260813-210821-dc93",
+  "elapsed_sec": 163.6,
+  "outcome": "blocked",
+  "detail": null,
+  "host_pytest": {
+    "verifiable": true,
+    "rc": 5,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "snippet": "\nno tests ran in 0.00s\nERROR conda.cli.main_run:execute(148): `conda run python -m pytest -q /tmp/nightly-run/archive/etl_pipeline` failed. (See above for error)\n"
+  },
+  "reviewer": {
+    "verdicts": 0,
+    "advances": 0,
+    "gate_exhausted": 0,
+    "reworks": 0,
+    "inquiries": 0
+  },
+  "covers": [
+    "multi-module",
+    "design-node",
+    "api-design",
+    "error-isolation",
+    "concurrency-testing",
+    "edge-cases",
+    "integration",
+    "tradeoff-documentation",
+    "wrap-hygiene"
+  ],
+  "flow": null,
+  "archive": "/tmp/nightly-run/archive/etl_pipeline",
+  "sessions_snapshotted": [
+    "ses_004c3100fffe7haoR34kwZSZVl"
+  ],
+  "slices": {
+    "journal": 17,
+    "events": 3
+  }
+}

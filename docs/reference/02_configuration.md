@@ -34,7 +34,7 @@
 | `monitor_poll_sec` | float | 3.0 | 监控轮询间隔 |
 | `session_hygiene_threshold` | int | 100 | doctor 对累积 worker session 数的警告阈值 |
 | `session_cleanup_policy` | str\|null | null | session 自动清理策略（JSON 字符串，见 `session_cleanup` 命令；null=关闭） |
-| `stall_sec` | int | 120 | busy 且 output 与 reasoning 令牌均无增长超过此秒 → 判卡死 |
+| `stall_sec` | int | 120 | busy 且无 SSE 事件流活性超过此秒 → 判卡死（WORK_PLAN10：活性信号为 SSE 事件流，非 token 计数） |
 | `on_stall` | enum | `abort` | 停滞动作：abort\|report_user\|none |
 | `meta_analyze_enabled` | bool | false | 用独立模型确认停滞再行动 |
 | `meta_model` | str | `deepseek-api/deepseek-v4-flash` | 停滞审查模型 |

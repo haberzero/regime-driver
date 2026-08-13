@@ -1,0 +1,20 @@
+{"event": "node_enter", "ts": "2026-08-13T20:51:58", "source": "regime-driver", "node": "understand", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-13T20:55:20", "source": "regime-driver", "node": "understand", "outcome": "complete", "report_len": 1366}
+{"event": "transition", "ts": "2026-08-13T20:55:20", "source": "regime-driver", "from_node": "understand", "to_node": "read_code", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-13T20:55:20", "source": "regime-driver", "node": "read_code", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-13T20:55:35", "source": "regime-driver", "node": "read_code", "outcome": "complete", "report_len": 1403}
+{"event": "transition", "ts": "2026-08-13T20:55:35", "source": "regime-driver", "from_node": "read_code", "to_node": "design", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-13T20:55:35", "source": "regime-driver", "node": "design", "type": "judge", "role": "reviewer"}
+{"event": "reviewer_verdict", "ts": "2026-08-13T20:56:28", "source": "regime-driver", "node": "design", "verdict": "advance", "action": "advance", "confidence": 0.85}
+{"event": "advance", "ts": "2026-08-13T20:56:28", "source": "regime-driver", "to": "implement"}
+{"event": "transition", "ts": "2026-08-13T20:56:28", "source": "regime-driver", "from_node": "design", "to_node": "implement", "role": "reviewer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-13T20:56:28", "source": "regime-driver", "node": "implement", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-13T20:57:33", "source": "regime-driver", "node": "implement", "outcome": "complete", "report_len": 876}
+{"event": "transition", "ts": "2026-08-13T20:57:33", "source": "regime-driver", "from_node": "implement", "to_node": "test", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-13T20:57:33", "source": "regime-driver", "node": "test", "type": "judge", "role": "reviewer"}
+{"event": "reviewer_verdict", "ts": "2026-08-13T20:58:03", "source": "regime-driver", "node": "test", "verdict": "advance", "action": "advance", "confidence": 0.9}
+{"event": "advance", "ts": "2026-08-13T20:58:03", "source": "regime-driver", "to": "wrap"}
+{"event": "transition", "ts": "2026-08-13T20:58:03", "source": "regime-driver", "from_node": "test", "to_node": "wrap", "role": "reviewer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-13T20:58:03", "source": "regime-driver", "node": "wrap", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-13T20:58:24", "source": "regime-driver", "node": "wrap", "outcome": "complete", "report_len": 783}
+{"event": "outcome", "ts": "2026-08-13T20:58:24", "source": "regime-driver", "node": "wrap", "outcome": "complete", "detail": ""}

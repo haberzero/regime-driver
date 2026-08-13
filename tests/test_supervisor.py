@@ -64,59 +64,37 @@ def test_choose_action_restart_not_repeated_escalates_to_human():
 def test_session_watch_first_observe_establishes_baseline():
     # first observe must never false-stall (last_message_ts starts at 0)
     w = SessionWatch()
-    assert w.observe(now=100.0, busy=True, output=0) is False
+    assert w.observe(now=100.0, busy=True) is False
     assert w.last_message_ts == 100.0
 
 
 def test_session_watch_not_stalled_within_stall_window():
     # frozen & busy but only 30s into the 60s window -> NOT stalled (negative case)
-    w = SessionWatch(last_output=5, last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True, output=5) is False
+    w = SessionWatch(last_message_ts=100.0)
+    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True) is False
 
 
 def test_session_watch_stall_detection_after_window():
     # frozen & busy continuously past stall_sec -> stalled exactly once
-    w = SessionWatch(last_output=5, last_message_ts=100.0)
-    assert w.is_stalled(now=100.0, stall_sec=60.0, busy=True, output=5) is False
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5) is True
+    w = SessionWatch(last_message_ts=100.0)
+    assert w.is_stalled(now=100.0, stall_sec=60.0, busy=True) is False
+    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True) is True
     # window consumed: no re-fire on the next poll while still frozen
-    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=True, output=5) is False
-
-
-def test_session_watch_output_growth_resets_window():
-    # output grew -> not stalled, bookkeeping updates
-    w = SessionWatch(last_output=5, last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=9) is False
-    assert w.last_output == 9
-
-
-def test_session_watch_reasoning_growth_resets_window():
-    # deep-reasoning: output frozen but reasoning growing -> must NOT stall
-    w = SessionWatch(last_output=5, last_reasoning=0, last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5,
-                        reasoning=30) is False
-    assert w.last_reasoning == 30
-
-
-def test_session_watch_reasoning_and_output_frozen_stalls():
-    # both frozen & busy past window -> genuine stall still fires
-    w = SessionWatch(last_output=5, last_reasoning=10, last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5,
-                        reasoning=10) is True
+    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=True) is False
 
 
 def test_session_watch_sse_activity_resets_window():
-    # a long opencode-go generation freezes tokens.output but streams SSE deltas:
-    # SSE activity must keep the session alive, never stalled.
-    w = SessionWatch(last_output=5, last_message_ts=100.0)
+    # a long deep-reasoning generation streams SSE deltas: SSE activity must
+    # keep the session alive, never stalled.
+    w = SessionWatch(last_message_ts=100.0)
     # SSE delta at +29s resets the window; +30s poll sees no stall
-    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True, output=5,
+    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True,
                         activity_ts=100.0 + 29.0) is False
     # SSE keeps arriving (at +69s); +70s poll still no stall
-    assert w.is_stalled(now=100.0 + 70.0, stall_sec=60.0, busy=True, output=5,
+    assert w.is_stalled(now=100.0 + 70.0, stall_sec=60.0, busy=True,
                         activity_ts=100.0 + 69.0) is False
     # SSE stops at +69s; frozen for 60s afterwards (at +130s) -> finally stalled
-    assert w.is_stalled(now=100.0 + 130.0, stall_sec=60.0, busy=True, output=5,
+    assert w.is_stalled(now=100.0 + 130.0, stall_sec=60.0, busy=True,
                         activity_ts=100.0 + 69.0) is True
 
 
@@ -124,28 +102,29 @@ def test_session_watch_recovery_resets_consecutive_stalls():
     # a stall window fires once; a recovery (idle) resets the consecutive
     # counter so a later separate episode starts fresh (no cross-episode
     # escalation leak).
-    w = SessionWatch(last_output=5, last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5) is True
+    w = SessionWatch(last_message_ts=100.0)
+    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True) is True
     assert w.consecutive_stalls == 1
     # session goes idle -> recovery
-    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=False, output=5) is False
+    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=False) is False
     assert w.consecutive_stalls == 0
 
 
 def test_is_progress_event():
-    from regime_driver.supervisor import _is_progress_event
-    # connection handshake must NOT count as activity (per-poll)
-    assert _is_progress_event("server.connected") is False
-    assert _is_progress_event(None) is False
+    from regime_driver.app.sse_activity import is_progress_event
+    # connection handshake + keepalive must NOT count as activity
+    assert is_progress_event("server.connected") is False
+    assert is_progress_event("server.heartbeat") is False
+    assert is_progress_event(None) is False
     # genuine progress events count
-    assert _is_progress_event("message.part.delta") is True
-    assert _is_progress_event("message.completed") is True
-    assert _is_progress_event("session.idle") is True
+    assert is_progress_event("message.part.delta") is True
+    assert is_progress_event("message.completed") is True
+    assert is_progress_event("session.idle") is True
 
 
 def test_session_watch_not_stalled_when_idle():
-    w = SessionWatch(last_output=5, last_message_ts=100.0)
-    assert w.is_stalled(now=200.0, stall_sec=60.0, busy=False, output=5) is False
+    w = SessionWatch(last_message_ts=100.0)
+    assert w.is_stalled(now=200.0, stall_sec=60.0, busy=False) is False
 
 
 # -- meta-analysis (real model judges verdict, deterministic-gated) -----------
@@ -422,13 +401,13 @@ def test_supervisor_t2_fires_on_genuine_stall_not_on_handshake():
     for _ in range(12):
         sup_ok.ingest_events(max_events=5, stream_timeout=0.05)
         if sup_ok.watch.is_stalled(
-                time.time(), sup_ok.stall_sec, True, 5,
+                time.time(), sup_ok.stall_sec, True,
                 activity_ts=sup_ok._last_activity_ts):
             break
     assert sup_ok.watch.consecutive_stalls == 0
 
     # stall=true: only server.connected handshakes, never progress -> T2 fires
-    # (the frozen output stalls past stall_sec and escalates to abort)
+    # (the frozen session stalls past stall_sec and escalates to abort)
     sup_bad = Supervisor(_StallLoopClient(progress=False), session_id="s1",
                          stall_sec=0.1, health_poll_sec=0.01)
     t0 = time.monotonic()
@@ -436,7 +415,7 @@ def test_supervisor_t2_fires_on_genuine_stall_not_on_handshake():
     while time.monotonic() - t0 < 2.0:
         sup_bad.ingest_events(max_events=5, stream_timeout=0.05)
         if sup_bad.watch.is_stalled(
-                time.time(), sup_bad.stall_sec, True, 5,
+                time.time(), sup_bad.stall_sec, True,
                 activity_ts=sup_bad._last_activity_ts):
             fired = True
             break

@@ -61,11 +61,16 @@
   应加文件锁或改为每作业独立文件 + 目录扫描。归属：`infra/jobs.py`。
 - **插件工具经 shell 拼接命令**：`.opencode/plugins/regime-dialog-control.js` 把参数拼成字符串走 shell；job_id
   等由机器生成的内部 id 拼接，注入风险低，但新参数若来自外部输入需消毒。归属：`.opencode/plugins/regime-dialog-control.js`。
-- **事件链路【可】接入（非限制，更正旧表述）**：控制对话框/摄入层可经 `GET /event`（SSE 流）+
-  插件 `event:` hook 实时接入事件链（`session.*`、`message.part.*`、`tool.execute.*`…），
-  不必反复 CLI 轮询。真正的限制是"无**进程外独立**时钟"：缺事件→停滞检测必须靠独立时钟进程
-   （supervisor），这是唯一无法靠事件链解决的问题。见 `subsystems/04_supervisor.md`。
-   归属：`infra/opencode.py` + `app/reporter.py`。
+- **事件链路【可】接入（WORK_PLAN10 起）**：控制对话框/摄入层可经 `GET /event`（SSE 流）+
+  插件 `event:` hook 实时接入事件链（`session.*`、`message.part.*`、`tool.execute.*`…）。
+  **停滞判定统一以 SSE 事件流为活性信号**（`SseActivity` 采集器 → watchdog/supervisor），
+  token 计数（`session_tokens`）是 step 粒度记账（processor.ts step-finish 才落账 + 异步
+  projector 写库），单步长思考期间恒 0，不能作为流式活性信号。归属：`app/sse_activity.py` +
+  `app/watchdog_unit.py` + `supervisor.py`。
+- **工具执行期间可能误杀（WORK_PLAN10 边界）**：会话 busy 但长时间跑工具（如 >`stall_sec` 的长
+  bash 命令）且无 LLM delta 时，SSE 活性链看不到进展 → 判停滞并 abort（破坏性）。默认
+  `stall_sec=120` 缓解；如需覆盖，提高 `stall_sec` 或把 `session.status`/`tool.*` 事件计入活性。
+  归属：`app/watchdog_unit.py`。
 - **测试套件分层（2026-08-13 起）**：单元/功能正确性套件在 `tests/`（`testpaths=["tests"]`，
    纯 mock 无真实 LLM/Docker，全绿）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
    （`REGIME_E2E=1` 显式运行）。`pytest` 默认不收集 E2E。归属：`pyproject.toml` + `e2e_tests/`。

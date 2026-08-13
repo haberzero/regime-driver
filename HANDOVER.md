@@ -276,12 +276,11 @@
 
 ### 下一 session 主线任务（唯一指针，2026-08-13 夜）
 
-> **本 session（2026-08-13 夜）已完成 WORK_PLAN9 体系重构**（watchdog 误杀修复 +
-> 复杂任务套件 + per-task 全量归档/清理重建），见下方"本 session 已完成（2026-08-13 夜）"。
-> **下一 session 唯一主线 = 夜间整合重跑 + 能力覆盖审计**（见 `tasks_docs/MAIN_TASKS.md`）
-> （用新 4 复杂任务套件 + reasoning 活性修复后的 watchdog，全链路重跑输出能力覆盖报告，
-> 验证 thinking 误杀不再发生）。
-> 数据已归档（见下方数据地图），`ops/quality_run.py`/`run_nightly.sh` 已支持新套件。
+> **本 session（2026-08-13 夜）已完成 WORK_PLAN9（套件/留档/清理重构）+ WORK_PLAN10
+> （T2 停滞判定 SSE 活性化架构重构）**，见下方"本 session 已完成（2026-08-13 夜）"。
+> **下一 session 唯一主线 = 夜间整合重跑**（见 `tasks_docs/MAIN_TASKS.md`）
+> （用新 4 复杂任务套件 + SSE 活性 watchdog，全链路重跑输出能力覆盖报告，
+> 验证长思考不再误杀——payment_ledger 已验证 complete 462s 无误杀）。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
@@ -380,7 +379,22 @@
 **关键成果**：框架误杀根因（thinking 盲区：watchdog 只统计文本令牌）三处修复；
 任务套件从 8 浅任务变为 4 复杂工程任务；日志留档改为 per-task 全量归档（会话
 消息快照可回溯 reasoning 推理过程）；清理机制改为归档后才清理 + 中断可续。
-全量 432 passed 零回归，general 只读 review 0 blocker。
+全量 438 passed 零回归，general 只读 review 0 blocker。
+
+### 本 session 已完成（2026-08-13 深夜，WORK_PLAN10，T2 停滞判定 SSE 活性化）
+
+> 用户授权深度破坏性重构。基于 opencode v1.18.11 源码级实证（processor.ts
+> step-finish 才记账 token + 异步 projector 写库 → session_tokens 单步长思考恒 0），
+> 判定 token 计数不能作为流式活性信号，SSE `/event` 事件流是唯一即时活性信号。
+
+| commit | 内容 |
+|---|---|
+| （本 commit） | **T2 停滞判定 SSE 活性化**：新增 `app/sse_activity.py`（`SseActivity` daemon 线程订阅 `/event` 维护 {sid: last_activity_ts}）；`watchdog_unit._detect` 改用 activity_ts 判停滞（含 `_first_busy` 首次 busy 锚定）；`workflow_unit` 采集 SSE 活性随 REPORT 喂给 watchdog；`supervisor.SessionWatch` 简化为纯 SSE 活性；`mock_client` 新增 event_stream 模拟 + delay 期间 busy+streaming。测试 +9（SseActivity 8 + preflight 慢生成）。 |
+
+**关键成果**：从"token 计数判活性"（根本错误信号）转为"SSE 事件流判活性"
+（opencode 唯一即时信号），修复长思考误杀。真实验证：payment_ledger complete
+462s（上次 144s 被误杀）、regime run complete 170s、长思考 30s 全程活性、
+真卡死仍判 stall。全量 438 passed 零回归，general 只读 review 0 blocker。
 
 ### 已完成主线（历史，参考）
 
