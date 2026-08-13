@@ -14,6 +14,11 @@ RUN /opt/miniconda3/bin/conda create -y -n regime-driver --override-channels -c 
   && /opt/miniconda3/bin/conda run -n regime-driver pip install /tmp/regime-driver-src \
   && rm -rf /tmp/regime-driver-src
 
+# put the regime-driver env's bin on PATH so the plugin's `regime` resolution
+# works inside the container (the plugin resolves `regime` on PATH for host-mode;
+# containers add the env bin here). No /opt/... hardcode in the plugin itself.
+ENV PATH=/opt/miniconda3/envs/regime-driver/bin:${PATH}
+
 # dialog-control agent + regime-dialog-control 插件进 opencode 全局配置
 COPY .opencode/agent/dialog-control.md /root/.config/opencode/agent/dialog-control.md
 COPY .opencode/plugins/regime-dialog-control.js /root/.config/opencode/plugins/regime-dialog-control.js
