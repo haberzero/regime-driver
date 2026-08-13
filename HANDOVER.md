@@ -319,8 +319,8 @@
 
 #### 环境状态（交接时）
 
-- `opencode-worker` / `opencode-dialog-control` 容器健康，**已重建到 HEAD `4967579`**
-  （含全部修复 + WORK_PLAN8 阶段 1–4 + 测试净化 + 分发重构 + 卸载机制）。
+- `opencode-worker` / `opencode-dialog-control` 容器健康，**已重建到 HEAD `d7dd9c4`**
+  （含全部修复 + WORK_PLAN8 阶段 1–4 + 测试净化 + 分发重构 + 卸载机制 + 任务控制体系重构）。
 - 测试基线 **425 passed（46s）**，0 warnings；`sync_templates.py --check` 绿；
   `ops/check_capabilities.py` 绿（22 CLI / 3 mounted skills / 11 packaged / 22 covers）。
 - **E2E 已移出单元套件**：`e2e_tests/test_e2e_worker.py`（真实 worker+LLM，独立运行
@@ -332,7 +332,7 @@
   seed_files 预置 / 多文件收集 / 能力覆盖报告。
 - 复用工具：`ops/quality_run.py --tasks <id>`（单任务重跑）、`--root <dir>`（产出 quality-report.json
   含 capability_coverage）、`ops/run_nightly.sh`（夜间一键长跑）。
-- 已 push 到 GitHub（`origin main`，本地=远端 `4967579`），CI 含装配冒烟 + wheel 卫生断言。
+- 已 push 到 GitHub（`origin main`，本地=远端 `d7dd9c4`），CI 含装配冒烟 + wheel 卫生断言。
 - 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 +
   示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + **WORK_PLAN8 阶段 1–4** + 分发重构 + 卸载机制。
 - 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**WORK_PLAN8 阶段 5 夜间整合重跑**（下一主线）、
@@ -359,7 +359,9 @@
 | `9ec570d` | **容器重建**：dialog-control 镜像加 regime env 入 PATH（修 A 路插件 regime 解析）。 |
 | `4918e5f` | **卸载与恢复**：部署清单 manifest（`.regime-deployed.json` 含 sha256）+ `regime uninstall` 安全移除（保留用户改动）+ doctor 部署完整性检测。 |
 | `4967579` | **文档体系同步**：插件随 wheel + 主控需插件新表述、god 残留清理、setup/uninstall 登记、单一真源表更新。 |
-| `af4058f` | **chore**：gitignore dist/build；push 到 GitHub（本地=远端）。 |
+| `af4058f` | **chore**：gitignore dist/build；push 到 GitHub。 |
+| `9aa4f3f` | **交接+文档清洁**：HANDOVER 更新 + 删除 10 个已完成历史规划/一次性审查（-1197 行）+ 引用修正 + README 状态更新。 |
+| `d7dd9c4` | **任务控制体系重构**：四类关键文档（MAIN_TASKS/PENDING_TASKS/WORKLOG/HANDOVER）+ 临时文档纪律 + AGENTS.md 重写记录体系 + task-control 规范收敛（去 04 决策记录，02→main_tasks）。 |
 
 **关键成果**：所有交接发现（D1–D6 + A–F）已全部修复并经测试/真实运行核实；WORK_PLAN8
 建设性重构阶段 1–4 完成并各自真实验证；唯一未执行 = 阶段 5 夜间整合重跑（属验证非修复）。
