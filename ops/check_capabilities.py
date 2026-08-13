@@ -114,12 +114,28 @@ def main() -> int:
         if tag != tag.lower() or " " in tag:
             findings.append(f"covers 标签非法(应小写连字符): {tag!r}")
 
+    # 5. every covers tag must be DECLARED in capabilities.md §五 (the task↔
+    #    capability mapping table — the single source of truth): no task may
+    #    exercise a capability the map does not document for it, and no
+    #    documented capability loses its verifier. Only TABLE ROWS count (a
+    #    tag appearing in prose is not a declaration).
+    cap_text = CAP.read_text(encoding="utf-8")
+    section_five = cap_text.split("## 五")[1] if "## 五" in cap_text else ""
+    declared: set[str] = set()
+    for ln in section_five.splitlines():
+        if ln.lstrip().startswith("|") and not ln.lstrip().startswith("|---"):
+            declared |= set(re.findall(r"[\w-]+", ln))
+    undeclared_covers = sorted(covers - declared)
+    if undeclared_covers:
+        findings.append(f"covers 标签未在 capabilities.md §五 声明: {undeclared_covers}")
+
     report = {
         "ok": not findings,
         "cli_subcommands": len(cli),
         "mounted_skills": sorted(mounted),
         "packaged_skills": len(packaged),
         "covers_tags": len(covers),
+        "covers_list": sorted(covers),
         "findings": findings,
     }
     if args.json:

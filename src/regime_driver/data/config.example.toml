@@ -47,7 +47,7 @@ session_turn_check = 5                       # 开发者轮次检查节奏
 # --- 监控 / 看门狗 ---
 monitor_enabled = true                       # 启用 watchdog 监控
 monitor_poll_sec = 3.0                       # 监控轮询间隔
-stall_sec = 120                              # busy 且无输出增长超过此秒 -> 判卡死
+stall_sec = 120                              # busy 且 output 与 reasoning 令牌均无增长超过此秒 -> 判卡死
 on_stall = "abort"                           # abort | report_user | none
 
 # --- 元分析（进程外 supervisor --meta / drive --meta 的智能判verdict）---

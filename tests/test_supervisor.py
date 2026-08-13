@@ -90,6 +90,21 @@ def test_session_watch_output_growth_resets_window():
     assert w.last_output == 9
 
 
+def test_session_watch_reasoning_growth_resets_window():
+    # deep-reasoning: output frozen but reasoning growing -> must NOT stall
+    w = SessionWatch(last_output=5, last_reasoning=0, last_message_ts=100.0)
+    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5,
+                        reasoning=30) is False
+    assert w.last_reasoning == 30
+
+
+def test_session_watch_reasoning_and_output_frozen_stalls():
+    # both frozen & busy past window -> genuine stall still fires
+    w = SessionWatch(last_output=5, last_reasoning=10, last_message_ts=100.0)
+    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True, output=5,
+                        reasoning=10) is True
+
+
 def test_session_watch_sse_activity_resets_window():
     # a long opencode-go generation freezes tokens.output but streams SSE deltas:
     # SSE activity must keep the session alive, never stalled.

@@ -1,0 +1,22 @@
+== task payment_ledger: est 20min, deadline 1500s ==
+  [seed] ledger.py -> worker /root/work/code/
+  [snapshot] ses_004f4cb12ffe7kIePm38L8X76x: 46 messages
+  [snapshot] ses_004f17fa7ffeL0csctz0jBIuSx: 11 messages
+  -> outcome=complete elapsed=396.2s pytest={'verifiable': True, 'rc': 0, 'passed': 34, 'failed': 0, 'errors': 0, 'snippet': '..................................                                       [100%]\n34 passed in 1.15s\n'} audit={'verdicts': 2, 'advances': 2, 'gate_exhausted': 0, 'reworks': 0, 'inquiries': 0} snap=2
+[quality] incremental report -> /tmp/nightly-smoke2/quality-report.json (1 tasks)
+  [clean] sessions rc=0
+
+== results ==
+payment_ledger   outcome=complete   pytest=34passed/0failed verdicts=2 elapsed=396.2s archive=/tmp/nightly-smoke2/archive/payment_ledger
+
+== capability coverage ==
+  bug-fixing                   <- payment_ledger
+  concurrency-testing          <- payment_ledger
+  design-node                  <- payment_ledger
+  edge-cases                   <- payment_ledger
+  error-handling               <- payment_ledger
+  read-existing-code           <- payment_ledger
+  root-cause                   <- payment_ledger
+  thread-safety                <- payment_ledger
+
+[quality] archive: /tmp/nightly-smoke2/archive

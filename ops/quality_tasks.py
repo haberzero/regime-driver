@@ -1,279 +1,396 @@
-"""Quality-run task suite (WORK_PLAN6 I + WORK_PLAN8 — capability-coverage verification).
+"""Quality-run task suite (WORK_PLAN6 I + WORK_PLAN8/9 — capability-coverage verification).
 
-Each task is a REAL engineering task with:
-  * clear spec + explicit edge-case / error-handling requirements,
-  * a requirement to write a pytest test file covering the specified
-    boundaries and run it in the worker until green,
-  * an expected module file that the host-side harness re-verifies
-    independently with pytest after `docker cp` (the "external test").
+Each task is a REAL complex engineering task designed to exercise the value of
+the regime-driver supervision stack — NOT a single-file from-scratch exercise.
+Every task is:
 
-WORK_PLAN8 redesign: the suite is DELIBERATELY SMALL (8 tasks) but spans
-representative SHAPES of real work — not just "write one file from scratch":
-  * refactor_legacy    — refactor existing code (seed_files pre-seeded)
-  * fix_bugs           — locate & fix bugs in existing code (seed_files)
-  * multi_module       — a small multi-file subsystem (cross-module + context)
-  * design_decision    — a task whose design node must make a real API choice
-  * lru_ttl / task_sched / csv_parse / graph_algos — deep single-module edges
+  * a MULTI-FILE subsystem (3+ cooperating modules) with real cross-module
+    contracts (imports, interfaces, data flow),
+  * grounded in EXISTING code (seed_files pre-seeded into the workspace) so the
+    developer must READ, understand and evolve real context — refactor smells,
+    fix seeded bugs, or build on a provided skeleton,
+  * contains an explicit DESIGN DECISION the developer must make and document
+    (with rejected alternatives) before implementing,
+  * concurrency / failure-isolation / edge-case heavy, so the reviewer judge
+    has real substance to evaluate and rework-iteration actually happens,
+  * verifiable in two independent ways: the developer runs pytest in the worker
+    until green, and the host-side harness re-verifies the collected artifacts
+    with pytest after `docker cp` (the "external test").
 
-Every task declares `covers` — the regime capabilities it is DESIGNED to
-exercise. The harness (`ops/quality_run.py`) reports which of those were
-actually triggered from the event ledger, so capability coverage is
-verifiable, not assumed.
+These tasks are intentionally 15–30 minute efforts (multi-file, iterative), not
+2-minute single-module writes. That is the point: they put the reviewer gate,
+the supervision ladder, and the capability map under realistic pressure.
 
 The harness (`ops/quality_run.py`) submits each spec as a supervised
 `regime drive`, then audits: outcome, reviewer interaction (verdict/rework
-from the ledger), and host-side pytest pass/fail — the evidence that the
-regime-driver process (flow + reviewer + supervision) produces code of
-verifiable quality across task shapes, not just long-run stability.
+from the ledger), and host-side pytest pass/fail. `covers` declares the regime
+capabilities each task is designed to exercise; the harness reports which were
+actually triggered so coverage is verifiable, not assumed.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Every task must be self-contained (the developer sees only the spec below),
-# verifiable by `python3 -m pytest <test_file> -q` in the worker, and
-# re-verifiable with pytest on the host after `docker cp`.
+
 @dataclass(frozen=True)
 class QualityTask:
     id: str
-    module: str            # expected produced module file
-    test_file: str         # expected pytest file
     spec: str              # the drive context (self-contained)
-    # capability-coverage metadata (WORK_PLAN8): the regime capabilities this
-    # task is DESIGNED to exercise. The harness reports which of these were
-    # actually triggered (from the event ledger) so coverage is verifiable.
+    # expected files the developer produces (for host-side pytest re-verify)
+    expected_files: tuple[str, ...] = ()
+    # capability-coverage metadata: regime capabilities this task is DESIGNED
+    # to exercise. The harness reports which were actually triggered.
     covers: tuple[str, ...] = ()
-    # optional pre-seeded files copied into the worker /root/work/code BEFORE
-    # the task starts (name -> file content). Enables refactor / fix-bug tasks
-    # that act on existing code rather than writing from scratch.
+    # optional pre-seeded files copied into the workspace BEFORE the task starts
+    # (name -> file content). Enables refactor / bug-fix / evolve-skeleton shapes.
     seed_files: dict[str, str] | None = None
-    # optional extra files (besides module/test_file) to collect for host pytest.
-    extra_files: tuple[str, ...] = ()
     # optional flow name to run instead of the default code_workflow.
     flow: str | None = None
+    # expected minimum developer effort (informational; sets the test harness
+    # deadline appropriately so the task is not pre-empted by a too-short budget).
+    minutes_est: int = 15
+
+
+SEED_INVENTORY = """\
+# legacy inventory + pricing + orders (deliberately messy; do not keep this shape)
+import json
+
+
+class Inventory:
+    def __init__(self):
+        self._items = {}
+        self._qty = {}
+        self._price = {}
+
+    def add_item(self, sku, name, price):
+        if sku in self._items:
+            self._price[sku] = price
+            return
+        self._items[sku] = name
+        self._qty[sku] = 0
+        self._price[sku] = price
+
+    def restock(self, sku, n):
+        self._qty[sku] = self._qty.get(sku, 0) + n
+
+    def take(self, sku, n):
+        if self._qty.get(sku, 0) < n:
+            raise ValueError("not enough stock")
+        self._qty[sku] -= n
+
+    def price_of(self, sku):
+        return self._price.get(sku)
+
+
+class Order:
+    def __init__(self, customer):
+        self.customer = customer
+        self.lines = []
+
+    def add_line(self, sku, qty):
+        self.lines.append((sku, qty))
+
+    def total(self, inv):
+        t = 0
+        for sku, qty in self.lines:
+            t += inv.price_of(sku) * qty
+        return t
+
+
+def make_order(inv, customer, lines):
+    o = Order(customer)
+    for sku, qty in lines:
+        inv.take(sku, qty)
+        o.add_line(sku, qty)
+    return o
+"""
+
+SEED_LEDGER = """\
+# legacy double-entry payment ledger (deliberately buggy)
+import time
+import threading
+
+
+class Ledger:
+    def __init__(self):
+        self._entries = []
+        self._seq = 0
+        self._lock = threading.Lock()
+
+    def post(self, account, amount, ref):
+        self._seq += 1
+        self._entries.append({
+            "seq": self._seq, "account": account, "amount": amount,
+            "ref": ref, "ts": time.time(),
+        })
+
+    def balance(self, account):
+        b = 0.0
+        for e in self._entries:
+            if e["account"] == account:
+                b += e["amount"]
+        return b
+
+    def transfer(self, src, dst, amount, ref):
+        with self._lock:
+            self.post(src, -amount, ref)
+            self.post(dst, amount, ref)
+
+    def count(self):
+        return len(self._entries)
+
+    def last_refs(self, n=10):
+        return [e["ref"] for e in self._entries[-n:]]
+
+
+def reconcile(ledger, expected_balances):
+    bad = []
+    for acct, want in expected_balances.items():
+        if abs(ledger.balance(acct) - want) > 1e-9:
+            bad.append(acct)
+    return bad
+"""
+
+SEED_PIPELINE = """\
+# legacy batch data pipeline skeleton (to be evolved into a real framework)
+class Stage:
+    def __init__(self, name):
+        self.name = name
+
+    def run(self, rows):
+        raise NotImplementedError
+
+
+class Source(Stage):
+    def __init__(self, name, data):
+        super().__init__(name)
+        self.data = list(data)
+
+    def run(self, rows):
+        return self.data
+
+
+class Sink(Stage):
+    def __init__(self, name):
+        super().__init__(name)
+        self.rows = []
+
+    def run(self, rows):
+        self.rows.extend(rows)
+        return []
+
+
+class Pipeline:
+    def __init__(self):
+        self.stages = []
+
+    def add(self, stage):
+        self.stages.append(stage)
+        return self
+
+    def run(self, initial=None):
+        rows = list(initial or [])
+        for stage in self.stages:
+            rows = stage.run(rows)
+        return rows
+"""
 
 
 TASKS: list[QualityTask] = [
-    # ---- deep single-module edges (retained from the original suite) ----
-
+    # ---------------------------------------------------------------- task 1 --
+    # Refactor + extend a legacy inventory/pricing/orders subsystem into a clean
+    # layered design, preserving the external contract, fixing seeded defects.
     QualityTask(
-        id="graph_algos",
-        module="digraph.py",
-        test_file="test_digraph.py",
-        covers=("graph-algorithms", "cycle-detection", "edge-cases"),
-        spec=(
-            "实现有向图模块 digraph.py。要求：\n"
-            "1) class DiGraph：add_edge(u,v)、vertices()、edges()、neighbors(v)、"
-            "has_vertex(v)、vertex_count()、edge_count()。\n"
-            "2) topo_sort()：返回拓扑排序（Kahn 算法）；含环时抛 ValueError 并给出含环说明。\n"
-            "3) has_cycle()：检测有向环。\n"
-            "4) reachable(u,v)：u 是否能到达 v（BFS）。\n"
-            "边界必须正确处理：空图、单顶点、自环、重复边（去重）、断开图、"
-            "多个入度为 0 的顶点（拓扑序不唯一但必须合法：每条边都满足前驱在后继之前）。\n"
-            "写 pytest 测试 test_digraph.py 覆盖以上全部边界（含环检测、自环、去重、"
-            "非法拓扑合法性断言），在容器内运行 `python3 -m pytest test_digraph.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
+        id="shop_inventory",
+        expected_files=(
+            "inventory.py", "pricing.py", "orders.py", "errors.py",
+            "test_inventory.py", "test_orders.py",
         ),
-    ),
-    QualityTask(
-        id="csv_parse",
-        module="csv_parser.py",
-        test_file="test_csv_parser.py",
-        covers=("state-machine-parsing", "edge-cases", "error-handling"),
-        spec=(
-            "实现 CSV 解析器 csv_parser.py（不得用标准库 csv 模块）。要求：\n"
-            "1) parse(text, delimiter=',') -> list[list[str]]；支持：引号包裹字段、字段内转义引号 \"\"、"
-            "引号字段内含分隔符与换行（多行字段）、CRLF 与 LF 混用、空行忽略、可选注释行（参数 comments=True 时 # 开头忽略）、"
-            "UTF-8 BOM 剥离。\n"
-            "2) 未闭合引号抛 ValueError（含行号）；非引号字段内含引号按字面处理。\n"
-            "3) 空输入返回 []；仅标题行正常。\n"
-            "写 pytest 测试 test_csv_parser.py 覆盖：转义引号、多行字段、CRLF/BOM/注释、未闭合引号异常、"
-            "空输入与空行，在容器内运行 `python3 -m pytest test_csv_parser.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
+        covers=(
+            "refactoring", "code-odor", "read-existing-code", "design-node",
+            "api-design", "error-isolation", "multi-module", "integration",
+            "edge-cases", "wrap-hygiene",
         ),
-    ),
-    QualityTask(
-        id="lru_ttl",
-        module="lru_cache.py",
-        test_file="test_lru_cache.py",
-        covers=("thread-safety", "concurrency-testing", "reviewer-engagement"),
-        spec=(
-            "实现线程安全 LRU+TTL 缓存 lru_cache.py。要求：\n"
-            "1) class LRUCache(capacity, ttl=None)：get(key)、set(key,value)、has(key)、size()、clear()。\n"
-            "2) capacity=0 或负数抛 ValueError；get 命中的键提升为最近使用；容量满时淘汰最久未使用。\n"
-            "3) ttl 设置后，过期键 get/has 返回 miss（但不清除，懒惰过期）。\n"
-            "4) 命中率统计：hits/misses/stats()；命中率 = hits/(hits+misses)。\n"
-            "5) 线程安全：8 个线程并发混合读写同一实例，不抛异常、缓存大小始终 <= capacity、"
-            "且并发下不丢失已 set 的存活键（用 barrier 制造竞争窗口）。\n"
-            "写 pytest 测试 test_lru_cache.py 覆盖以上全部（含 TTL 过期、并发、容量边界、命中率），"
-            "在容器内运行 `python3 -m pytest test_lru_cache.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
-        ),
-    ),
-    QualityTask(
-        id="task_sched",
-        module="scheduler.py",
-        test_file="test_scheduler.py",
-        covers=("dependency-scheduling", "cycle-detection", "concurrency"),
-        spec=(
-            "实现依赖任务调度器 scheduler.py。要求：\n"
-            "1) add(task_id, deps, fn)：fn 为无参可调用（可用 lambda）；deps 为任务 id 列表。\n"
-            "2) run(max_parallel=4) 按依赖拓扑并行执行；返回 {task_id: result}。\n"
-            "3) 环依赖 add 或 run 时抛 ValueError 并列出参与环的任务；缺失依赖抛 KeyError。\n"
-            "4) 单任务执行异常：默认该任务记失败（结果含异常对象）且不中断其它无依赖任务；"
-            "参数 stop_on_error=True 时首个异常即抛出并停止调度。\n"
-            "5) 保证：任一任务只执行一次；所有依赖在它之前完成（用记录执行时间戳断言顺序）。\n"
-            "写 pytest 测试 test_scheduler.py 覆盖：串行链、并行扇出、环检测、缺失依赖、异常隔离、"
-            "执行顺序断言、max_parallel 生效（并发峰值 <= 上限，用 active 计数），"
-            "在容器内运行 `python3 -m pytest test_scheduler.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
-        ),
-    ),
-
-    # ---- new shapes (WORK_PLAN8): refactor / fix-bug / multi-module / design ----
-
-    QualityTask(
-        id="refactor_legacy",
-        module="inventory.py",
-        test_file="test_inventory.py",
-        covers=("refactoring", "code-odor", "read-existing-code", "wrap-hygiene"),
         seed_files={
-            "inventory.py": (
-                "class Inv:\n"
-                "    def __init__(self):\n"
-                "        self.items = {}\n"
-                "        self.total = 0\n"
-                "    def add(self, name, qty, price):\n"
-                "        if name not in self.items:\n"
-                "            self.items[name] = [qty, price]\n"
-                "            self.total += 1\n"
-                "        else:\n"
-                "            self.items[name][0] += qty\n"
-                "            self.items[name][1] = price\n"
-                "    def rm(self, name, qty):\n"
-                "        if name in self.items:\n"
-                "            self.items[name][0] -= qty\n"
-                "            if self.items[name][0] <= 0:\n"
-                "                del self.items[name]\n"
-                "                self.total -= 1\n"
-                "    def val(self):\n"
-                "        s = 0\n"
-                "        for k in self.items:\n"
-                "            s += self.items[k][0] * self.items[k][1]\n"
-                "        return s\n"
-                "    def top(self, n):\n"
-                "        arr = []\n"
-                "        for k in self.items:\n"
-                "            arr.append((k, self.items[k][0]*self.items[k][1]))\n"
-                "        arr.sort(key=lambda x: -x[1])\n"
-                "        return [x[0] for x in arr[:n]]\n"
-            ),
+            "inventory.py": SEED_INVENTORY,
         },
+        minutes_est=20,
         spec=(
-            "重构既有 inventory.py（已在工作区，存在多处问题）：\n"
-            "1) 设计问题：类名/方法名晦涩（Inv/add/rm）、内部用 list [qty, price] 而非命名结构、"
-            "total 手工维护易错（删除/负值边界）。\n"
-            "2) 语义缺陷：rm 减少数量后 value 计算会随负数；添加重复商品时 total 不变但应反映商品种类数；"
-            "price 为负或 qty 为负未校验。\n"
-            "3) 重构为清晰版本：类名 InventoryItem/Inventory，方法 add_item/remove_item/total_value/top_by_value，"
-            "使用 namedtuple 或 dataclass，参数校验（负数抛 ValueError），total 为商品种类数且一致。\n"
-            "4) **不得改变对外语义**（除修复缺陷）：total_value 始终等于各项 qty*price 之和。\n"
-            "写 pytest 测试 test_inventory.py 覆盖：重构后全部方法、负数校验、删除边界、total 一致性、"
-            "top 排序、空库存，在容器内运行 `python3 -m pytest test_inventory.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
+            "背景：你接手一个遗留的库存/定价/订单子系统（工作区已有 inventory.py），"
+            "它把所有职责（库存、定价、订单、错误处理）堆在一个文件里，存在多个真实缺陷。"
+            "任务：把它重构为清晰的分层多文件子系统，并修复缺陷，同时保持对外语义。\n\n"
+            "一、必须产出的模块（每个职责一个文件）：\n"
+            "  inventory.py —— 库存域：Inventory(仓储)、SKU 管理、restock/take 原子操作、"
+            "    stock_level(sku)、缺货/非法参数错误。\n"
+            "  pricing.py —— 定价域：PriceCatalog(定价表)、set_price(sku, price)、"
+            "    price_of(sku)、折扣体系：discounted_price(sku, qty, coupon_code)，"
+            "    折扣规则可配置（满减/打折二选一，由调用方注册策略函数）。\n"
+            "  orders.py —— 订单域：OrderLine(sku, qty, unit_price)、"
+            "    Order(customer, lines)、place_order(catalog, inventory, lines) —— "
+            "    下单时校验库存→扣减库存→按目录定价计算金额，返回 Order；任何失败必须"
+            "    回滚已扣库存（原子性）。\n"
+            "  errors.py —— 统一异常：InsufficientStockError、UnknownSKUError、"
+            "    InvalidQuantityError、InvalidCouponError，全部带清晰 message 与结构化字段。\n\n"
+            "二、必须修复的既有缺陷（根因修复，禁止症状补丁）：\n"
+            "  1) add_item 对已存在 SKU 只更新价格、不保留名称变化（名称应可更新）。\n"
+            "  2) make_order 先扣库存再计算金额：金额异常（如未知 SKU→None*int 崩溃）时库存已扣，"
+            "    无回滚。\n"
+            "  3) restock 负数直接加库存（应抛 InvalidQuantityError）。\n"
+            "  4) 价格与数量未校验（价格<=0 或非数字应抛错）。\n"
+            "  5) 订单重复扣库存（make_order 同时调 take 且 Order 自身又在 total 重复计算）。\n\n"
+            "三、设计决策（必须在方案设计节点书面定稿，含被否方案与理由）：\n"
+            "  折扣体系选「策略函数注入」还是「数据驱动规则表」？给出 chosen + 理由 + 被否方案理由。\n\n"
+            "四、测试（pytest，覆盖并通过）：test_inventory.py 与 test_orders.py 覆盖：\n"
+            "  重构后全部 API、五个缺陷的回归、下单原子性（失败不扣库存）、折扣正确性、"
+            "  全部异常路径、多线程并发 restock/take 不丢库存（barrier 竞争窗口）。\n"
+            "在容器内运行 `python3 -m pytest test_inventory.py test_orders.py -q` 直到全绿，"
+            "并在汇报里给出测试摘要（N passed）与设计决策结论。"
         ),
     ),
+
+    # ---------------------------------------------------------------- task 2 --
+    # Build a small KV cluster: sharding + primary-backup replication +
+    # read-your-writes + crash-recovery journal, with concurrency and a design
+    # decision on the consistency model.
     QualityTask(
-        id="fix_bugs",
-        module="event_log.py",
-        test_file="test_event_log.py",
-        covers=("bug-fixing", "read-existing-code", "root-cause", "edge-cases"),
+        id="kv_cluster",
+        expected_files=(
+            "store.py", "shard.py", "replica.py", "journal.py", "errors.py",
+            "test_store.py", "test_replica.py",
+        ),
+        covers=(
+            "multi-module", "cross-module-contract", "concurrency-testing",
+            "thread-safety", "error-isolation", "design-node", "api-design",
+            "tradeoff-documentation", "integration", "edge-cases",
+        ),
+        minutes_est=25,
+        spec=(
+            "任务：实现一个小型键值存储集群子系统，多文件协作（均在 code 目录），"
+            "具备分片、主备复制、写后读一致、崩溃恢复与并发安全。\n\n"
+            "一、必须产出的模块：\n"
+            "  errors.py —— 统一异常：KeyNotFoundError、ShardDownError、"
+            "    ReplicationError、InvalidKeyError、StorageFullError。\n"
+            "  store.py —— 单节点 KVStore（线程安全内存存储）：get/set/delete/has/size/keys，"
+            "    value 任意 JSON 可序列化对象；set 时写 op-journal（追加）；启动时可从 journal 恢复。\n"
+            "  shard.py —— ShardManager：key→shard 的确定性映射（如一致性哈希或取模，由设计决策定），"
+            "    get/set/delete 路由到对应 shard 的 KVStore；某 shard 标记 down 后对其访问抛 "
+            "    ShardDownError 而其它 shard 不受影响（故障隔离）。\n"
+            "  replica.py —— ReplicaManager：primary KVStore + 1 个 backup KVStore；"
+            "    set 采用主写备份同步复制（write-through 到 backup，失败抛 ReplicationError 并回滚 primary）；"
+            "    提供 failover()：backup 升级为 primary 并重建新 backup。\n"
+            "  store.py 顶层 facade：KVCluster(shard_count, replication=True)——组合上述三类，"
+            "    暴露 get/set/delete/failover/status()（各 shard 状态、主备健康、存储大小）。\n\n"
+            "二、设计决策（方案设计节点书面定稿，含被否方案）：\n"
+            "  A) 一致性模型：主写备份同步复制（写后读一致，写延迟高）vs 异步复制（写快，failover 可能丢最近写）。"
+            "  选 chosen + 理由；被否方案的不可接受点。\n"
+            "  B) 分片映射：一致性哈希 vs 简单取模。理由。\n\n"
+            "三、必须正确处理的边界：\n"
+            "  并发：8 线程并发 set/get/delete 同一集群，无数据丢失、无异常泄露（barrier 竞争）。\n"
+            "  恢复：journal 追加写入，进程崩溃（用测试模拟）后从 journal 恢复不丢已提交写。\n"
+            "  隔离：mark_shard_down 后仅该 shard 抛 ShardDownError，其余 shard 正常。\n"
+            "  复制失败：backup 写失败时 primary 回滚、抛 ReplicationError、集群仍可用。\n\n"
+            "四、测试（pytest，覆盖并通过）：test_store.py 与 test_replica.py 覆盖：\n"
+            "  并发一致性、journal 恢复、shard 路由与隔离、failover 语义（backup 数据完整）、"
+            "  复制失败回滚、全部异常、存储上限。在容器内运行 "
+            "`python3 -m pytest test_store.py test_replica.py -q` 直到全绿，"
+            "并在汇报给出测试摘要（N passed）与两项设计决策结论。"
+        ),
+    ),
+
+    # ---------------------------------------------------------------- task 3 --
+    # Fix seeded bugs in a double-entry payment ledger + add a feature
+    # (idempotent posting / reconciliation), with root-cause analysis.
+    QualityTask(
+        id="payment_ledger",
+        expected_files=(
+            "ledger.py", "errors.py", "test_ledger.py", "test_reconcile.py",
+        ),
+        covers=(
+            "bug-fixing", "root-cause", "read-existing-code", "error-handling",
+            "edge-cases", "thread-safety", "concurrency-testing", "design-node",
+        ),
         seed_files={
-            "event_log.py": (
-                "import time\n"
-                "\n"
-                "class EventLog:\n"
-                "    def __init__(self, maxlen=100):\n"
-                "        self.maxlen = maxlen\n"
-                "        self.events = []\n"
-                "        self._seq = 0\n"
-                "    def append(self, kind, data=None):\n"
-                "        self._seq += 1\n"
-                "        self.events.append({'seq': self._seq, 'kind': kind, 'data': data, 'ts': time.time()})\n"
-                "        if len(self.events) > self.maxlen:\n"
-                "            self.events = self.events[1:]\n"
-                "    def count(self, kind=None):\n"
-                "        if kind is None:\n"
-                "            return len(self.events)\n"
-                "        n = 0\n"
-                "        for e in self.events:\n"
-                "            if e['kind'] == kind:\n"
-                "                n += 1\n"
-                "        return n\n"
-                "    def latest(self, n=1):\n"
-                "        return self.events[-n:]\n"
-                "    def clear(self):\n"
-                "        self.events = []\n"
-            ),
+            "ledger.py": SEED_LEDGER,
         },
+        minutes_est=20,
         spec=(
-            "修复既有 event_log.py（已在工作区）中隐藏的缺陷。已知症状：\n"
-            "1) maxlen 截断逻辑错误：应为保留最近 maxlen 条，但当前实现循环内每次截断一条，"
-            "当一次 append 后长度超过 maxlen 时只删 1 条，多次 append 后可能保留超过 maxlen 条。\n"
-            "2) maxlen <= 0 应抛 ValueError（构造参数非法），当前未校验。\n"
-            "3) latest(n) 当 n > 当前事件数时返回全部，但 n <= 0 时应抛 ValueError 或返回 []（请在测试中定死一种语义并保持一致）。\n"
-            "4) clear() 后 _seq 未重置，导致新事件 seq 继续递增——需决定：保留单调递增（正确）还是重置，测试需覆盖你的选择。\n"
-            "修复后保持 append/count/latest/clear 的对外契约，并写 pytest 测试 test_event_log.py 覆盖："
-            "截断边界（append 超过 maxlen）、非法参数、latest 边界、clear 后行为、count 过滤，"
-            "在容器内运行 `python3 -m pytest test_event_log.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
+            "背景：你接手一个双式记账支付台账（工作区已有 ledger.py），存在多个隐蔽缺陷。"
+            "任务：根因修复每个缺陷，并新增一个幂等记账功能，保持对外契约。\n\n"
+            "一、必须修复的缺陷（对每个缺陷给出根因分析并写进汇报）：\n"
+            "  1) 浮点账：balance 累加浮点金额产生 0.1+0.2 类误差，reconcile 的 1e-9 容差掩盖了"
+            "    真正的舍入错账。方案：金额用分（int）还是 Decimal？在 design 定稿并全程一致。\n"
+            "  2) transfer 非原子：先 post(src,-amount) 再 post(dst,amount)，若第二次 post 抛异常"
+            "    （如账户校验）则 source 已扣、dest 未加——账不平。要求：post 前置校验或事务性回滚，"
+            "    保证转账要么全成要么全不成。\n"
+            "  3) 重复记账：同一 ref 可被 post 多次（如网络重试），导致重复扣款。要求：新增幂等——"
+            "    post(account, amount, ref) 对已存在的 (account, ref) 直接返回 False 不重复入账，"
+            "    新条目返回 True；transfer 同理由 ref 保证只转一次。\n"
+            "  4) maxlen 无关：本台账无上限，但需新增 max_entries 容量与 StorageFullError（可在构造传入）。\n"
+            "  5) 并发：balance/count 在并发 post 下读取一致性（快照 or 锁）。\n\n"
+            "二、新增功能：\n"
+            "  reconcile(expected_balances) 改为返回结构化报告 {ok, mismatches: [{account, expected, actual}]}，"
+            "  不再用 1e-9 容差（用你的金额表示精确比较）。\n"
+            "  idempotent_transfer(src, dst, amount, ref)：幂等转账，重复调用只生效一次，返回是否新生效。\n\n"
+            "三、设计决策（方案设计节点书面定稿）：\n"
+            "  金额表示：int 分 vs Decimal。选 chosen + 理由；被否方案在并发/性能/正确性的不可接受点。\n\n"
+            "四、测试（pytest，覆盖并通过）：test_ledger.py 与 test_reconcile.py 覆盖：\n"
+            "  浮点错账根因（0.1+0.2 场景）、转账原子性（失败回滚）、幂等重复记账、容量上限、"
+            "  并发一致性、reconcile 结构化报告、全部异常路径。在容器内运行 "
+            "`python3 -m pytest test_ledger.py test_reconcile.py -q` 直到全绿，"
+            "并在汇报给出测试摘要（N passed）、每个缺陷的根因、设计决策结论。"
         ),
     ),
+
+    # ---------------------------------------------------------------- task 4 --
+    # Build an ETL pipeline framework on a skeleton: stage graph, retry/backoff,
+    # idempotent sinks, rate limiting, failure isolation — with design decisions.
     QualityTask(
-        id="multi_module",
-        module="store.py",
-        test_file="test_store.py",
-        extra_files=("kvstore.py", "cache.py"),
-        covers=("multi-module", "cross-module-contract", "integration"),
-        spec=(
-            "实现一个小型键值存储子系统，三个文件互相配合（均在 code 目录）：\n"
-            "1) kvstore.py：class KVStore —— 线程安全的内存键值库，set(key, value)/get(key, default=None)/"
-            "delete(key)/keys()/size()；value 可为任意 JSON 可序列化对象；get 不存在返回 default。\n"
-            "2) cache.py：class TTLCache(capacity, ttl) —— 基于 KVStore 的带 TTL 缓存，get(key)/set(key, value)；"
-            "过期键返回 None 并惰性清除；容量满时淘汰最久未访问（需 KVStore 支持访问计数或时间戳）。\n"
-            "3) store.py：class Store —— 门面：`Store(db_path=None)`，内部用 KVStore + TTLCache 实现"
-            "get/set/delete/clear/invalidate(key)；提供 write-through 语义（写同时更新缓存与底层）；"
-            "并暴露 stats() 返回 {hits, misses, cache_size, store_size}。\n"
-            "4) 三个模块通过明确的 import 依赖协作（cache 依赖 kvstore，store 依赖两者），"
-            "各自独立可测。\n"
-            "写 pytest 测试 test_store.py 覆盖：write-through 一致性、缓存命中/过期/淘汰、"
-            "多线程并发 set/get 不丢数据、delete/clear/invalidate 语义、stats 计数，"
-            "在容器内运行 `python3 -m pytest test_store.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）。"
+        id="etl_pipeline",
+        expected_files=(
+            "pipeline.py", "stages.py", "errors.py", "test_pipeline.py",
+            "test_stages.py",
         ),
-    ),
-    QualityTask(
-        id="design_decision",
-        module="ratelimit.py",
-        test_file="test_ratelimit.py",
-        covers=("design-node", "api-design", "tradeoff-documentation"),
+        covers=(
+            "multi-module", "design-node", "api-design", "error-isolation",
+            "concurrency-testing", "edge-cases", "integration",
+            "tradeoff-documentation", "wrap-hygiene",
+        ),
+        seed_files={
+            "pipeline.py": SEED_PIPELINE,
+        },
+        minutes_est=25,
         spec=(
-            "设计并实现一个速率限制器 ratelimit.py，**design 阶段必须先做出明确的 API 设计决策并记录理由**：\n"
-            "可选方案：\n"
-            "  A) 固定窗口（Fixed Window）：简单，但窗口边界会允许瞬时 2 倍突发。\n"
-            "  B) 滑动窗口日志（Sliding Window Log）：精确，但内存与时间成本 O(窗口内请求数)。\n"
-            "  C) 令牌桶（Token Bucket）：允许有界突发，实现适中，适合限流（推荐用于本任务）。\n"
-            "要求：\n"
-            "1) 在 design 节点明确选择方案（在方案设计汇报中写明 chosen 方案 + 理由 + 被否方案与理由），"
-            "实现 class RateLimiter(limit_per_sec, burst=None, clock=None)：clock 可注入便于测试。\n"
-            "2) allow(key) -> bool：每个 key 独立计数；超过限制返回 False；burst 为 null 时无突发额度。\n"
-            "3) 线程安全：8 线程并发调用 allow 同一 key，放行总数不超过理论上限（容差 2）。\n"
-            "4) reset(key) 清空某 key 计数；stats() 返回 {allowed, denied, keys}。\n"
-            "5) 非法参数：limit_per_sec<=0 或 burst<0 抛 ValueError。\n"
-            "写 pytest 测试 test_ratelimit.py 覆盖：速率上限、突发、并发上限、reset、注入时钟、非法参数，"
-            "在容器内运行 `python3 -m pytest test_ratelimit.py -q` 直到全部通过，"
-            "并在汇报里给出测试摘要（N passed）与你选定的方案与理由。"
+            "背景：工作区已有 pipeline.py 骨架（Source/Sink/Pipeline 极简版）。"
+            "任务：把它演化为一个生产可用的 ETL 框架，多文件协作。\n\n"
+            "一、必须产出的模块：\n"
+            "  errors.py —— 统一异常：StageFailure、RetryExhausted、RateLimitExceeded、"
+            "    InvalidPipelineError（含环/重复阶段名/非法连接）。\n"
+            "  stages.py —— 标准阶段实现：\n"
+            "    TransformStage(fn)：逐行变换，fn(rows)->rows。\n"
+            "    FilterStage(pred)：按谓词过滤。\n"
+            "    RetryStage(inner, retries, backoff_base)：对 inner 执行重试，指数退避，"
+            "    重试耗尽抛 RetryExhausted（含最后一次错误）。\n"
+            "    RateLimitStage(per_sec)：令牌桶限流，超限在等待可配（或抛 RateLimitExceeded，设计定）。\n"
+            "    BatchSink(limit)：攒批落盘（内存版 append 到 list），可 flush。\n"
+            "  pipeline.py —— Pipeline 重写：\n"
+            "    add(stage) 幂等命名（默认按序号）；validate() 检测环/重复名/非法连接（浅层图检测）；\n"
+            "    run(initial) 顺序执行，任一步骤失败：默认隔离——记录该批失败并继续后续阶段，"
+            "    参数 fail_fast=True 时立即抛 StageFailure；返回 {processed, failed, stage_stats}。\n\n"
+            "二、设计决策（方案设计节点书面定稿，含被否方案）：\n"
+            "  A) 限流语义：令牌桶（允许有界突发）vs 固定窗口（简单但边界突发 2x）。选 chosen + 理由。\n"
+            "  B) 失败策略：默认 fail_fast=False（隔离继续）vs 全链路 fail_fast。"
+            "  选 chosen + 理由（结合下游 Sink 幂等性）。\n"
+            "  C) 并发：Pipeline 默认单线程顺序 vs 阶段间并行。选 chosen + 理由（给出实现若选并行）。\n\n"
+            "三、必须正确处理：\n"
+            "  环检测：A->B->A 的管线 validate() 抛 InvalidPipelineError 并列环。\n"
+            "  重试：RetryStage 内层第 2 次失败、第 3 次成功 → 正确重试并成功；全部失败 → RetryExhausted。\n"
+            "  限流：per_sec=5 时 20 条输入实际通过速率不超过上限（用注入时钟测）。\n"
+            "  隔离：中间阶段对某批抛错 → 默认模式继续后续阶段，fail_fast 模式立即抛。\n"
+            "  幂等：BatchSink flush 重复调用不重复追加。\n\n"
+            "四、测试（pytest，覆盖并通过）：test_pipeline.py 与 test_stages.py 覆盖以上全部，"
+            "在容器内运行 `python3 -m pytest test_pipeline.py test_stages.py -q` 直到全绿，"
+            "并在汇报给出测试摘要（N passed）与三项设计决策结论。"
         ),
     ),
 ]

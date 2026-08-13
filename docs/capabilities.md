@@ -22,7 +22,7 @@
 |---|---|---|---|---|
 | run | `regime run` | 无人值守 | （preflight 内嵌） | 01_cli.md |
 | run-many | `regime run-many` | 无人值守/并发 | — | 01_cli.md |
-| drive | `regime drive` | **无人值守核心** | 全部 8 任务（harness 入口） | 01_cli.md |
+| drive | `regime drive` | **无人值守核心** | 全部 4 复杂任务（harness 入口） | 01_cli.md |
 | drive-many | `regime drive-many` | 并发隔离 | — | 01_cli.md |
 | doctor | `regime doctor` | 一次性/运维 | 环境检测(docker/opencode/conda/平台) + 部署路径引导 | 01_cli.md |
 | preflight | `regime preflight` | 无人值守（drive 内嵌） | 全部任务（默认强制） | 01_cli.md |
@@ -39,7 +39,7 @@
 | events | `regime events` | 值守 | — | 01_cli.md |
 | session | `regime session` | 值守 | — | 01_cli.md |
 | task | `regime task` | 值守/无人值守 | harness `task status` | 01_cli.md |
-| flow | `regime flow` | 值守/流程期 | design_decision（流程注册） | 01_cli.md |
+| flow | `regime flow` | 值守/流程期 | 复杂任务 design 节点（流程设计） | 01_cli.md |
 | worker | `regime worker` | 一次性/并发 | — | 01_cli.md |
 | chaos | `regime chaos` | 一次性/演练 | — | 01_cli.md |
 | job | `regime job` | 值守 | — | 01_cli.md |
@@ -63,9 +63,9 @@
 
 | Skill | 挂载节点 | 场景 | 验证任务（covers） |
 |---|---|---|---|
-| design-philosophy | design（reviewer judge） | 无人值守 | design_decision（design-node/api-design） |
-| code-review | test（reviewer judge） | 无人值守 | 全部任务（reviewer-engagement） |
-| developer-quality | implement + wrap（developer） | 无人值守 | refactor_legacy（code-odor/wrap-hygiene）、fix_bugs（root-cause） |
+| design-philosophy | design（reviewer judge） | 无人值守 | shop_inventory/kv_cluster/etl_pipeline（design-node/api-design/tradeoff-documentation） |
+| code-review | test（reviewer judge） | 无人值守 | 全部任务（reviewer 判定） |
+| developer-quality | implement + wrap（developer） | 无人值守 | shop_inventory（code-odor/wrap-hygiene）、payment_ledger（root-cause） |
 
 > 其余 workflow-regime skills（code-odor/code-quality/self-grill/grilling/quality-maintenance/
 > aimless-review/doc-governance/code-workflow）是**维护 regime 自身**的工作法（真源
@@ -77,21 +77,22 @@
 | 能力 | 说明 | 验证 |
 |---|---|---|
 | supervisor T1/T2/deadline/阶梯 | 进程外监督 | 全部任务（ladder 事件） |
-| watchdog 根不变量 + 重复检测 | 死循环/卡死拦截 | json_config 类 blocked 场景 |
+| watchdog 根不变量 + 重复检测 | 死循环/卡死拦截 | 复杂任务长思考/并发压力场景 |
 | 确定性 gate | reviewer verdict 门禁 | 全部任务（reviewer_verdict 事件） |
-| reporter 报告总线 | journal + rollup + 模板 | harness journal 审计 |
-| FlowRegistry 热加载 | 命名 flow 注册/重载 | design_decision + flow 命令 |
-| session rotate/self-assess | 长任务会话管理 | 长任务（待新套件触发） |
+| reporter 报告总线 | journal + rollup + 模板 | harness 每任务 journal 审计 |
+| FlowRegistry 热加载 | 命名 flow 注册/重载 | 复杂任务 + flow 命令 |
+| session rotate/self-assess | 长任务会话管理 | 复杂任务（20-30 分钟长任务触发） |
 
 ## 五、能力 ↔ 验证任务对照（试用套件）
 
+> WORK_PLAN9（2026-08-13）：套件从 8 个浅层单模块任务重构为 **4 个复杂多文件工程任务**
+> （每个 15–30 分钟，带 seed 既有代码 / 设计决策 / 并发与故障隔离压力），
+> 使 reviewer 判定与监督纠错真正被检验。covers 声明设计意图，harness 从事件账本
+> 验证实际触发（`quality-report.json` 的 `capability_coverage`）。
+
 | 任务 | 设计激活能力（covers） |
 |---|---|
-| graph_algos | graph-algorithms / cycle-detection / edge-cases |
-| csv_parse | state-machine-parsing / edge-cases / error-handling |
-| lru_ttl | thread-safety / concurrency-testing / reviewer-engagement |
-| task_sched | dependency-scheduling / cycle-detection / concurrency |
-| refactor_legacy | refactoring / code-odor / read-existing-code / wrap-hygiene |
-| fix_bugs | bug-fixing / read-existing-code / root-cause / edge-cases |
-| multi_module | multi-module / cross-module-contract / integration |
-| design_decision | design-node / api-design / tradeoff-documentation |
+| shop_inventory | refactoring / code-odor / read-existing-code / design-node / api-design / error-isolation / multi-module / integration / edge-cases / wrap-hygiene |
+| kv_cluster | multi-module / cross-module-contract / concurrency-testing / thread-safety / error-isolation / design-node / api-design / tradeoff-documentation / integration / edge-cases |
+| payment_ledger | bug-fixing / root-cause / read-existing-code / error-handling / edge-cases / thread-safety / concurrency-testing / design-node |
+| etl_pipeline | multi-module / design-node / api-design / error-isolation / concurrency-testing / edge-cases / integration / tradeoff-documentation / wrap-hygiene |

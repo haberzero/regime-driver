@@ -13,8 +13,9 @@ from regime_driver.app.watchdog_unit import WatchdogUnit
 from regime_driver.core.statechart import Bus, Signal, SignalKind, StatechartUnit
 
 
-def _report(session, status="busy", output=100, latest=""):
-    return {"session_id": session, "status": status, "output": output, "latest_text": latest}
+def _report(session, status="busy", output=100, latest="", reasoning=0):
+    return {"session_id": session, "status": status, "output": output,
+            "latest_text": latest, "reasoning": reasoning}
 
 
 def _feed(unit, payload):
@@ -106,6 +107,53 @@ def test_audit_event_logged_on_fire():
     _feed(cons, _report("s1", output=100))  # fires
     fired = [e for e in bus.events() if e[1] == "watchdog_fire"]
     assert fired and fired[0][2]["kind"] == "stall"
+
+
+def test_reasoning_growth_prevents_false_stall():
+    """Deep-reasoning: output frozen but reasoning growing must NOT stall."""
+    bus = Bus()
+    cons = WatchdogUnit(stall_sec=0.1, bus=bus)
+    work = StatechartUnit("work")
+    stopped = []
+    work.register(SignalKind.STOP, lambda s: stopped.append(s.get("watchdog")))
+    bus.register(cons).register(work)
+    _feed(cons, _report("s1", output=0, reasoning=10))   # baseline
+    _feed(cons, _report("s1", output=0, reasoning=20))   # reasoning grows
+    time.sleep(0.15)
+    _feed(cons, _report("s1", output=0, reasoning=40))   # still thinking -> alive
+    assert stopped == []
+
+
+def test_frozen_output_and_reasoning_still_stalls():
+    """Both output and reasoning frozen and busy -> genuine stall fires."""
+    bus = Bus()
+    cons = WatchdogUnit(stall_sec=0.1, bus=bus)
+    work = StatechartUnit("work")
+    stopped = []
+    work.register(SignalKind.STOP, lambda s: stopped.append(s.get("watchdog")))
+    bus.register(cons).register(work)
+    _feed(cons, _report("s1", output=0, reasoning=10))  # baseline
+    _feed(cons, _report("s1", output=0, reasoning=10))  # both frozen -> clock
+    time.sleep(0.15)
+    _feed(cons, _report("s1", output=0, reasoning=10))  # past stall_sec -> fire
+    assert stopped == [True]
+
+
+def test_reasoning_growth_resets_stall_clock():
+    """Output frozen, then reasoning resumes mid-window -> clock resets."""
+    bus = Bus()
+    cons = WatchdogUnit(stall_sec=0.1, bus=bus)
+    work = StatechartUnit("work")
+    stopped = []
+    work.register(SignalKind.STOP, lambda s: stopped.append(1))
+    bus.register(cons).register(work)
+    _feed(cons, _report("s1", output=0, reasoning=10))  # baseline
+    _feed(cons, _report("s1", output=0, reasoning=10))  # frozen -> clock starts
+    time.sleep(0.05)
+    _feed(cons, _report("s1", output=0, reasoning=30))  # reasoning grows -> reset
+    time.sleep(0.15)
+    _feed(cons, _report("s1", output=0, reasoning=30))  # new frozen window, short
+    assert stopped == []
 
 
 # --- global scan (blackboard) ----------------------------------------------

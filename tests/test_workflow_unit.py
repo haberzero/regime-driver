@@ -35,6 +35,7 @@ class FakeClient:
         self.status = {}
         self.tokens = {}
         self.sent = []
+        self.aborted = []
 
     def create_session(self, title):
         self.created += 1
@@ -61,7 +62,7 @@ class FakeClient:
         return (0, 0)
 
     def abort_session(self, sid):
-        pass
+        self.aborted.append(sid)
 
 
 def _make(overrides=None):
@@ -99,6 +100,11 @@ def test_stop_signal_aborts():
     unit.stop()
     assert outcome == Outcome.BLOCKED
     assert "monitor" in detail
+    # WORK_PLAN9: a watchdog STOP must also abort the in-flight session, so the
+    # model stops producing orphan work (files/artifacts) after the workflow is
+    # declared blocked.
+    assert client.aborted, "STOP must abort the in-flight session (prevent orphans)"
+    assert len(client.aborted) == 1
 
 
 def test_watchdog_reports_emitted():
@@ -449,6 +455,9 @@ def test_per_node_wait_timeout():
     unit.stop()
     assert outcome == Outcome.TIMEOUT
     assert "default_deadline_sec" in detail
+    # WORK_PLAN9: a per-node timeout must also abort the in-flight session to
+    # stop orphan work (same rationale as a watchdog STOP).
+    assert client.aborted, "node timeout must abort the in-flight session"
 
 
 def test_heartbeat_updates_per_step():

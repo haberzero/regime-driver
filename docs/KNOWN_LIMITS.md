@@ -67,8 +67,8 @@
    （supervisor），这是唯一无法靠事件链解决的问题。见 `subsystems/04_supervisor.md`。
    归属：`infra/opencode.py` + `app/reporter.py`。
 - **测试套件分层（2026-08-13 起）**：单元/功能正确性套件在 `tests/`（`testpaths=["tests"]`，
-  纯 mock 无真实 LLM/Docker，419 passed）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
-  （`REGIME_E2E=1` 显式运行）。`pytest` 默认不收集 E2E。归属：`pyproject.toml` + `e2e_tests/`。
+   纯 mock 无真实 LLM/Docker，全绿）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
+   （`REGIME_E2E=1` 显式运行）。`pytest` 默认不收集 E2E。归属：`pyproject.toml` + `e2e_tests/`。
 - **能力地图与实现一致性**：`docs/capabilities.md` 是能力索引单点真理；`ops/check_capabilities.py`
   做交叉核对（CLI 命令/skills/covers 标签），改动能力时应同步文档或跑脚本确认。归属：
   `ops/check_capabilities.py` + `docs/capabilities.md`。
