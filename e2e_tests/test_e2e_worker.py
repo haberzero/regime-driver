@@ -1,12 +1,15 @@
-"""Real-worker E2E regression (T-A).
+"""Real-worker E2E regression (T-A) — SEPARATE from the unit test suite.
 
-Drives the ACTUAL opencode worker container over HTTP (the same mechanism
-regime-driver uses in production) and asserts a full flow COMPLETES. This is the
-"execution" verification — it proves the worker can carry a real task through
-understand→…→wrap. It is gated behind REGIME_E2E=1 and a healthy worker so the
-normal unit suite stays fast and offline; run explicitly for real verification:
+This file drives the ACTUAL opencode worker container over HTTP (the same
+mechanism regime-driver uses in production) and asserts a full flow COMPLETES.
+It involves REAL model API calls and a live Docker worker, so it is NOT part of
+the functional-correctness unit suite (`tests/`, testpaths=["tests"]) — it is a
+higher-level integration/E2E layer that must never be collected by a plain
+`pytest` run.
 
-    REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+Run explicitly against a healthy worker:
+
+    REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_worker.py -q
 """
 
 from __future__ import annotations

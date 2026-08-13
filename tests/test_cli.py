@@ -51,7 +51,8 @@ def test_preflight_offline_completes():
 
 
 def test_preflight_stall_fails():
-    res = runner.invoke(app, ["preflight", "--fault", "stall", "--json"])
+    res = runner.invoke(app, ["preflight", "--fault", "stall", "--stall-sec", "1",
+                              "--json"])
     assert res.exit_code == 1
     data = json.loads(res.output)
     assert data["ok"] is False
@@ -212,7 +213,8 @@ def test_flow_design_preflight_failure_no_mutation(tmp_path):
     spec = ('{"entry":"a","nodes":['
             '{"id":"a","desc":"x","role":"developer","type":"agent","next":null}]}')
     r1 = runner.invoke(app, ["flow", "design", "p-bad", spec,
-                             "--preflight", "--preflight-fault", "stall", "--json"])
+                             "--preflight", "--preflight-fault", "stall",
+                             "--preflight-stall-sec", "1", "--json"])
     assert r1.exit_code == 1
     assert json.loads(r1.output)["ok"] is False
     r2 = runner.invoke(app, ["flow", "list", "--json"])

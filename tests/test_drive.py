@@ -72,7 +72,11 @@ def _drive(tmp_path, stall=False):
     sm = load_regime()
     client = FakeClient(stall=stall)
     rep = Reporter(journal_path=tmp_path / "journal.jsonl")
-    d = Drive(s, sm, client, rep, deadline_sec=600, stall_sec=60)
+    # health_poll_sec=0.05: the supervisor loop stops as soon as the workflow
+    # yields a result (stop_when), so a small poll makes the tests fast without
+    # changing production behavior (default remains 10.0).
+    d = Drive(s, sm, client, rep, deadline_sec=600, stall_sec=60,
+              health_poll_sec=0.05)
     return d, client, rep
 
 
@@ -126,7 +130,7 @@ def test_drive_prunes_journal_on_teardown(tmp_path):
     client = FakeClient()
     rep = Reporter(journal_path=tmp_path / "journal.jsonl")
     d = Drive(s, sm, client, rep, deadline_sec=600, stall_sec=60,
-              prune_max_records=1)
+              prune_max_records=1, health_poll_sec=0.5)
     dr = d.run("实现反转函数")
     assert dr.outcome == Outcome.COMPLETE.value
     rep.close()

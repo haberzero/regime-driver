@@ -38,7 +38,12 @@ path = "src/regime_driver/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# Dedicated basetemp: the default (/tmp/pytest-of-haber) can accumulate
+# root-owned remnants from real-worker E2E (docker-created files a normal user
+# cannot remove), producing rm_rf PermissionError warnings on every run. E2E is
+# now a SEPARATE suite under e2e_tests/ (never collected here), so a fresh
+# basetemp keeps the unit run warning-free and fast.
+addopts = "-q --basetemp=/tmp/pytest-of-regime"
 markers = [
     "e2e: end-to-end tests requiring a live worker container",
 ]

@@ -159,7 +159,7 @@ class FakeClient(OpenCodeClient):
     """OpenCodeClient whose read_messages is scripted by the test."""
 
     def __init__(self, script):
-        super().__init__("http://x:4097", timeout=5.0)
+        super().__init__("http://x:4097", timeout=1.0)
         self._script = list(script)  # list of new-message lists read per poll
         self.posted = 0
 
@@ -192,12 +192,16 @@ def test_waits_for_non_empty():
         [Message(id="m1", role="assistant", text="")],
         [Message(id="m1", role="assistant", text="WORKER_OK")],
     ])
+    c.timeout = 4.0  # the poll loop sleeps 1s per empty step (3 steps)
     assert c.ask_and_get_text("s1", "p", "reviewer") == "WORKER_OK"
 
 
 def test_raises_on_error_message():
+    # script: first read (POST-pre base_count) is empty; after the POST the
+    # poll sees a NEW message carrying an error -> ask_and_get_text must raise
+    # immediately (not wait out the timeout).
     m = Message(id="m1", role="assistant", text="", error="provider failure")
-    c = FakeClient([[m]])
+    c = FakeClient([[], [m]])
     with pytest.raises(OpenCodeError):
         c.ask_and_get_text("s1", "p", "reviewer")
 

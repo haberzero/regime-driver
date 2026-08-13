@@ -871,6 +871,9 @@ def preflight_cmd(
     fault: str = typer.Option(
         None, "--fault", help="fault injection: stall | delay (elasticity trial)"
     ),
+    stall_sec: float = typer.Option(
+        5.0, "--stall-sec", help="stall threshold for the stall-fault trial (sec)"
+    ),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Run an offline trial of the flow (MockClient) to verify it terminates cleanly.
@@ -885,7 +888,7 @@ def preflight_cmd(
         sm = load_regime(regime)
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
-    res = preflight(sm, fault=fault, timeout_sec=30.0)
+    res = preflight(sm, fault=fault, timeout_sec=30.0, stall_sec=stall_sec)
     if json_out:
         _emit_json(res)
         if not res["ok"]:
@@ -1805,6 +1808,8 @@ def flow_design(
         False, "--preflight", help="also run an offline preflight trial"),
     preflight_fault: str = typer.Option(
         None, "--preflight-fault", help="inject a preflight fault (stall|delay)"),
+    preflight_stall_sec: float = typer.Option(
+        5.0, "--preflight-stall-sec", help="stall threshold for the preflight stall fault"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     perm: str = typer.Option("run", "--perm", help="held permission level"),
 ) -> None:
@@ -1823,7 +1828,8 @@ def flow_design(
         sm = compile_spec(name, spec)
         if preflight:
             from ..app.preflight import preflight as _preflight
-            res = _preflight(sm, timeout_sec=30.0, fault=preflight_fault)
+            res = _preflight(sm, timeout_sec=30.0, fault=preflight_fault,
+                             stall_sec=preflight_stall_sec)
             if not res["ok"]:
                 raise FlowError(f"preflight FAILED: outcome={res['outcome']} "
                                 f"detail={res['detail']}")

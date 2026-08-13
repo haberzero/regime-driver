@@ -11,7 +11,7 @@
 >   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。已知边界：**session 记录累积**
 >   （见下方行为限制），长期（多天）运行可用 `regime sessions --cleanup` 清理或重建容器。
 > - **GitHub 真实模型 E2E 已封存**：CI 内不再跑真实 worker E2E（2026-08-11 起，长期不列入计划；
->   需 `OPENCODE_GO_API_KEY` secret）。`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
+>   需 `OPENCODE_GO_API_KEY` secret）。`e2e_tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 > - **项目特定默认**：默认模型（`deepseek-api/deepseek-v4-flash`，DeepSeek 官方 API）、端口、目录为项目配置，需自行适配。
 > - **依赖 opencode 内部 HTTP API**（`/event` SSE、session 端点），并锁定 opencode 1.18.x，
 >   版本漂移可能破坏。**护栏**：`regime doctor` 会校验 worker 版本（major.minor 匹配才通过，

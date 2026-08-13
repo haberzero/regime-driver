@@ -32,8 +32,14 @@ def preflight(
     *,
     fault: str | None = None,
     timeout_sec: float = 30.0,
+    stall_sec: float = 5.0,
 ) -> dict:
-    """Offline trial run; returns a machine-readable preflight result dict."""
+    """Offline trial run; returns a machine-readable preflight result dict.
+
+    ``stall_sec`` controls how long a stall-fault run must be frozen before the
+    watchdog escalates; the production default is 5s (fast enough for a trial),
+    tests may pass a smaller value to speed up fault-path verification.
+    """
     sm = sm if sm is not None else load_regime()
     client = MockClient(sm=sm)
     start_node = getattr(sm, "start", None)
@@ -47,7 +53,7 @@ def preflight(
     elif fault is not None:
         return {"ok": False, "outcome": "error", "detail": f"unknown fault '{fault}'"}
 
-    settings = Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=5)
+    settings = Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=stall_sec)
     driver = StatechartDriver(settings, sm, client, enforce_invariants=True)
     try:
         outcome, end, detail = driver.run("preflight trial", timeout_sec=timeout_sec)

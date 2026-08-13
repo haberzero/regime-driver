@@ -218,7 +218,7 @@
 - **示例流程（✅ 2026-08-12）**：`src/regime_driver/data/examples/verify_then_report.json`
   （tool+route 分支示例，随 wheel 打包）。
 - **e2e-real 已封存（用户决定，2026-08-11）**：GitHub 真实模型 E2E 长期不列入计划；CI 已移除
-  `e2e-real` job；`tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
+  `e2e-real` job；`e2e_tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 - **默认模型 = DeepSeek 官方 API**：`deepseek-api/deepseek-v4-flash`（用户授权，实测 1.6s vs opencode-go 40s，
   快一个数量级）；`my-opencode-go/...`（OpenCode Go）作回退。主机+worker/dialog-control 全统一。key：
   `DEEPSEEK_API_KEY` 或 `~/.regime/keys/deepseek.key`。自检 `regime doctor`。
@@ -270,7 +270,7 @@
   **`Parallel` 并发隔离并行任务** + **`chaos` 故障注入/恢复演练**。
 - **一键起栈**：`ops/up.sh`（worker/dialog-control 一键构建+拉起+等健康，sg fallback，--rebuild，注入 opencode-go key）。
 - **技术债**：G1–G14 全清（`TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
-- **测试架构**：`tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
+- **测试架构**：`e2e_tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
@@ -436,7 +436,7 @@ conda run -n regime-driver regime chaos scenario worker-crash-recovery <ws>  # �
 
 # 单测 / E2E（E2E 门控: REGIME_E2E=1 且 worker 健康）
 conda run -n regime-driver python -m pytest
-REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_worker.py -q
 
 # 容器
 sg docker -c 'docker ps --format "{{.Names}} {{.Status}}"'

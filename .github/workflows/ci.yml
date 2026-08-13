@@ -17,10 +17,10 @@ jobs:
   # test — offline unit tests + coverage gate (the regression gate). No worker,
   # no Docker, no model key needed. This is the job that MUST always be green.
   #
-  # NOTE: real-worker E2E (`tests/test_e2e_worker.py`, gated by REGIME_E2E=1)
+  # NOTE: real-worker E2E (`e2e_tests/test_e2e_worker.py`, gated by REGIME_E2E=1)
   # is ARCHIVED for CI as of 2026-08-11 — the OPENCODE_GO_API_KEY GitHub secret
   # is not planned for the foreseeable future, so the job would only ever
-  # no-op. The E2E tests remain usable locally (see tests/test_e2e_worker.py).
+  # no-op. The E2E tests remain usable locally (see e2e_tests/test_e2e_worker.py).
   # --------------------------------------------------------------------------
   test:
     name: unit · py${{ matrix.python-version }}

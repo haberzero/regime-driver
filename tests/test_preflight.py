@@ -49,7 +49,7 @@ def test_judge_terminal_flow_completes() -> None:
 
 def test_stall_fault_blocks() -> None:
     sm = _flow({"a": _node("a", next="b"), "b": _node("b")})
-    res = preflight(sm, fault="stall", timeout_sec=10)
+    res = preflight(sm, fault="stall", timeout_sec=10, stall_sec=1)
     assert res["ok"] is False
     assert res["outcome"] in ("blocked", "error")
 
