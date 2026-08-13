@@ -853,6 +853,22 @@ def doctor(
     _tpl = templates_ready()
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
 
+    # deployment integrity (uninstall/recovery UX): if scaffold/setup ran, verify
+    # the manifest ↔ disk consistency (files modified/missing) so the user knows
+    # what a later `regime uninstall` would touch / whether config drifted.
+    from ..scaffold import check_deployed
+    _dep = check_deployed(_Path.home() / ".config" / "opencode")
+    if _dep.get("deployed"):
+        checks.append({
+            "check": "deployed files integrity",
+            "ok": _dep["ok"],
+            **({"missing": _dep["missing"], "modified": _dep["modified"]}
+               if not _dep["ok"] else {}),
+            "detail": _dep["detail"] + (
+                " — `regime uninstall` 可安全移除" if _dep["ok"] else
+                " — `regime doctor`/`regime uninstall --dry-run` 查看"),
+        })
+
     # host-environment readiness (WORK_PLAN8 / deployment UX): docker / conda /
     # opencode / registry-mirror presence. ADVISORY — these don't gate the run
     # (host mode works without docker; docker path works without conda), but the
@@ -2405,6 +2421,51 @@ def setup_cmd(
         console.print("      · opencode（主机模式，推荐）：见 https://opencode.ai/docs/")
         console.print("      · docker（容器模式）：装好后 `ops/up.sh all`")
     console.print("\n详细见 docs/guide/05_setup.md 与 docs/architecture/04_distribution_blueprint.md")
+
+
+# ---------------------------------------------------------------------------
+# uninstall — safe removal of regime-deployed files (deployment UX)
+# ---------------------------------------------------------------------------
+@app.command("uninstall")
+def uninstall_cmd(
+    target: Optional[Path] = typer.Option(
+        None, "--target", help="opencode config root (default ~/.config/opencode)"),
+    dry_run: bool = typer.Option(False, "--dry-run",
+                                 help="show what would be removed without removing"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("clean", "--perm", help="held permission level"),
+) -> None:
+    """Remove ONLY the files regime-driver deployed (safe uninstall).
+
+    Reads the deployment manifest (written by `regime scaffold` / `regime setup`)
+    and deletes exactly the files it recorded. Files you modified yourself are
+    KEPT (never silently destroyed); missing files are no-ops. The manifest is
+    removed last. Use --dry-run first to preview.
+    """
+    from pathlib import Path as _Path
+
+    _gate(perm, ["uninstall"])
+    dest = target or _Path.home() / ".config" / "opencode"
+
+    from ..scaffold import uninstall as _uninstall
+    res = _uninstall(dest, dry_run=dry_run)
+
+    if json_out:
+        _emit_json(res)
+        return
+
+    if res.get("manifest") is False:
+        console.print(f"· 未发现部署清单（{dest / '.regime-deployed.json'} 不存在）——没有可卸载的内容")
+        return
+    console.print(f"[bold]regime uninstall[/bold] · {dest} ({'dry-run' if dry_run else '已执行'})")
+    for p in res.get("removed", []):
+        console.print(Text(f"· [green]remove[/green] {p}", style="green"))
+    for p in res.get("kept_modified", []):
+        console.print(Text(f"· [yellow]keep[/yellow] {p}（已被你修改，保留）", style="yellow"))
+    for p in res.get("missing", []):
+        console.print(Text(f"· [dim]skip[/dim] {p}（已不存在）", style="dim"))
+    if dry_run:
+        console.print("\n以上为将要删除的文件；不加 --dry-run 才会真正删除。")
 
 
 # ---------------------------------------------------------------------------

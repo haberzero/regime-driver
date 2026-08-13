@@ -124,11 +124,48 @@ clone 仓库 → ops/up.sh all（构建 worker + dialog-control 容器）
 
 ---
 
-## 6. 验证与守卫
+## 6. 卸载与恢复（用户可预期的安全移除）
+
+> **原则**：用户安装的任何东西必须能完整、安全地移除，且绝不破坏用户自己的内容。
+
+### 部署清单（manifest）
+
+`regime scaffold` / `regime setup` 部署时会写 `~/.config/opencode/.regime-deployed.json`：
+记录 `regime_version`、部署时间、以及**每个部署文件的内容哈希（sha256）**。
+幂等重跑也保持清单完整（覆盖计划内全部文件，不只是本次新写的）。
+
+### 卸载（`regime uninstall`）
+
+按清单精确移除 regime 部署的文件，规则：
+
+| 文件状态 | 处置 |
+|---|---|
+| 存在 + 内容哈希匹配 | **删除**（regime 的原始文件） |
+| 存在 + 哈希不匹配（用户改过） | **保留**（绝不破坏用户内容，警告列出） |
+| 已不存在 | 跳过（no-op） |
+
+空父目录会被清理；清单本身最后删除。先 `--dry-run` 预览，`--perm clean` 门禁。
+
+### 检测（`regime doctor`）
+
+doctor 增加 "deployed files integrity" 检查：清单 ↔ 磁盘一致性——
+- 文件被删 / 被改 → 标红，提示 `regime uninstall --dry-run` 查看
+- 一致 → "17 files tracked — `regime uninstall` 可安全移除"
+
+### 运行时状态（非模板）
+
+`~/.regime/`（密钥/流程/任务/作业/工作区）是**运行时产生**的数据，不属模板卸载范围。
+如需清理按各命令（`regime sessions --clean` 等）或手动删除 `~/.regime/` 目录。
+wheel 本身用 `pip uninstall regime-driver` 移除。
+
+---
+
+## 7. 验证与守卫
 
 | 守卫 | 内容 | 位置 |
 |---|---|---|
 | `test_package` | wheel 含模板 + 不含 docker/主机路径 + 漂移守卫 | tests/ |
 | `ops/sync_templates.py --check` | data/ 与真源一致 | ops/ |
 | `ops/check_capabilities.py` | 能力地图与实现一致 | ops/ |
-| `regime doctor` | 环境检测 + 版本契约 + 模板就绪 | CLI |
+| `regime doctor` | 环境检测 + 版本契约 + 模板就绪 + 部署完整性 | CLI |
+| `test_scaffold` | manifest 写入 / 安全卸载（保留用户改动）/ 一致性检测 | tests/ |

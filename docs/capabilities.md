@@ -35,6 +35,7 @@
 | dialog | `regime dialog` | **值守** | — | 05_dialog_control_contract.md |
 | scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/插件/opencode.json/config.example.toml | 06_release.md |
 | setup | `regime setup` | 一次性/运维 | 引导安装：环境检测 + 装配 + 分步指引 | 04_distribution_blueprint.md |
+| uninstall | `regime uninstall` | 一次性/运维 | 按部署清单安全移除 regime 文件（保留用户改动） | 04_distribution_blueprint.md |
 | events | `regime events` | 值守 | — | 01_cli.md |
 | session | `regime session` | 值守 | — | 01_cli.md |
 | task | `regime task` | 值守/无人值守 | harness `task status` | 01_cli.md |

@@ -72,6 +72,7 @@ _COMMAND_LEVEL: dict[str, PermissionLevel] = {
     "drive": PermissionLevel.RUN,         # launches the whole self-driving stack
     "scaffold": PermissionLevel.RUN,      # writes official templates into config root
     "setup": PermissionLevel.RUN,         # guided install: deploys templates + reports
+    "uninstall": PermissionLevel.CLEAN,   # deletes regime-deployed files: destructive
     "task": PermissionLevel.RUN,          # submit is RUN; stop/clean escalate to CLEAN
     "supervisor": PermissionLevel.CLEAN,  # abort/restart/human ladder: destructive
 }

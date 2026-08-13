@@ -126,3 +126,51 @@ def test_cli_scaffold_writes_json(tmp_path):
     assert (tmp_path / "agents" / "analyst.md").is_file()
     assert (tmp_path / "skills" / "design-philosophy" / "SKILL.md").is_file()
     assert data["assistants"] is True
+
+
+def test_scaffold_writes_manifest(tmp_path):
+    """Deployment manifest: scaffold must record what it deployed (for uninstall)."""
+    from regime_driver.scaffold import load_manifest
+    scaffold(tmp_path)
+    m = load_manifest(tmp_path)
+    assert m is not None
+    assert m["schema"] == 1
+    assert len(m["files"]) >= 1
+    # the plugin + dialog-control agent are tracked
+    paths = [f["path"] for f in m["files"]]
+    assert any("plugins/regime-dialog-control.js" in p for p in paths)
+    assert any("agents/dialog-control.md" in p for p in paths)
+    # manifest covers plan even when idempotent (existing files still tracked)
+    scaffold(tmp_path)  # re-run over existing files
+    m2 = load_manifest(tmp_path)
+    assert len(m2["files"]) == len(m["files"])
+
+
+def test_uninstall_removes_only_unchanged_files(tmp_path):
+    """Safe uninstall: removes regime files, KEEPS user-modified ones."""
+    from regime_driver.scaffold import check_deployed, uninstall
+    scaffold(tmp_path)
+    # user modifies one agent file
+    modified = tmp_path / "agents" / "dialog-control.md"
+    modified.write_text(modified.read_text() + "\n# user edit\n", encoding="utf-8")
+
+    d = check_deployed(tmp_path)
+    assert d["deployed"] and d["ok"] is False
+    assert len(d["modified"]) == 1
+
+    # dry-run: the modified file is listed as kept, not removed
+    u = uninstall(tmp_path, dry_run=True)
+    assert len(u["kept_modified"]) == 1
+    assert len(u["removed"]) >= 1
+
+    # real uninstall: modified file survives, others gone, manifest removed
+    u2 = uninstall(tmp_path)
+    assert modified.is_file(), "user-modified file must be kept"
+    assert not (tmp_path / ".regime-deployed.json").exists()
+    assert not (tmp_path / "plugins" / "regime-dialog-control.js").exists()
+
+
+def test_uninstall_no_manifest_is_noop(tmp_path):
+    from regime_driver.scaffold import uninstall
+    res = uninstall(tmp_path)
+    assert res["manifest"] is False

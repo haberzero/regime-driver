@@ -25,12 +25,26 @@ Design rules:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
 # Packaged templates root (regime_driver/data). Works in wheel + source tree.
 DATA_DIR = Path(__file__).resolve().parent / "data"
+
+# Deployment manifest: tracks exactly what scaffold wrote, so a user can
+# uninstall regime's files precisely WITHOUT touching their own opencode config.
+MANIFEST_NAME = ".regime-deployed.json"
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -163,7 +177,131 @@ def scaffold(
         # file copy (not symlink) so the target is fully self-contained
         shutil.copy2(item.src, item.dest)
         result.copied.append(item)
+
+    if not dry_run:
+        _write_manifest(target, result.plan, result.copied)
     return result
+
+
+def _write_manifest(target: Path, plan: list[CopyItem],
+                    copied: list[CopyItem] | None = None) -> None:
+    """Record exactly which files scaffold owns (for uninstall/recovery).
+
+    The manifest lives at <target>/.regime-deployed.json and records each
+    deployed file's path + content hash. ``regime uninstall`` uses it to remove
+    ONLY regime's files (preserving anything the user created/changed), and
+    ``regime doctor`` uses it to detect drift (deleted / modified / missing).
+
+    It covers the WHOLE plan (not just files freshly copied this run), so an
+    idempotent re-run over existing files still records them as regime-owned.
+    """
+    try:
+        from importlib.metadata import version
+        _ver = version("regime-driver")
+    except Exception:
+        _ver = "unknown"
+    entries = []
+    for item in plan:
+        if not item.dest.is_file():
+            continue
+        entries.append({
+            "path": str(item.dest),
+            "sha256": _sha256(item.dest),
+        })
+    manifest = {
+        "schema": 1,
+        "regime_version": _ver,
+        "deployed_at": __import__("time").time(),
+        "target": str(target),
+        "files": entries,
+    }
+    (target / MANIFEST_NAME).write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def load_manifest(target: str | Path) -> dict | None:
+    """Read the deployment manifest for a config root, else None."""
+    target = Path(target)
+    p = target / MANIFEST_NAME
+    if not p.is_file():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def uninstall(target: str | Path, *, dry_run: bool = False) -> dict:
+    """Remove ONLY regime-deployed files from ``target`` (safe uninstall).
+
+    Reads the manifest; for each recorded file:
+      - exists + content matches the recorded hash → delete (regime's file)
+      - exists + content differs → KEEP (user modified it) and warn
+      - missing → already gone (no-op)
+    Empty parent directories regime created are pruned. The manifest itself is
+    removed last. Returns a summary {removed, kept_modified, missing, manifest}.
+    """
+    target = Path(target)
+    manifest = load_manifest(target)
+    if manifest is None:
+        return {"removed": [], "kept_modified": [], "missing": [],
+                "manifest": False, "note": "no deployment manifest found"}
+
+    removed: list[str] = []
+    kept_modified: list[str] = []
+    missing: list[str] = []
+    for entry in manifest.get("files", []):
+        p = Path(entry["path"])
+        if not p.is_file():
+            missing.append(str(p))
+            continue
+        if _sha256(p) != entry.get("sha256"):
+            kept_modified.append(str(p))   # user changed it — do not delete
+            continue
+        if not dry_run:
+            try:
+                p.unlink()
+            except OSError:
+                kept_modified.append(str(p))
+                continue
+        removed.append(str(p))
+
+    # prune empty parent dirs we created (walk up, stop at target)
+    if not dry_run:
+        for p in [Path(x) for x in removed]:
+            d = p.parent
+            while d != target and d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+                d = d.parent
+
+    if not dry_run:
+        (target / MANIFEST_NAME).unlink(missing_ok=True)
+    return {"removed": removed, "kept_modified": kept_modified,
+            "missing": missing, "manifest": True,
+            "dry_run": dry_run}
+
+
+def check_deployed(target: str | Path) -> dict:
+    """Verify manifest ↔ disk consistency (drift detection for doctor).
+
+    Returns {deployed, ok, missing, modified, extra_manifest, detail}.
+    """
+    target = Path(target)
+    manifest = load_manifest(target)
+    if manifest is None:
+        return {"deployed": False, "ok": True, "detail": "not deployed"}
+    missing: list[str] = []
+    modified: list[str] = []
+    for entry in manifest.get("files", []):
+        p = Path(entry["path"])
+        if not p.is_file():
+            missing.append(str(p))
+        elif _sha256(p) != entry.get("sha256"):
+            modified.append(str(p))
+    ok = not missing and not modified
+    return {"deployed": True, "ok": ok, "missing": missing,
+            "modified": modified,
+            "detail": f"{len(manifest.get('files', []))} files tracked"}
 
 
 def templates_ready() -> dict:
