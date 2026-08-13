@@ -274,15 +274,21 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-14）
+### 下一 session 主线任务（唯一指针，2026-08-14 凌晨）
 
 > **本 session 已完成夜间整合重跑**（WORK_PLAN8 阶段5 + WORK_PLAN9 验证）：
 > 4/4 复杂任务 complete、宿主 pytest 全 0 failed、能力覆盖 17/17、归档入库
 > `tasks_docs/nightly_run_archive/20260814-012700/`、全量 469 passed 零回归。
 > 报告见 `tasks_docs/quality_report.md` §7。
 >
+> **随后完成 WORK_PLAN13**（2026-08-14，语义门 + 节点能力边界 + 运行时验证 +
+> 上下文交接）并经真实超长任务复查（distributed_scheduler 1127.5s complete，
+> 设计门两次质询 + verify 宿主证据 + wrap 84% 真实交接），暴露并修复 drive 外部
+> supervisor T2 abort 死锁等真实 bug。归档 `nightly_run_archive/20260814-wp13-recheck/`。
+>
 > **下一 session 候选主线**（按序）：V-2 PyPI 发布（待用户 token）→
-> P-005 测试套件优化（覆盖率提升/xdist）→ 限并发耐久二次验证（复杂任务 ~100% 完成率）
+> P-005 测试套件优化（覆盖率提升/xdist）→ 限并发耐久二次验证 → WORK_PLAN14
+> （meta 元分析 / chaos 故障注入接入复查，把异常保障能力从"代码写好未逼过"变实证）
 > → GitHub Pages 启用（待用户 Settings 操作）。详见 `tasks_docs/MAIN_TASKS.md`。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
@@ -457,10 +463,11 @@ payment_ledger complete 265s 零误杀、regime run complete 88s。全量 463 pa
 （settings 字段↔config/ref 一致 + 死字段 deprecated + CLI 文档无 phantom 参数）。
 全量 469 passed 零回归，真实 worker 冒烟 complete 94.6s。
 
-### 本 session 已完成（2026-08-14，夜间整合重跑）
+### 本 session 已完成（2026-08-14，夜间整合重跑 + WORK_PLAN13）
 
 > 用户确认后直接全量开跑。本轮完成了 WORK_PLAN8 阶段5 + WORK_PLAN9 验证的最后一环
-> ——在最新架构（SSE 活性 watchdog + 可编程策略引擎 + 智能侧说明）下全链路重跑。
+> ——在最新架构（SSE 活性 watchdog + 可编程策略引擎 + 智能侧说明）下全链路重跑，
+> 并随后实施了 WORK_PLAN13 深度迭代（用户授权破坏性重构 + 激进推进）。
 
 **结果**：4/4 复杂任务 complete（shop_inventory 349s / kv_cluster 664s / payment_ledger 499s /
 etl_pipeline 515s）；宿主独立 pytest 全 0 failed（63/22/27/28 passed，140 断言累计）；
@@ -473,6 +480,33 @@ journal/events 切片 + result.json + quality-report.json + run.log）；`tasks_
 
 **工程结论**：WORK_PLAN10（SSE 活性）与 WORK_PLAN11（策略引擎）修复在真实复杂任务下有效
 （对比旧 lru_ttl 首轮 7 次截断→human 已系统性消除）；4 任务全部首轮一次完成。
+
+### 本 session 已完成（2026-08-14 续，WORK_PLAN13 深度迭代）
+
+> 用户授权破坏性重构 + 激进推进，针对 08-14 深度分析发现的四项缺陷落地。
+
+**改进**（4 项，全部真实复查验证）：
+1. **语义门**：`ReviewerVerdict.issues[{severity:blocking|warning}]`；gate 拒绝"advance +
+   blocking issue"（kv_failover-advance 类矛盾确定性拦截）；旧输出向后兼容。
+2. **节点能力边界**：`Node.readonly`；官方模板 understand/read_code 只读 → 强制先设计后实现。
+3. **运行时验证**：judge 节点 `verify` 宿主命令（`docker exec pytest`）→ 独立运行时证据进
+   judge prompt；失败程序化注入 blocking issue 确定性拒绝 advance；`verify_enabled` 默认 false。
+4. **上下文预算交接**：`context_handover_policy_json`（soft 询问自检预算+同会话续进 / hard 强制
+   交接）；交接=新会话+真实交接文档（最近消息+节点+任务+汇报）+【上下文交接】开场。
+
+**复查**（真实超长任务 `distributed_scheduler`，1127.5s / 1510 行 / 宿主 pytest 26/0）：
+- 设计门**两次真实质询**（issue_pending→ask_developer，confidence 0.9）——只读 understand
+  让设计门审未实现方案（对比旧 runs 一次通过）；
+- test 门 **verify 宿主 pytest 证据**（rc=0）；wrap 节点**真实上下文交接**（usage 84%，
+  新会话凭交接文档完成 wrap→complete）；
+- **暴露并修复真实 bug**：drive 外部 supervisor T2 abort 会话后 workflow 死锁（外部 abort 哨兵
+  → 诚实 BLOCK + `_own_abort` 保护 pause→resume 窗口）；reviewer 复杂判定散文回复未过纯 JSON
+  门（extract_json 平衡括号鲁棒解析 + SYSTEM_PROMPT 强化 + max_reviewer_retries 2→3）。
+- 基线 **506 passed 零回归**；归档 `tasks_docs/nightly_run_archive/20260814-wp13-recheck/`。
+
+**遗留**：in-process watchdog 在真实 drive 下未先于外部 supervisor 触发（恢复路径 pause/resume/
+fallback 在 drive 模式仍未实证）；`--meta` 元分析 / chaos 故障注入未接入复查套件（WORK_PLAN14
+候选）。
 
 ### 已完成主线（历史，参考）
 
