@@ -52,6 +52,11 @@ class StatechartDriver:
         self.roles = roles or default_roles()
         self.run_id = run_id or self._gen_run_id()
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
+        # WORK_PLAN11: the watchdog is a programmable policy engine; build the
+        # policy from settings (operator JSON) or fall back to the default.
+        from .watchdog_policy import policy_from_json
+
+        policy = policy_from_json(settings.watchdog_policy_json)
         self.watchdog = watchdog or WatchdogUnit(
             unit_id="watchdog",
             stall_sec=float(settings.stall_sec),
@@ -60,6 +65,8 @@ class StatechartDriver:
             global_deadline_sec=global_deadline_sec,
             max_global_nodes=max_global_nodes,
             heartbeat_stale_sec=heartbeat_stale_sec,
+            policy=policy,
+            auto_resume_sec=float(settings.auto_resume_sec),
         )
         if self.watchdog.bus is None:
             # a custom watchdog created without a bus: give it the runtime's

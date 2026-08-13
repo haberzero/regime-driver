@@ -2,20 +2,26 @@
 
 The watchdog layer is a *peer* state machine that coordinates with working
 state machines via signals, instead of a special-cased hardcoded guard. This
-unit is a `StatechartUnit` (no intelligence) that receives CHECKPOINT/REPORT
-signals from working units (carrying node/timestamps/liveness/latest-text), runs
-deterministic dead-loop + stall detection, and on a hit emits a control signal
-(STOP) back over the bus.
+unit is a `StatechartUnit` (no intelligence) that receives REPORT signals from
+working units and runs a **programmable policy** (WORK_PLAN11) to decide the
+response, then emits the corresponding control signal back over the bus.
 
-It is deliberately I/O-free: probe data is fed *in* via signals, so the unit is
-pure logic and fully testable in isolation.
+It is deliberately I/O-free: probe data is fed *in* via signals, and the policy
+rules are pure predicates. Acting (abort/pause/resume) is the *governed unit's*
+job — the watchdog only decides and signals.
 
-Liveness signal (WORK_PLAN10): stall detection uses the SSE-activity timestamp
-reported by the working unit (`payload["activity_ts"]`) — NOT token counts.
-opencode's `session_tokens` are step-granular (persisted only at step-finish by
-an async projector), so they stay 0 during a long single-step generation; the
-SSE `/event` stream (`message.part.delta` ...) is the only immediate liveness
-signal. A busy session is stalled only if it had no SSE progress for `stall_sec`.
+Policy model (see `watchdog_policy.py`):
+  * REPORT -> SessionEvidence (SSE-activity, message timestamps, node, status,
+    wall clock, ...),
+  * `WatchdogPolicy.decide(evidence)` runs the operator-injectable rules and
+    returns an action (nudge / interrupt / resume / fallback / kill),
+  * the action maps to a control signal (NUDGE / PAUSE / RESUME / STOP).
+  * a `meta=True` rule hit escalates to the intelligent reviewer (via the
+    ESCALATE signal) before acting — the operator can gate soft triggers on an
+    independent judgment.
+
+Dead-loop detection (repetition) and the global guards (run timeout, node
+budget, heartbeat loss) remain as deterministic, non-policy checks.
 """
 
 from __future__ import annotations
@@ -26,21 +32,39 @@ from ..core.repetition import RepetitionDetector
 from ..core.statechart import Signal, SignalKind
 from .blackboard import WORKFLOW_METRICS
 from .statechart_runtime import ThreadedUnit
+from .watchdog_policy import (
+    L1_NUDGE,
+    L2_INTERRUPT,
+    L3_RESUME,
+    L4_FALLBACK,
+    L5_KILL,
+    LADDER_ORDER,
+    Rule,
+    SessionEvidence,
+    WatchdogPolicy,
+)
 
+# action -> control signal emitted to the governed workflow
+_ACTION_SIGNAL = {
+    L1_NUDGE: SignalKind.NUDGE,
+    L2_INTERRUPT: SignalKind.PAUSE,
+    L3_RESUME: SignalKind.RESUME,
+    L4_FALLBACK: SignalKind.ESCALATE,   # handled by the supervisor ladder
+    L5_KILL: SignalKind.STOP,
+}
 
 class WatchdogUnit(ThreadedUnit):
     """A peer, intelligence-free state machine that watches working units.
 
     It subscribes to REPORT signals (payload: session_id, node, activity_ts,
-    status, latest_text) and to blackboard changes, and broadcasts a STOP control
-    signal when a dead loop, a stall, or a *global* condition (run timeout, node
-    budget, cross-session heartbeat loss) is detected. It runs on the runtime as
-    a watchdog unit (role="watchdog").
+    status, latest_text, ...), builds a SessionEvidence, runs the configured
+    `WatchdogPolicy`, and emits the chosen control signal. Global checks read
+    the shared blackboard (total run time, node budget, stale heartbeat) and
+    broadcast STOP when a whole-run condition is exceeded.
 
-    Global checks read the shared blackboard (written by WorkflowUnit): total
-    run time vs `global_deadline_sec`, total nodes vs `max_global_nodes`, and a
-    stale-heartbeat cross-session stall. This gives the watchdog a
-    multi-session / whole-run view, not just per-session.
+    The policy is injectable (`policy=...`); the default reproduces the
+    classic behaviour (busy + no SSE activity -> kill after `stall_sec`),
+    but now via a declared rule so operators can extend it.
     """
 
     def __init__(
@@ -53,6 +77,8 @@ class WatchdogUnit(ThreadedUnit):
         global_deadline_sec: float | None = None,
         max_global_nodes: int | None = None,
         heartbeat_stale_sec: float | None = None,
+        policy: WatchdogPolicy | None = None,
+        auto_resume_sec: float = 30.0,
     ) -> None:
         super().__init__(unit_id, bus, role="watchdog")
         self.stall_sec = stall_sec
@@ -61,11 +87,16 @@ class WatchdogUnit(ThreadedUnit):
         self.global_deadline_sec = global_deadline_sec
         self.max_global_nodes = max_global_nodes
         self.heartbeat_stale_sec = heartbeat_stale_sec
-        # per-session stall bookkeeping: last SSE activity, first-busy time,
-        # and the fired guard.
+        self.policy = policy or default_policy(stall_sec)
+        # WORK_PLAN11 auto-recover: a paused session that stays silent for
+        # `auto_resume_sec` is automatically resumed; if it still has no liveness
+        # afterwards, the normal policy rules take over (eventual kill).
+        self.auto_resume_sec = auto_resume_sec
+        # per-session bookkeeping: last activity, first-busy time, pause-since,
+        # fired guards
         self._last_activity: dict[str, float] = {}
         self._first_busy: dict[str, float] = {}
-        self._stall_fired: set[str] = set()
+        self._pause_since: dict[str, float] = {}
         self._dead_loop_fired: set[str] = set()
         self._global_fired: set[str] = set()
         self.register(SignalKind.REPORT, self._on_report)
@@ -78,31 +109,123 @@ class WatchdogUnit(ThreadedUnit):
 
     def _on_report(self, signal: Signal) -> None:
         p = signal.payload or {}
-        event = self._detect(
-            session_id=p.get("session_id", ""),
-            status=p.get("status"),
-            activity_ts=float(p.get("activity_ts") or 0.0),
-            latest_text=p.get("latest_text", ""),
-        )
-        if event is not None:
-            # local detection -> STOP the reporting workflow (point-to-point)
-            self._emit_control(event, p, dst=signal.src or self.control_dst)
+        # dead-loop is a deterministic, non-policy check
+        if p.get("latest_text"):
+            res = self.repetition.check(p["latest_text"])
+            if res.repeated and p.get("session_id") not in self._dead_loop_fired:
+                self._dead_loop_fired.add(p.get("session_id", ""))
+                self._emit_control(SignalKind.STOP, "dead_loop",
+                                   f"repetition detected: {res.reason}", p,
+                                   dst=signal.src or self.control_dst)
+                self._scan_global()
+                return
+            if not res.repeated:
+                self._dead_loop_fired.discard(p.get("session_id", ""))
+
+        # policy decision over the evidence
+        ev = self._evidence_from(p)
+        sid = ev.session_id
+
+        # WORK_PLAN11 auto-recover: a paused session must not hang forever. After
+        # `auto_resume_sec` of silence we RESUME once (the governed unit injects
+        # "continue"); if it STILL has no liveness afterwards, the normal policy
+        # rules run and may eventually kill it.
+        if ev.paused:
+            self._pause_since.setdefault(sid, time.time())
+            if time.time() - self._pause_since[sid] >= self.auto_resume_sec:
+                self._pause_since.pop(sid, None)
+                self._emit_control(SignalKind.RESUME, "auto_resume",
+                                   f"paused {self.auto_resume_sec:.0f}s, auto-resuming",
+                                   p, dst=signal.src or self.control_dst)
+            self._scan_global()
+            return
+        self._pause_since.pop(sid, None)
+
+        recovered = self._is_recovered(ev)
+        action = self.policy.decide(ev, recovered=recovered)
+        if action is not None:
+            self._emit_action(action, ev, dst=signal.src or self.control_dst)
         self._scan_global()
+
+    def _evidence_from(self, p: dict) -> SessionEvidence:
+        sid = p.get("session_id", "")
+        now = time.time()
+        activity_ts = float(p.get("activity_ts") or 0.0)
+        fresh = activity_ts > self._last_activity.get(sid, 0.0)
+        if fresh:
+            self._last_activity[sid] = activity_ts
+            self._first_busy.pop(sid, None)
+        if p.get("status") == "busy" and not fresh:
+            # anchor the first-busy baseline only if we have no newer liveness
+            self._first_busy.setdefault(sid, now)
+        elif p.get("status") != "busy":
+            self._first_busy.pop(sid, None)
+        return SessionEvidence(
+            session_id=sid,
+            status=p.get("status"),
+            activity_ts=self._last_activity.get(sid, 0.0),
+            latest_message_ts=float(p.get("latest_message_ts") or 0.0),
+            latest_message_age=float(p.get("latest_message_age") or 0.0),
+            node=p.get("node"),
+            phase=p.get("phase"),
+            now=now,
+            first_busy_ts=self._first_busy.get(sid, 0.0),
+            paused=bool(p.get("paused")),
+            meta={"fresh": fresh,
+                  **({} if not isinstance(p.get("meta"), dict) else p["meta"])},
+        )
+
+    def _is_recovered(self, ev: SessionEvidence) -> bool:
+        """A busy session with FRESH SSE activity (advanced since last report)
+        is alive -> reset escalation. A PAUSED session (awaiting RESUME) is NOT
+        a stall either — it was deliberately interrupted, so it must not be
+        interrupted again while waiting; its escalation is held until resumed.
+        """
+        if ev.paused:
+            return True  # held for recovery; do not re-interrupt
+        if not ev.busy():
+            self._last_activity.pop(ev.session_id, None)
+            self._first_busy.pop(ev.session_id, None)
+            return True
+        # SSE progress advanced since our last report -> genuinely active
+        if ev.meta.get("fresh"):
+            return True
+        return False
+
+    def _emit_action(self, action: str, ev: SessionEvidence,
+                     dst: str | None = None) -> None:
+        # "meta:<action>" = the rule is meta-gated: emit ESCALATE so the
+        # intelligent reviewer (supervisor meta_analyze) confirms before acting.
+        meta_gated = action.startswith("meta:")
+        real = action[len("meta:"):] if meta_gated else action
+        kind = SignalKind.ESCALATE if meta_gated else _ACTION_SIGNAL.get(real, SignalKind.STOP)
+        target = dst or self.control_dst
+        detail = (f"watchdog policy '{self.policy.name}' -> {real}"
+                  + (" (meta-confirm)" if meta_gated else ""))
+        payload = {"reason": detail, "kind": real,
+                   "watchdog": True, "session_id": ev.session_id,
+                   "meta_gated": meta_gated}
+        if target == "*":
+            self.broadcast(kind, payload)
+        else:
+            self.send(target, kind, dict(payload))
+        self.emit("watchdog_fire", kind=real, session=ev.session_id, detail=detail)
+
+    def _emit_control(self, kind: SignalKind, event: str, detail: str,
+                      payload: dict, dst: str | None = None) -> None:
+        target = dst or self.control_dst
+        if target == "*":
+            self.broadcast(kind, {"reason": detail, "kind": event,
+                                  "watchdog": True})
+        else:
+            self.send(target, kind, {"reason": detail, "kind": event,
+                                     "watchdog": True})
+        self.emit("watchdog_fire", kind=event,
+                  session=payload.get("session_id"), detail=detail)
 
     def _on_blackboard_change(self, payload: dict) -> None:
         """A blackboard metric changed -> re-run the global scan."""
         self._scan_global()
-
-    def _emit_control(self, event: tuple[str, str], payload: dict,
-                      dst: str | None = None) -> None:
-        kind, detail = event
-        target = dst or self.control_dst
-        if target == "*":
-            self.broadcast(SignalKind.STOP, {"reason": detail, "kind": kind, "watchdog": True})
-        else:
-            self.send(target, SignalKind.STOP,
-                      {"reason": detail, "kind": kind, "watchdog": True})
-        self.emit("watchdog_fire", kind=kind, session=payload.get("session_id"), detail=detail)
 
     # -- global scan (reads the shared blackboard) ---------------------------
 
@@ -110,8 +233,6 @@ class WatchdogUnit(ThreadedUnit):
         """Check whole-run conditions across all workflows; stop the offender."""
         bb = self.bus.blackboard if self.bus is not None else None
         now = time.time()
-        # prune stale per-session bookkeeping for sessions with no reports for a
-        # long time (they will be re-seeded fresh if they ever come back).
         self._prune_stale(now)
         if bb is None:
             return
@@ -151,75 +272,31 @@ class WatchdogUnit(ThreadedUnit):
         if guard in self._global_fired:
             return
         self._global_fired.add(guard)
-        self._emit_control(event, {}, dst=wid)
+        self._emit_control(SignalKind.STOP, event[0], event[1], {}, dst=wid)
 
     def _prune_stale(self, now: float, max_age: float = 3600.0) -> None:
-        """Drop per-session stall bookkeeping for sessions idle/absent for max_age.
-
-        Bounds the dictionaries on long runs with many sessions (a session that
-        stops reporting never comes back under a different id). Re-seeded fresh
-        if the id ever returns.
-        """
+        """Drop per-session bookkeeping for sessions idle/absent for max_age."""
         if len(self._last_activity) < 64:
             return
         stale = [sid for sid, t in self._last_activity.items() if now - t > max_age]
         for sid in stale:
             self._last_activity.pop(sid, None)
             self._first_busy.pop(sid, None)
-            self._stall_fired.discard(sid)
+            self._pause_since.pop(sid, None)
+            self.policy._ladders.pop(sid, None)  # WORK_PLAN11 bound per-session ladders
 
-    def _detect(
-        self,
-        session_id: str,
-        status: str | None,
-        activity_ts: float = 0.0,
-        latest_text: str = "",
-    ) -> tuple[str, str] | None:
-        """Return (kind, detail) if a dead loop or stall is detected, else None.
 
-        Stall = a busy session with no SSE progress for `stall_sec`. The
-        `activity_ts` (last SSE progress, from the working unit's REPORT) is the
-        liveness clock; token counts are deliberately NOT used (step-granular,
-        stale during long generations).
-        """
-        if not session_id:
-            return None
-        # 1. dead loop: latest text shows loop-style repetition (fire once)
-        if latest_text:
-            res = self.repetition.check(latest_text)
-            if res.repeated:
-                if session_id not in self._dead_loop_fired:
-                    self._dead_loop_fired.add(session_id)
-                    return ("dead_loop", f"repetition detected: {res.reason}")
-            else:
-                self._dead_loop_fired.discard(session_id)
+def default_policy(stall_sec: float) -> WatchdogPolicy:
+    """The classic behaviour, expressed as a policy: busy without SSE activity
+    for `stall_sec` escalates to a kill (the destructive backstop)."""
+    from .watchdog_policy import no_activity_for
 
-        # 2. stall: busy but no SSE activity for stall_sec.
-        prev = self._last_activity.get(session_id, 0.0)
-        if status != "busy":
-            # not busy (incl. a status-read error -> None) -> no stall possible;
-            # reset all per-session bookkeeping so a later busy window starts
-            # fresh. A genuinely stuck session whose status keeps erroring is
-            # still bounded by the workflow's per-node timeout backstop.
-            self._last_activity.pop(session_id, None)
-            self._first_busy.pop(session_id, None)
-            self._stall_fired.discard(session_id)
-            return None
-        if activity_ts > prev:
-            self._last_activity[session_id] = activity_ts
-            self._first_busy.pop(session_id, None)  # progress resets the clock
-            self._stall_fired.discard(session_id)
-            return None
-        # busy and frozen. Anchor the silent window at the most recent known
-        # progress; if we have NEVER seen progress (base 0), anchor at the first
-        # busy observation so a busy-but-silent session still stalls.
-        if prev > 0:
-            base = max(activity_ts, prev)
-        else:
-            base = self._first_busy.setdefault(session_id, time.time())
-        if (time.time() - base) >= self.stall_sec:
-            if session_id not in self._stall_fired:
-                self._stall_fired.add(session_id)
-                return ("stall",
-                        f"busy but no SSE activity for {self.stall_sec}s")
-        return None
+    return WatchdogPolicy(
+        name="default",
+        rules=[
+            Rule(name="hard-stall",
+                 predicate=no_activity_for(stall_sec),
+                 action=L5_KILL,
+                 reason="busy but no SSE activity beyond stall_sec"),
+        ],
+    )

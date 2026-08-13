@@ -75,6 +75,19 @@ class Settings(BaseModel):
     on_stall: Literal["abort", "report_user", "none"] = Field(
         default="abort", description="action when a session stalls (no progress)"
     )
+    # WORK_PLAN11 programmable watchdog policy (optional). A JSON describing
+    # detection rules + action ladder, e.g.:
+    #   {"soft_sec": 30, "hard_sec": 600, "soft_action": "interrupt",
+    #    "meta_gate_soft": true, "auto_resume_sec": 60}
+    # Empty/None = the default policy (busy + no SSE activity > stall_sec -> kill).
+    watchdog_policy_json: str | None = Field(
+        default=None,
+        description="JSON watchdog policy (rules/ladder/auto-resume); None = default",
+    )
+    auto_resume_sec: float = Field(
+        default=30.0, ge=1.0,
+        description="WORK_PLAN11: paused session auto-resumes after this many seconds",
+    )
     # meta-analysis (independent intelligent review of stalls, D1)
     meta_analyze_enabled: bool = Field(
         default=False, description="confirm stalls with an independent model before acting"

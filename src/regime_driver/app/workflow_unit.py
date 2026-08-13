@@ -126,11 +126,17 @@ class WorkflowUnit(ThreadedUnit):
         self._last_judged_key: tuple | None = None  # identity of the judge reply already processed
         self._start_time: float | None = None
         self._phase_started: float | None = None  # when the current wait phase began
+        # WORK_PLAN11 interrupt/recover: `_paused` freezes node advancement while
+        # the session is aborted-but-kept for a natural "continue" recovery.
+        self._paused: bool = False
+        self._pause_reason: str | None = None
 
         # control handlers
         self.register(SignalKind.STOP, self._on_stop)
-        self.register(SignalKind.PAUSE, lambda s: None)
-        self.register(SignalKind.RESUME, lambda s: None)
+        self.register(SignalKind.PAUSE, self._on_pause)
+        self.register(SignalKind.RESUME, self._on_resume)
+        self.register(SignalKind.NUDGE, self._on_nudge)
+        self.register(SignalKind.ESCALATE, self._on_escalate)
         self.register(SignalKind.NOTIFY, self._on_submit)  # start a run
 
     # -- lifecycle (ThreadedUnit override) -----------------------------------
@@ -145,7 +151,7 @@ class WorkflowUnit(ThreadedUnit):
         last_poll = 0.0
         while not self._stop.is_set():
             self._drain_signals()
-            if self._state == _ST_RUNNING:
+            if self._state == _ST_RUNNING and not self._paused:
                 now = time.monotonic()
                 if now - last_poll >= self.poll_sec:
                     last_poll = now
@@ -156,6 +162,11 @@ class WorkflowUnit(ThreadedUnit):
                         self._state = _ST_ERROR
                         self._result = (Outcome.ERROR, self._node, f"workflow step error: {exc}")
                         break
+            elif self._paused:
+                # WORK_PLAN11: a paused workflow keeps reporting to the watchdog
+                # (the loop stays alive) so the watchdog can still auto-resume or
+                # escalate a stuck pause — it must NOT go silent and hang.
+                self._report_to_watchdog()
             if self._state in (_ST_DONE, _ST_ABORTED, _ST_ERROR):
                 if self._result is not None:
                     self._log("outcome", node=self._result[1],
@@ -182,6 +193,77 @@ class WorkflowUnit(ThreadedUnit):
     def _on_stop(self, signal: Signal) -> None:
         self._monitor_stop = signal.get("reason") or "watchdog stop"
         self._cancel_running()
+
+    def _on_pause(self, signal: Signal) -> None:
+        """WORK_PLAN11 interrupt: abort the current generation but KEEP the
+        session, and freeze node advancement so a later RESUME can naturally
+        continue the conversation instead of restarting from scratch.
+
+        A paused workflow keeps reporting to the watchdog (the loop is alive)
+        so it is not immediately interrupted again while waiting for RESUME.
+        """
+        self._pause_reason = signal.get("reason") or "watchdog interrupt"
+        self._paused = True
+        self._abort_waiting_session(reason=self._pause_reason)
+        self._log("workflow_paused", node=self._node, reason=self._pause_reason)
+
+    def _on_resume(self, signal: Signal) -> None:
+        """WORK_PLAN11 resume: unfreeze node advancement and resume the paused
+        work within the same conversation.
+
+        * agent phase: inject a "continue" prompt so the developer resumes its
+          interrupted work.
+        * judge phase: re-send the original judge prompt so the reviewer re-
+          decides (a reviewer is a read-only judge; nudging it with "continue"
+          would produce a non-verdict reply).
+        """
+        if not self._paused:
+            return
+        self._paused = False
+        self._pause_reason = None
+        # pause time must NOT count against the per-node deadline: restart the
+        # node budget clock so a long pause does not instantly TIMEOUT on resume.
+        self._phase_started = time.time()
+        try:
+            if self._phase == _PH_JUDGE:
+                reviewer = self._get_reviewer(self._wait_role)
+                self._send_judge_prompt(reviewer, self._node)
+            elif self._wait_sid is not None:
+                self._dispatch(self._wait_sid, self._resume_prompt(),
+                               self.sessions.agent_for(self._wait_role or "developer"))
+            self._log("workflow_resumed", node=self._node, session=self._wait_sid)
+        except Exception as exc:
+            self._log("workflow_resume_error", node=self._node, err=str(exc))
+            self._state = _ST_ERROR
+            self._result = (Outcome.ERROR, self._node, f"resume failed: {exc}")
+
+    def _on_nudge(self, signal: Signal) -> None:
+        """WORK_PLAN11 nudge: a light poke (does NOT abort). A short prompt is
+        sent so the session has a fresh instruction without losing its state."""
+        if self._wait_sid is None:
+            return
+        try:
+            self._dispatch(self._wait_sid, "（监督提示：请继续完成当前节点工作，并给出结构化汇报。）",
+                           self.sessions.agent_for(self._wait_role or "developer"))
+            self._log("workflow_nudged", node=self._node, session=self._wait_sid)
+        except Exception as exc:
+            self._log("workflow_nudge_error", node=self._node, err=str(exc))
+
+    @staticmethod
+    def _resume_prompt() -> str:
+        return ("（监督恢复：你之前的工作被暂时中断。请从中断处继续完成当前节点，"
+                "并给出简短结构化汇报：改动文件 / 测试命令与结果 / 技术债 / 待决点。）")
+
+    def _on_escalate(self, signal: Signal) -> None:
+        """WORK_PLAN11 meta-gated action: the watchdog requests an independent
+        confirmation before acting. We do NOT act directly (a meta-gated rule
+        must be approved by the intelligent reviewer); we record the request so
+        it is visible in the journal, and let the external supervisor's
+        meta_analyze / ladder decide the final action."""
+        self._log("escalate_request", node=self._node,
+                  action=signal.get("kind"),
+                  reason=signal.get("reason"),
+                  meta_gated=bool(signal.get("meta_gated")))
 
     def _cancel_running(self) -> None:
         if self._state == _ST_RUNNING:
@@ -636,6 +718,9 @@ class WorkflowUnit(ThreadedUnit):
             return
         payload: dict = {"session_id": self._wait_sid, "status": None,
                          "activity_ts": 0.0, "latest_text": "",
+                         "latest_message_ts": 0.0, "latest_message_age": 0.0,
+                         "node": self._node, "phase": self._phase,
+                         "paused": self._paused,
                          "report_error": None}
         try:
             payload["status"] = self.client.session_status(self._wait_sid)
@@ -644,8 +729,12 @@ class WorkflowUnit(ThreadedUnit):
             self._log("report_error", session=self._wait_sid, err=str(exc))
         payload["activity_ts"] = self._sse.last_activity(self._wait_sid)
         try:
-            payload["latest_text"] = self._latest_text(
-                self.client.read_messages(self._wait_sid))
+            messages = self.client.read_messages(self._wait_sid)
+            payload["latest_text"] = self._latest_text(messages)
+            latest_ts = self._latest_message_ts(messages)
+            payload["latest_message_ts"] = latest_ts
+            if latest_ts:
+                payload["latest_message_age"] = max(0.0, time.time() - latest_ts)
         except Exception as exc:
             payload["report_error"] = (
                 (payload["report_error"] + "; " if payload["report_error"] else "")
@@ -705,6 +794,29 @@ class WorkflowUnit(ThreadedUnit):
                 text = m.text
                 break
         return text
+
+    def _latest_message_ts(self, messages) -> float:
+        """Wall-clock SECONDS of the newest assistant message (0 if none).
+
+        opencode emits message timestamps in millis; the mock emits seconds.
+        We normalize to seconds so downstream age math is consistent. Feeds the
+        watchdog policy's message-age evidence (separate from SSE activity_ts).
+        """
+        latest = 0.0
+        for m in messages:
+            if getattr(m, "role", None) != "assistant":
+                continue
+            ts = getattr(m, "completed", None) or getattr(m, "ts", None)
+            if not ts:
+                continue
+            try:
+                f = float(ts)
+            except (TypeError, ValueError):
+                continue
+            if f > 1e12:  # millis -> seconds
+                f /= 1000.0
+            latest = max(latest, f)
+        return latest
 
     def _latest_assistant(self, messages):
         """Return the newest assistant message carrying a non-empty reply, else None."""
