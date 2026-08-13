@@ -497,6 +497,7 @@ def drive(
             "base_url": base,
             "regime_path": str(regime) if regime else None,
             "default_deadline_sec": deadline,
+            "worker_container": container,
             "ledger_path": str(ledger) if ledger else None,
             "skills_dir": str(skills_dir) if skills_dir else None,
         },

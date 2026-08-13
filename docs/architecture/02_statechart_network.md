@@ -275,3 +275,49 @@ sequenceDiagram
 ### 健壮性（slow-judge 应对）
 - `Settings.request_timeout`（默认 600s）替代固定 240s，慢 judge POST 不超时。
 - `WorkflowUnit._dispatch` 失败重试（3 次 + 退避），丢给池线程不阻塞混合循环。
+
+---
+
+## 12. WORK_PLAN13（2026-08-14）：语义门 + 节点能力边界 + 运行时验证 + 上下文交接
+
+本节的四项变更把"确定性流程"从**格式把关**升级为**语义把关 + 结构分工 + 运行时证据**，
+并把"会话会疲劳"纳入流程管理。
+
+### 12.1 语义门：ReviewerVerdict.issues
+
+`ReviewerVerdict` 新增 `issues: [{severity: blocking|warning, summary, detail?}]`。
+确定性门新增规则：**`advance` 不允许携带未解决的 blocking 级 issue**——审查者不能既列出
+"阻塞性问题"又挥手放行（kv_failover-advance 类矛盾被直接拒绝）。`ask_developer` 要求
+`message_to_developer` 仍成立。该字段可选（缺省 `[]`），旧审查输出向后兼容。
+
+### 12.2 节点能力边界：`readonly`
+
+`Node.readonly`：只读节点禁止写/改/删文件（提示词注入"节点能力：本节点为【只读】…"）。
+官方模板 `understand`/`read_code` 为 readonly——强制"先理解/设计、后实现"的分工，让 design
+门审的是**未实现的方案**而非木已成舟的代码；文件变更只发生在 `implement`/`wrap`。
+
+### 12.3 运行时验证：judge 节点 `verify`
+
+`Node.verify`：宿主 shell 命令。进入 judge 节点时驱动在宿主执行（`{container}` →
+`settings.worker_container`），把 `rc + 输出尾部` 作为独立运行时证据注入 judge 提示词
+（`verify_result` 事件留档）。补上"reviewer 只读、无法真跑测试"的缺口——test 门拿到真实
+pytest 结果而非只静态数用例。**失败是确定性阻断**：`_step_judge` 把一条 blocking 级 issue
+程序化注入解析后的 verdict 再进门——审查者即便试图掩盖，`advance` 也必然被门拒绝（其仍可走
+`ask_developer`/`request_context`/`report_user` 通道；rework 后 re-judge 会重跑 verify）。
+`verify_enabled` 默认 **false**（opt-in，宿主 shell 执行面），`preflight`/离线自动关闭；
+deep_validate 校验 `verify` 只允许出现在 judge 节点。
+
+### 12.4 上下文预算交接：`context_handover_policy_json`
+
+会话是"会疲劳的人"：上下文窗口将满时质量退化。策略在**节点边界**（节点完成、派发下一节点
+前）检查所有角色会话的 token 使用率（此时 token 已 step-结算）：
+
+- < `soft_fraction`：继续，不打扰；
+- `soft`..`hard`：询问该会话（独立临时会话自检）——**自我质询预算**（剩余可推进节点数）+
+  是否允许同会话续进（CONTINUE/ROTATE/HANDOFF_NOW）；预算 ≥ `min_continue_nodes` 才续进；
+- ≥ `hard_fraction`：**强制交接**（不再问）。
+
+交接 = 新会话 + **真实交接文档**（最近 `handover_keep_messages` 条消息 + 当前节点 + 任务 +
+最近汇报）+ "【上下文交接】"开头提示词（保持工作区产物与对外契约不变）。每次交接写
+`context_handover` 事件（role/usage/kind/forced/reason），可审计。缺省（未配置 JSON）走
+各角色 RolePolicy 阈值（`context_threshold_normal/urgent`）的传统路径。

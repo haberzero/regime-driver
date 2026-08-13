@@ -39,6 +39,9 @@ class SessionRegistry:
     def get(self, role: str) -> SessionState | None:
         return self._sessions.get(role)
 
+    def states(self) -> list[SessionState]:
+        return list(self._sessions.values())
+
     def rotate(self, role: str, inject: str | None = None) -> SessionState:
         """Rotate a role's session: create a fresh one, optionally inject."""
         state = SessionState(role, self.client.create_session(f"regime-{role}"))

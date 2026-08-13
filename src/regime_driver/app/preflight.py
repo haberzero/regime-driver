@@ -53,7 +53,8 @@ def preflight(
     elif fault is not None:
         return {"ok": False, "outcome": "error", "detail": f"unknown fault '{fault}'"}
 
-    settings = Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=stall_sec)
+    settings = Settings(monitor_enabled=False, poll_sec=0.1, stall_sec=stall_sec,
+                        verify_enabled=False)
     driver = StatechartDriver(settings, sm, client, enforce_invariants=True)
     try:
         outcome, end, detail = driver.run("preflight trial", timeout_sec=timeout_sec)

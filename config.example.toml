@@ -83,6 +83,16 @@ meta_max_context_msgs = 20                   # 喂给元分析的会话最近消
 
 # --- session 生命周期 ---
 context_limit_tokens = 120_000               # session token 上限（算用量分数）
+# context_handover_policy_json：上下文预算交接策略（WORK_PLAN13，默认 None=关闭，走各角色 RolePolicy 阈值）
+#   当会话上下文使用率到达 soft_fraction 时询问该会话"自检预算 + 是否同会话续进"；
+#   到达 hard_fraction 时强制交接（换新会话+真实交接文档）。
+#   例：'{"enabled": true, "soft_fraction": 0.5, "hard_fraction": 0.7,
+#        "min_continue_nodes": 2, "handover_keep_messages": 30}'
+context_handover_policy_json = None
+
+# --- 运行验证（judge 节点的 verify 命令，WORK_PLAN13）---
+worker_container = "opencode-worker"         # worker docker 容器名（verify/chaos/L4 用；{container} 占位符）
+verify_enabled = false                       # 是否执行 judge 节点的 verify 宿主命令（opt-in；preflight/离线自动关闭）
 
 # --- 日志 ---
 log_level = "info"                           # debug | info | warning | error

@@ -34,7 +34,8 @@ SYSTEM_PROMPT = (
     "{\"node\":\"<node id>\",\"verdict\":\"issue_resolved|issue_pending|blocked|advance|human_escalate\","
     "\"action\":\"ask_developer|request_context|advance|abort_session|report_user\","
     "\"message_to_developer\":\"string|null\",\"next_state\":\"string|null\","
-    "\"context_requested\":\"string|null\",\"confidence\":0.0,\"reason\":\"1-2 sentences\"}\n"
+    "\"context_requested\":\"string|null\",\"confidence\":0.0,\"reason\":\"1-2 sentences\","
+    "\"issues\":[{\"severity\":\"blocking|warning\",\"summary\":\"short\",\"detail\":\"optional|null\"}]}\n"
     "Rules:\n"
     "- Output the JSON object and stop. Do not add anything around it.\n"
     "- The prompt lists the VALID_NODES (id -> description). next_state must be "
@@ -45,6 +46,11 @@ SYSTEM_PROMPT = (
     "- report_user is for blocked/human_escalate (needs human).\n"
     "- confidence 0..1; destructive actions (abort/report) need high confidence.\n"
     "- node must echo the node id given in the prompt.\n"
+    "- issues: put EVERY real finding here, structured. severity=blocking means the "
+    "work MUST NOT advance (correctness/security/contract violation); severity=warning "
+    "means a documented non-blocking concern. If any blocking issue exists, action "
+    "must NOT be advance — use ask_developer with a concrete message_to_developer so "
+    "the developer fixes it and the gate then re-judges.\n"
     "Reply with ONLY the JSON object."
 )
 
@@ -141,13 +147,20 @@ class Reviewer:
         text: str,
         node_id: str,
         valid_targets: set[str] | None = None,
+        extra_issues: list | None = None,
     ) -> ReviewerResult:
-        """Parse + gate a reviewer's raw reply (workflow polls then calls this)."""
+        """Parse + gate a reviewer's raw reply (workflow polls then calls this).
+
+        `extra_issues`: programmatically-injected findings (e.g. a failed runtime
+        verify) appended to the verdict BEFORE the gate runs — so a failure the
+        reviewer might paper over still deterministically blocks advance (B3).
+        """
         if valid_targets is None:
             valid_targets = set(self.state_machine.successors(node_id))
-        return self._parse(text, node_id, valid_targets)
+        return self._parse(text, node_id, valid_targets, extra_issues)
 
-    def _parse(self, text: str, node_id: str, valid_targets: set[str] | None = None) -> ReviewerResult:
+    def _parse(self, text: str, node_id: str, valid_targets: set[str] | None = None,
+               extra_issues: list | None = None) -> ReviewerResult:
         raw = extract_json(text)
         if raw is None:
             return ReviewerResult(error="no JSON object in reviewer reply")
@@ -158,5 +171,10 @@ class Reviewer:
         # node must be echoed back as provided
         if verdict.node != node_id:
             return ReviewerResult(error=f"node mismatch: got '{verdict.node}', expected '{node_id}'")
+        if extra_issues:
+            from ..core.models import ReviewerIssue
+            coerced = [i if isinstance(i, ReviewerIssue) else ReviewerIssue.model_validate(i)
+                       for i in extra_issues]
+            verdict.issues = list(verdict.issues or []) + coerced
         gate = gate_reviewer_verdict(verdict, valid_targets)
         return ReviewerResult(verdict=verdict, gate=gate)

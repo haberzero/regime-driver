@@ -63,6 +63,29 @@ def test_unknown_tool_detected() -> None:
     assert any("tool" in e for e in res.errors)
 
 
+def test_verify_on_non_judge_detected() -> None:
+    """WORK_PLAN13: `verify` on a non-judge node is dead config — fail loudly."""
+    raw = _flow("f", "a", {"a": _node("a", verify="echo x")})
+    res = deep_validate(make_sm(raw))
+    assert not res.ok
+    assert any("verify" in e for e in res.errors)
+
+
+def test_verify_on_judge_allowed() -> None:
+    raw = _flow("f", "a", {"a": _node("a", type="judge", role="reviewer",
+                                      verify="echo x", next=None)})
+    res = deep_validate(make_sm(raw))
+    assert res.ok, res.errors
+
+
+def test_readonly_on_judge_detected() -> None:
+    raw = _flow("f", "a", {"a": _node("a", type="judge", role="reviewer",
+                                      readonly=True, next=None)})
+    res = deep_validate(make_sm(raw))
+    assert not res.ok
+    assert any("readonly" in e for e in res.errors)
+
+
 def test_unreachable_island_warns() -> None:
     raw = _flow("f", "a", {
         "a": _node("a"),

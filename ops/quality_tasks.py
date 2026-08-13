@@ -393,6 +393,63 @@ TASKS: list[QualityTask] = [
             "并在汇报给出测试摘要（N passed）与三项设计决策结论。"
         ),
     ),
+
+    # ---------------------------------------------------------------- task 5 --
+    # WORK_PLAN13 复查任务：分布式任务调度器（超长复杂）。readonly understand +
+    # 语义门 + test 门 verify 运行时证据 + 上下文交接策略下运行的完整质量复查。
+    QualityTask(
+        id="distributed_scheduler",
+        expected_files=(
+            "scheduler.py", "job_store.py", "priority_queue.py", "executor.py",
+            "idempotency.py", "recovery.py", "errors.py", "metrics.py", "api.py",
+            "test_scheduler.py", "test_recovery.py", "test_concurrency.py",
+        ),
+        covers=(
+            "multi-module", "cross-module-contract", "concurrency-testing",
+            "thread-safety", "design-node", "api-design", "error-isolation",
+            "integration", "edge-cases", "tradeoff-documentation",
+            "read-existing-code", "wrap-hygiene",
+        ),
+        flow="code_workflow_v13",
+        minutes_est=45,
+        spec=(
+            "任务：实现一个生产可用的分布式任务调度器子系统（多文件协作，均在 code 目录）。"
+            "它接受作业提交、按优先级调度、派发给 worker 执行、在崩溃后恢复未完成作业。\n\n"
+            "一、必须产出的模块：\n"
+            "  errors.py —— 统一异常：JobNotFoundError、DuplicateJobError、JobTimeoutError、"
+            "    ExecutorFullError、RecoveryError、InvalidJobError（非法参数）。\n"
+            "  job_store.py —— 作业持久化：WAL 追加日志（每提交/执行/完成一个事件），"
+            "    append 是原子追加；内存索引；支持从日志恢复全部作业状态。\n"
+            "  priority_queue.py —— 线程安全优先级队列：按 priority（int，小优先）+ FIFO 打破平局；"
+            "    支持 priority 变更；防止饥饿（高优先永远挤掉低优先时，低优先有可配置的年龄提升）。\n"
+            "  executor.py —— 执行器：固定大小 worker 池（线程池）；每作业独立超时（超时抛 "
+            "    JobTimeoutError）；失败自动重试（指数退避，可注入 sleep 函数便于测试）；"
+            "    重试上限耗尽标记 failed。\n"
+            "  idempotency.py —— 幂等键：作业可带 idempotency_key，同一 key 已存在（任意状态）时提交"
+            "    返回重复（不新建）；崩溃重放后同 key 不重复执行。\n"
+            "  recovery.py —— 崩溃恢复：模拟崩溃后（测试用新实例重建），从 WAL 重放恢复所有已提交作业，"
+            "    把执行中被中断的作业标记回 queued 以便重新调度（不丢已提交、不重复已完成的幂等作业）。\n"
+            "  metrics.py —— 计数器：submitted/succeeded/failed/retried/recovered/deadline_hit。\n"
+            "  api.py —— 顶层 facade：Scheduler 类组合上述模块，暴露 submit/get/cancel/status/stats/"
+            "    recover/replay（WAL 行数）/snapshot（检查点）。\n\n"
+            "二、设计决策（方案设计节点书面定稿，全部含被否方案与理由）：\n"
+            "  A) 执行语义：exactly-once vs at-least-once。结合幂等键给出 chosen 与代价。\n"
+            "  B) 调度策略：严格优先级 vs 优先级+年龄提升防饥饿。选 chosen + 理由（说明你的年龄提升规则）。\n"
+            "  C) 崩溃恢复：WAL 全量重放 vs 检查点+增量重放。选 chosen + 理由（性能与正确性权衡）。\n"
+            "  D) 重试策略：固定退避 vs 指数退避+抖动。选 chosen + 理由（结合超时与幂等）。\n\n"
+            "三、必须正确处理的边界：\n"
+            "  崩溃恢复：提交 3 个作业→执行 1 个完成、1 个执行中被中断（模拟崩溃）→新实例 recover()："
+            "    已提交 3 个全部恢复，完成的保持完成，中断的回到 queued 重新调度；幂等作业不重复执行。\n"
+            "  并发：8 线程并发 submit + cancel + priority 变更，无数据损坏、无异常泄露（barrier 竞争）。\n"
+            "  饥饿：持续提交高优先级作业时，低优先级作业的年龄提升能保证最终被调度（测试用注入时钟验证）。\n"
+            "  超时/重试：注入可失败作业（第 2 次成功）→ 正确重试成功；持续失败 → 达到重试上限标记 failed；"
+            "    超时作业抛 JobTimeoutError 并被正确回收。\n"
+            "  幂等：同 idempotency_key 二次提交返回重复；崩溃重放后同 key 不双执行（计数验证）。\n\n"
+            "四、测试（pytest，覆盖并通过）：test_scheduler.py / test_recovery.py / test_concurrency.py 覆盖以上全部，"
+            "在容器内运行 `python3 -m pytest test_scheduler.py test_recovery.py test_concurrency.py -q` 直到全绿，"
+            "并在汇报给出测试摘要（N passed）、四项设计决策结论、以及崩溃恢复的验证过程。"
+        ),
+    ),
 ]
 
 SPECS = {t.id: t for t in TASKS}

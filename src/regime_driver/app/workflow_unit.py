@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ..core.branching import ConditionError, resolve_branch
 from ..core.handoff import Handoff, detect_loop
-from ..core.models import NodeType, Outcome
+from ..core.models import DEFAULT_WORK_DONE_MARKER, NodeType, Outcome
 from ..core.policy import TransitionDecision, workspace_for
 from ..core.role import RoleRegistry, default_roles
 from ..core.segment import SegmentParser
@@ -32,11 +32,17 @@ from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
 from ..infra.skill_loader import SkillNotFoundError, load_skill
 from ..infra.task_control import TaskControl
+from .handover_policy import (
+    ContextHandoverPolicy,
+    build_handover_document,
+    build_handover_opening,
+)
 from .reviewer import Reviewer
 from .session_lifecycle import SessionLifecycle, SessionRotator
 from .session_manager import SessionRegistry
 from .sse_activity import SseActivity
 from .statechart_runtime import ThreadedUnit
+from .verify import render_verify_prompt_block, run_verify
 
 # internal states
 _ST_IDLE = "idle"
@@ -49,6 +55,17 @@ _ST_ERROR = "error"
 _PH_NONE = "none"
 _PH_AGENT = "agent_wait"   # agent node dispatched, polling its session
 _PH_JUDGE = "judge_wait"   # judge node dispatched, polling the reviewer session
+
+
+class _LegacyPolicy:
+    """Adapter exposing the JSON-policy shape for the per-role RolePolicy path."""
+
+    def __init__(self, role_policy) -> None:
+        self._rp = role_policy
+
+    @property
+    def min_continue_nodes(self) -> int:
+        return 2
 
 
 class WorkflowUnit(ThreadedUnit):
@@ -89,6 +106,17 @@ class WorkflowUnit(ThreadedUnit):
         )
         self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)
+        # WORK_PLAN13 context-budget handover policy (optional, settings JSON).
+        # When set, threshold negotiation + real handover documents apply;
+        # otherwise the per-role RolePolicy thresholds (legacy) drive it.
+        self._context_policy: ContextHandoverPolicy | None = None
+        try:
+            self._context_policy = ContextHandoverPolicy.from_json(
+                settings.context_handover_policy_json)
+        except ValueError as exc:
+            self._log("context_policy_error", err=str(exc))
+        self._verify_evidence: str | None = None
+        self._verify_failed: bool = False
         # dispatch pool: blocking send_message (up to the client timeout) runs on
         # a worker thread so the mixed loop never blocks and stays responsive to
         # STOP even while a prompt is being generated remotely.
@@ -450,12 +478,33 @@ class WorkflowUnit(ThreadedUnit):
         self._judge_attempts = 0
         self._retry_feedback = None
         self._last_judged_key = None
+        # WORK_PLAN13 runtime verification evidence: if the judge node declares a
+        # `verify` command, run it on the HOST now and feed the result to the
+        # judge so its verdict rests on objective runtime state, not just static
+        # reading. Skipped when verify is disabled (preflight/offline) or unset.
+        # B3: a failure sets _verify_failed -> the gate deterministically blocks
+        # advance (via an injected blocking issue in _step_judge).
+        self._verify_evidence = None
+        self._verify_failed = False
+        verify_cmd = getattr(self.sm.node(node_id), "verify", None)
+        if verify_cmd and self.settings.verify_enabled:
+            res = run_verify(verify_cmd, container=self.settings.worker_container,
+                             timeout=min(self.settings.request_timeout, 300.0))
+            self._verify_failed = res.failed
+            self._log("verify_result", node=node_id, rc=res.rc,
+                      ok=res.ok, elapsed=round(res.elapsed, 1),
+                      timed_out=res.timed_out,
+                      tail=(res.stdout_tail or "")[:300])
+            self._verify_evidence = render_verify_prompt_block(res, verify_cmd)
         self._send_judge_prompt(reviewer, node_id)
 
     def _send_judge_prompt(self, reviewer: Reviewer, node_id: str) -> None:
+        extra = self._extra_context
+        if self._verify_evidence:
+            extra = (extra + "\n\n" if extra else "") + self._verify_evidence
         prompt = reviewer.prompt_for(
             node_id, self._context, self._developer_report,
-            self._extra_context, self._retry_feedback, self._valid_targets,
+            extra, self._retry_feedback, self._valid_targets,
         )
         try:
             self._dispatch(reviewer.session_id, prompt, reviewer.agent)
@@ -559,7 +608,17 @@ class WorkflowUnit(ThreadedUnit):
         self._last_judged_key = key
         text = (getattr(latest, "reply", "") or "") or (getattr(latest, "text", "") or "")
         reviewer = self._get_reviewer(self._wait_role)
-        result = reviewer.parse_reply(text, self._node, self._valid_targets)
+        # B3: a failed runtime verify is OBJECTIVE evidence — inject a blocking
+        # issue programmatically so the gate deterministically refuses advance
+        # (the reviewer may still route via ask_developer/request_context/report).
+        extra_issues = None
+        if self._verify_failed:
+            extra_issues = [{
+                "severity": "blocking",
+                "summary": "运行时验证未通过（宿主 verify 命令 rc!=0/失败），未解决不得 advance",
+            }]
+        result = reviewer.parse_reply(text, self._node, self._valid_targets,
+                                      extra_issues=extra_issues)
         if result.ok:
             self._handle_verdict(result)
         else:
@@ -654,7 +713,7 @@ class WorkflowUnit(ThreadedUnit):
         if self._state == _ST_ABORTED:  # transition may have been interrupted
             return
         self.sessions.advance_round(self._anchor)
-        self._check_session_capacity(self.sessions.get(self._anchor), next_node)
+        self._check_session_capacity(next_node)
         self._phase = _PH_NONE
         self._phase_started = None
         self._enter_node(next_node)
@@ -772,6 +831,17 @@ class WorkflowUnit(ThreadedUnit):
             f"任务上下文：{context}",
             ws_hint,
         ]
+        if node.readonly:
+            # WORK_PLAN13 node capability boundary: a readonly node must not
+            # mutate the workspace — planning/reading only. File changes belong
+            # to the writable nodes downstream (e.g. implement). This is what
+            # keeps the design gate judging an UNBUILT plan instead of reviewing
+            # already-written code.
+            parts.append(
+                "节点能力：本节点为【只读】——禁止修改/创建/删除任何文件，禁止运行任何写操作"
+                "（写盘/编辑/安装/删除）。只允许读取文件与只读探查分析。所有文件变更必须"
+                "留到后续可写节点（如 implement）完成。你的本节点产出是分析与计划/方案。"
+            )
         skill = getattr(node, "skill", None)
         if skill:
             # a node's declared skill is injected into the WORKER prompt (same
@@ -784,6 +854,7 @@ class WorkflowUnit(ThreadedUnit):
         parts.append(
             "请完成本节点工作。完成后直接用你的最终回复给出简短结构化汇报："
             "改动文件 / 测试命令与结果 / 技术债 / 待决点。"
+            f"\n汇报末尾请以 {DEFAULT_WORK_DONE_MARKER} 标记本节点工作完成。"
         )
         return "\n".join(parts)
 
@@ -844,31 +915,158 @@ class WorkflowUnit(ThreadedUnit):
                   role=prev_role, decision=decision.value)
         if decision == TransitionDecision.ROTATE:
             try:
+                try:
+                    msgs = self.client.read_messages(
+                        self.sessions.get(prev_role).session_id)
+                except Exception:
+                    msgs = []
+                _nd = next_node if next_node in self.sm.flow.nodes else prev_node
+                doc = build_handover_document(
+                    role=prev_role, node_id=prev_node,
+                    node_desc=self.sm.node(prev_node).desc,
+                    task_context=self._context, messages=msgs,
+                    last_report=self._developer_report,
+                    keep=30, report_max_chars=1200,
+                )
                 self.session_rotator.rotate_with_handover(
-                    prev_role, summary=f"节点 {prev_node} 完成，流转到 {next_node}。",
+                    prev_role, summary=build_handover_opening(
+                        role=prev_role, node_id=_nd,
+                        node_desc=self.sm.node(_nd).desc,
+                        task_context=self._context, document=doc, usage=0.0),
                     handoff_kind="normal")
+                self.reviewers.pop(prev_role, None)  # B1: drop stale reviewer cache
             except Exception as exc:
                 self._log("transition_rotate_error", from_node=prev_node,
                           to_node=next_node, err=str(exc))
 
-    def _check_session_capacity(self, dev, node_id) -> bool:
+    def _check_session_capacity(self, node_id) -> None:
+        """WORK_PLAN13: context-budget negotiation + real handover.
+
+        Runs at node boundaries (after a node completes, before dispatching the
+        next) — the only moment token counts are fresh (opencode persists tokens
+        at step-finish). Only the session that owns the NEXT node is evaluated
+        (that is the session which will actually carry the next node's work;
+        checking every session would hand wrong node-context to other roles).
+        When `context_handover_policy_json` is configured it drives the check:
+
+          * >= hard_fraction  -> forced handover (no ask; context too full to
+                                 trust a self-assessment),
+          * soft .. hard      -> ask the session (ephemeral self-assess) for its
+                                 self-interrogation budget (remaining nodes) and
+                                 consent to continue in the same session; continue
+                                 only with a sufficient budget, else rotate.
+
+        A rotation always carries a REAL handover document (recent messages +
+        current node + task + last report) so the fresh session has factual
+        continuity, and emits a `context_handover` event for audit.
+        """
+        if node_id is None:
+            return
+        node = self.sm.node(node_id)
+        state = self.sessions.get(node.role)
+        if state is None:
+            return
         try:
-            if dev is None or not self.session_lifecycle.should_self_assess(dev):
-                return False
-            usage = round(self.session_lifecycle.capacity_used(dev), 2)
-            assessment = None
-            if not self.session_lifecycle.policy_for(dev.role).is_urgent(usage):
-                assessment = self.session_lifecycle.assess(dev, usage)
-            action = self.session_lifecycle.decide(dev, assessment, usage)
-            if action in ("handoff_now", "rotate"):
-                self.session_rotator.rotate_with_handover(
-                    dev.role,
-                    summary=f"节点 {node_id}，上下文已用 {usage:.0%}，切换会话。",
-                    handoff_kind="urgent" if action == "handoff_now" else "normal")
-                return True
+            usage = self._context_fraction(state)
+            policy = self._context_policy
+            if policy is not None and policy.enabled:
+                if usage >= policy.hard_fraction:
+                    self._rotate_session(state, node_id, usage, kind="urgent",
+                                         forced=True)
+                elif usage >= policy.soft_fraction:
+                    self._negotiate_session(state, node_id, usage, policy)
+                return
+            # legacy per-role thresholds (RolePolicy)
+            if state.role not in self.roles.ids():
+                return
+            rpol = self.roles.get(state.role).policy
+            if usage < rpol.context_threshold_normal:
+                return
+            if rpol.is_urgent(usage):
+                self._rotate_session(state, node_id, usage, kind="urgent")
+            else:
+                self._negotiate_session(state, node_id, usage, _LegacyPolicy(rpol))
         except Exception as exc:
             self._log("session_capacity_error", node=node_id, err=str(exc))
-        return False
+
+    def _context_fraction(self, state) -> float:
+        """Fraction of the context budget used by a session (0 if unknown)."""
+        try:
+            reasoning, output = self.client.session_tokens(state.session_id or "")
+        except Exception as exc:
+            # W1: never silently fail-open — the decision to NOT hand over on a
+            # token-read failure is itself a decision worth auditing.
+            self._log("context_token_read_error", session=state.session_id,
+                      role=state.role, err=str(exc))
+            return 0.0
+        total = reasoning + output
+        limit = self.settings.context_limit_tokens
+        return total / limit if limit else 0.0
+
+    def _negotiate_session(self, state, node_id: str, usage: float, policy) -> None:
+        """Ask the session for a self-interrogation budget + same-session consent."""
+        # a custom high-threshold role might reach soft_fraction before its
+        # self-assessment threshold — don't ask a session that shouldn't assess yet
+        rpol = self.roles.get(state.role).policy if state.role in self.roles.ids() else None
+        if rpol is not None and not rpol.should_self_assess(usage):
+            return
+        assessment = self.session_lifecycle.assess(state, usage)
+        if assessment is None:
+            # unparseable/unavailable self-assessment at an elevated context ->
+            # conservative default: rotate (don't gamble on degraded quality).
+            self._rotate_session(state, node_id, usage, kind="normal",
+                                 reason="no self-assessment")
+            return
+        min_nodes = getattr(policy, "min_continue_nodes", 2)
+        if assessment.verdict == "CONTINUE" and assessment.remaining_rounds_estimate >= min_nodes:
+            self._log("context_negotiation", node=node_id, session=state.session_id,
+                      usage=round(usage, 2), action="continue",
+                      budget=assessment.remaining_rounds_estimate,
+                      reason=(assessment.reason or "")[:200])
+            return
+        self._rotate_session(state, node_id, usage, kind="normal",
+                             reason=assessment.reason,
+                             assessment_summary=assessment.reason)
+
+    def _rotate_session(self, state, node_id: str, usage: float, *, kind: str,
+                        forced: bool = False, reason: str = "",
+                        assessment_summary: str = "") -> None:
+        """Rotate a session with a REAL handover document (WORK_PLAN13)."""
+        node = self.sm.node(node_id)
+        try:
+            messages = self.client.read_messages(state.session_id or "")
+        except Exception:
+            messages = []
+        doc = build_handover_document(
+            role=state.role, node_id=node_id, node_desc=node.desc,
+            task_context=self._context, messages=messages,
+            last_report=self._developer_report,
+            keep=getattr(self._context_policy, "handover_keep_messages", 30)
+            if self._context_policy else 30,
+            report_max_chars=getattr(self._context_policy, "report_max_chars", 1200)
+            if self._context_policy else 1200,
+        )
+        if assessment_summary:
+            doc += f"\n- 原会话自评：{assessment_summary}"
+        opening = build_handover_opening(
+            role=state.role, node_id=node_id, node_desc=node.desc,
+            task_context=self._context, document=doc, usage=usage,
+        )
+        try:
+            self.session_rotator.rotate_with_handover(
+                state.role, summary=opening,
+                handoff_kind="urgent" if kind == "urgent" else "normal")
+        except Exception as exc:
+            self._log("context_handover_error", node=node_id, err=str(exc))
+            return
+        # B1: the cached Reviewer holds the OLD (now full) session id; drop it so
+        # `_get_reviewer` rebuilds against the fresh session (the role's judge
+        # session lives in the same registry entry we just rotated).
+        self.reviewers.pop(state.role, None)
+        self._log("context_handover", node=node_id, session=state.session_id,
+                  role=state.role, usage=round(usage, 2),
+                  kind="urgent" if forced else kind,
+                  forced=forced, reason=(reason or "")[:200])
 
     def _log(self, event, **fields) -> None:
         if self.ledger is not None:

@@ -52,6 +52,8 @@
 | `tool` | str\|null | TOOL 节点的工具名 |
 | `tool_args` | dict\|null | 传给该工具的参数 |
 | `branches` | array\|null | 条件分支列表 `[{when, goto}]` |
+| `readonly` | bool | **WORK_PLAN13** 节点能力边界：只读节点禁止写/改/删文件，只允许读取分析；文件变更留给后续可写节点（官方模板 understand/read_code 为 readonly，强制"先设计后实现"） |
+| `verify` | str\|null | **WORK_PLAN13** judge 节点的宿主验证命令（进入该 judge 节点时执行，`{container}`→`worker_container`，结果作为独立运行时证据喂给审查者；`verify_enabled=false` 时跳过） |
 
 **核心不变量**：
 

@@ -42,6 +42,9 @@
 | `meta_model` | str | `deepseek-api/deepseek-v4-flash` | 停滞审查模型 |
 | `meta_max_context_msgs` | int | 20 | 喂给元分析的最近消息数 |
 | `context_limit_tokens` | int | 120000 | session token 上限（算用量分数） |
+| `context_handover_policy_json` | str\|null | null | **WORK_PLAN13 上下文预算交接策略**（JSON）：`{"soft_fraction":0.5,"hard_fraction":0.7,"min_continue_nodes":2,"handover_keep_messages":30}`。空=关闭（走各角色 RolePolicy 阈值）。软阈值起询问会话"自检预算+同会话续进"，硬阈值强制交接（新会话+真实交接文档） |
+| `worker_container` | str | `opencode-worker` | worker docker 容器名（judge `verify` 命令 `{container}` 占位符 / chaos / supervisor L4 用） |
+| `verify_enabled` | bool | false | 是否执行 judge 节点的 `verify` 宿主命令（运行时验证证据；opt-in，preflight/离线自动关闭） |
 | `log_level` | enum | `info` | debug\|info\|warning\|error |
 
 ## 关键字段
@@ -91,6 +94,36 @@ watchdog_policy_json = '{"soft_sec": 30, "soft_action": "interrupt", "meta_gate_
 自然续接；若续跑后仍无活性才兜底 kill。这是"中断→等待→自然恢复→兜底终止"闭环的
 自动恢复步。
 **示例**：`auto_resume_sec = 60`。
+
+### `context_handover_policy_json`（WORK_PLAN13）
+
+**类型/默认**：str|null，`null`（关闭）。
+**语义**：会话上下文预算交接策略（session 上下文窗口满的官方模板）。会话是"会疲劳的人"：
+窗口将满时质量会退化。策略在**节点边界**（一个节点完成后、派发下一个节点前）检查——这是
+token 计数唯一可靠（step 结束已记账）的时刻。
+
+- 使用率 < `soft_fraction`：继续，不打扰；
+- `soft_fraction` .. `hard_fraction`：**询问该会话**（独立临时会话做自检）——给出自我质询
+  预算（还能推进的节点数）与"是否允许同会话续进"（CONTINUE/ROTATE/HANDOFF_NOW）；
+  只有预算 ≥ `min_continue_nodes` 才允许同会话续进，否则交接；
+- ≥ `hard_fraction`：**强制交接**，不再问（上下文太满，不信任自检）。
+
+交接 = 新会话 + **真实交接文档**（最近消息 + 当前节点 + 任务 + 最近汇报），开头注入
+"上下文交接"提示词（保持工作区产物与对外契约不变）。每次交接写 `context_handover` 事件。
+**示例**：
+
+```toml
+context_handover_policy_json = '{"soft_fraction": 0.5, "hard_fraction": 0.7, "min_continue_nodes": 2, "handover_keep_messages": 30}'
+```
+
+### `worker_container` / `verify_enabled`（WORK_PLAN13）
+
+**类型/默认**：str `opencode-worker`；bool `true`。
+**语义**：judge 节点可声明 `verify` 宿主命令（flow schema 的节点字段）。进入该 judge 节点时
+驱动在宿主执行它（`{container}` 替换为 `worker_container`），把结果（rc + 输出尾部）作为
+**独立运行时验证证据**喂给审查者——补上"reviewer 只读、无法真跑测试"的缺口（test 门不再只
+静态数用例，而是拿到真实 pytest 结果）。失败证据会被显式标注"blocking 级、不许 advance"
+（语义门同时兜底）。preflight/离线运行自动关闭（`verify_enabled=false`），不执行宿主命令。
 
 ---
 

@@ -76,6 +76,24 @@ def _check_tools(sm: StateMachine, out: DeepCheckResult) -> None:
             )
 
 
+def _check_capability_boundaries(sm: StateMachine, out: DeepCheckResult) -> None:
+    """WORK_PLAN13 dead-config guards: `verify`/`readonly` on the wrong node
+    type are silently ignored — fail loudly instead."""
+    for node_id, node in sm.flow.nodes.items():
+        if node.verify and node.type != NodeType.JUDGE:
+            out.errors.append(
+                f"node '{node_id}' declares `verify` but is not a judge node "
+                f"(verify runs only when entering a judge node; on '{node.type}' "
+                f"it would be dead config)"
+            )
+        if node.readonly and node.type == NodeType.JUDGE:
+            out.errors.append(
+                f"node '{node_id}' declares `readonly` on a judge node "
+                f"(judge sessions are already read-only; readonly is an agent-node "
+                f"capability boundary)"
+            )
+
+
 def _check_reachability(sm: StateMachine, out: DeepCheckResult) -> None:
     """Every node must be reachable from the entry start over successors."""
     reachable: set[str] = set()
@@ -140,6 +158,7 @@ def deep_validate(
     if load_skill is not None:
         _check_skills(sm, load_skill, out)
     _check_tools(sm, out)
+    _check_capability_boundaries(sm, out)
     _check_reachability(sm, out)
     _check_spine_cycles(sm, out)
     _check_branch_cycles(sm, out)

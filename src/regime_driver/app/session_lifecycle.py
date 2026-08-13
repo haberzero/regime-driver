@@ -93,4 +93,8 @@ class SessionRotator:
     ) -> SessionState:
         kind_str = "brain_urgent" if handoff_kind == "urgent" else "brain_normal"
         handoff = Handoff.brain_handoff(kind_str, summary, constraints, pending, role=role_id)
-        return self.sessions.rotate(role_id, inject=handoff.to_json())
+        # WORK_PLAN13: `summary` is the composed opening message for the fresh
+        # session (handover document + instruction), so inject it as the session's
+        # first message instead of a raw machine JSON blob. The Handoff remains
+        # the auditable record for the ledger.
+        return self.sessions.rotate(role_id, inject=summary)

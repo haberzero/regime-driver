@@ -81,6 +81,10 @@
 | 中断恢复（PAUSE/RESUME/auto-resume） | 运行中自动中断当前生成→冻结推进→超时注入"继续"续接；仅最终兜底 kill | 复杂任务长思考/并发压力场景 |
 | SSE 活性判定 | 停滞判定以 opencode SSE 事件流为活性信号（token 计数仅上下文占用） | 全部任务（长思考不误杀） |
 | 确定性 gate | reviewer verdict 门禁 | 全部任务（reviewer_verdict 事件） |
+| 语义门（WORK_PLAN13） | verdict `issues[].severity=blocking` 时禁止 advance（审出真问题就不能放行） | 复杂任务（blocking 拦截事件） |
+| 节点能力边界（WORK_PLAN13） | `readonly` 节点禁止写文件，强制"先设计后实现"分工 | 复杂任务（understand 只读节点） |
+| 运行时验证（WORK_PLAN13） | judge 节点 `verify` 宿主命令结果作为独立运行时证据喂给审查者 | 复杂任务（test 门真实 pytest 结果） |
+| 上下文预算交接（WORK_PLAN13） | 会话上下文使用率达阈值时询问自检预算/是否同会话续进，需交接则产出真实交接文档换新会话 | 长任务（context_handover 事件） |
 | reporter 报告总线 | journal + rollup + 模板 | harness 每任务 journal 审计 |
 | FlowRegistry 热加载 | 命名 flow 注册/重载 | 复杂任务 + flow 命令 |
 | session rotate/self-assess | 长任务会话管理 | 复杂任务（20-30 分钟长任务触发） |

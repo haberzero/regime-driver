@@ -103,4 +103,20 @@ class Settings(BaseModel):
         default=120_000, ge=1000,
         description="session token ceiling; used to compute context usage fraction"
     )
+    # WORK_PLAN13 context-budget handover policy (optional). A JSON describing
+    # when to negotiate/hand a session over when its context window fills:
+    #   {"enabled": true, "soft_fraction": 0.5, "hard_fraction": 0.7,
+    #    "min_continue_nodes": 2, "handover_keep_messages": 30}
+    # None = disabled (per-role RolePolicy thresholds apply instead).
+    context_handover_policy_json: str | None = Field(
+        default=None,
+        description="JSON context-handover policy (soft/hard fractions, budget); None = disabled",
+    )
+    # runtime verification evidence (WORK_PLAN13): a judge node's `verify` shell
+    # command runs on the HOST and its output is fed to the judge as independent
+    # runtime evidence (e.g. pytest). Disabled in preflight/offline runs.
+    worker_container: str = Field(
+        default="opencode-worker", description="worker docker container name (used by verify/chaos/L4)")
+    verify_enabled: bool = Field(
+        default=False, description="run judge-node `verify` shell commands as runtime evidence (opt-in)")
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")

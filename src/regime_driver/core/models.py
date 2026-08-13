@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # --- state machine ---------------------------------------------------------
 
@@ -75,6 +75,17 @@ class Node(BaseModel):
     branches: list[Branch] | None = None
     tool: str | None = None               # tool name for TOOL nodes (see core/tools.py)
     tool_args: dict | None = None          # args passed to that tool
+    # --- node capability boundary (restores the template's division of labor) --
+    # readonly: the executing agent may only READ (no write/edit/delete); file
+    # mutation must wait for a writable node. Prevents "understand does all the
+    # engineering" and gives the design judge something un-built to review.
+    readonly: bool = Field(default=False)
+    # verify: an OPTIONAL host-side shell command the driver runs when ENTERING
+    # this (judge) node, whose result is fed to the judge as independent runtime
+    # evidence (e.g. `docker exec {container} ... pytest`). `{container}` is
+    # substituted from settings.worker_container. Only runs when
+    # settings.verify_enabled is true (preflight/offline runs keep it off).
+    verify: str | None = Field(default=None)
 
 
 class Flow(BaseModel):
@@ -135,6 +146,29 @@ class ReviewerVerdict(BaseModel):
     context_requested: str | None = None
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
+    # structured findings (WORK_PLAN13): the reviewer's substantive review —
+    # blocking issues force a non-advance action through the deterministic gate.
+    issues: list["ReviewerIssue"] | None = Field(default_factory=list)
+
+    @field_validator("issues", mode="before")
+    @classmethod
+    def _normalize_issues(cls, v):
+        # a lax model echoing `issues: null` must not fail the whole verdict
+        return v if v is not None else []
+
+
+class ReviewerIssue(BaseModel):
+    """A structured finding attached to a reviewer verdict.
+
+    `severity=blocking` means the current deliverable must NOT advance: the
+    deterministic gate rejects any advance that carries an unresolved blocking
+    issue (a reviewer cannot mark a real problem and still wave it through).
+    `severity=warning` is a documented non-blocking concern (may advance).
+    """
+
+    severity: Literal["blocking", "warning"]
+    summary: str
+    detail: str | None = None
 
 
 # --- segment report ([WORK_DONE]) ------------------------------------------

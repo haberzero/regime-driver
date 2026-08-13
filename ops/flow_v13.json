@@ -1,21 +1,20 @@
 {
   "version": "0.3",
-  "description": "Compiled institutional process (code-workflow). Nodes declare a role (which user-registered session owns it) and a type (agent=work, judge=judgement). Roles developer/reviewer are user-specialized instances; the kernel is role-agnostic.",
+  "description": "code_workflow_v13 —— WORK_PLAN13 官方模板演进：understand/read_code 只读（强制先设计后实现），design 门审未实现方案，test 门携带宿主 verify 运行时证据（真实 pytest 结果）。其余节点与默认 code_workflow 一致。",
   "meta": {
     "source": [
-      "workflow-regime/task-control/07_goal_mechanism.md",
-      "workflow-regime/task-control/08_autonomous_loop.md",
-      "workflow-regime/skills/code-workflow/SKILL.md"
+      "workflow-regime/skills/code-workflow/SKILL.md",
+      "docs/architecture/02_statechart_network.md#12"
     ],
     "session_turn_check": 5,
     "work_done_marker": "[WORK_DONE]"
   },
   "flows": {
-    "code_workflow": {
+    "code_workflow_v13": {
       "nodes": {
         "understand": {
           "id": "understand",
-          "desc": "理解任务上下文",
+          "desc": "理解任务上下文（只读：只分析规划，不写文件）",
           "role": "developer",
           "type": "agent",
           "readonly": true,
@@ -23,7 +22,7 @@
         },
         "read_code": {
           "id": "read_code",
-          "desc": "理解代码上下文",
+          "desc": "理解代码上下文（只读：读取工作区现有代码）",
           "role": "developer",
           "type": "agent",
           "readonly": true,
@@ -51,6 +50,7 @@
           "role": "reviewer",
           "type": "judge",
           "skill": "code-review",
+          "verify": "sg docker -c \"docker exec {container} bash -c 'cd /root/work/code && python3 -m pytest -q 2>&1 | tail -30'\"" ,
           "next": "wrap"
         },
         "wrap": {
@@ -65,7 +65,7 @@
     }
   },
   "entry": {
-    "flow": "code_workflow",
+    "flow": "code_workflow_v13",
     "start_node": "understand"
   }
 }

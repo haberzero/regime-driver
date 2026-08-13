@@ -59,7 +59,7 @@ class FakeClient:
         return "idle"
 
     def session_tokens(self, sid):
-        return (0, 0)
+        return self.tokens.get(sid, (0, 0))
 
     def abort_session(self, sid):
         self.aborted.append(sid)
@@ -657,6 +657,122 @@ def test_agent_node_skill_missing_fails_loudly():
         pass
 
 
+# --- WORK_PLAN13 node capability boundary + marker --------------------------
+
+def test_readonly_node_instruction_forbids_writes():
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu(
+        [Node(id="a", desc="understand", type=NodeType.AGENT, readonly=True,
+              next=None)], {})
+    instr = unit._build_instruction("a", "ctx", "developer")
+    assert "只读" in instr
+    assert "禁止修改/创建/删除任何文件" in instr
+
+
+def test_writable_node_instruction_has_no_readonly_block():
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu(
+        [Node(id="a", desc="implement", type=NodeType.AGENT, readonly=False,
+              next=None)], {})
+    instr = unit._build_instruction("a", "ctx", "developer")
+    assert "节点能力：本节点为【只读】" not in instr
+
+
+def test_instruction_asks_for_work_done_marker():
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    instr = unit._build_instruction("a", "ctx", "developer")
+    assert "[WORK_DONE]" in instr
+
+
+def test_verify_evidence_fed_to_judge_prompt():
+    from regime_driver.core.models import Node, NodeType
+    # judge node declaring a verify command -> the driver runs it on the host
+    # (echo is harmless) and stores the runtime evidence for the judge prompt.
+    unit, client = _wu(
+        [Node(id="a", desc="understand", type=NodeType.AGENT, next="t"),
+         Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE,
+              skill="code-review", verify="echo 42 passed", next=None)],
+        {}, {"verify_enabled": True})
+    unit.sessions.ensure("developer", "t")
+    unit._context = "ctx"
+    unit._developer_report = "63 passed"
+    unit._valid_targets = {"wrap"}
+    unit._enter_judge("t")
+    assert unit._verify_evidence is not None
+    assert "42 passed" in unit._verify_evidence
+    assert not unit._verify_failed
+
+
+def test_verify_skipped_when_disabled():
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu(
+        [Node(id="a", desc="understand", type=NodeType.AGENT, next="t"),
+         Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE,
+              skill="code-review", verify="echo 42 passed", next=None)],
+        {}, {"verify_enabled": False})
+    unit.sessions.ensure("developer", "t")
+    unit._context = "ctx"
+    unit._valid_targets = {"wrap"}
+    unit._enter_judge("t")
+    assert unit._verify_evidence is None
+    assert not unit._verify_failed
+
+
+def test_verify_failure_blocks_advance_deterministically():
+    """B3: a failed runtime verify injects a blocking issue so the gate
+    deterministically refuses advance even if the reviewer papered it over."""
+    from regime_driver.core.models import Node, NodeType
+    from regime_driver.app.reviewer import Reviewer
+    from regime_driver.core.state_machine import StateMachine
+    from regime_driver.infra.regime_loader import load_regime
+    sm = load_regime()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(
+        __import__("pathlib").Path(__file__).parent.parent / "workflow-regime" / "skills"))
+    verdict = {"node": "test", "verdict": "advance", "action": "advance",
+               "next_state": "wrap", "confidence": 0.9, "reason": "ok", "issues": []}
+    import json as _json
+    result = reviewer.parse_reply(
+        _json.dumps(verdict), "test", {"wrap"},
+        extra_issues=[{"severity": "blocking",
+                       "summary": "运行时验证未通过（宿主 verify 命令 rc!=0/失败），未解决不得 advance"}])
+    assert not result.ok
+    assert "blocking" in result.gate.reason
+
+
+def test_context_handover_forced_at_hard_threshold():
+    """WORK_PLAN13: with a configured context policy at hard fraction, entering
+    the next node must rotate the session and log a context_handover event."""
+    from regime_driver.core.models import Node, NodeType
+    overrides = {
+        "context_handover_policy_json": '{"soft_fraction": 0.4, "hard_fraction": 0.5, "min_continue_nodes": 2}',
+        "context_limit_tokens": 100000,
+    }
+    unit, client = _wu(
+        [Node(id="a", desc="understand", type=NodeType.AGENT, readonly=True,
+              next="b"),
+         Node(id="b", desc="implement", type=NodeType.AGENT, next=None)],
+        {}, overrides)
+    unit.sessions.ensure("developer", "t")
+    old_sid = unit.sessions.get("developer").session_id
+    # simulate a near-full session
+    client.tokens[old_sid] = (60000, 10000)  # 70% of 100k -> hard threshold
+    unit._context = "ctx"
+    # record what gets sent (the fake overwrites msgs with a canned reply)
+    sent_texts = []
+
+    def _record_send(sid, text, agent):
+        sent_texts.append(text)
+        client.msgs[sid] = [Message("assistant", text)]
+
+    client.send_message = _record_send
+    unit._check_session_capacity("b")
+    new_sid = unit.sessions.get("developer").session_id
+    assert new_sid != old_sid  # rotated
+    assert any("【上下文交接】" in t for t in sent_texts)  # readable handover opening
+
+
 # --- transition policy (anchor / rotate) -----------------------------------
 
 def _transition_unit(roles, node_role="reviewer"):
@@ -693,4 +809,5 @@ def test_workflow_transition_rotate_rotates_session():
     old_sid = unit.sessions.get("reviewer").session_id
     unit._apply_transition("a", "dummy")
     assert unit.sessions.get("reviewer").session_id != old_sid  # rotated
-    assert any('"kind":"brain_normal"' in s[1] for s in unit.client.sent)
+    # WORK_PLAN13: the fresh session receives the readable handover opening
+    assert any("【上下文交接】" in s[1] for s in unit.client.sent)

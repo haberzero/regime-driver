@@ -93,7 +93,9 @@ def test_rotate_with_handover_normal():
     rotator = SessionRotator(client, sessions)
     new = rotator.rotate_with_handover("developer", "做了X", ["禁push"])
     assert new.session_id == "dev1"
-    assert '"kind":"brain_normal"' in sessions.sent[0][1]
+    # WORK_PLAN13: the fresh session receives the readable opening/summary (the
+    # Handoff JSON remains the auditable record), not a raw machine JSON blob.
+    assert sessions.sent[0][1] == "做了X"
 
 
 def test_rotate_with_handover_urgent():
@@ -102,7 +104,7 @@ def test_rotate_with_handover_urgent():
     rotator = SessionRotator(client, sessions)
     new = rotator.rotate_with_handover("reviewer", "紧急", handoff_kind="urgent")
     assert new.session_id == "rev1"
-    assert '"kind":"brain_urgent"' in sessions.sent[0][1]
+    assert sessions.sent[0][1] == "紧急"
 
 
 def test_custom_role_in_registry():

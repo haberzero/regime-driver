@@ -89,6 +89,60 @@ def test_reviewer_prompt_injects_skill():
     assert "设计哲学" in prompt
 
 
+# --- WORK_PLAN13 semantic gate (structured issues) --------------------------
+
+def test_advance_with_blocking_issue_rejected():
+    """A reviewer that documents a blocking finding must NOT advance: the gate
+    rejects the contradiction (this is the kv_failover-advance class of bug)."""
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    v = good_verdict()
+    v["issues"] = [{"severity": "blocking", "summary": "failover can lose committed writes"}]
+    result = reviewer.parse_reply(json.dumps(v), "design")
+    assert not result.ok
+    assert "blocking" in result.gate.reason
+
+
+def test_advance_with_only_warnings_allowed():
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    v = good_verdict()
+    v["issues"] = [{"severity": "warning", "summary": "narrow window, documented tech debt"}]
+    result = reviewer.parse_reply(json.dumps(v), "design")
+    assert result.ok
+
+
+def test_ask_developer_with_blocking_issue_allowed():
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    v = good_verdict()
+    v.update({"verdict": "issue_pending", "action": "ask_developer",
+              "next_state": None,
+              "message_to_developer": "请修复 ref 命名空间冲突",
+              "issues": [{"severity": "blocking", "summary": "ref namespace collision"}]})
+    result = reviewer.parse_reply(json.dumps(v), "design")
+    assert result.ok
+
+
+def test_issues_parsed_into_verdict():
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    v = good_verdict()
+    v["issues"] = [{"severity": "warning", "summary": "w1", "detail": "d1"}]
+    result = reviewer.parse_reply(json.dumps(v), "design")
+    assert result.ok
+    assert result.verdict.issues[0].severity == "warning"
+    assert result.verdict.issues[0].detail == "d1"
+
+
+def test_verdict_without_issues_defaults_empty():
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict()), "design")
+    assert result.ok
+    assert result.verdict.issues == []
+
+
 # --- skill loader -----------------------------------------------------------
 
 def test_load_skill_body():
