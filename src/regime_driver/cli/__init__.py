@@ -2335,6 +2335,79 @@ def scaffold_cmd(
 
 
 # ---------------------------------------------------------------------------
+# setup — guided first-time installation (deployment UX)
+# ---------------------------------------------------------------------------
+@app.command("setup")
+def setup_cmd(
+    target: Optional[Path] = typer.Option(
+        None, "--target", help="opencode config root (default ~/.config/opencode)"),
+    assistants: bool = typer.Option(False, "--assistants",
+                             help="also deploy the dialog-control-assistant subagents"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Guided first-time setup: detect env, deploy templates, report next steps.
+
+    Runs the deployment checks `regime doctor` reports (advisory), performs the
+    template assembly `regime scaffold` does, and prints a step-by-step path the
+    user can follow to get from a bare pip install to a working host-installed
+    opencode (primary dialog + worker). Docker is NOT required — host mode works
+    out of the box; docker / remote worker are optional (see the blueprint).
+    """
+    from pathlib import Path as _Path
+
+    _gate(perm, ["setup"])
+    import os as _os
+    dest = target or _Path.home() / ".config" / "opencode"
+
+    from ..scaffold import scaffold as _scaffold
+    result = _scaffold(dest, assistants=assistants)
+
+    env = {c["check"]: c.get("ok") for c in _env_readiness()}
+    has_docker = env.get("docker available")
+    has_opencode = env.get("opencode available")
+    has_key = _Path.home().joinpath(".regime", "keys", "deepseek.key").exists() \
+        or bool(_os.environ.get("DEEPSEEK_API_KEY"))
+
+    summary = {
+        "target": str(dest),
+        "templates_copied": len(result.copied),
+        "templates_kept": len(result.skipped),
+        "docker_available": bool(has_docker),
+        "opencode_available": bool(has_opencode),
+        "key_present": bool(has_key),
+        "host_mode_ready": bool(has_opencode),
+        "container_mode_ready": bool(has_docker),
+    }
+    if json_out:
+        _emit_json(summary)
+        return
+
+    console.print("[bold]regime setup[/bold] — 引导装配完成")
+    console.print(f"  模板已写入 {dest}（copied={len(result.copied)} kept={len(result.skipped)}）")
+    console.print(f"  环境检测：docker={has_docker} opencode={has_opencode} 密钥={has_key}")
+    console.print("\n[bold]接下来怎么做[/bold]")
+    if not has_key:
+        console.print("  · [cyan]1. 配模型密钥[/cyan]：")
+        console.print("      mkdir -p ~/.regime/keys && printf '%s' '你的-deepseek-api-key' > ~/.regime/keys/deepseek.key")
+    if has_opencode:
+        console.print("  · [cyan]2. 启动主机 opencode（主对话框 + worker）[/cyan]：")
+        console.print("      opencode serve --port 4097")
+        console.print("  · [cyan]3. 自检[/cyan]：`regime doctor`")
+        console.print("  · [cyan]4. 跑第一个任务[/cyan]：")
+        console.print("      regime dialog --live --perm run      # B 路对话框")
+        console.print("      或在 opencode 切到 dialog-control agent（A 路）")
+    elif has_docker:
+        console.print("  · [cyan]2. 起容器化 worker（方式 A）[/cyan]：")
+        console.print("      git clone https://github.com/haberzero/regime-driver && ops/up.sh all")
+    else:
+        console.print("  · [cyan]2. 安装 opencode 或 docker 之一[/cyan]：")
+        console.print("      · opencode（主机模式，推荐）：见 https://opencode.ai/docs/")
+        console.print("      · docker（容器模式）：装好后 `ops/up.sh all`")
+    console.print("\n详细见 docs/guide/05_setup.md 与 docs/architecture/04_distribution_blueprint.md")
+
+
+# ---------------------------------------------------------------------------
 # events
 # ---------------------------------------------------------------------------
 @app.command("events")

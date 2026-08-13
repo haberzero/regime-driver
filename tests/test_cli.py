@@ -97,13 +97,35 @@ def test_scaffold_permission_gate_blocks_low_perm(monkeypatch, tmp_path):
     assert not (tmp_path / "agents").exists()
 
 
+def test_setup_guided_assembly(tmp_path):
+    """regime setup: guided first-time install. Deploys templates to --target and
+    reports env detection + a host-mode-ready flag (deployment UX)."""
+    res = runner.invoke(app, ["setup", "--target", str(tmp_path), "--json"])
+    assert res.exit_code == 0
+    data = json.loads(res.output)
+    assert data["templates_copied"] >= 1
+    assert (tmp_path / "agents" / "dialog-control.md").is_file()
+    assert (tmp_path / "plugins" / "regime-dialog-control.js").is_file()
+    assert (tmp_path / "opencode.json").is_file()
+    # env detection reported
+    assert "docker_available" in data
+    assert "opencode_available" in data
+    assert "key_present" in data
+    assert data["target"] == str(tmp_path)
+
+
+def test_setup_permission_gate(monkeypatch, tmp_path):
+    monkeypatch.setenv("REGIME_PERMISSION_CEILING", "read")
+    res = runner.invoke(app, ["setup", "--target", str(tmp_path), "--json"])
+    assert res.exit_code == 1
+    assert "permission denied" in res.output
+
+
 def test_flow_list_json():
     res = runner.invoke(app, ["flow", "list", "--json"])
     assert res.exit_code == 0
     data = json.loads(res.output)
     assert data["flows"][0]["name"] == "code_workflow"
-
-
 def test_flow_inspect_json():
     res = runner.invoke(app, ["flow", "inspect", "code_workflow", "--json"])
     assert res.exit_code == 0
