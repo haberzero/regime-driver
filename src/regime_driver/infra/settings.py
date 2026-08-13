@@ -38,6 +38,10 @@ class Settings(BaseModel):
     convergence_max_identical: int = Field(
         default=2, ge=2, description="same inquiry N+ times with no report change -> loop"
     )
+    report_len_warn: int = Field(
+        default=20000, ge=1,
+        description="agent report length (chars) above which a report_len_warn audit event is logged"
+    )
     max_total_nodes: int = Field(
         default=50, ge=1, description="global cap on nodes executed per run (anti-runaway)"
     )

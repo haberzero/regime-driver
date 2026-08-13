@@ -362,8 +362,17 @@ class WorkflowUnit(ThreadedUnit):
             return
         done, report = self._latest_agent_done(messages)
         if done:
+            rlen = len(report or "")
             self._log("node_done", node=self._node, outcome="complete",
-                      report_len=len(report or ""))
+                      report_len=rlen)
+            if rlen > self.settings.report_len_warn:
+                # an abnormally large report is a weak signal that the model
+                # output outgrew control (e.g. pasted history / truncated-draft
+                # loop). Audit it so it is visible in the journal, but do not
+                # block: the reviewer judge still verifies the deliverable.
+                self._log("report_len_warn", node=self._node,
+                          report_len=rlen,
+                          threshold=self.settings.report_len_warn)
             self._developer_report = report
             if report is not None:
                 self._env["report"] = report
@@ -383,18 +392,34 @@ class WorkflowUnit(ThreadedUnit):
         (`info.time.completed` on the latest assistant message). This is more
         reliable than asking the model to emit a magic string. A `[WORK_DONE]`
         marker in the reply is kept as a fallback for short/scripted tasks.
+
+        A message interrupted by a supervisor abort (carries `error`, or has a
+        `completed` ts but `finish=None` — the abort sentinel observed on the
+        real 1.18.11 worker) is NOT a finished node: its reply is a truncated
+        draft, not a deliverable, so it must not advance. Every other finish
+        ('stop', '', token-limit 'length', ...) advances; a truncated-but-
+        finished report is still handed to the reviewer judge which decides.
         """
         for m in reversed(messages):
             if getattr(m, "role", None) != "assistant":
                 continue
+            if getattr(m, "error", None):
+                # abort surfaced as a message error
+                return False, None
             reply = (getattr(m, "reply", "") or "").strip() \
                 or (getattr(m, "text", "") or "").strip()
-            # fallback: explicit marker in the reply
-            if reply and self.segment_parser.has_segment_end(reply):
-                return True, self.segment_parser.extract_report(reply)
             # native completion: the assistant turn finished
             if getattr(m, "completed", None):
+                finish = getattr(m, "finish", "stop")
+                if finish is None:
+                    # real-client abort: completed ts set but no finish sentinel
+                    return False, None
+                if reply and self.segment_parser.has_segment_end(reply):
+                    return True, self.segment_parser.extract_report(reply)
                 return True, reply or None
+            # fallback: explicit marker in a still-open reply (short/scripted)
+            if reply and self.segment_parser.has_segment_end(reply):
+                return True, self.segment_parser.extract_report(reply)
             return False, None
         return False, None
 

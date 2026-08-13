@@ -57,6 +57,14 @@ def test_preflight_stall_fails():
     assert data["ok"] is False
 
 
+def test_run_preflight_honesty_note_helper_exists():
+    """Regression (B1): the passing-preflight path of `regime run` calls
+    `_note(...)` which must exist (a missing symbol would crash every default
+    `regime run` right after 'preflight PASSED')."""
+    from regime_driver.cli.__init__ import _note
+    assert callable(_note)
+
+
 def test_report_empty():
     res = runner.invoke(app, ["report", "--json"])
     assert res.exit_code == 0

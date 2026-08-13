@@ -304,6 +304,8 @@ class Supervisor:
         self._start = time.time()
         self._meta_sid: str | None = None
         self._last_activity_ts: float = 0.0
+        self._events_no_type = 0          # events whose type could not be resolved
+        self._last_liveness_log = 0.0     # throttle liveness warnings
 
     # -- SSE event ingress (wired: called by the run loop) -------------------
 
@@ -322,19 +324,45 @@ class Supervisor:
         start = time.monotonic()
         try:
             for raw in self.client.event_stream(reconnect=False, max_retries=1):
+                etype = raw.get("event")
+                if etype is None and raw.get("data") not in (None, {}):
+                    # unresolved event type (no `event:` line AND no `data.type`,
+                    # and non-empty payload): consumers (T2 liveness / reporter
+                    # delta-drop) would silently degrade. Count + throttle a
+                    # warning so the loss is visible. Empty heartbeats (`data: {}`)
+                    # are skipped — they carry no type by design.
+                    self._events_no_type += 1
+                    now = time.time()
+                    if now - self._last_liveness_log >= 60.0:
+                        self._last_liveness_log = now
+                        self._safe_record(
+                            "sse_type_unresolved",
+                            count=self._events_no_type,
+                            session=self.session_id,
+                        )
                 if self.reporter is not None:
                     self.reporter.ingest_worker_event(
                         raw, session_id=self.session_id)
-                if _is_progress_event(raw.get("event")):
+                if _is_progress_event(etype):
                     self._last_activity_ts = time.time()
                 count += 1
                 if time.monotonic() - start > stream_timeout:
                     break
                 if count >= max_events:
                     break
-        except Exception:
-            pass  # a transient SSE failure must not kill the watchdog loop
+        except Exception as exc:
+            # a transient SSE failure must not kill the watchdog loop, but it
+            # must be visible (audit) rather than silently swallowed.
+            self._safe_record("sse_error", err=str(exc), session=self.session_id)
         return count
+
+    def _safe_record(self, event: str, **fields) -> None:
+        """Record an audit event but never raise — a logging/journal failure on
+        the error path must not kill the watchdog loop it is meant to protect."""
+        try:
+            self._record(event, **fields)
+        except Exception:
+            pass
 
     # -- intelligent meta-analysis (real model judges the verdict) ------------
 

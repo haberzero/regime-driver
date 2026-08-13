@@ -144,7 +144,8 @@ class MockClient:
             rule.builder(node_id, text) if rule.builder else self._default_reply(agent, node_id))
         self.msgs.setdefault(session_id, []).append(
             Message(id=f"m-{len(self.msgs.get(session_id, []))}", role="assistant",
-                    text=reply, reply=reply, completed=str(time.time()), ts=str(time.time())))
+                    text=reply, reply=reply, completed=str(time.time()),
+                    finish="stop", ts=str(time.time())))
 
     def _default_reply(self, agent: str, node_id: str) -> str:
         if agent == "reviewer":

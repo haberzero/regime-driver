@@ -56,6 +56,11 @@ def _ok(message: str, markup: bool = False) -> None:
     console.print(Text("✓ ", style="bold green") + (Text(message) if not markup else Text.from_markup(message)))
 
 
+def _note(message: str, markup: bool = False) -> None:
+    """Print a non-blocking informational note (advisory, does not exit)."""
+    console.print(Text("· ", style="yellow") + (Text(message) if not markup else Text.from_markup(message)))
+
+
 def _emit_json(data) -> None:
     """Print machine-readable JSON to raw stdout (the CLI contract's --json surface).
 
@@ -189,6 +194,13 @@ def run(
             _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
         else:
             _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
+            # honesty note: the offline trial only proves the flow terminates
+            # structurally; real-model behavior (long output / stalls / truncation)
+            # is NOT exercised by the mock, so a pass does not guarantee success.
+            # (--json consumers already get `ok`/`outcome`; the note is human-only
+            # so machine output stays clean.)
+            if not json_out:
+                _note("preflight is structural only: it does not predict real-model behavior")
     _run(settings, context, title, json_out=json_out, reporter=reporter, sm=sm)
 
 

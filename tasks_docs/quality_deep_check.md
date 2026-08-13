@@ -161,18 +161,46 @@ lru_ttl/task_sched 则被连续打断。差异只在"abort 命中时机"，与�
 reviewer 在 lru_ttl test 节点三次实质判定（含详细整改清单）、task_sched design 两轮拒收，
 **判定质量合格，无"测了个寂寞"放行**。
 
-## 五、处置记录
+## 五、处置记录（第一轮）
 
 - [x] **修复**：`src/regime_driver/infra/opencode.py` event_stream 事件类型回退（data.type）。
 - [x] **回归测试**：`tests/test_opencode.py` +1、`tests/test_supervisor.py` +1（均修复前必败）。
 - [x] **验证**：全量 409 passed 零回归 + 真实 worker SSE 生效确认 + general 只读 review 无 blocker。
 - [x] **报告**：本文件。
-- [ ] **待办**：quality_report.md 中 json_config blocked 描述更正（"reviewer 判定"→"watchdog 重复检测"）；
-  MaxListeners 警告纳入 doctor 检查（候选）；本次修复如需跨容器生效需重建 opencode-worker/dialog-control
-  镜像（data/ 打包副本由 sync_templates 管理，本次仅 src 改动，不涉及模板漂移）。
+- [x] **待办完成**：quality_report.md 中 json_config blocked 描述更正（"reviewer 判定"→"watchdog 重复检测"）。
 
-## 六、遗留建议（未实施，供后续 session）
+## 七、第二轮改进（2026-08-13 复核 + 修复 + UX，commit 同批）
 
-1. `event_stream` 增加一个"事件类型解析"单元测试守卫（现有已覆盖 data.type 回退，足够）。
-2. 长跑/质量套件重跑一次验证修复后的完成率与 lru_ttl 首轮行为（可选，夜间跑）。
-3. 考虑把 T2 活性信号的单测从"模拟 event 字段"扩展为"模拟真实 SSE 原始格式"（本次已加 supervisor 级）。
+用户指示"仔细复核 + 制定改进计划 + 尽可能修复缺陷漏洞 + 提高/改善用户体验"。复核确认前轮
+A-F 六项结论，其中 **F 更正**（低置信度 advance 非缺陷：gate 已有 `ACTION_CONF_MIN["advance"]=0.5`，
+0.7/0.75 合法通过）。实施 4 项代码修复 + 1 项文档修正 + 1 项 UX 改进：
+
+| 项 | 复核结论 | 修复 |
+|---|---|---|
+| A T2 活性链无可观测性 | 确认（`except: pass` 静默） | `ingest_events` 异常记录 `sse_error` 审计；事件类型无法解析计数 + 60s 节流记录 `sse_type_unresolved`（空 `data:{}` 心跳跳过防误报）；审计经 `_safe_record` 嵌套 try 永不因日志失败杀死 watchdog loop |
+| B abort 截断消息被当完成 | 确认（实测 abort 后 `completed` 有值但 `finish=None`） | `_latest_agent_done`：消息带 `error` 或 `finish is None` → 不推进；其余 finish（'stop'/''/'length'）推进交给 reviewer 判定；`[WORK_DONE]` marker 检查移入 completed 分支之后（防 abort 截断草稿含 marker 误推进） |
+| C preflight 能力边界 | 合理设计（MockClient 只验结构） | 非 `--json` 时 preflight PASSED 后打印诚实提示（`_note`，修复 NameError blocker）；`--json` 保持机器输出纯净 |
+| D report_len 无健康检查 | 确认（28K 异常报告无审计） | `settings.report_len_warn`（默认 20000），超限记录 `report_len_warn` 审计事件 |
+| E 文档失实 | 确认 | quality_report.md json_config blocked → "watchdog 重复检测" |
+| F 低置信度 advance | **更正：非缺陷** | 无改动（gate 已合规） |
+
+**关键设计权衡（B）**：abort 中断的可靠信号是 `error` 或 `finish is None`（真实 1.18.11 实测）。
+token 截断 `'length'`、空 `''` 等视为"已完成（截断）"推进给 reviewer——宁可让 reviewer 拒收
+rework，也不死等超时（死等会白烧 600s deadline）。测试 Message 默认 `finish='stop'` 与 MockClient
+正常完成消息显式 `finish='stop'` 对齐真实契约。
+
+**general 只读 review（2nd）**：1 blocker（`_note` NameError，实测 `regime run` 崩溃）+ 5 warning
+全部修复（W1 hasattr 死分支→`getattr(finish,"stop")`；W2 `''` 语义矛盾→统一推进；W3 非 stop finish
+死等→推进；W4 审计 raise 杀 loop→`_safe_record`；W5 测试默认掩盖真实→MockClient 显式 stop + 真实
+worker 验证）。
+
+**验证**：415 passed 零回归（407+8 新增）+ 真实 `regime run` 全流程 56s COMPLETE（验证 B 修复后
+正常完成仍推进 + `_note` 正常）+ 产物代码质量抽查（task_sched/graph_algos 环检测/线程安全/边界测试
+均合格，无"测了个寂寞"）。
+
+## 八、遗留建议（未实施，供后续 session）
+
+1. 长跑/质量套件重跑一次验证修复后的完成率与 lru_ttl 首轮行为（可选，夜间跑）。
+2. MaxListeners 警告纳入 `regime doctor` 检查项（候选，opencode 内部问题）。
+3. `_events_no_type` 累积计数可在告警时附带增量（当前语义=累计未解析事件数，可接受）。
+4. 跨容器生效：本轮 src 改动需重建 opencode-worker/dialog-control 镜像后在真实长跑中生效。

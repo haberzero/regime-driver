@@ -62,7 +62,7 @@ token_bucket / string_util / money_fmt / json_diff / circular_buffer / anagram�
 | lru_ttl（第 1 轮） | human | developer 连续 7 次输出截断草稿（无 pytest），reviewer 拒、监督阶梯逐级升级到 L5 人工 | **监督阶梯正确工作**：检测到循环并诚实上报，不静默掩盖；后续轮次自愈（22p） |
 | task_sched（第 1 轮） | error | design 节点 reviewer 反复输出不合法 verdict → 确定性门耗尽重试 | **确定性门正确拦截**：不合法判定绝不前进；后续自愈（15p） |
 | task_sched（第 2 轮） | error | test 节点监督升级 human（连续停滞） | 阶梯兜底；后续自愈 |
-| json_config（第 1 轮） | blocked | reviewer 判定 blocked（18.5s） | **尊重 reviewer 判定**：blocked 是合法终态；后续自愈（16p） |
+| json_config（第 1 轮） | blocked | watchdog 重复检测拦截（`adjacent_sim=0.93` ≥ 阈值 0.9），非 reviewer 判定 | **看门狗正确拦截**：BLOCKED 是合法终态；后续自愈（16p） |
 
 > 共性：4 个失败全部发生在**首轮冷启动**，后续轮次全部 complete —— 系统对单任务偶发退化
 > 的处理路径（阶梯/human/gate 拦截）被真实触发并验证，且不会传染后续任务。

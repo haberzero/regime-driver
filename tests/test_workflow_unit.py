@@ -16,12 +16,16 @@ SUCC = {"design": "implement", "test": "wrap"}
 
 
 class Message:
-    def __init__(self, role, text="", error=None, completed=None, reply=None):
+    def __init__(self, role, text="", error=None, completed=None, reply=None,
+                 finish="stop"):
         self.role = role
         self.text = text
         self.error = error
         self.completed = completed
         self.reply = reply if reply is not None else text
+        # default 'stop' = a normally-finished turn in tests; abort scenarios
+        # pass error=... or finish=None explicitly.
+        self.finish = finish
 
 
 class FakeClient:
@@ -218,6 +222,88 @@ def test_native_completion_without_marker():
     unit.stop()
     assert outcome == Outcome.COMPLETE
     assert end == "wrap"
+
+
+def test_aborted_turn_is_not_node_done():
+    """Regression (2026-08-13 quality-run): a supervisor-aborted assistant turn
+    (message with `error`, or `completed` set but `finish` present and not
+    'stop') must NOT advance the node on its truncated draft. Only a normal
+    finish ('stop'/'' or a legacy client without a finish attribute) counts."""
+    class AbortClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                super().send_message(sid, text, agent)
+            else:
+                # turn has `completed` ts (opencode sets it on abort) but a
+                # non-normal finish -> interrupted, must not advance
+                self.msgs[sid] = [Message(
+                    "assistant", "truncated draft mid-method",
+                    completed="1786008000000", reply="truncated draft mid-method",
+                    finish=None)]
+    s = Settings(monitor_enabled=False, poll_sec=0.1)
+    sm = load_regime()
+    client = AbortClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    unit.start()
+    unit.submit("任务")
+    # the interrupted turn is not done; without a normal turn the workflow
+    # must not reach COMPLETE within the timeout -> it times out (no advance)
+    res = _wait_result(unit, timeout=1.5)
+    unit.stop()
+    assert res is None or res[0] != Outcome.COMPLETE
+
+
+def test_error_message_is_not_node_done():
+    """A developer message carrying an error (abort surfaced as message.error)
+    must not be treated as a finished node."""
+    class ErrClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                super().send_message(sid, text, agent)
+            else:
+                self.msgs[sid] = [Message(
+                    "assistant", "partial", error="aborted",
+                    completed="1786008000000", reply="partial", finish=None)]
+    s = Settings(monitor_enabled=False, poll_sec=0.1)
+    sm = load_regime()
+    client = ErrClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    unit.start()
+    unit.submit("任务")
+    res = _wait_result(unit, timeout=1.5)
+    unit.stop()
+    assert res is None or res[0] != Outcome.COMPLETE
+
+
+def test_large_report_logs_report_len_warn():
+    """Regression (D): an abnormally large agent report must be audited
+    (report_len_warn event) so out-of-control output is visible in the journal
+    instead of silently advancing."""
+    from regime_driver.app.reporter import Reporter
+
+    class BigClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                super().send_message(sid, text, agent)
+            else:
+                big = "x" * 30000  # exceeds default report_len_warn=20000
+                self.msgs[sid] = [Message("assistant", big,
+                                          completed="1786008000000", reply=big)]
+    import tempfile
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl")
+        s = Settings(monitor_enabled=False, poll_sec=0.1)
+        sm = load_regime()
+        client = BigClient()
+        unit = WorkflowUnit(s, sm, client, poll_sec=0.1, reporter=rep)
+        unit.start()
+        unit.submit("任务")
+        outcome, end, detail = _wait_result(unit)
+        unit.stop()
+        assert outcome == Outcome.COMPLETE
+        recs = rep.journal_slice()
+        assert any(r["event_type"] == "report_len_warn" for r in recs)
 
 
 def test_judge_waits_for_new_reply_not_stale():

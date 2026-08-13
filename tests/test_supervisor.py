@@ -314,6 +314,55 @@ def test_supervisor_ingests_events_data_type_format(monkeypatch):
         assert sup._last_activity_ts > 0.0
 
 
+def test_supervisor_ingest_sse_error_is_audited():
+    """Regression (A: silent failure): a transient SSE failure must be
+    recorded as an audit event, not silently swallowed — otherwise T2
+    liveness degradation is invisible (the 2026-08-13 root cause was exactly
+    such a silent path)."""
+    from regime_driver.app.reporter import Reporter
+    from regime_driver.supervisor import Supervisor
+
+    import tempfile
+    from pathlib import Path
+
+    class BoomClient:
+        def event_stream(self, reconnect=False, max_retries=1):
+            raise RuntimeError("stream dropped")
+
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="supervisor")
+        sup = Supervisor(BoomClient(), rep, session_id="s1")
+        n = sup.ingest_events(max_events=2, stream_timeout=5)
+        assert n == 0
+        recs = rep.journal_slice()
+        assert any(r["event_type"] == "sse_error" for r in recs)
+
+
+def test_supervisor_ingest_unresolved_type_is_audited():
+    """Regression (A): events with no resolvable type must be counted and
+    throttled-audited so a future event-stream regression is visible in the
+    journal (T2 liveness would otherwise silently degrade)."""
+    from regime_driver.app.reporter import Reporter
+    from regime_driver.supervisor import Supervisor
+
+    import tempfile
+    from pathlib import Path
+
+    class NoTypeClient:
+        def event_stream(self, reconnect=False, max_retries=1):
+            yield {"event": None, "data": {"id": "x", "properties": {}}}
+
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="supervisor")
+        sup = Supervisor(NoTypeClient(), rep, session_id="s1")
+        sup._last_liveness_log = 0.0
+        n = sup.ingest_events(max_events=5, stream_timeout=5)
+        assert n == 1
+        assert sup._events_no_type == 1
+        recs = rep.journal_slice()
+        assert any(r["event_type"] == "sse_type_unresolved" for r in recs)
+
+
 class _StallLoopClient:
     """Scripted worker for the Supervisor run-loop T2 test.
 
