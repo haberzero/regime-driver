@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-001729-c3bf",
+  "goal": "写一个Python函数 f(x)=x*9 保存到 dur_9.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3440186,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-001729-c3bf.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-001729-c3bf.out",
+  "created": "2026-08-12T00:17:29"
+}

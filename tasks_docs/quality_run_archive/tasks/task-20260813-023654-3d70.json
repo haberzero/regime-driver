@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-023654-3d70",
+  "goal": "[任务 stats_core] 实现统计函数库 statslib.py。要求：\n1) mean/median/mode/variance(population=True 或 False)/percentile(data,p)/pearson(x,y)。\n2) 空输入：mean/median/mode/variance/percentile 抛 ValueError 并给出明确信息；pearson 对空或长度不足 2 抛 ValueError。\n3) mode 支持多个众数（按首次出现顺序返回列表）；单元素数据 median==该元素、variance==0。\n4) percentile 用线性插值（同 numpy 默认）；p 边界 0 和 100。\n5) pearson 对常数向量（分母为 0）返回 0.0 而非崩溃。\n写 pytest 测试 test_statslib.py 覆盖以上全部边界（空输入异常、单元素、偶/奇长度、多众数、插值、常数向量），在容器内运行 `python3 -m pytest test_statslib.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 940284,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-023654-3d70.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-023654-3d70.out",
+  "created": "2026-08-13T02:36:54"
+}

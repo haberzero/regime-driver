@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-003348-d1d3",
+  "goal": "写一个Python函数 f(x)=x*14 保存到 dur_14.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3544020,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-003348-d1d3.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-003348-d1d3.out",
+  "created": "2026-08-12T00:33:48"
+}

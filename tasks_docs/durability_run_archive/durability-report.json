@@ -1,0 +1,31 @@
+{
+  "elapsed_sec": 7204.8,
+  "drives_submitted": 38,
+  "sessions": {
+    "start": 16,
+    "end": 96,
+    "max": 96,
+    "busy_end": 13
+  },
+  "journal": {
+    "start_bytes": 10495,
+    "end_bytes": 3425600
+  },
+  "event_audit": {
+    "outcomes": {
+      "complete": 27
+    },
+    "ladder_events": {}
+  },
+  "tasks_dir": {
+    "tasks": 38,
+    "crashed": 11,
+    "complete": 27,
+    "bytes": 20651
+  },
+  "worker_mem_end": {
+    "mem": "697.1MiB",
+    "cpu": "/"
+  },
+  "samples": 113
+}

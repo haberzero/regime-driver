@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-020600-b15e",
+  "goal": "[任务 circular_buffer] 实现线程安全环形缓冲区 circular_buffer.py。要求：\n1) class CircularBuffer(capacity, overwrite=False)：write(item)、read()、peek()、is_empty()、is_full()、size()、capacity()。\n2) 容量满时：overwrite=False 时 write 抛 BufferFullError；overwrite=True 时覆盖最旧并返回被覆盖值。\n3) 空时 read/peek 抛 BufferEmptyError。capacity<=0 抛 ValueError。\n4) 线程安全：2 个写者 + 2 个读者并发，不抛异常、不丢数据（读出的总量 == 写入总量，环形回绕正确）。\n写 pytest 测试 test_circular_buffer.py 覆盖：回绕（写满再读再写）、覆盖策略、空/满异常、容量边界、并发不丢数据，在容器内运行 `python3 -m pytest test_circular_buffer.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 918109,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-020600-b15e.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-020600-b15e.out",
+  "created": "2026-08-13T02:06:00"
+}

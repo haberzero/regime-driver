@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-023946-657a",
+  "goal": "[任务 lru_ttl] 实现线程安全 LRU+TTL 缓存 lru_cache.py。要求：\n1) class LRUCache(capacity, ttl=None)：get(key)、set(key,value)、has(key)、size()、clear()。\n2) capacity=0 或负数抛 ValueError；get 命中的键提升为最近使用；容量满时淘汰最久未使用。\n3) ttl 设置后，过期键 get/has 返回 miss（但不清除，懒惰过期）。\n4) 命中率统计：hits/misses/stats()；命中率 = hits/(hits+misses)。\n5) 线程安全：8 个线程并发混合读写同一实例，不抛异常、缓存大小始终 <= capacity、且并发下不丢失已 set 的存活键（用 barrier 制造竞争窗口）。\n写 pytest 测试 test_lru_cache.py 覆盖以上全部（含 TTL 过期、并发、容量边界、命中率），在容器内运行 `python3 -m pytest test_lru_cache.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 942387,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-023946-657a.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-023946-657a.out",
+  "created": "2026-08-13T02:39:46"
+}

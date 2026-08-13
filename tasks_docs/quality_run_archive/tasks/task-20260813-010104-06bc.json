@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-010104-06bc",
+  "goal": "[任务 csv_parse] 实现 CSV 解析器 csv_parser.py（不得用标准库 csv 模块）。要求：\n1) parse(text, delimiter=',') -> list[list[str]]；支持：引号包裹字段、字段内转义引号 \"\"、引号字段内含分隔符与换行（多行字段）、CRLF 与 LF 混用、空行忽略、可选注释行（参数 comments=True 时 # 开头忽略）、UTF-8 BOM 剥离。\n2) 未闭合引号抛 ValueError（含行号）；非引号字段内含引号按字面处理。\n3) 空输入返回 []；仅标题行正常。\n写 pytest 测试 test_csv_parser.py 覆盖：转义引号、多行字段、CRLF/BOM/注释、未闭合引号异常、空输入与空行，在容器内运行 `python3 -m pytest test_csv_parser.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 872553,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-010104-06bc.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-010104-06bc.out",
+  "created": "2026-08-13T01:01:04"
+}

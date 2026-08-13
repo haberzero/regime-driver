@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-020147-7e37",
+  "goal": "[任务 money_fmt] 实现金额格式化 money.py。要求：\n1) fmt(amount, decimals=2, thousands=',', negative='minus'|'parens')：千分位分组、负数前缀 '-' 或括号 '(1,234.56)'。\n2) 四舍五入用 decimal（ROUND_HALF_UP 为默认，参数 rounding 可切 ROUND_HALF_DOWN）；浮点输入先经 Decimal(str(x)) 避免二进制误差。\n3) decimals<0 抛 ValueError；amount 非有限数（inf/NaN）抛 ValueError。\n4) 大数（>10^15）、0、-0.0、极小负小数 正确处理。\n写 pytest 测试 test_money.py 覆盖：千分位、括号负数、HALF_UP/HALF_DOWN 差异（如 2.675）、大数/零/负零/极小值、非法参数异常，在容器内运行 `python3 -m pytest test_money.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 915174,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-020147-7e37.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-020147-7e37.out",
+  "created": "2026-08-13T02:01:47"
+}

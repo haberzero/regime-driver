@@ -274,28 +274,64 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（优先级表，我的判断）
+### 下一 session 主线任务（唯一指针，2026-08-13）
 
-> **当前主线（唯一指针，2026-08-12）**：**对外供给就绪（WORK_PLAN7）✅ + 长期耐久验证（WORK_PLAN6 I）✅
-> + L2 资源治理 + 版本护栏 + 示例/上手文档 + 文档站重构**。全部核心工作已完成，进入交接态。
-> 剩余可选：**V-2（PyPI，用户近期处理）**；**夜间稳态耐久二次验证**（限并发，消除"过度订阅"干扰，
-> 验证 ~100% 完成率）。
-> 已完成的上一主线：**WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久验证 + L2/版本/示例收尾 + 文档站重构**。
+> **下一 session 主攻「内部代码质量检查 + 工作日志流程深度核查」**（用户指示：代码质量分析
+> 不能只靠 pytest——pytest 全绿 ≠ 质量好。需对 regime 自身的工作成果与运行日志做深度核查，
+> 抓出藏得更深的问题）。数据已归档入库（见下方数据地图），`ops/quality_run.py` 可复用重跑。
 
-| # | 任务 | 视角 | 说明 |
-|---|---|---|---|
-| **P0** | **模板数据进包（I）** | 供给 | WORK_PLAN7 I ✅ |
-| **P0** | **`regime scaffold` 一键配置（II）** | 易用 | WORK_PLAN7 II ✅ |
-| **P1** | **单一真源收敛（III）** | 数据分层 | WORK_PLAN7 III ✅ |
-| **P1** | **文档修复与发布教程（IV）** | 发布 | WORK_PLAN7 IV ✅ |
-| P2 | **平台通道（V）**：Pages ✅ 已启用 / PyPI（用户近期处理） | 发布 | WORK_PLAN7 V ⏳（V-1✅ V-3✅；V-2 待用户） |
-| **P1** | **长期耐久验证（I）**：2h+ 真实运行 + 报告 | 可靠 | WORK_PLAN6 I ✅（L1+L3；L2 ✅） |
-| P1 | **稳态耐久二次验证**（限并发，夜间） | 可靠 | 待夜间执行 |
-| P1 | **文档站重构**：三层分层 + 门户 + 框架展示 | 易用 | ✅（MkDocs RTD 主题） |
+#### 数据地图（已归档入库，防 /tmp 丢失）
 
-> 已完成：**WORK_PLAN7 I–IV + V-3、WORK_PLAN6 I（2h 耐久）+ L2、版本护栏、示例 flow、文档站重构、
-> e2e-real 封存、D1/G10 小债**。413 测试全绿（覆盖 72%）。历史规划/任务文档已归档到 `tasks_docs/`。
-> 若只做一件：**V-2 PyPI（待用户）** 或 **夜间稳态耐久二次验证**。
+| 数据 | 位置 | 内容 |
+|---|---|---|
+| **质量套件产物** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，**但需深审**） |
+| 质量报告 | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
+| **事件账本** | `tasks_docs/quality_run_archive/events.jsonl`（133KB） | node_enter/node_done/transition/reviewer_verdict/dispatch_error/outcome 全事件链 |
+| 报告日志 | `tasks_docs/quality_run_archive/journal.jsonl`（6.2MB） | WorkflowUnit 全链路报告（每节点指令/汇报/判定） |
+| 任务明细 | `tasks_docs/quality_run_archive/tasks/*.out + *.summary.json` | 每任务 drive 输出与最终结果 |
+| 第一次耐久 | `tasks_docs/durability_run_archive/` | 2h 简单任务耐久（38 任务）原始数据 + 报告 |
+| 被中断的耐久 | `tasks_docs/durability_run_archive/run2/` | 限并发方案被质量验证取代，仅少量样本 |
+
+#### 核查任务清单（不依赖 pytest）
+
+**A. 产物代码深度审查（每任务独立只读 review，12 个）**
+1. **测试质量**：断言是否真实（真断言 vs 软断言/空断言）、是否覆盖规格要求的全部边界、有无"测了个寂寞"（测试绿但逻辑未验）。
+2. **代码质量**：正确性边界（并发/异常/空输入）、结构/命名/死代码、安全（注入/临时文件/路径处理）、健壮性（重试/资源释放）。
+3. **规格符合度**：规格要求的每个 API/行为是否实现、参数语义是否一致。
+4. 产出：每任务发现清单（blocker/warning/nit），与宿主 pytest 对照——找出"测试绿但代码有问题"的样本。
+
+**B. reviewer 判定质量核查（从 events.jsonl 提取全部 reviewer_verdict）**
+1. verdict/reason 是否实质（1-2 句真理由 vs 套话）。
+2. confidence 分布（有无低置信度却 advance）。
+3. 是否"过场判定"（对明显缺陷也放行）——对照 A 的发现。
+4. gate 拒绝事件（task_sched design gate exhausted）的具体原因链。
+5. 结论：审查门到底拦截了什么、漏了什么。
+
+**C. 工作日志流程核查（journal + 事件链）**
+1. 每任务节点推进完整性（understand→…→wrap 是否走全，有无跳步）。
+2. **developer 是否在 understand/read_code 节点就提前写代码**（已观察到模型跳过设计直接实现）——流程纪律问题，是否需更强节点约束。
+3. transition 决策（reuse/rotate）是否符合预期、有无异常流转。
+4. 全量异常事件收集：dispatch_error / 重试 / 超时 / 停滞。
+5. 4 个非 complete 的完整事件链复盘（见 D）。
+
+**D. 待深挖线索（本次发现未深究，优先级最高）**
+1. **lru_ttl 首轮：developer 连续 7 次输出截断草稿 → 监督升 human**。根因假设：模型输出截断 / worker 会话退化 / 上下文溢出。查该任务完整事件链 + 会话消息。
+2. **task_sched design gate exhausted**：reviewer 为何反复输出不合法 verdict。查 reviewer_verdict 事件 + gate 拒绝原因。
+3. **json_config blocked（18.5s 极快）**：reviewer 为何判 blocked。查事件链。
+4. **worker `MaxListenersExceeded` 警告**（`docker logs opencode-worker` 可见）：会话累积导致 opencode 进程内部监听器泄漏——潜在长期退化根因。
+5. **4 个非 complete 全在首轮、后续自愈**：是真自愈还是偶然。对比首轮与后续轮次事件差异。
+6. **developer 提前实现**：模型跳流程 vs 需要更强节点指令约束。
+
+**E. 处置**：发现系统问题 → 修复 → 全量测试零回归 → commit（走 code-workflow + general 只读 review）。
+
+#### 环境状态（交接时）
+
+- `opencode-worker` / `opencode-dialog-control` 容器健康；worker 有会话累积残留（`regime sessions --clean` 可清）。
+- 测试基线 **407 passed**；`sync_templates.py --check` 绿。
+- 上一批修复：**reviewer agent `bash` 改 `"*": deny`**（headless 死锁，见 `quality_report.md` §2/§5）。
+- 复用工具：`ops/quality_tasks.py`（套件）、`ops/quality_run.py --tasks <id>`（单任务重跑）。
+- 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 + 示例流程 + 文档站重构 + 术语改名 + 质量收益验证。
+- 剩余候选：**V-2 PyPI（待用户）**、夜间稳态耐久二次验证（简单任务限并发基线，可选）。
 
 ### 已完成主线（历史，参考）
 

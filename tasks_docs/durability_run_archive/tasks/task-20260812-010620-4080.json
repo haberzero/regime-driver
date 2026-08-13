@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-010620-4080",
+  "goal": "写一个Python函数 f(x)=x*24 保存到 dur_24.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3746990,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-010620-4080.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-010620-4080.out",
+  "created": "2026-08-12T01:06:20"
+}

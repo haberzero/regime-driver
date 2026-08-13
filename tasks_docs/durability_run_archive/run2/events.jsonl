@@ -1,0 +1,27 @@
+{"event": "node_enter", "ts": "2026-08-12T23:33:56", "source": "regime-driver", "node": "understand", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-12T23:34:07", "source": "regime-driver", "node": "understand", "outcome": "complete", "report_len": 175}
+{"event": "transition", "ts": "2026-08-12T23:34:07", "source": "regime-driver", "from_node": "understand", "to_node": "read_code", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:34:07", "source": "regime-driver", "node": "read_code", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-12T23:34:12", "source": "regime-driver", "node": "read_code", "outcome": "complete", "report_len": 144}
+{"event": "transition", "ts": "2026-08-12T23:34:12", "source": "regime-driver", "from_node": "read_code", "to_node": "design", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:34:12", "source": "regime-driver", "node": "design", "type": "judge", "role": "reviewer"}
+{"event": "node_enter", "ts": "2026-08-12T23:37:11", "source": "regime-driver", "node": "understand", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-12T23:37:21", "source": "regime-driver", "node": "understand", "outcome": "complete", "report_len": 140}
+{"event": "transition", "ts": "2026-08-12T23:37:21", "source": "regime-driver", "from_node": "understand", "to_node": "read_code", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:37:21", "source": "regime-driver", "node": "read_code", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-12T23:37:26", "source": "regime-driver", "node": "read_code", "outcome": "complete", "report_len": 140}
+{"event": "transition", "ts": "2026-08-12T23:37:26", "source": "regime-driver", "from_node": "read_code", "to_node": "design", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:37:26", "source": "regime-driver", "node": "design", "type": "judge", "role": "reviewer"}
+{"event": "reviewer_verdict", "ts": "2026-08-12T23:37:42", "source": "regime-driver", "node": "design", "verdict": "issue_resolved", "action": "advance", "confidence": 0.95}
+{"event": "advance", "ts": "2026-08-12T23:37:42", "source": "regime-driver", "to": "implement"}
+{"event": "transition", "ts": "2026-08-12T23:37:42", "source": "regime-driver", "from_node": "design", "to_node": "implement", "role": "reviewer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:37:42", "source": "regime-driver", "node": "implement", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-12T23:37:52", "source": "regime-driver", "node": "implement", "outcome": "complete", "report_len": 138}
+{"event": "transition", "ts": "2026-08-12T23:37:52", "source": "regime-driver", "from_node": "implement", "to_node": "test", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:37:52", "source": "regime-driver", "node": "test", "type": "judge", "role": "reviewer"}
+{"event": "reviewer_verdict", "ts": "2026-08-12T23:37:57", "source": "regime-driver", "node": "test", "verdict": "issue_resolved", "action": "advance", "confidence": 0.95}
+{"event": "advance", "ts": "2026-08-12T23:37:57", "source": "regime-driver", "to": "wrap"}
+{"event": "transition", "ts": "2026-08-12T23:37:57", "source": "regime-driver", "from_node": "test", "to_node": "wrap", "role": "reviewer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-12T23:37:57", "source": "regime-driver", "node": "wrap", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-12T23:38:02", "source": "regime-driver", "node": "wrap", "outcome": "complete", "report_len": 145}
+{"event": "outcome", "ts": "2026-08-12T23:38:02", "source": "regime-driver", "node": "wrap", "outcome": "complete", "detail": ""}

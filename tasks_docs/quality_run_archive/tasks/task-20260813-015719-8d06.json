@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-015719-8d06",
+  "goal": "[任务 token_bucket] 实现令牌桶限流器 limiter.py。要求：\n1) class TokenBucket(capacity, refill_rate)：capacity>0 且 refill_rate>=0（0=不自动补充，仅初始令牌）；否则抛 ValueError。\n2) allow() -> bool：有令牌则消费并返回 True，否则 False；线程安全（并发调用不超卖）。\n3) refill：按经过时间补充令牌，最多补到 capacity；短窗口内允许的突发不超过 capacity。\n4) 统计：total_allowed/total_denied/stats()。\n写 pytest 测试 test_limiter.py 覆盖：初始令牌耗尽、按速补充（用 time.monotonic + 小 sleep 或注入时钟）、突发不超过 capacity、并发 8 线程下总放行数不超过理论上限（容量+速率×时长，容差 1）、非法参数异常，在容器内运行 `python3 -m pytest test_limiter.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 911969,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-015719-8d06.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-015719-8d06.out",
+  "created": "2026-08-13T01:57:19"
+}

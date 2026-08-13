@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-011911-b127",
+  "goal": "写一个Python函数 f(x)=x*28 保存到 dur_28.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3773650,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-011911-b127.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-011911-b127.out",
+  "created": "2026-08-12T01:19:11"
+}

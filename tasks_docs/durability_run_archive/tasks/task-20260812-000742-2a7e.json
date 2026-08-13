@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-000742-2a7e",
+  "goal": "写一个Python函数 f(x)=x*6 保存到 dur_6.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3376411,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-000742-2a7e.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-000742-2a7e.out",
+  "created": "2026-08-12T00:07:42"
+}

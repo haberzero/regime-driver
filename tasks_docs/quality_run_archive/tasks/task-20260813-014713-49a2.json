@@ -1,0 +1,10 @@
+{
+  "id": "task-20260813-014713-49a2",
+  "goal": "[任务 task_sched] 实现依赖任务调度器 scheduler.py。要求：\n1) add(task_id, deps, fn)：fn 为无参可调用（可用 lambda）；deps 为任务 id 列表。\n2) run(max_parallel=4) 按依赖拓扑并行执行；返回 {task_id: result}。\n3) 环依赖 add 或 run 时抛 ValueError 并列出参与环的任务；缺失依赖抛 KeyError。\n4) 单任务执行异常：默认该任务记失败（结果含异常对象）且不中断其它无依赖任务；参数 stop_on_error=True 时首个异常即抛出并停止调度。\n5) 保证：任一任务只执行一次；所有依赖在它之前完成（用记录执行时间戳断言顺序）。\n写 pytest 测试 test_scheduler.py 覆盖：串行链、并行扇出、环检测、缺失依赖、异常隔离、执行顺序断言、max_parallel 生效（并发峰值 <= 上限，用 active 计数），在容器内运行 `python3 -m pytest test_scheduler.py -q` 直到全部通过，并在汇报里给出测试摘要（N passed）。",
+  "deadline": 900,
+  "status": "running",
+  "pid": 905192,
+  "summary_file": "/tmp/quality-run/tasks/task-20260813-014713-49a2.summary.json",
+  "out_file": "/tmp/quality-run/tasks/task-20260813-014713-49a2.out",
+  "created": "2026-08-13T01:47:13"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-010935-367f",
+  "goal": "写一个Python函数 f(x)=x*25 保存到 dur_25.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3764753,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-010935-367f.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-010935-367f.out",
+  "created": "2026-08-12T01:09:35"
+}

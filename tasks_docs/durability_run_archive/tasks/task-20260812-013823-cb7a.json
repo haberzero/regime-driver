@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-013823-cb7a",
+  "goal": "写一个Python函数 f(x)=x*34 保存到 dur_34.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3791527,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-013823-cb7a.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-013823-cb7a.out",
+  "created": "2026-08-12T01:38:23"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "task-20260812-002045-aa51",
+  "goal": "写一个Python函数 f(x)=x*10 保存到 dur_10.py 并运行确认结果打印",
+  "deadline": 600,
+  "status": "running",
+  "pid": 3460287,
+  "summary_file": "/tmp/durability-run/tasks/task-20260812-002045-aa51.summary.json",
+  "out_file": "/tmp/durability-run/tasks/task-20260812-002045-aa51.out",
+  "created": "2026-08-12T00:20:45"
+}

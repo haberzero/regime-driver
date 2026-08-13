@@ -1,0 +1,901 @@
+{
+  "elapsed_sec": 7269.7,
+  "tasks_attempted": 43,
+  "results": [
+    {
+      "id": "graph_algos",
+      "task_id": "task-20260813-004719-30a9",
+      "elapsed_sec": 85.4,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 13,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".............                                                            [100%]\n13 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "stats_core",
+      "task_id": "task-20260813-004848-c8e9",
+      "elapsed_sec": 167.2,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 26,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........................                                               [100%]\n26 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 3,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_config",
+      "task_id": "task-20260813-005138-5b16",
+      "elapsed_sec": 134.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "ib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-406e1f34-7544-4629-b387-33668260581e\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-406e1f34-7544-4629-b387-33668260581e'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n16 passed, 12 warnings in 0.02s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "lru_ttl",
+      "task_id": "task-20260813-005355-4c58",
+      "elapsed_sec": 428.1,
+      "outcome": "human",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": false,
+        "reason": "artifacts missing"
+      },
+      "reviewer": {
+        "verdicts": 4,
+        "advances": 1,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "csv_parse",
+      "task_id": "task-20260813-010104-06bc",
+      "elapsed_sec": 245.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 28,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "............................                                             [100%]\n28 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "task_sched",
+      "task_id": "task-20260813-010512-d48e",
+      "elapsed_sec": 197.0,
+      "outcome": "error",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": false,
+        "reason": "artifacts missing"
+      },
+      "reviewer": {
+        "verdicts": 0,
+        "advances": 0,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "token_bucket",
+      "task_id": "task-20260813-010830-3ac9",
+      "elapsed_sec": 148.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 10,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........                                                               [100%]\n10 passed in 0.06s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "string_util",
+      "task_id": "task-20260813-011101-6efe",
+      "elapsed_sec": 245.7,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 40,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "........................................                                 [100%]\n40 passed in 0.02s\n"
+      },
+      "reviewer": {
+        "verdicts": 3,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "money_fmt",
+      "task_id": "task-20260813-011509-6787",
+      "elapsed_sec": 278.1,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 18,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..................                                                       [100%]\n18 passed in 0.02s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_diff",
+      "task_id": "task-20260813-011949-d83c",
+      "elapsed_sec": 148.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 17,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".................                                                        [100%]\n17 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "circular_buffer",
+      "task_id": "task-20260813-012220-4dbc",
+      "elapsed_sec": 699.0,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 12,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "............                                                             [100%]\n12 passed in 0.04s\n"
+      },
+      "reviewer": {
+        "verdicts": 6,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "anagram",
+      "task_id": "task-20260813-013402-e377",
+      "elapsed_sec": 132.1,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 20,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "....................                                                     [100%]\n20 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "graph_algos",
+      "task_id": "task-20260813-013616-fa76",
+      "elapsed_sec": 99.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 13,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".............                                                            [100%]\n13 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "stats_core",
+      "task_id": "task-20260813-013758-361f",
+      "elapsed_sec": 83.5,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 26,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........................                                               [100%]\n26 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_config",
+      "task_id": "task-20260813-013924-8b60",
+      "elapsed_sec": 99.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "ib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-68459f12-3780-4ed3-9455-ecf822838574\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-68459f12-3780-4ed3-9455-ecf822838574'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n16 passed, 12 warnings in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "lru_ttl",
+      "task_id": "task-20260813-014106-9a44",
+      "elapsed_sec": 164.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 22,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "......................                                                   [100%]\n22 passed in 0.36s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "csv_parse",
+      "task_id": "task-20260813-014353-0d1f",
+      "elapsed_sec": 197.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 28,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "............................                                             [100%]\n28 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "task_sched",
+      "task_id": "task-20260813-014713-49a2",
+      "elapsed_sec": 603.2,
+      "outcome": "error",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 15,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "...............                                                          [100%]\n15 passed in 0.34s\n"
+      },
+      "reviewer": {
+        "verdicts": 4,
+        "advances": 1,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "token_bucket",
+      "task_id": "task-20260813-015719-8d06",
+      "elapsed_sec": 115.8,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 10,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........                                                               [100%]\n10 passed in 0.05s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "string_util",
+      "task_id": "task-20260813-015917-a950",
+      "elapsed_sec": 148.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 40,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "........................................                                 [100%]\n40 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "money_fmt",
+      "task_id": "task-20260813-020147-7e37",
+      "elapsed_sec": 148.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 18,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..................                                                       [100%]\n18 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_diff",
+      "task_id": "task-20260813-020418-6d9d",
+      "elapsed_sec": 99.5,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 17,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".................                                                        [100%]\n17 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "circular_buffer",
+      "task_id": "task-20260813-020600-b15e",
+      "elapsed_sec": 132.0,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 12,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "............                                                             [100%]\n12 passed in 0.04s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "anagram",
+      "task_id": "task-20260813-020814-e84f",
+      "elapsed_sec": 99.5,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 20,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "....................                                                     [100%]\n20 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "graph_algos",
+      "task_id": "task-20260813-020956-9285",
+      "elapsed_sec": 83.4,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 13,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".............                                                            [100%]\n13 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "stats_core",
+      "task_id": "task-20260813-021122-9938",
+      "elapsed_sec": 180.7,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 26,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........................                                               [100%]\n26 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_config",
+      "task_id": "task-20260813-021425-aadc",
+      "elapsed_sec": 18.5,
+      "outcome": "blocked",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "ib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-6d21bb34-921c-4541-ad49-df7be7f0b12c\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-6d21bb34-921c-4541-ad49-df7be7f0b12c'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n16 passed, 12 warnings in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 0,
+        "advances": 0,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "lru_ttl",
+      "task_id": "task-20260813-021446-164c",
+      "elapsed_sec": 197.0,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 22,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "......................                                                   [100%]\n22 passed in 0.35s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "csv_parse",
+      "task_id": "task-20260813-021806-3499",
+      "elapsed_sec": 148.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 30,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..............................                                           [100%]\n30 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "task_sched",
+      "task_id": "task-20260813-022036-90d4",
+      "elapsed_sec": 67.1,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 15,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "...............                                                          [100%]\n15 passed in 0.34s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "token_bucket",
+      "task_id": "task-20260813-022146-d9d8",
+      "elapsed_sec": 99.5,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 10,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........                                                               [100%]\n10 passed in 0.05s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "string_util",
+      "task_id": "task-20260813-022328-7167",
+      "elapsed_sec": 229.4,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 40,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "........................................                                 [100%]\n40 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 4,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "money_fmt",
+      "task_id": "task-20260813-022720-e257",
+      "elapsed_sec": 115.8,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 18,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..................                                                       [100%]\n18 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_diff",
+      "task_id": "task-20260813-022918-d355",
+      "elapsed_sec": 99.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 17,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".................                                                        [100%]\n17 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "circular_buffer",
+      "task_id": "task-20260813-023100-f4d1",
+      "elapsed_sec": 115.8,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 12,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "............                                                             [100%]\n12 passed in 0.04s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "anagram",
+      "task_id": "task-20260813-023258-2600",
+      "elapsed_sec": 115.7,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 20,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "....................                                                     [100%]\n20 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "graph_algos",
+      "task_id": "task-20260813-023456-2441",
+      "elapsed_sec": 115.9,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 13,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".............                                                            [100%]\n13 passed in 0.00s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "stats_core",
+      "task_id": "task-20260813-023654-3d70",
+      "elapsed_sec": 99.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 26,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........................                                               [100%]\n26 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "json_config",
+      "task_id": "task-20260813-023836-e2c3",
+      "elapsed_sec": 67.1,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "ib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-9674d7c8-1937-4371-b0d6-1376865f8ae4\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-9674d7c8-1937-4371-b0d6-1376865f8ae4'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n16 passed, 12 warnings in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "lru_ttl",
+      "task_id": "task-20260813-023946-657a",
+      "elapsed_sec": 99.7,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 22,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "......................                                                   [100%]\n22 passed in 0.35s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "csv_parse",
+      "task_id": "task-20260813-024128-1c1e",
+      "elapsed_sec": 197.0,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 30,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..............................                                           [100%]\n30 passed in 0.01s\n"
+      },
+      "reviewer": {
+        "verdicts": 3,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "task_sched",
+      "task_id": "task-20260813-024448-3514",
+      "elapsed_sec": 115.9,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 15,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "...............                                                          [100%]\n15 passed in 0.34s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    },
+    {
+      "id": "token_bucket",
+      "task_id": "task-20260813-024646-ad4e",
+      "elapsed_sec": 99.6,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 10,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "..........                                                               [100%]\n10 passed in 0.05s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0
+      }
+    }
+  ]
+}

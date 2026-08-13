@@ -1,0 +1,9 @@
+✓ preflight PASSED (offline outcome=complete)
+  drive · 11s · task-20260813-021425-aadc   
+┌─────────┬────────────────────────────────┐
+│    node │ understand                     │
+│   state │ aborted                        │
+│ session │ ses_008d13625ffebiox4TYAYOz2sP │
+└─────────┴────────────────────────────────┘  ✗ outcome: blocked @ understand (11.2s)
+  supervisor: workflow_done  session: ses_008d13625ffebiox4TYAYOz2sP
+✗ drive blocked at understand: monitor: repetition detected: adjacent_sim=0.93
