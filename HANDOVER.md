@@ -274,13 +274,16 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-14 凌晨）
+### 下一 session 主线任务（唯一指针，2026-08-14）
 
-> **本 session 已完成 WORK_PLAN9（套件/留档/清理）+ WORK_PLAN10（T2 停滞 SSE 活性化）
-> + WORK_PLAN11（可编程看门狗策略引擎）+ WORK_PLAN12（智能侧说明同步+防断裂守卫）**。
-> **下一 session 唯一主线 = 夜间整合重跑**（见 `tasks_docs/MAIN_TASKS.md`）
-> 用新 4 复杂任务套件 + SSE 活性 watchdog + 最新智能说明/插件，全链路重跑输出
-> 能力覆盖报告。**全部资源已核验就绪（见下方"环境核验"），可直接 `ops/run_nightly.sh`**。
+> **本 session 已完成夜间整合重跑**（WORK_PLAN8 阶段5 + WORK_PLAN9 验证）：
+> 4/4 复杂任务 complete、宿主 pytest 全 0 failed、能力覆盖 17/17、归档入库
+> `tasks_docs/nightly_run_archive/20260814-012700/`、全量 469 passed 零回归。
+> 报告见 `tasks_docs/quality_report.md` §7。
+>
+> **下一 session 候选主线**（按序）：V-2 PyPI 发布（待用户 token）→
+> P-005 测试套件优化（覆盖率提升/xdist）→ 限并发耐久二次验证（复杂任务 ~100% 完成率）
+> → GitHub Pages 启用（待用户 Settings 操作）。详见 `tasks_docs/MAIN_TASKS.md`。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
@@ -360,9 +363,9 @@
   含 capability_coverage）、`ops/run_nightly.sh`（夜间一键长跑）。
 - 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 +
   示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + WORK_PLAN8 阶段 1–4 + 分发重构 + 卸载机制 +
-  **WORK_PLAN9/10/11/12**（本 session）。
-- 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**夜间整合重跑（下一主线）**、
-  **GitHub Pages 启用**（Settings→Pages→GitHub Actions）。
+  WORK_PLAN9/10/11/12 + **夜间整合重跑（2026-08-14 ✅，见 §8 上方）**。
+- 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**P-005 测试套件优化**、
+  **限并发耐久二次验证**、**GitHub Pages 启用**（Settings→Pages→GitHub Actions）。
 
 ### 本 session 已完成（2026-08-13，8 个 commit）
 
@@ -453,6 +456,23 @@ payment_ledger complete 265s 零误杀、regime run complete 88s。全量 463 pa
 **关键成果**：智能侧说明与功能一致，杜绝"说明过期"复发。新增 6 项守卫测试
 （settings 字段↔config/ref 一致 + 死字段 deprecated + CLI 文档无 phantom 参数）。
 全量 469 passed 零回归，真实 worker 冒烟 complete 94.6s。
+
+### 本 session 已完成（2026-08-14，夜间整合重跑）
+
+> 用户确认后直接全量开跑。本轮完成了 WORK_PLAN8 阶段5 + WORK_PLAN9 验证的最后一环
+> ——在最新架构（SSE 活性 watchdog + 可编程策略引擎 + 智能侧说明）下全链路重跑。
+
+**结果**：4/4 复杂任务 complete（shop_inventory 349s / kv_cluster 664s / payment_ledger 499s /
+etl_pipeline 515s）；宿主独立 pytest 全 0 failed（63/22/27/28 passed，140 断言累计）；
+reviewer verdicts 2/2/3/2（实质判定）；**能力覆盖 17/17**（0 uncovered）；零 ladder、零误杀。
+全量测试 469 passed 零回归；sync_templates/check_capabilities 守卫绿。
+
+**产出**：`tasks_docs/nightly_run_archive/20260814-012700/`（per-task 会话快照 + 完整工作区 +
+journal/events 切片 + result.json + quality-report.json + run.log）；`tasks_docs/quality_report.md` §7
+报告；MAIN_TASKS/WORKLOG/HANDOVER 已同步。
+
+**工程结论**：WORK_PLAN10（SSE 活性）与 WORK_PLAN11（策略引擎）修复在真实复杂任务下有效
+（对比旧 lru_ttl 首轮 7 次截断→human 已系统性消除）；4 任务全部首轮一次完成。
 
 ### 已完成主线（历史，参考）
 

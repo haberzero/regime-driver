@@ -1,0 +1,54 @@
+== task shop_inventory: est 20min, deadline 1500s ==
+  [seed] inventory.py -> worker /root/work/code/
+  [snapshot] ses_003f55e60ffedMc9T0DWkMMRdo: 35 messages
+  [snapshot] ses_003f287b9ffeR1X0lDGRxMKT6S: 10 messages
+  -> outcome=complete elapsed=349.4s pytest={'verifiable': True, 'rc': 0, 'passed': 63, 'failed': 0, 'errors': 0, 'snippet': '...............................................................          [100%]\n63 passed in 0.03s\n'} audit={'verdicts': 2, 'advances': 2, 'gate_exhausted': 0, 'reworks': 0, 'inquiries': 0} snap=2
+[quality] incremental report -> /tmp/nightly-run-20260814/quality-report.json (1 tasks)
+  [clean] sessions rc=0
+== task kv_cluster: est 25min, deadline 1800s ==
+  [snapshot] ses_003effda2ffeoOx9YclcjvMwMS: 49 messages
+  [snapshot] ses_003ea63a0ffejfrjlcyu0TkncR: 14 messages
+  -> outcome=complete elapsed=663.5s pytest={'verifiable': True, 'rc': 0, 'passed': 22, 'failed': 0, 'errors': 0, 'snippet': " warnings.warn(\n\n../.local/lib/python3.12/site-packages/_pytest/pathlib.py:95\n  /home/haber/.local/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-de2cc7fa-c1fa-4fbe-9d55-28899ae92fa7\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-de2cc7fa-c1fa-4fbe-9d55-28899ae92fa7'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n22 passed, 12 warnings in 0.17s\n"} audit={'verdicts': 2, 'advances': 2, 'gate_exhausted': 0, 'reworks': 0, 'inquiries': 0} snap=2
+[quality] incremental report -> /tmp/nightly-run-20260814/quality-report.json (2 tasks)
+  [clean] sessions rc=0
+== task payment_ledger: est 20min, deadline 1500s ==
+  [seed] ledger.py -> worker /root/work/code/
+  [snapshot] ses_003e5d106ffeVm5nN6gEy2Ugly: 47 messages
+  [snapshot] ses_003e3e54affefeLq49H6sQoufp: 16 messages
+  -> outcome=complete elapsed=499.3s pytest={'verifiable': True, 'rc': 0, 'passed': 27, 'failed': 0, 'errors': 0, 'snippet': '...........................                                              [100%]\n27 passed in 0.12s\n'} audit={'verdicts': 3, 'advances': 2, 'gate_exhausted': 0, 'reworks': 0, 'inquiries': 1} snap=2
+[quality] incremental report -> /tmp/nightly-run-20260814/quality-report.json (3 tasks)
+  [clean] sessions rc=0
+== task etl_pipeline: est 25min, deadline 1800s ==
+  [seed] pipeline.py -> worker /root/work/code/
+  [snapshot] ses_003de259cffeQXeHTlsoNdhSqf: 42 messages
+  [snapshot] ses_003d9ff0cffesjO2aYTVZcq04a: 15 messages
+  -> outcome=complete elapsed=514.5s pytest={'verifiable': True, 'rc': 0, 'passed': 28, 'failed': 0, 'errors': 0, 'snippet': '............................                                             [100%]\n28 passed in 0.02s\n'} audit={'verdicts': 2, 'advances': 2, 'gate_exhausted': 0, 'reworks': 0, 'inquiries': 0} snap=2
+[quality] incremental report -> /tmp/nightly-run-20260814/quality-report.json (4 tasks)
+  [clean] sessions rc=0
+
+== results ==
+shop_inventory   outcome=complete   pytest=63passed/0failed verdicts=2 elapsed=349.4s archive=/tmp/nightly-run-20260814/archive/shop_inventory
+kv_cluster       outcome=complete   pytest=22passed/0failed verdicts=2 elapsed=663.5s archive=/tmp/nightly-run-20260814/archive/kv_cluster
+payment_ledger   outcome=complete   pytest=27passed/0failed verdicts=3 elapsed=499.3s archive=/tmp/nightly-run-20260814/archive/payment_ledger
+etl_pipeline     outcome=complete   pytest=28passed/0failed verdicts=2 elapsed=514.5s archive=/tmp/nightly-run-20260814/archive/etl_pipeline
+
+== capability coverage ==
+  api-design                   <- shop_inventory, kv_cluster, etl_pipeline
+  bug-fixing                   <- payment_ledger
+  code-odor                    <- shop_inventory
+  concurrency-testing          <- kv_cluster, payment_ledger, etl_pipeline
+  cross-module-contract        <- kv_cluster
+  design-node                  <- shop_inventory, kv_cluster, payment_ledger, etl_pipeline
+  edge-cases                   <- shop_inventory, kv_cluster, payment_ledger, etl_pipeline
+  error-handling               <- payment_ledger
+  error-isolation              <- shop_inventory, kv_cluster, etl_pipeline
+  integration                  <- shop_inventory, kv_cluster, etl_pipeline
+  multi-module                 <- shop_inventory, kv_cluster, etl_pipeline
+  read-existing-code           <- shop_inventory, payment_ledger
+  refactoring                  <- shop_inventory
+  root-cause                   <- payment_ledger
+  thread-safety                <- kv_cluster, payment_ledger
+  tradeoff-documentation       <- kv_cluster, etl_pipeline
+  wrap-hygiene                 <- shop_inventory, etl_pipeline
+
+[quality] archive: /tmp/nightly-run-20260814/archive

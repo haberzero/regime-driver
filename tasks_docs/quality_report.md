@@ -1,6 +1,6 @@
 # 质量收益验证报告（WORK_PLAN6 I · 夜间稳态+质量）
 
-> **状态**：✅ 完成（2026-08-13 夜，~2h 真实运行）
+> **状态**：✅ 完成（2026-08-13 夜，~2h 真实运行；2026-08-14 增补夜间整合重跑 §7）
 > 方法：`ops/quality_tasks.py`（12 个复杂工程任务套件）+ `ops/quality_run.py`（提交→等待→
 > `docker cp` 产物→**宿主独立 pytest 复验**→reviewer 审查事件审计）。逐任务 `--clean-sessions`
 > 防止 worker 会话累积退化；单任务在飞（无过度订阅）。
@@ -82,3 +82,41 @@ token_bucket / string_util / money_fmt / json_diff / circular_buffer / anagram�
 3. **诚实失败路径已验证**：循环→人工、gate 耗尽、blocked 判定三种失败均正确终止且自愈。
 4. **建议**：`reviewer` 死锁修复值得固化（已入真源/容器）；后续质量套件可并入 CI 或作为
    回归基线（成本：每任务 ~100–230s 真实模型，适合夜间/手动）。
+
+---
+
+## 7. 夜间整合重跑报告（WORK_PLAN8 阶段5 + WORK_PLAN9 验证，2026-08-14）
+
+> **状态**：✅ 完成（2026-08-14 凌晨，单轮 4 任务全量）
+> 方法：`bash ops/run_nightly.sh --root /tmp/nightly-run-20260814`（WORK_PLAN9 重构后的一键脚本）：
+> 预检 → per-task 隔离工作区 → `regime drive` 监督栈 → 宿主独立 pytest 复验 → per-task 全量归档
+> （会话快照 + 完整工作区 + journal/events 切片 + result.json）→ 能力覆盖报告 → 归档入库。
+> 归档：`tasks_docs/nightly_run_archive/20260814-012700/`。
+
+### 7.1 任务套件（WORK_PLAN9 新 4 复杂任务）
+
+> 注：payment_ledger 的设计决策写入产物 `ledger.py` 头部 `# DESIGN DECISIONS (final):` 段
+> （设计节点真实产生并经 reviewer 判定），未生成独立 DESIGN.md；其余 3 任务有独立 DESIGN.md。
+> 归档忠实反映 worker 产物，非缺漏。
+
+| 任务 | 内容 | outcome | 耗时 | 宿主 pytest | reviewer verdicts |
+|---|---|---|---|---|---|
+| shop_inventory | 遗留库存/定价/订单子系统重构 + 5 缺陷根因修复 + 折扣策略设计决策 | complete | 349s | 63p/0f | 2 |
+| kv_cluster | 分布式 KV 存储（一致性/选举/故障转移）+ 跨模块契约 + 并发 | complete | 664s | 22p/0f | 2 |
+| payment_ledger | 支付账本（原子性/异常/并发） | complete | 499s | 27p/0f | 3 |
+| etl_pipeline | 数据管道（多模块/集成/错误隔离） | complete | 515s | 28p/0f | 2 |
+
+### 7.2 能力覆盖（`quality-report.json` capability_coverage）
+
+**声明 17 / 覆盖 17（0 uncovered）**：api-design、bug-fixing、code-odor、concurrency-testing、
+cross-module-contract、design-node、edge-cases、error-handling、error-isolation、integration、
+multi-module、read-existing-code、refactoring、root-cause、thread-safety、
+tradeoff-documentation、wrap-hygiene。
+
+### 7.3 结论
+
+1. **最新架构下全链路无回归**：SSE 活性 watchdog + 可编程策略引擎 + 智能侧说明同步后，
+   4/4 复杂任务诚实完成，零 ladder、零误杀（对比旧 lru_ttl 首轮 7 次截断→human 已消除）。
+2. **能力覆盖引擎达标**：17/17 声明能力被真实触发，每任务 2–3 次 reviewer 实质判定，gate 无拦截。
+3. **产物可独立复验**：宿主外部 pytest 全 0 failed（140 断言累计），worker 内自跑与宿主复验一致。
+4. **建议**：夜间整合重跑可作发布前的标准回归门（`ops/run_nightly.sh`，~30min 单轮）。

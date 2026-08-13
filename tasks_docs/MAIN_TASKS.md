@@ -1,7 +1,7 @@
 # MAIN_TASKS — 主线任务文档（当前主线 + 下一步 + 硬约束）
 
 > 任务控制体系四类关键文档之一（规范见 `workflow-regime/task-control/02_main_tasks.md`）。
-> 常驻，随主线推进持续更新。最后更新：2026-08-13（夜）。
+> 常驻，随主线推进持续更新。最后更新：2026-08-14。
 
 ## 工作模式定论（强制，凌驾于一切任务之上）
 
@@ -30,23 +30,26 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ## 🔴 当前主线
 
-### 主线：智能侧说明同步 + 防断裂工作流（WORK_PLAN12）—— 让智能正确使用新功能
+### 主线：夜间整合重跑（WORK_PLAN8 阶段5 + WORK_PLAN9 验证）—— 全链路能力覆盖报告
 
-**目标**：修复"提供给状态机/控制对话框的说明过期"问题——智能照旧文档调用不存在的
-CLI 参数、误把"自动中断续跑"当失败。同步全部智能操作层说明，并建立防断裂守卫。
+**状态**：✅ 完成（2026-08-14 凌晨）。
 
-**范围分解**：
+**结果**：4/4 复杂任务 complete（shop_inventory 349s / kv_cluster 664s / payment_ledger 499s /
+etl_pipeline 515s）；宿主独立 pytest **全 0 failed**（63/22/27/28 passed）；reviewer verdicts
+2/2/3/2；**能力覆盖 17/17**（声明能力全触发，0 uncovered）；全量测试 469 passed 零回归。
 
-| # | 子任务 | 状态 |
-|---|--------|------|
-| 1 | 全面审计智能侧说明 vs 实际功能断裂（explore agent 交付断裂清单） | ✅ 完成 |
-| 2 | 修 blocker：01_cli run-many --workers 不存在、run --preflight 不存在 | ✅ 完成 |
-| 3 | 补配置说明：02_configuration + config.example.toml 加 watchdog_policy_json/auto_resume_sec/report_len_warn + 标死配置 [deprecated] | ✅ 完成 |
-| 4 | 补智能操作层：dialog-control.md（中断恢复+事件识别+默认策略限定）+ 05 契约 §4.1 | ✅ 完成 |
-| 5 | 同步架构/子系统：architecture/02 策略引擎+全信号时序 + 01_drive/04_supervisor/06_dialog_control + 03_flow_spec | ✅ 完成 |
-| 6 | 同步 guide/capabilities：技能表 + 中断恢复能力 + CLI 计数 | ✅ 完成 |
-| 7 | 防断裂工作流：test_config_doc_guard + test_cli_doc_guard + MAIN_TASKS checklist 硬约束 | ✅ 完成 |
-| 8 | general 只读 review（0 blocker，W1-W7 全修）+ 全量测试零回归 + 真实 worker 冒烟 | ✅ 完成 |
+**产出**：`tasks_docs/nightly_run_archive/20260814-012700/`（per-task 会话快照+完整工作区+
+journal/events 切片+result.json）+ `quality_report.md` §7 报告。
+
+**意义**：在最新架构（SSE 活性 watchdog + 可编程策略引擎 + 智能侧说明同步）下全链路重跑，
+验证复杂任务套件 + 能力覆盖引擎无回归、无误杀、诚实完成。
+
+### 下一步（下一 session 主线候选）
+
+- **V-2 PyPI 发布**（待用户提供 PyPI 账号/token，`dist/` 已构建 `regime_driver-0.2.0`）。
+- **P-005 测试套件优化**（覆盖率提升、xdist 并行评估，可自主推进）。
+- **限并发耐久二次验证**（复杂任务限并发，验证 ~100% 完成率）。
+- **GitHub Pages 启用**（待用户 Settings→Pages→GitHub Actions）。
 
 **硬约束（防断裂）**：任何新增/修改功能、CLI、配置、信号/事件、行为语义的里程碑，
 落地时**必须同步智能侧说明**（settings→config+02_configuration；CLI→01_cli+插件；
@@ -81,5 +84,6 @@ CLI 参数、误把"自动中断续跑"当失败。同步全部智能操作层�
 
 - 已完成主线：WORK_PLAN1–8、分发重构、卸载机制、文档体系、
   WORK_PLAN9（套件/留档/清理重构）、WORK_PLAN10（T2 停滞判定 SSE 活性化）、
-  WORK_PLAN11（可编程看门狗策略引擎）、WORK_PLAN12（智能侧说明同步+防断裂守卫）
+  WORK_PLAN11（可编程看门狗策略引擎）、WORK_PLAN12（智能侧说明同步+防断裂守卫）、
+  **夜间整合重跑（WORK_PLAN8 阶段5 + WORK_PLAN9 验证，2026-08-14 ✅）**
   见 `WORKLOG.md` 与 `HANDOVER.md`。
