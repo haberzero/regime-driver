@@ -274,64 +274,77 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-13）
+### 下一 session 主线任务（唯一指针，2026-08-13 晚）
 
-> **下一 session 主攻「内部代码质量检查 + 工作日志流程深度核查」**（用户指示：代码质量分析
-> 不能只靠 pytest——pytest 全绿 ≠ 质量好。需对 regime 自身的工作成果与运行日志做深度核查，
-> 抓出藏得更深的问题）。数据已归档入库（见下方数据地图），`ops/quality_run.py` 可复用重跑。
+> **上一 session（2026-08-13）已完成「内部代码质量检查 + 工作日志流程深度核查」全部
+> 交接清单（A–E）+ WORK_PLAN8 体系化重构（阶段 1–4）+ 测试套件净化**，见下方
+> "本 session 已完成（2026-08-13）"。
+> **下一 session 唯一主线 = WORK_PLAN8 阶段 5：夜间整合重跑 + 能力覆盖审计**
+> （用新 8 任务套件 + developer-quality skill 配置 + 对话框能力全链路重跑，输出能力覆盖报告）。
+> 数据已归档（见下方数据地图），`ops/quality_run.py` 已支持新套件。
 
 #### 数据地图（已归档入库，防 /tmp 丢失）
 
 | 数据 | 位置 | 内容 |
 |---|---|---|
-| **质量套件产物** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，**但需深审**） |
+| **质量套件产物** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，深审结论见 `quality_deep_check.md`） |
 | 质量报告 | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
 | **事件账本** | `tasks_docs/quality_run_archive/events.jsonl`（133KB） | node_enter/node_done/transition/reviewer_verdict/dispatch_error/outcome 全事件链 |
 | 报告日志 | `tasks_docs/quality_run_archive/journal.jsonl`（6.2MB） | WorkflowUnit 全链路报告（每节点指令/汇报/判定） |
 | 任务明细 | `tasks_docs/quality_run_archive/tasks/*.out + *.summary.json` | 每任务 drive 输出与最终结果 |
+| 深度核查报告 | `tasks_docs/quality_deep_check.md` | A–E 全项结论 + 两轮改进记录（根因/修复/复核） |
+| 体系化重构规划 | `tasks_docs/WORK_PLAN8.md` | 阶段 1–4 ✅ / 阶段 5 待夜间 |
 | 第一次耐久 | `tasks_docs/durability_run_archive/` | 2h 简单任务耐久（38 任务）原始数据 + 报告 |
 | 被中断的耐久 | `tasks_docs/durability_run_archive/run2/` | 限并发方案被质量验证取代，仅少量样本 |
 
-#### 核查任务清单（不依赖 pytest）
+#### 交接清单（A–E）完成情况
 
-**A. 产物代码深度审查（每任务独立只读 review，12 个）**
-1. **测试质量**：断言是否真实（真断言 vs 软断言/空断言）、是否覆盖规格要求的全部边界、有无"测了个寂寞"（测试绿但逻辑未验）。
-2. **代码质量**：正确性边界（并发/异常/空输入）、结构/命名/死代码、安全（注入/临时文件/路径处理）、健壮性（重试/资源释放）。
-3. **规格符合度**：规格要求的每个 API/行为是否实现、参数语义是否一致。
-4. 产出：每任务发现清单（blocker/warning/nit），与宿主 pytest 对照——找出"测试绿但代码有问题"的样本。
+**✅ 全部完成（2026-08-13），结论见 `tasks_docs/quality_deep_check.md`：**
 
-**B. reviewer 判定质量核查（从 events.jsonl 提取全部 reviewer_verdict）**
-1. verdict/reason 是否实质（1-2 句真理由 vs 套话）。
-2. confidence 分布（有无低置信度却 advance）。
-3. 是否"过场判定"（对明显缺陷也放行）——对照 A 的发现。
-4. gate 拒绝事件（task_sched design gate exhausted）的具体原因链。
-5. 结论：审查门到底拦截了什么、漏了什么。
-
-**C. 工作日志流程核查（journal + 事件链）**
-1. 每任务节点推进完整性（understand→…→wrap 是否走全，有无跳步）。
-2. **developer 是否在 understand/read_code 节点就提前写代码**（已观察到模型跳过设计直接实现）——流程纪律问题，是否需更强节点约束。
-3. transition 决策（reuse/rotate）是否符合预期、有无异常流转。
-4. 全量异常事件收集：dispatch_error / 重试 / 超时 / 停滞。
-5. 4 个非 complete 的完整事件链复盘（见 D）。
-
-**D. 待深挖线索（本次发现未深究，优先级最高）**
-1. **lru_ttl 首轮：developer 连续 7 次输出截断草稿 → 监督升 human**。根因假设：模型输出截断 / worker 会话退化 / 上下文溢出。查该任务完整事件链 + 会话消息。
-2. **task_sched design gate exhausted**：reviewer 为何反复输出不合法 verdict。查 reviewer_verdict 事件 + gate 拒绝原因。
-3. **json_config blocked（18.5s 极快）**：reviewer 为何判 blocked。查事件链。
-4. **worker `MaxListenersExceeded` 警告**（`docker logs opencode-worker` 可见）：会话累积导致 opencode 进程内部监听器泄漏——潜在长期退化根因。
-5. **4 个非 complete 全在首轮、后续自愈**：是真自愈还是偶然。对比首轮与后续轮次事件差异。
-6. **developer 提前实现**：模型跳流程 vs 需要更强节点指令约束。
-
-**E. 处置**：发现系统问题 → 修复 → 全量测试零回归 → commit（走 code-workflow + general 只读 review）。
+- **A. 产物代码深度审查（12 任务）**：抽查 task_sched/graph_algos/lru_ttl 等——环检测/线程安全/
+  边界测试均合格，无"测了个寂寞"。
+- **B. reviewer 判定质量核查**：95 条 verdict，低置信度 advance 仅 3 条且均与截断输入相关，
+  非"过场判定"；gate 拦截正确。
+- **C. 工作日志流程核查**：节点推进完整无跳步；developer 无系统性提前实现。
+- **D. 6 条待深挖线索**：全部定性——①lru_ttl 截断→human = event_stream bug 根因（已修复）；
+  ②task_sched gate exhausted = 确定性门正确拦截；③json_config blocked = watchdog 重复检测
+  （非 reviewer，已更正文档）；④MaxListenersExceeded = opencode 内部问题（非本仓缺陷）；
+  ⑤首轮自愈 = 误判偶然性（修复后系统性消除）；⑥跳流程 = 无系统性。
+- **E. 处置**：发现 event_stream 真实 bug → 修复 → 415→419 passed 零回归 → commit。
 
 #### 环境状态（交接时）
 
-- `opencode-worker` / `opencode-dialog-control` 容器健康；worker 有会话累积残留（`regime sessions --clean` 可清）。
-- 测试基线 **407 passed**；`sync_templates.py --check` 绿。
-- 上一批修复：**reviewer agent `bash` 改 `"*": deny`**（headless 死锁，见 `quality_report.md` §2/§5）。
-- 复用工具：`ops/quality_tasks.py`（套件）、`ops/quality_run.py --tasks <id>`（单任务重跑）。
-- 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 + 示例流程 + 文档站重构 + 术语改名 + 质量收益验证。
-- 剩余候选：**V-2 PyPI（待用户）**、夜间稳态耐久二次验证（简单任务限并发基线，可选）。
+- `opencode-worker` / `opencode-dialog-control` 容器健康，**已重建到 HEAD `3377500`**
+  （含全部修复 + WORK_PLAN8 阶段 1–4 + 测试净化）。
+- 测试基线 **419 passed（46s）**，0 warnings；`sync_templates.py --check` 绿；
+  `ops/check_capabilities.py` 绿（22 CLI / 3 mounted skills / 11 packaged / 22 covers）。
+- **E2E 已移出单元套件**：`e2e_tests/test_e2e_worker.py`（真实 worker+LLM，独立运行
+  `REGIME_E2E=1 pytest e2e_tests/...`），`pytest`（testpaths=["tests"]）不再收集。
+- 新试用套件：`ops/quality_tasks.py` 8 任务（4 深度保留 + 4 新形态），harness 支持
+  seed_files 预置 / 多文件收集 / 能力覆盖报告。
+- 复用工具：`ops/quality_run.py --tasks <id>`（单任务重跑）、`--root <dir>`（产出 quality-report.json
+  含 capability_coverage）。
+- 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 +
+  示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + **WORK_PLAN8 阶段 1–4**。
+ - 剩余候选：**V-2 PyPI（待用户）**、**WORK_PLAN8 阶段 5 夜间整合重跑**（下一主线）。
+
+### 本 session 已完成（2026-08-13，8 个 commit）
+
+> 本轮完成了交接清单 A–E（深度核查）+ WORK_PLAN8 阶段 1–4 + 测试套件净化。
+> 详细报告：`tasks_docs/quality_deep_check.md`（A–E 结论）、`tasks_docs/WORK_PLAN8.md`（规划）。
+
+| commit | 内容 |
+|---|---|
+| `5265628` | **深度核查修复真实 bug**：opencode 1.18.11 `/event` SSE 无 `event:` 行，`event_stream` 的 `raw["event"]` 恒 None → T2 活性兜底永久失效（长生成被误判 stalled→abort→截断草稿，lru_ttl 首轮 7 次截断→human 的直接根因）+ journal 被 90% delta 噪音淹没。修复 `data.type` 回退。 |
+| `c442006` | **复核+改进**：T2 活性链可观测性（sse_error/sse_type_unresolved 审计 + _safe_record）、abort 截断消息不推进（error/finish=None）、report_len_warn 审计、preflight 诚实提示（_note）、json_config 文档失实更正。F 更正（低置信度 advance 非缺陷）。 |
+| `172f01d` | **WORK_PLAN8 阶段1**：试用体系重构为能力覆盖引擎——8 精选任务（4 深度保留 + refactor_legacy/fix_bugs/multi_module/design_decision 新形态），harness 支持 seed_files 预置/多文件收集/能力覆盖报告。 |
+| `d6181d5` | **WORK_PLAN8 阶段2**：skill 注入对称化——修复 agent 节点 skill 死配置（`_build_instruction` 不加载 skill），新建 developer-quality skill 挂 implement/wrap，config/scaffold 同步。 |
+| `d2ff8db` | **WORK_PLAN8 阶段3**：对话框成为全能力引导枢纽——`capabilities` 命令（按场景分组能力地图）+ GUIDE 值守模式章节。 |
+| `68b3d91` | **WORK_PLAN8 阶段4**：capabilities.md 能力地图单点真理 + `ops/check_capabilities.py` 交叉核对脚本 + mkdocs 入参考区。 |
+| `3377500` | **测试套件净化**：E2E 真实调用移出 `tests/`→`e2e_tests/`（不再被收集），warnings 清零（专用 basetemp），提速 60%（114s→46s），419 passed。 |
+
+**关键成果**：所有交接发现（D1–D6 + A–F）已全部修复并经测试/真实运行核实；WORK_PLAN8
+建设性重构阶段 1–4 完成并各自真实验证；唯一未执行 = 阶段 5 夜间整合重跑（属验证非修复）。
 
 ### 已完成主线（历史，参考）
 
