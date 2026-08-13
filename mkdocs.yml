@@ -39,6 +39,7 @@ nav:
           - 控制对话框操作: howto/dialog-control.md
           - 主机模式 agent: howto/host-mode-agents.md
   - 参考:
+      - 能力地图（总览）: capabilities.md
       - CLI 参考总览: CLI_REFERENCE.md
       - CLI 命令契约: reference/01_cli.md
       - 配置参考: reference/02_configuration.md
