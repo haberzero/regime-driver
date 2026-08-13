@@ -171,6 +171,8 @@ class DialogControlUnit(ThreadedUnit):
             return "__exit__"
         if low in ("help", "帮助", "?", "h"):
             return self._help()
+        if low in ("capabilities", "cap", "能力", "能力地图"):
+            return self._capabilities()
         if "config" in low or "设定" in t or "配置" in t:
             return self._render_settings()
         if self._is_monitor_cmd(low):
@@ -622,9 +624,51 @@ class DialogControlUnit(ThreadedUnit):
             return self.settings_render()
         return "（未提供 settings 渲染）"
 
+    def _capabilities(self) -> str:
+        """Full capability map: what regime-driver can do and how to reach it
+        from the dialog (WORK_PLAN8 stage-3). Groups by usage scenario so a
+        duty operator sees at a glance what is available and how to trigger it.
+        """
+        return (
+            "能力地图（regime-driver 全部能力 → 对话框内触发路径）\n"
+            "\n"
+            "── 监控与态势 ────────────────────────────────\n"
+            "  status / monitor [字段]   实时 workflow 快照\n"
+            "  watch [n] [主题]          最近事件 / watchdog / notify\n"
+            "  sessions [busy]           worker 会话及实时状态\n"
+            "  parallel / 并行任务        全部工作区实例 + 健康\n"
+            "  doctor / 自检              自检 worker 健康 / flow / LLM / 权限\n"
+            "  inspect <wid>             某 workflow 黑板指标\n"
+            "\n"
+            "── 设计新流程（可自我修改闭环）─────────────────\n"
+            "  design <flow名> <JSON|自然语言>   设计并注册新 workflow\n"
+            "  flow list / validate / reload / 重载  热编译与热加载\n"
+            "\n"
+            "── 运行任务 ────────────────────────────────\n"
+            "  start [flow名] <任务> / 启动 ..      非阻塞启动 workflow\n"
+            "  talk <session_id> <内容>            与指定 session 独立交互\n"
+            "  abort / reclaim <session_id>         中止 / 回收会话(写)\n"
+            "\n"
+            "── 只读分析面（对话框外的 CLI，值守时可另开终端）──\n"
+            "  regime report      报告总线宏观看板 / 因果链 / 模板\n"
+            "  regime events      事件账本（--follow 实时）\n"
+            "  regime status --deep   一次拿全聚合态势\n"
+            "  regime task/job    受监管任务 / 后台作业查询\n"
+            "  regime flow inspect 查看命名 flow 定义\n"
+            "\n"
+            "── 一次性 / 运维（不在值守常态）────────────────\n"
+            "  regime scaffold    部署官方模板到 opencode 配置\n"
+            "  regime worker      多工作区实例池\n"
+            "  regime chaos       故障注入 / 恢复演练\n"
+            "  regime gate        手工验证 reviewer verdict JSON\n"
+            "\n"
+            "对话框内所有能力均经权限门禁（--perm）控制写操作。"
+        )
+
     def _help(self) -> str:
         return (
             "可用命令（中英文皆可）：\n"
+            "  capabilities / cap / 能力 / 能力地图 —— 全部能力地图(按场景分组)\n"
             "  design <flow名> <JSON|自然语言>   —— 设计并注册新 workflow\n"
             "  flow list / 流程 列表             —— 列出已注册 flow\n"
             "  flow validate <regime.json> / 校验 —— 热校验一个 flow 文件\n"

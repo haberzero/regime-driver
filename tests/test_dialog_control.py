@@ -210,6 +210,26 @@ def test_help_and_quit():
     assert d.command("quit") == "__exit__"
 
 
+def test_capabilities_maps_all_groups():
+    """WORK_PLAN8 stage-3: `capabilities` surfaces the full capability map so a
+    duty operator sees what regime-driver can do and how to trigger it — the
+    dialog is the hub that makes every capability reachable, not a hidden
+    subset."""
+    d = DialogControlUnit()
+    out = d.command("capabilities")
+    # scenario groups present
+    for kw in ("监控与态势", "设计新流程", "运行任务", "只读分析面", "一次性 / 运维"):
+        assert kw in out, kw
+    # representative reachable paths
+    for kw in ("regime report", "regime events", "regime status --deep",
+               "regime worker", "regime chaos", "design <flow名>",
+               "flow list"):
+        assert kw in out, kw
+    # english alias also routes
+    assert "能力地图" in d.command("cap")
+    assert "能力地图" in d.command("能力")
+
+
 def test_monitor_field_filter():
     rt = Runtime(enforce_invariants=False)
     d = DialogControlUnit(bus=rt.bus)
