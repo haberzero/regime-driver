@@ -6,7 +6,7 @@ permission:
   write: deny
   apply_patch: deny
   bash:
-    "*": ask
+    "*": deny
     "git diff*": allow
     "git log*": allow
     "git status*": allow

@@ -184,6 +184,12 @@
 > tasks_docs 历史档案保留旧词。活文件旧词残留 grep=0（经 general review 复核并清零）。
 
 - **测试基线 413 collected（全绿，覆盖 72%）**，分支 `main`，干净工作树。
+- **质量收益验证（✅ 2026-08-13 夜）**：12 个复杂工程任务套件（`ops/quality_tasks.py`）经
+  `regime drive` 监督栈 2h/43 次运行——最后一轮 12/12 complete，宿主外部 pytest 12 任务全 0
+  failed（239 断言），reviewer 每任务 2–4 次实质判定。报告 `tasks_docs/quality_report.md`。
+  期间**发现并修复真实 bug**：`reviewer` agent `bash "*": ask` 在 headless 下被复杂任务逼着跑
+  `pytest` 触发权限 ask 死锁（挂 600s）→ 改 `"*": deny` + 只读白名单（双源同步 + 打包副本 +
+  运行容器）。
 - **文档站完整重构（✅ 2026-08-12）**：MkDocs + Read the Docs 主题（`https://haberzero.github.io/regime-driver/`）。
   三层受众彻底分层：**用户指南**（控制对话框第一入口 → 快速开始 → 你能做什么 → 设计流程 → 安装/配置/
   并行任务）+ **参考**（查技术细节）+ **开发者指南**（架构/子系统/契约/治理）。agent 专用内容（skills /

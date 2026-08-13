@@ -18,5 +18,6 @@ regime scaffold
 
 > 说明：官方 agent 模板是**机器专用配置**（含提示词与权限），由 `regime scaffold` 从打包
 > 模板部署，不在此文档站内展示。`docker/worker-config/agents/` 已内置同样两份（worker 镜像用）。
-> `reviewer` 保持只读（`edit/write/apply_patch: deny`），与仓库 `AGENTS.md` 的"审查必须用只读
+> `reviewer` 保持只读（`edit/write/apply_patch: deny`，`bash` 默认 `deny` 仅放行只读命令
+> `cat/ls/grep/rg/find/git`），与仓库 `AGENTS.md` 的"审查必须用只读
 > agent"一致。

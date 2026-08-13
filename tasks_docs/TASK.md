@@ -118,12 +118,16 @@
 
 - [DONE] 2026-08-12 载体/carrier 恢复原样(用户指示: 该词使用正常无需修改) | verified: 407 passed零回归 + mkdocs build干净 + 0死链 | 07_dialog_control_access.md→07_dialog_control_carrier.md(仅回退载体部分, 保留god→dialog-control) + 全站'接入形态/作承载/对话承载/支撑承载'→回退'载体决策/作载体/对话载体/支撑载体能力' + reference/05('载体决策') + SUBSYSTEM_DESIGN/mkdocs nav/howto/dialog-control/guide 00+05/HANDOVER + code注释(permission.py/cli__init__) 'dialog carrier'恢复 | next: 夜间稳态耐久二次验证(限并发) 或 V-2 PyPI待用户 | escalate: no
 
+- [DONE] 2026-08-13 夜间质量收益验证(复杂工程任务套件, 用户建议) | verified: 407 passed零回归 + sync_templates漂移守卫绿 + 2h真实运行43次(39 complete + 2 error + 1 human + 1 blocked, 最后一轮12/12 complete) + 宿主外部pytest 12任务全部0 failed(累计239断言) + reviewer每任务2-4次判定 | 依据: 用户要求验证'不仅长时稳定, 还要确认体系带来额外代码质量收益'——设计12个复杂工程任务(算法图/统计/配置校验/LRU+TTL缓存/CSV解析/依赖调度/令牌桶/字符串/金额/JSON diff/环形缓冲/变位词, 各含边界+异常+并发+强制pytest要求) | 新增: ops/quality_tasks.py(套件) + ops/quality_run.py(harness: 提交→等待→docker cp→宿主独立pytest复验→reviewer事件审计→逐任务--clean-sessions防worker退化) + tasks_docs/quality_report.md | **发现并修复真实bug**: reviewer agent bash "*":ask 在headless下被复杂任务逼着跑pytest验证→权限ask死锁→挂600s→supervisor deadline。改"*":deny+只读白名单(cat/ls/grep/rg/find/git), 同步双源(worker-config+dialog-control-config, 双源一致性守卫强制)+打包副本+运行容器; 修复后graph_algos 挂死17min+timeout→85s complete+宿主pytest 13/13 | 诚实失败模式(4个非complete全为首轮冷启动且自愈): lru_ttl→human(developer连续7次截断草稿, 监督阶梯正确升到L5) + task_sched→error×2(design gate exhausted确定性门正确拦截/test节点阶梯) + json_config→blocked(reviewer合法判定) | harness修复: pytest计数解析逗号bug(json_config 0p误报→16p) | 质量收益证据: 宿主外部pytest 40/30/26/22/20/18/17/16/15/13/12/10 全0失败 + reviewer每任务2-4次实质判定 | next: 夜间稳态耐久二次验证(简单任务基线, 可选) 或 V-2 PyPI待用户 | escalate: no
+
 
 ## 阻塞
 
 （无）
 
 ## 自省记录
+
+- [REFLECT] 2026-08-13 | progress: 夜间质量收益验证完成——12个复杂工程任务套件(边界/异常/并发/强制pytest)经regime drive监督栈跑2h/43次, 最后一轮12/12 complete, 宿主外部pytest全0失败(239断言), reviewer每任务2-4次实质判定; 意外发现并修复真实bug: reviewer bash ask headless死锁(复杂任务逼reviewer跑pytest→权限ask挂600s), 改deny+只读白名单后graph_algos 85s complete | verified: 407零回归 + 双源一致性守卫 + sync漂移守卫绿 | 关键工程判断: 质量验证必须'宿主独立外部复验'(docker cp产物+宿主pytest), 否则worker内自跑测试是'自己验自己'不可信; 复杂任务(逼reviewer动手验证)比简单任务更能暴露系统边界——正是用户要的'确认工作能力'; reviewer死锁与god死锁同源(headless+ask), 原则是headless agent一律禁ask; 诚实失败模式(阶梯human/gate exhausted/blocked)全部正确终止且自愈, 证明监督体系不是摆设; 质量套件成本~100-230s/任务(真实模型), 适合夜间/手动回归 | risk: 4个非complete发生在首轮冷启动(developer截断循环/ reviewer gate耗尽), 具体根因未深究(模型行为/会话状态), 但系统均诚实兜底; harness未含资源采样(质量聚焦, 稳定性由durability报告覆盖) | next: 夜间稳态耐久二次验证(简单任务限并发基线) 或 V-2 PyPI待用户 | escalate: no
 
 - [REFLECT] 2026-08-12(5) | progress: 术语整体改名(花哨术语清零)全量落地——控制对话框(dialog control)/并行任务(parallel)/安全看门狗(watchdog)/承载·接入, 941+81+多轮定点共~1100处替换, 覆盖内核代码/CLI/docker/插件/agent/提示词/全站文档/README/HANDOVER/测试, 30个文件重命名 | verified: 407零回归 + mkdocs干净 + 0死链 + mermaid 7/7 + 全树旧词残留grep=0(排除tasks_docs历史) | 关键工程判断: 命名是主观决策且影响公开仓库/CLI契约/Docker容器, 先评估影响面(450+处god)再请用户拍板命名而非自决; 用'最长优先精确子串替换'脚本而非正则, 规避god子串误伤(godaddy/goodyear/godzina在node_modules), 且node_modules/tasks_docs/site全程排除; 批量替换会破坏局部变量一致性(如test_parallel的batch/fleet混用致NameError), 需逐文件核对重写; docker镜像/容器/数据快照(data/docker)三处同名需同步改名+sync_templates重同步+漂移守卫; L0/L1/L2历史层代号与监督阶梯L1-L5真实概念需区分(只删前者); 中文替换无词边界, 靠全角引号与精确短语规避误伤 | risk: 公开CLI契约变更(scaffold --assistants/容器名)属破坏性, 已在KNOWING_LIMITS/发布文档体现; 历史tasks_docs保留旧词(用户决定); 文档站GitHub缓存可能短暂显示旧词(无害) | next: 夜间稳态耐久二次验证(限并发) 或 V-2 PyPI待用户 | escalate: no
 
