@@ -45,7 +45,7 @@
   源码变更后未重建（`ops/up.sh` 会在 git HEAD 变化时自动重建，或 `--rebuild` 强制）会导致
   容器内运行旧包（如 dialog-control 无 `flow` 子命令、读不到新文档）。运行面已用 `-v` 挂载当前文档/插件，
   但 Python 包本体（`regime-driver`）仍以镜像内版本为准。归属：`docker/` + `ops/up.sh`。
-- **HTTP 驱动 god 的权限策略**：dialog-control agent 的 bash 策略若为 `ask`，经 HTTP 程序化驱动（无交互方）会挂起
+- **HTTP 驱动对话面的权限策略**：dialog-control agent 的 bash 策略若为 `ask`，经 HTTP 程序化驱动（无交互方）会挂起
   （复合命令中任一子命令未放行即整体 ask）。当前 dialog-control.md 对 bash 设 `*: allow`，安全边界靠顶层
   `edit/write/apply_patch: deny` + 权限门禁（`--perm`），而非 bash ask。若改回 `ask`，需协作者轮询
   `GET /permission` 并 `POST /permission/{id}/reply`（`{"reply":"once"|"always"|"reject"}`）。

@@ -21,7 +21,8 @@
    - 交互：`regime session <id> send/reply`
    - 校验：`regime validate/gate`
 3. 写操作走统一权限门禁；dialog-control 默认持 `clean`，可降权只读。
-4. 相关文件：`.opencode/agent/dialog-control.md`（agent 定义）、`.opencode/plugins/regime-dialog-control.js`（CLI 原生工具）。
+4. 相关文件（随 wheel 分发，`regime scaffold` / `regime setup` 部署到 `~/.config/opencode/`）：
+   `agents/dialog-control.md`（agent 定义）、`plugins/regime-dialog-control.js`（CLI 原生工具）。
 
 ## B 路：regime dialog REPL
 

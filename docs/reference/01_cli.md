@@ -210,7 +210,9 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 
 ### `scaffold`
 
-把包内官方模板（agents/skills/控制对话框助手）一键部署到 opencode 配置根目录，无需 clone 源码仓库。
+把包内官方模板（agents/skills/A 路插件/dialog-control agent/opencode.json/config）一键部署到
+opencode 配置根目录，无需 clone 源码仓库。部署后写 `.regime-deployed.json` 部署清单
+（供 `regime uninstall` 安全移除与 `regime doctor` 一致性检测）。
 
 **参数**：
 
@@ -226,12 +228,32 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 **输出**：`{target,assistants,dry_run,copied,skipped,plan}`。
 **行为**：幂等——已存在的目标文件默认跳过，除非 `--force`。
 
+### `setup`
+
+引导式首次安装：检测环境（docker/opencode/密钥）→ 一键装配官方模板 → 按检测结果给分步指引。
+
+**参数**：`--target`、`--assistants`、`--json`、`--perm`（默认 run）。
+**输出**：`{target,templates_copied,templates_kept,docker_available,opencode_available,
+key_present,host_mode_ready,container_mode_ready}`。
+**行为**：同 `scaffold` 部署模板 + 环境检测 + 部署路径引导（主机模式/容器模式/缺依赖提示）。
+
+### `uninstall`
+
+按部署清单安全移除 regime 部署的文件（卸载/恢复流程）。读取 `.regime-deployed.json`，
+哈希匹配的文件删除、用户改过的文件保留、缺失的跳过；空父目录清理，清单最后删除。
+
+**参数**：`--target`、`--dry-run`（预览不删）、`--json`、`--perm`（默认 clean）。
+**输出**：`{removed,kept_modified,missing,manifest}`。
+**行为**：不破坏用户改动过的文件；无清单时是 no-op。
+
 ### `doctor`
 
-自检就绪状态：worker 健康、模型配置、API key 是否存在。
+自检就绪状态：worker 健康、模型配置、API key 是否存在、部署完整性。
 
 **参数**：`--base`、`--json`。
-**输出**：`{model,provider,ok,checks}`。检查项含 worker health、key for provider、opencode auth.json。不全通过时退出码 1。
+**输出**：`{model,provider,ok,checks}`。检查项含 worker health、key for provider、opencode auth.json、
+环境检测（docker/opencode/conda/平台，advisory）、部署完整性（`.regime-deployed.json` 与磁盘一致性）。
+不全通过时退出码 1。
 
 ### `status`
 

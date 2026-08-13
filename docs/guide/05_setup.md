@@ -27,8 +27,10 @@ worker 需要连到一个可用模型。
 密钥经环境变量注入，不进仓库、不入库。
 这避免把真实密钥写进可提交的配置文件。
 
-> **官方模板由 `regime scaffold` 提供**：agent 配置、skills、控制对话框助手、docker 配方随包分发，
-> 一条命令生成到 `~/.config/opencode/`。无需手动编写 agent 提示词。
+> **官方模板由 `regime scaffold` / `regime setup` 提供**：agent 配置、skills、A 路插件
+> （`regime-dialog-control.js`）、dialog-control agent、opencode.json/config 随 wheel 打包，
+> 一条命令装配到 `~/.config/opencode/`。无需手动编写 agent 提示词。Docker 配方在 GitHub
+> 仓库（不进 wheel）。
 
 ## 步骤
 

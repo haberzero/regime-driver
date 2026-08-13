@@ -47,10 +47,12 @@ regime run "任务" --perm clean   # 有效等级被截断为 run
 | `session reply` | read |
 | `run` / `run-many` / `drive` / `drive-many` / `dialog` | run |
 | `flow load` / `reload` / `rm` | run |
+| `scaffold` / `setup` | run |
 | `task submit` / `job create` | run |
 | `task stop` / `clean` | clean |
 | `sessions --clean` / `--kill` | clean |
 | `supervisor` | clean |
+| `uninstall` | clean |
 
 **规则**：
 

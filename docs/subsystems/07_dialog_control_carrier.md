@@ -41,9 +41,9 @@
                               │ 唯一 CLI 契约（--json / async-submit+status /
                               │  events --follow / session send）
               ┌───────────────▼────────────────┐   ┌──────────────────────────┐
-              │ A路：opencode `god` agent      │   │ B路：自研 DialogControlUnit   │
-              │（人类对话面，UI 现成，低成本）   │   │（程序化面：订阅总线/自省/  │
-              │  custom-tool 插件 门控工具      │   │  对等交互/无人值守自动化） │
+              │ A路：opencode `dialog-control`  │   │ B路：自研 DialogControlUnit │
+              │ agent（人类对话面，UI 现成）    │   │（程序化面：订阅总线/自省/  │
+              │  regime-dialog-control 插件      │   │  对等交互/无人值守自动化） │
               └────────────────────────────────┘   └──────────────────────────┘
 ```
 

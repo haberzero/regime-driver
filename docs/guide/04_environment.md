@@ -18,7 +18,8 @@
 | **从 wheel（发布后）** | 你只是用它跑任务 | `pip install regime-driver` |
 
 > 本仓库目前仍在开发中、未发布到 PyPI，所以当前实际上用源码方式安装。
-> wheel 方式在发布后可用；两种方式都自带官方模板（`regime scaffold` 一键部署）。
+> wheel 方式在发布后可用；两种方式都自带官方模板（`regime scaffold` / `regime setup` 一键装配，
+> 含 A 路插件 `regime-dialog-control.js`——主机 opencode 作主对话框需要它）。
 
 ## 前置要求
 

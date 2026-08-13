@@ -121,11 +121,12 @@ regime-driver（确定性体系）
 
 ## 官方提供什么
 
-- **开箱即用的官方模板**：agent 模板、skills、控制对话框助手、docker 配方——随 wheel 打包，
-  `regime scaffold` 一条命令生成全套配置。
-- **CLI**：`regime` 命令集（run/drive/report/dialog/flow/worker/chaos/doctor/scaffold/…）。
+- **开箱即用的官方模板**：agent 模板、skills、**A 路插件**（`regime-dialog-control.js`，让主机
+  opencode 成为主对话框）、dialog-control agent、opencode.json/config——随 wheel 打包，
+  `regime scaffold` / `regime setup` 一条命令装配到 `~/.config/opencode/`。
+- **CLI**：`regime` 命令集（run/drive/report/dialog/flow/worker/chaos/doctor/scaffold/setup/uninstall/…）。
 - **文档站**：你正在读的这份（用户指南 / 开发者指南 / 参考）。
-- **容器配方**：`ops/up.sh` 一键构建 + 拉起 worker/控制对话框容器。
+- **容器配方**（GitHub 仓库，不进 wheel）：`ops/up.sh` 一键构建 + 拉起 worker/控制对话框容器。
 - **许可**：MIT License（Copyright © 2026 Nan Shi 施楠）。
 
 ---

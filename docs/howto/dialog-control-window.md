@@ -21,7 +21,7 @@ ops/up.sh all --rebuild   # 强制重建镜像(插件/agent 固化进镜像后�
 ```
 - 自动处理旧组 shell 的 `sg docker -c` 包装、`--network host`、端口与模型 key
   （`DEEPSEEK_API_KEY` 环境变量或 `~/.regime/keys/deepseek.key`）。
-- 插件/agent 已**固化进镜像**（Dockerfile.dialog-control COPY dialog-control.md + regime-dialog-control.js + god 配置），
+- 插件/agent 已**固化进镜像**（Dockerfile.dialog-control COPY dialog-control.md + regime-dialog-control.js + dialog-control 配置），
   不再需要 `docker cp`+restart；改插件后 `--rebuild` 重建即可。
 
 ### 2. 手动构建与运行（原始方式）
@@ -53,12 +53,13 @@ c.send_message(sid, "请调用你的 regime_status 工具检查 worker 健康，
 ## 关键配置
 - `docker/Dockerfile.dialog-control`：基于 worker 镜像装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 `--pure`（要插件）。
 - `docker/dialog-control-config/opencode.json`：注册 developer/reviewer + dialog-control agent + regime-dialog-control 插件 + 模型 provider。
-- `docker/dialog-control-config/agents/`：**god 的助手 subagent**（`analyst` 态势分析师 / `advisor` 流程设计顾问 /
+- `docker/dialog-control-config/agents/`：**对话面助手 subagent**（`analyst` 态势分析师 / `advisor` 流程设计顾问 /
   `reviewer` 只读审查）。dialog-control 通过 opencode 的 `task` 委派机制调用它们——headless serve 模式下已验证可行，
   助手独立上下文，帮 dialog-control 分流"消化原始数据/起草流程"的注意力消耗。改动助手后重启容器生效。
 - `regime-dialog-control.js` 插件直接调用 `regime` 二进制（不经 `conda run`，避免工具子进程输出丢失），
   且用 `await proc.text()` 捕获输出，并 null-safe 处理 args。**可移植**：
-  二进制路径解析为 `REGIME_BIN` env → `regime`(PATH) → 已知 conda 默认，不再硬编码绝对路径。
+  `regime` 从 PATH 解析（`REGIME_BIN` env 可覆盖），worker 地址从 `REGIME_WORKER_BASE` env 读取（默认
+  `127.0.0.1:4097`），不硬编码容器路径；容器内由 Dockerfile 把 conda env bin 加入 PATH。
 
 ## 说明 / 边界
 - 控制对话框工具默认 `--base http://127.0.0.1:4097`（worker）；`--network host` 使其在本容器内直达宿主的 worker。

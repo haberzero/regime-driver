@@ -45,13 +45,17 @@
 
 ### A.5.1 模板单一真源（WORK_PLAN7 III）
 
-**模板（agent/skills/控制对话框助手）只有一个真源，其余均为派生。**
+**模板（agent/skills/控制对话框助手/插件/opencode 配置）只有一个真源，其余均为派生。**
 
 | 资产 | 真源 | 派生 |
 |---|---|---|
 | worker agent 模板（reviewer） | `docker/worker-config/agents/` | `src/regime_driver/data/agents/` |
 | 控制对话框助手 subagent（analyst/advisor/reviewer） | `docker/dialog-control-config/agents/` | `src/regime_driver/data/dialog-control-assistants/` |
-| 运行期 skills（design-philosophy/code-review 等） | `workflow-regime/skills/` | `src/regime_driver/data/skills/` |
+| 运行期 skills（design-philosophy/code-review/developer-quality 等） | `workflow-regime/skills/` | `src/regime_driver/data/skills/` |
+| A 路插件（regime-dialog-control.js） | `.opencode/plugins/` | `src/regime_driver/data/plugins/` |
+| dialog-control agent（对话主载体） | `.opencode/agent/dialog-control.md` | `src/regime_driver/data/dialog-control-agent/` |
+| opencode.json 装配模板（provider） | `docker/worker-config/opencode.json` | `src/regime_driver/data/opencode-template/` |
+| 插件 SDK 依赖声明（package.json） | `src/regime_driver/data/opencode-package.json`（唯一） | — |
 
 - `data/` 内副本是**打包派生**（随 wheel 分发，用户无需 clone 仓库），**不许手工编辑**。
 - 改真源后运行 `python ops/sync_templates.py` 同步；漂移由
