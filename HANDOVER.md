@@ -274,16 +274,38 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-13 夜）
+### 下一 session 主线任务（唯一指针，2026-08-14 凌晨）
 
-> **本 session（2026-08-13 夜）已完成 WORK_PLAN9（套件/留档/清理重构）+ WORK_PLAN10
-> （T2 停滞判定 SSE 活性化架构重构）**，见下方"本 session 已完成（2026-08-13 夜）"。
+> **本 session 已完成 WORK_PLAN9（套件/留档/清理）+ WORK_PLAN10（T2 停滞 SSE 活性化）
+> + WORK_PLAN11（可编程看门狗策略引擎）+ WORK_PLAN12（智能侧说明同步+防断裂守卫）**。
 > **下一 session 唯一主线 = 夜间整合重跑**（见 `tasks_docs/MAIN_TASKS.md`）
-> （用新 4 复杂任务套件 + SSE 活性 watchdog，全链路重跑输出能力覆盖报告，
-> 验证长思考不再误杀——payment_ledger 已验证 complete 462s 无误杀）。
+> 用新 4 复杂任务套件 + SSE 活性 watchdog + 最新智能说明/插件，全链路重跑输出
+> 能力覆盖报告。**全部资源已核验就绪（见下方"环境核验"），可直接 `ops/run_nightly.sh`**。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
+
+#### 环境核验（2026-08-14 交接前全项通过）
+
+| 资源 | 状态 | 说明 |
+|---|---|---|
+| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话 |
+| `opencode-dialog-control` 容器 | ✅ 健康 | opencode 1.18.11，端口 4098（A 路验证窗） |
+| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含 WORK_PLAN10/11 全部新代码 |
+| 模型 key | ✅ | `DEEPSEEK_API_KEY` / `~/.regime/keys/deepseek.key`，`regime doctor` 全绿 |
+| `regime doctor` | ✅ 12 项全过 | worker 健康/版本/key/模板/部署完整性/docker/opencode/conda/session |
+| `regime preflight` | ✅ complete | 离线试跑整条 flow 干净完成 |
+| sync_templates | ✅ 绿 | skill/agent/插件/opencode.json 真源与打包副本一致 |
+| check_capabilities | ✅ 绿 | 24 CLI / 3 mounted skills / 11 packaged / 17 covers |
+| 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_package |
+| 任务套件 | ✅ 就绪 | 4 复杂任务（shop_inventory/kv_cluster/payment_ledger/etl_pipeline）|
+| `run_nightly.sh` | ✅ 语法通过 | per-task 归档 + trap EXIT 中断可续 |
+| 端到端实测 | ✅ 通过 | shop_inventory complete 385s，宿主 pytest 53/0，归档完整含会话快照 48 条 |
+
+> **注意**：`opencode-dialog-control` 容器内的 regime-driver 是旧 wheel（0.2.0，无
+> `watchdog_policy_json`）。它仅作 A 路验证窗，不影响宿主夜间实验（drive/harness 全在
+> 宿主源码上跑）。如需对话框容器同步最新代码，需重新 `pip install -e` 或装新 wheel
+> （`ops/up.sh dialog-control --rebuild`）。**夜间实验不需要动它。**
 
 #### 数据地图（已归档入库，防 /tmp 丢失）
 
@@ -291,15 +313,12 @@
 |---|---|---|
 | **质量套件产物（旧 12 任务）** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，深审结论见 `quality_deep_check.md`） |
 | 质量报告（旧 43 次） | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
-| **事件账本（旧）** | `tasks_docs/quality_run_archive/events.jsonl`（133KB） | node_enter/node_done/transition/reviewer_verdict/dispatch_error/outcome 全事件链 |
-| 报告日志（旧） | `tasks_docs/quality_run_archive/journal.jsonl`（6.2MB） | WorkflowUnit 全链路报告（每节点指令/汇报/判定） |
 | **WORK_PLAN9 新套件归档** | `tasks_docs/nightly_run_archive/` | 新 4 复杂任务 per-task 全量归档（会话消息快照+完整工作区+journal/events 切片+result.json） |
 | 深度核查报告 | `tasks_docs/quality_deep_check.md` | A–E 全项结论 + 两轮改进记录（根因/修复/复核） |
-| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（WORK_PLAN9 已完成，夜间整合重跑待执行） + 下一步 + 硬约束 |
+| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（夜间整合重跑） + 下一步 + 硬约束 |
 | **搁置任务文档** | `tasks_docs/PENDING_TASKS.md` | 阻塞/搁置但有价值的规划 |
-| **工作日志文档** | `tasks_docs/WORKLOG.md` | 全部决策/质询/方案取舍/变化前后（原 TASK.md 归并） |
+| **工作日志文档** | `tasks_docs/WORKLOG.md` | 全部决策/质询/方案取舍/变化前后 |
 | 第一次耐久 | `tasks_docs/durability_run_archive/` | 2h 简单任务耐久（38 任务）原始数据 + 报告 |
-| 被中断的耐久 | `tasks_docs/durability_run_archive/run2/` | 限并发方案被质量验证取代，仅少量样本 |
 
 #### 交接清单（A–E）完成情况
 
@@ -319,22 +338,29 @@
 #### 环境状态（交接时）
 
 - `opencode-worker` / `opencode-dialog-control` 容器健康（镜像 `opencode-worker:1.18.11`）。
-- 测试基线 **432 passed 零回归**；`sync_templates.py --check` 绿；
+- 宿主 conda env `regime-driver` **可编辑安装**（Editable → `/home/haber/oc-meta`），
+  含 WORK_PLAN10/11/12 全部新代码。测试基线 **469 passed 零回归**；`sync_templates.py --check` 绿；
   `ops/check_capabilities.py` 绿（24 CLI / 3 mounted skills / 11 packaged / 17 covers）。
-- **E2E 已移出单元套件**：`e2e_tests/test_e2e_worker.py`（真实 worker+LLM，独立运行
-  `REGIME_E2E=1 pytest e2e_tests/...`），`pytest`（testpaths=["tests"]）不再收集。
-- **WORK_PLAN9 套件重构**：`ops/quality_tasks.py` 4 复杂任务（shop_inventory / kv_cluster /
-  payment_ledger / etl_pipeline），每个 15-30 分钟多文件 + seed 既有代码 + 设计决策 +
-  并发/故障隔离压力；covers 标签 17 个（每任务 8-10 能力）。
-- **WORK_PLAN9 归档/清理**：`ops/quality_run.py` 每任务前 wipe 共享工作区（per-task 隔离）、
-  任务完成后全量归档（会话消息快照 + 完整工作区 + journal/events 切片 + result.json）、
-  `--clean-sessions` 归档后才执行、quality-report.json 每任务后即写（中断可续）；
+- **防断裂守卫**：`tests/test_config_doc_guard.py` + `tests/test_cli_doc_guard.py`
+  （settings 字段↔config/ref 表一致 + 死字段标 deprecated；CLI 文档无 phantom 参数）。
+- **WORK_PLAN10（SSE 活性）**：`app/sse_activity.py` SseActivity 采集器；watchdog/supervisor
+  停滞判定以 SSE `/event` 事件流为活性信号（token 计数 step 粒度滞后不可用）。
+- **WORK_PLAN11（可编程看门狗）**：`app/watchdog_policy.py` 策略引擎（SessionEvidence/Rule/
+  Ladder/WatchdogPolicy）；动作阶梯 nudge→interrupt(PAUSE)→resume→fallback→kill；
+  workflow 实现 PAUSE/RESUME/NUDGE/ESCALATE；`settings.watchdog_policy_json` + `auto_resume_sec`。
+- **WORK_PLAN12（智能侧说明同步）**：dialog-control.md / 05 契约 / 01_cli / architecture/02 /
+  subsystems 全部同步新能力；`[deprecated]` 死配置标清。
+- **WORK_PLAN9 套件/归档**：`ops/quality_tasks.py` 4 复杂任务；`ops/quality_run.py` per-task
+  全量归档（会话快照+工作区+切片+result.json）+ `--clean-sessions` 归档后执行 + 中断可续；
   `ops/run_nightly.sh` trap EXIT 保证中断也归档。
+- **dialog-control 容器版本注意**：容器内 regime-driver 是旧 wheel（0.2.0，无
+  `watchdog_policy_json`），仅 A 路验证窗用，**不影响宿主夜间实验**；如需同步最新代码
+  用 `ops/up.sh dialog-control --rebuild`。
 - 复用工具：`ops/quality_run.py --tasks <id>`（单任务重跑）、`--root <dir>`（产出 quality-report.json
   含 capability_coverage）、`ops/run_nightly.sh`（夜间一键长跑）。
 - 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 +
   示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + WORK_PLAN8 阶段 1–4 + 分发重构 + 卸载机制 +
-  **WORK_PLAN9 体系重构**（本 session）。
+  **WORK_PLAN9/10/11/12**（本 session）。
 - 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**夜间整合重跑（下一主线）**、
   **GitHub Pages 启用**（Settings→Pages→GitHub Actions）。
 
@@ -381,6 +407,10 @@
 消息快照可回溯 reasoning 推理过程）；清理机制改为归档后才清理 + 中断可续。
 全量 438 passed 零回归，general 只读 review 0 blocker。
 
+> **注**：本轮的 `24f01d1`（reasoning 令牌计入活性）是**过渡方案**，后续被 WORK_PLAN10
+> （SSE 事件流活性）取代——源码实证 session_tokens 单步长思考期间恒 0，token 计数
+> 不能作流式活性信号。**当前架构活性信号 = SSE 事件流，非 reasoning/token。**
+
 ### 本 session 已完成（2026-08-13 深夜，WORK_PLAN10，T2 停滞判定 SSE 活性化）
 
 > 用户授权深度破坏性重构。基于 opencode v1.18.11 源码级实证（processor.ts
@@ -395,6 +425,34 @@
 （opencode 唯一即时信号），修复长思考误杀。真实验证：payment_ledger complete
 462s（上次 144s 被误杀）、regime run complete 170s、长思考 30s 全程活性、
 真卡死仍判 stall。全量 438 passed 零回归，general 只读 review 0 blocker。
+
+### 本 session 已完成（2026-08-13 深夜，WORK_PLAN11，可编程看门狗策略引擎）
+
+> 用户构想：看门狗不硬性杀死，引入多级判定（先中断→等待→恢复，只有最终兜底才杀死）；
+> 允许用户注入检测机制；支持智能判断是否真死机。
+
+| commit | 内容 |
+|---|---|
+| `3f48c42` | **WORK_PLAN11 策略引擎**：`watchdog_policy.py`（SessionEvidence/Rule/Ladder/WatchdogPolicy/policy_from_json）；`watchdog_unit` 改策略驱动 + paused 不重复中断 + 自动 RESUME；`workflow_unit` 实现 PAUSE/RESUME/NUDGE/ESCALATE + paused 持续上报；settings 加 watchdog_policy_json/auto_resume_sec。 |
+| `33a8462` | **WORK_PLAN11 配套**：policy 25 项测试（ladder/decide/meta-gated/自动RESUME/中断恢复）+ 文档。 |
+
+**关键成果**：watchdog 从硬编码阈值 → 四级策略引擎（信号/规则/阶梯/配置）。PAUSE 中断
+当前生成+保持会话+冻结推进，RESUME 注入"继续"续接，只有 kill 是最终兜底。真实验证：
+payment_ledger complete 265s 零误杀、regime run complete 88s。全量 463 passed 零回归。
+
+### 本 session 已完成（2026-08-14 凌晨，WORK_PLAN12，智能侧说明同步 + 防断裂工作流）
+
+> 用户指出：提供给状态机/对话框的说明过期，导致智能照旧文档调用不存在的 CLI 参数、
+> 误把"自动中断续跑"当失败。审计后发现 WORK_PLAN10/11 未同步智能操作层。
+
+| commit | 内容 |
+|---|---|
+| `828f80c` | **WORK_PLAN12 说明同步**：01_cli 修 run-many/run/drive/supervisor 参数表 + 中断恢复小节；05 契约 §4.1 中断恢复诊断；02_configuration + config 补 watchdog_policy_json/auto_resume_sec + 标死配置 [deprecated]；dialog-control.md 运行时中断恢复段；architecture/02 策略引擎+全信号时序；subsystems 去 Settings.policy 残留；guide/capabilities 同步。 |
+| `815a1f0` | **WORK_PLAN12 防断裂守卫**：test_config_doc_guard + test_cli_doc_guard + MAIN_TASKS 智能侧说明同步硬约束 checklist。 |
+
+**关键成果**：智能侧说明与功能一致，杜绝"说明过期"复发。新增 6 项守卫测试
+（settings 字段↔config/ref 一致 + 死字段 deprecated + CLI 文档无 phantom 参数）。
+全量 469 passed 零回归，真实 worker 冒烟 complete 94.6s。
 
 ### 已完成主线（历史，参考）
 
@@ -442,6 +500,16 @@ conda run -n regime-driver regime run "<任务>" --base http://127.0.0.1:4097 --
 conda run -n regime-driver regime run-many "t1" "t2" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl
 conda run -n regime-driver regime run "<任务>" --async --reporter /tmp/rep.jsonl   # 非阻塞
 conda run -n regime-driver regime job list|status <id> --json
+
+# 夜间整合重跑（下一 session 主线；WORK_PLAN9 套件 + per-task 全量归档）
+# 只跑一轮（4 复杂任务，不设时间上限）：bash ops/run_nightly.sh
+# 限时循环：bash ops/run_nightly.sh --hours 2
+# 单任务重跑：conda run -n regime-driver python ops/quality_run.py --tasks payment_ledger --root /tmp/r --clean-sessions
+# 产出：quality-report.json（capability_coverage）+ tasks_docs/nightly_run_archive/<stamp>/（会话快照+工作区+切片）
+
+# 可编程看门狗策略（WORK_PLAN11，config 或 REGIME_WATCHDOG_POLICY_JSON）
+# watchdog_policy_json = '{"soft_sec":30,"soft_action":"interrupt","meta_gate_soft":true,"hard_sec":600}'
+# auto_resume_sec = 30   # 被中断会话超此秒自动 RESUME 续接，仍无活性才 kill
 
 # 一键自驱动栈（P0#1: 执行器+supervisor+reporter 一栈, 受监管任务）
 conda run -n regime-driver regime drive "<任务>" --base http://127.0.0.1:4097 \
