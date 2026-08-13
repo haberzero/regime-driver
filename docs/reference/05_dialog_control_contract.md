@@ -40,7 +40,8 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 | `regime status --deep [--reporter p] [--tasks-dir p] [--json]` | **聚合态势**（一次拿全）：worker 健康 + 会话（含 busy 计数）+ 流程注册表 + 受监管任务 + reporter rollup | `{healthy, sessions, busy_sessions, flows, tasks, reporter?}` |
 
 > **可用性保障**：opencode 自写 workflow 后先 `validate --deep` + `preflight`，静态错+语义错都在启动前暴露；
-> `run` 也可加 `--preflight` 先试跑再启动。控制对话框判全局态势用 `status --deep` 一次即可，无需拼多条命令。
+> `run`/`run-many` 的**离线预检默认强制**（`--no-preflight` 可跳过，不建议）；`flow design`/`flow load`
+> 可加 `--preflight` 在注册前试跑。控制对话框判全局态势用 `status --deep` 一次即可，无需拼多条命令。
 > 见 `../subsystems/06_dialog_control.md`。
 
 ### 3.2 运行 workflow
@@ -71,7 +72,7 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 ### 3.4 监控与内省
 | 命令 | 用途 |
 |---|---|
-| `regime sessions [--json] [--clean] [--kill <id>]` | 列出/清理所有 opencode session（id/title/agent/status/tokens） |
+| `regime sessions [--json] [--clean] [--cleanup <json>] [--kill <id>]` | 列出/清理所有 opencode session（id/title/agent/status/tokens）；`--cleanup` 按保留策略清理 |
 | `regime events --ledger <path> [--follow]` | 读/尾随 JSONL 事件账本（`node_enter/node_done/reviewer_verdict/...`） |
 | `regime session <id> reply [--json]` | 读某 session 最新 assistant 回复 |
 
@@ -123,6 +124,23 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 5. **失败诊断**：`outcome` 非 complete 时看 `detail`；`node 'X' exceeded default_deadline_sec` =
    超时，`reviewer gate exhausted` = 审查判定重试耗尽，`monitor: ...` = 看门狗/监控中止。
    仍不明可查 `docs/KNOWN_LIMITS.md` 或代码。
+
+### 4.1 运行时中断恢复（可编程看门狗）
+
+`run`/`drive` 受进程内可编程策略看门狗监督（`settings.watchdog_policy_json`）。运行中
+可能**自动中断并续跑**，这不是失败：
+
+- **PAUSE（interrupt）**：判定需要时中断当前生成、保持会话、冻结节点推进；
+- **自动 RESUME**：paused 超 `auto_resume_sec`（默认 30s）自动注入"继续"续接；
+  只有最终兜底（kill）才 STOP 终止。
+- **配置前提**：PAUSE/RESUME 仅在 `watchdog_policy_json` 配置 soft 动作时发生；默认策略
+  （null）下停滞直接 kill（`blocked (monitor: …)`），不经历中断续跑。
+- ledger/report 中体现为：`workflow_paused` / `workflow_resumed` / `workflow_nudged` /
+  `watchdog_fire`（kind ∈ nudge/interrupt/resume/fallback/kill/auto_resume/dead_loop/
+  global_timeout/global_budget/heartbeat_loss）/ `escalate_request`。
+- **诊断口径**：`auto_resume`/`nudge`/`interrupt`/`resume` 是恢复性事件 ≠ 失败。`outcome`
+  仍以最终节点结果为准（续跑成功则 `complete`）；`blocked (monitor: ...)` 仅在兜底 kill
+  时才出现。
 
 ## 5. 配置与环境
 

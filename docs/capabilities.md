@@ -16,7 +16,7 @@
 
 ---
 
-## 一、CLI 命令（19 + 2 子面）
+## 一、CLI 命令（17 顶层 + 6 子面：session/task/flow/worker/chaos/job）
 
 | 能力 | 入口 | 场景 | 验证任务（covers） | 文档 |
 |---|---|---|---|---|
@@ -77,7 +77,9 @@
 | 能力 | 说明 | 验证 |
 |---|---|---|
 | supervisor T1/T2/deadline/阶梯 | 进程外监督 | 全部任务（ladder 事件） |
-| watchdog 根不变量 + 可编程策略 | 死循环/卡死拦截 + 可注入规则/阶梯（nudge→interrupt→resume→kill） | 复杂任务长思考/并发压力场景 |
+| watchdog 根不变量 + 可编程策略 | 死循环/卡死拦截 + 可注入规则/阶梯（nudge→interrupt→resume→fallback→kill） | 复杂任务长思考/并发压力场景 |
+| 中断恢复（PAUSE/RESUME/auto-resume） | 运行中自动中断当前生成→冻结推进→超时注入"继续"续接；仅最终兜底 kill | 复杂任务长思考/并发压力场景 |
+| SSE 活性判定 | 停滞判定以 opencode SSE 事件流为活性信号（token 计数仅上下文占用） | 全部任务（长思考不误杀） |
 | 确定性 gate | reviewer verdict 门禁 | 全部任务（reviewer_verdict 事件） |
 | reporter 报告总线 | journal + rollup + 模板 | harness 每任务 journal 审计 |
 | FlowRegistry 热加载 | 命名 flow 注册/重载 | 复杂任务 + flow 命令 |

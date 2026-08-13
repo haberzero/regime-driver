@@ -28,7 +28,8 @@ max_reviewer_retries = 2                     # 审查者 gate 每节点重试
 max_dialogue_rounds = 5                      # 审查者/开发者质询轮数上限
 convergence_max_identical = 2                # 同一质询 N+ 次且汇报未变 -> 判打转
 max_total_nodes = 50                         # 全局节点预算防 runaway
-session_turn_check = 5                       # 开发者轮次检查节奏
+report_len_warn = 20000                      # agent 汇报长度(字符)超此值记 report_len_warn 审计
+session_turn_check = 5                       # [deprecated] 死配置，无消费点
 
 # --- 路径 ---
 # ledger_path = "/tmp/regime.ledger.jsonl"    # JSONL 事件账本
@@ -44,11 +45,18 @@ session_turn_check = 5                       # 开发者轮次检查节奏
 #   wrap    (developer)      -> developer-quality   # 收尾交付自查
 # 自定义 flow 可为任意节点挂任意已部署 skill（scaffold 部署的是 data/skills 全集）。
 
-# --- 监控 / 看门狗 ---
-monitor_enabled = true                       # 启用 watchdog 监控
-monitor_poll_sec = 3.0                       # 监控轮询间隔
-stall_sec = 120                              # busy 且无 SSE 事件流活性超过此秒 -> 判卡死（活性=SSE，非 token）
-on_stall = "abort"                           # abort | report_user | none
+# --- 监控 / 看门狗（WORK_PLAN10/11：可编程策略引擎）---
+# 活性信号 = opencode SSE 事件流（message.part.delta 等即时推送），非 token 计数
+# （session_tokens 是 step 粒度记账，单步长思考期间恒 0，不能判活性）。
+monitor_enabled = true                       # [deprecated] 纯兼容保留，无消费点；看门狗由根不变量 I1 强制常在线
+monitor_poll_sec = 3.0                       # [deprecated] 原无消费点
+stall_sec = 120                              # busy 且无 SSE 活性超过此秒 -> 判卡死（同时是策略看门狗默认 kill 阈值）
+on_stall = "abort"                           # [deprecated] 原死配置，看门狗动作由 watchdog_policy_json 决定
+# 可编程看门狗策略（WORK_PLAN11）：空=默认策略（stall_sec -> kill）
+# soft_sec 超时 -> soft_action（默认 interrupt=PAUSE 中断当前生成+冻结推进，等待自动恢复）
+# meta_gate_soft=true 时该动作需智能判定确认；hard_sec 兜底 kill。
+watchdog_policy_json = null                  # 例: '{"soft_sec":30,"soft_action":"interrupt","meta_gate_soft":true,"hard_sec":600}'
+auto_resume_sec = 30                         # 被中断(paused)的会话超此秒自动 RESUME 注入"继续"续接；仍无活性才兜底 kill
 
 # --- 元分析（进程外 supervisor --meta / drive --meta 的智能判verdict）---
 meta_analyze_enabled = false                 # 默认关；开则独立模型判停滞（确定性门兜底）

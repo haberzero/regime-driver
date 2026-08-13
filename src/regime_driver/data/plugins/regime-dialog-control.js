@@ -1,5 +1,5 @@
 // regime-dialog-control plugin: expose the regime-driver CLI contract as native opencode tools.
-// The Dialog Control (opencode `god` agent) calls these instead of raw bash for reliability.
+// The Dialog Control (opencode `dialog-control` agent) calls these instead of raw bash for reliability.
 // Each tool shells out to the regime CLI (conda env) and returns its --json output.
 import { tool } from "@opencode-ai/plugin"
 

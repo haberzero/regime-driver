@@ -23,9 +23,10 @@
 ```
 regime drive <task>
   ├─ preflight（强制离线试跑，--no-preflight 可关）
-  ├─ StatechartDriver（执行器线程）── 共享 reporter ──┐
-  │                                                    ├─ 同一个 Reporter journal
-  └─ Supervisor（进程外看门狗：T1/L4、T2、deadline、阶梯）─┘
+  ├─ StatechartDriver（执行器线程，含进程内 WatchdogUnit 可编程策略）──┐
+  │    （SSE 活性→PAUSE/RESUME/kill）                                  │
+  │                                                                    ├─ 同一个 Reporter journal
+  └─ Supervisor（进程外看门狗：T1/L4、T2、deadline、阶梯）─────────────┘
   └─ TaskRegistry.register/ submit（受监管任务：status/summary）
 ```
 
@@ -33,6 +34,9 @@ regime drive <task>
   - `_discover_session()`：轮询执行器的 anchor（主工作）session 供 T2 监督。
   - `supervisor.run(stop_when=...)`：工作流一产出结果即结束监督循环
     （返回 `"workflow_done"`），而非跑到 deadline——快路径立即返回。
+  - **进程内策略看门狗（WORK_PLAN11）**：运行中可能 PAUSE（中断当前生成、冻结推进）
+    → 超 `auto_resume_sec` 自动 RESUME 续接；仅最终兜底 kill。事件体现为
+    `workflow_paused`/`workflow_resumed`/`watchdog_fire`。
 - **`Supervisor.run(stop_when=...)`**：新增可选完成回调（纯增，向后兼容）。
 - **`TaskRegistry.register()`**：为前台进程（非子进程）登记受监管任务（pid 直记）。
 - **`cli/__main__.py`**：`python -m regime_driver.cli` 入口（jobs.py 与

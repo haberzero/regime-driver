@@ -27,37 +27,51 @@
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `context` | 位置参数 | 注入 developer 节点的任务上下文 |
+| `--flow` | str | 运行 FlowRegistry 中已设计/加载的命名流程（dialog-control 设计的工作流入口） |
 | `--base` | str | worker opencode 服务器 URL |
+| `--config` | path | 配置文件（JSON/TOML） |
 | `--regime` | path | regime.json 路径（默认打包版） |
 | `--ledger` | path | JSONL 事件账本路径 |
 | `--deadline` | int | 每段超时（秒） |
 | `--skills-dir` | path | workflow-regime skills 目录 |
-| `--no-preflight` | flag | 跳过强制离线预检（不建议） |
+| `--no-preflight` | flag | 跳过强制离线预检（不建议；预检默认强制，无 `--preflight` 开关） |
+| `--reporter` | path | append-only 报告日志路径（report bus） |
 | `--async` | flag | 作为后台 job 提交，立即返回句柄 |
 | `--perm` | str | 持有权限等级 |
 
 **输出**：完成时输出端节点与耗时；`--json` 输出 `{outcome,end,detail,elapsed_sec}`。非 COMPLETE 时退出码 1。
 **权限**：`run`。
 
+**运行时中断恢复**：`run` 受进程内可编程策略看门狗监督——若 `watchdog_policy_json` 配置了
+soft 动作，运行中可能 PAUSE（中断当前生成、保持会话、冻结节点推进）并在超时后自动 RESUME
+（注入"继续"续接）；仅最终兜底才 STOP（kill）。默认策略（null）下停滞直接 kill。这些在
+ledger/report 中体现为 `workflow_paused` / `workflow_resumed` / `workflow_nudged` /
+`watchdog_fire` 事件，`outcome` 仍以最终节点结果为准（续跑成功则 complete）。详见
+`02_configuration.md` 的 `watchdog_policy_json` / `auto_resume_sec`。
+
 **示例**：
 
 ```bash
 regime run "实现登录模块" --base http://127.0.0.1:4097
+regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:4097
 ```
 
 ### `run-many`
 
-在同一个 worker 上并发跑多个流程，每个上下文一个 workflow。
+在同一个 worker 上并发跑多个流程，每个上下文一个 workflow（并发度固定为全部同时）。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `contexts` | 位置参数 | 一个或多个任务上下文 |
-| `--workers` | int | 最大并发（默认全部同时） |
-| `--base` / `--regime` / `--ledger` | path | 同 `run` |
+| `--base` / `--config` / `--regime` / `--ledger` / `--deadline` / `--skills-dir` | path/int | 同 `run` |
+| `--no-preflight` | flag | 跳过强制离线预检 |
+| `--reporter` | path | append-only 报告日志路径 |
 | `--async` | flag | 作为后台 job 提交 |
 | `--perm` | str | 持有权限等级 |
+
+> 注：`--workers` 仅 `drive-many` 支持（设置并发上限）；`run-many` 固定全并发。
 
 **输出**：每个 workflow 的结果（outcome / end / detail）。任一非 COMPLETE 时退出码 1。
 **权限**：`run`。
@@ -75,14 +89,20 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `context` | 位置参数 | 任务上下文 |
+| `--base` | str | worker opencode 服务器 URL |
+| `--config` | path | 配置文件（JSON/TOML） |
+| `--regime` | path | regime.json 路径（默认打包版） |
+| `--flow` | str | 运行 FlowRegistry 中已设计/加载的命名流程 |
 | `--deadline` | int | 全局期限（秒），执行器与 supervisor 共享 |
 | `--container` | str | worker docker 容器名（T1 失联时 L4 重启对象） |
-| `--stall` | int | 会话停滞检测秒数（T2） |
+| `--stall` | int | 进程外 supervisor 会话停滞检测秒数（T2）；进程内策略看门狗用 `settings.stall_sec`（默认 120） |
 | `--meta` | flag | 启用智能元分析（真实模型判停滞） |
+| `--meta-model` | str | 元分析模型（默认 deepseek-api/deepseek-v4-flash） |
 | `--reporter` | path | append-only 报告日志路径（单一真源） |
 | `--ledger` | path | 工作流事件 JSONL 账本路径 |
 | `--workspace` | str | 在专用 per-workspace worker 实例中运行 |
 | `--tasks-dir` | path | 受监管任务注册目录 |
+| `--no-preflight` | flag | 跳过强制离线预检（预检默认强制） |
 | `--async` | flag | 作为受监管后台任务提交 |
 | `--perm` | str | 持有权限等级 |
 | `--prune-max-records` | int | 收尾时 journal 仅保留尾部 N 条（资源治理保留策略） |
@@ -92,6 +112,12 @@ regime run "实现登录模块" --base http://127.0.0.1:4097
 **权限**：`run`。
 **journal 保留**：传 `--prune-max-records`/`--prune-max-age` 时，drive 结束后对共享 journal 执行
 `Reporter.retain`（best-effort，失败不影响结果），用于长跑脚本控制 journal 无限增长。
+
+**运行时中断恢复**：drive 由进程内可编程策略看门狗（`watchdog_policy_json`）监督，
+运行中可能 PAUSE（中断当前生成、冻结推进）→ 超时自动 RESUME 续接；进程外 supervisor
+另按 `--stall` 做 T2 阶梯。ledger/report 中体现为 `workflow_paused`/`workflow_resumed`/
+`watchdog_fire`/ladder 事件；`supervisor` 字段说明监督结束原因（`workflow_done`/
+`timeout`/`restart`/`unhealthy`）。
 
 ### `drive-many`
 
@@ -453,10 +479,14 @@ key_present,host_mode_ready,container_mode_ready}`。
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `--session` | str | 被监管的 session id |
+| `--base` | str | worker opencode 服务器 URL |
 | `--container` | str | L4 重启的 docker 容器 |
 | `--deadline` | int | 期限秒（0 = 无） |
 | `--stall` | int | 停滞检测秒数（T2） |
 | `--meta` | flag | 智能元分析（真实模型判停滞） |
+| `--meta-model` | str | 元分析模型 |
+| `--reporter` | path | append-only 报告日志路径 |
+| `--json` | flag | 机器可读 JSON 输出 |
 | `--once` | flag | 单次监管后退出（测试/CI） |
 
 **输出**：`{outcome,session}`。

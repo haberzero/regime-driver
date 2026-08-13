@@ -28,7 +28,7 @@ class Settings(BaseModel):
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")
     ledger_path: str | None = Field(default=None, description="JSONL ledger path (None = off)")
     regime_path: str | None = Field(default=None, description="path to regime.json")
-    session_turn_check: int = Field(default=5, ge=1, description="developer turn-check cadence")
+    session_turn_check: int = Field(default=5, ge=1, description="[deprecated] dead config, no consumer")
     skills_dir: str | None = Field(default=None, description="path to workflow-regime skills dir")
     max_reviewer_retries: int = Field(default=2, ge=0, description="reviewer gate retries per node")
     max_dialogue_rounds: int = Field(
@@ -53,9 +53,11 @@ class Settings(BaseModel):
     permission_ceiling: str = Field(
         default="clean", description="hard cap on write permission (read<interact<run<clean)"
     )
-    # monitor thread (independent safety guard)
-    monitor_enabled: bool = Field(default=True, description="enable the monitor thread")
-    monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="monitor poll interval")
+    # DEPRECATED (WORK_PLAN11): the old monitor thread is gone; the watchdog is
+    # a runtime root invariant (I1) always on. No consumer anywhere (preflight
+    # passes False but nothing reads it) — pure compatibility retention.
+    monitor_enabled: bool = Field(default=True, description="[deprecated] dead config, no consumer; watchdog is always on (I1)")
+    monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="[deprecated] no consumer; kept for compatibility")
     session_hygiene_threshold: int = Field(
         default=100, ge=1,
         description="doctor warns when accumulated worker sessions exceed this"
@@ -71,9 +73,9 @@ class Settings(BaseModel):
         default=None,
         description="JSON session-cleanup policy (see docstring); None = disabled"
     )
-    stall_sec: int = Field(default=120, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (WORK_PLAN10: liveness = SSE, not token counts)")
+    stall_sec: int = Field(default=120, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (WORK_PLAN10: liveness = SSE, not token counts; also the default policy kill threshold)")
     on_stall: Literal["abort", "report_user", "none"] = Field(
-        default="abort", description="action when a session stalls (no progress)"
+        default="abort", description="[deprecated] dead config, no consumer; watchdog actions come from watchdog_policy_json"
     )
     # WORK_PLAN11 programmable watchdog policy (optional). A JSON describing
     # detection rules + action ladder, e.g.:

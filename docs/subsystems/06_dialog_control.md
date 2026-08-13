@@ -27,7 +27,7 @@
 | 并行状态机运行时 | `statechart_runtime.py`：ThreadedUnit（独立线程+队列）、Runtime（异步路由+黑板+不变量） | 无 |
 | 共享状态 + 变更通知 | `app/blackboard.py`（线程安全 key/value + `blackboard.changed`） | 无 |
 | 实时监控区 | `app/dialog_control.py`：DialogControlUnit 订阅 `blackboard.changed`+`watchdog_fire` 并 `render_monitor()` 快照 | 无 |
-| 看门狗 / 看门狗 | `app/watchdog_unit.py`（对等状态机，REPORT→死循环/卡死→STOP） | 无 |
+| 看门狗 / 看门狗 | `app/watchdog_unit.py` + `app/watchdog_policy.py`（策略引擎：REPORT→证据→Rule→动作阶梯 NUDGE/PAUSE/RESUME/ESCALATE/STOP） | 无 |
 | 多 workflow 并发 | `app/statechart_cluster.py`（一 Runtime 多 WorkflowUnit） | 无 |
 | 无网络确定性调试 | `testing/mock_client.py` | 无 |
 | 内省探针 | `testing/mock_client.py`、`infra/opencode.py`（session/status/tokens/message） | 无 |

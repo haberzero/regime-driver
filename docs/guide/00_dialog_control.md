@@ -126,9 +126,9 @@ agent 让它自由发挥。相反，它做的是**制度驱动的规划**：
 | understand | developer | agent | — | 理解任务上下文 |
 | read_code | developer | agent | — | 理解代码上下文 |
 | design | reviewer | judge | design-philosophy | 用设计哲学审查方案 |
-| implement | developer | agent | — | 实现 |
+| implement | developer | agent | developer-quality | 实现（交付前质量自律） |
 | test | reviewer | judge | code-review | 用代码审查规则检查实现 |
-| wrap | developer | agent | — | 收尾 |
+| wrap | developer | agent | developer-quality | 收尾与清理（交付自查） |
 
 ### 3. 会话（session）按角色分配
 
@@ -265,8 +265,14 @@ node_enter ──► node_done ──► reviewer_verdict ──► advance ─�
    L1 提示  →  L2 中止当前会话  →  L3 换模型  →  L4 重启容器  →  L5 人工介入
 ```
 
-超时秒数、停滞阈值等都可配置；日常你不需要知道这些，只要知道**卡死/打转有人管，
-不用你盯**。
+**进程内还有一个更温柔的"第一道"（WORK_PLAN11 可编程看门狗）**：配置了 `watchdog_policy_json`
+的 soft 动作时，运行中会先 **PAUSE（中断当前生成、保持会话、冻结推进）**，超时自动
+**RESUME（注入"继续"让模型自然续接）**，只有最终兜底才 STOP。所以你可能看到任务"被中断
+又自己续跑"——这是正常的恢复机制，不是失败。默认策略下停滞则直接终止。详见
+`docs/reference/05_dialog_control_contract.md` §4.1。
+
+超时秒数、停滞阈值、策略（`watchdog_policy_json`/`auto_resume_sec`）等都可配置；
+日常你不需要知道这些，只要知道**卡死/打转有人管，不用你盯**。
 
 ## 为什么 skill 不直接加载进对话框
 

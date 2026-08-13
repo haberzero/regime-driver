@@ -22,7 +22,7 @@
 | `poll_sec` | float | 5.0 | session 轮询间隔（秒） |
 | `ledger_path` | str\|null | null | JSONL 事件账本路径 |
 | `regime_path` | str\|null | null | regime.json 路径（默认打包版） |
-| `session_turn_check` | int | 5 | developer 轮次检查节奏 |
+| `session_turn_check` | int | 5 | [deprecated] 死配置，无消费点 |
 | `skills_dir` | str\|null | null | workflow-regime skills 目录 |
 | `max_reviewer_retries` | int | 2 | 审查者 gate 每节点重试 |
 | `max_dialogue_rounds` | int | 5 | 审查者/开发者质询轮数上限 |
@@ -30,12 +30,14 @@
 | `max_total_nodes` | int | 50 | 全局节点执行上限（防 runaway） |
 | `task_control_dir` | str\|null | null | 任务控制文档项目目录 |
 | `permission_ceiling` | str | `clean` | 写权限硬上限 |
-| `monitor_enabled` | bool | true | 启用 watchdog 监控线程 |
-| `monitor_poll_sec` | float | 3.0 | 监控轮询间隔 |
+| `monitor_enabled` | bool | true | [deprecated] 纯兼容保留，无消费点；看门狗由运行时根不变量 I1 强制、始终在线 |
+| `monitor_poll_sec` | float | 3.0 | [deprecated] 同 `monitor_enabled`，无消费点 |
 | `session_hygiene_threshold` | int | 100 | doctor 对累积 worker session 数的警告阈值 |
 | `session_cleanup_policy` | str\|null | null | session 自动清理策略（JSON 字符串，见 `session_cleanup` 命令；null=关闭） |
-| `stall_sec` | int | 120 | busy 且无 SSE 事件流活性超过此秒 → 判卡死（WORK_PLAN10：活性信号为 SSE 事件流，非 token 计数） |
-| `on_stall` | enum | `abort` | 停滞动作：abort\|report_user\|none |
+| `stall_sec` | int | 120 | busy 且无 SSE 事件流活性超过此秒 → 判卡死（WORK_PLAN10：活性信号为 SSE 事件流，非 token 计数）；同时是进程内策略看门狗的默认 kill 阈值 |
+| `on_stall` | enum | `abort` | [deprecated] 死配置，运行时无消费。看门狗动作由 `watchdog_policy_json` 决定 |
+| `watchdog_policy_json` | str\|null | null | **WORK_PLAN11 可编程看门狗策略**（JSON）：`{"soft_sec":30,"soft_action":"interrupt","meta_gate_soft":true,"hard_sec":600}`。空=默认策略（busy 无 SSE 活性 > `stall_sec` → kill） |
+| `auto_resume_sec` | float | 30 | **WORK_PLAN11**：paused 会话（被中断等待恢复）超此秒自动 RESUME（注入"继续"续接）；仍无活性才兜底 kill |
 | `meta_analyze_enabled` | bool | false | 用独立模型确认停滞再行动 |
 | `meta_model` | str | `deepseek-api/deepseek-v4-flash` | 停滞审查模型 |
 | `meta_max_context_msgs` | int | 20 | 喂给元分析的最近消息数 |
@@ -69,12 +71,26 @@ model = "deepseek-api/deepseek-v4-flash"
 **约束**：也读 `REGIME_PERMISSION_CEILING`。本地 CLI 无法做到进程级不可绕过。
 **示例**：`permission_ceiling = "run"`。
 
-### `on_stall`
+### `watchdog_policy_json`（WORK_PLAN11）
 
-**类型/默认**：enum，`abort`。
-**语义**：会话停滞时的动作。
-**约束**：取值 `abort`\|`report_user`\|`none`。
-**示例**：`on_stall = "report_user"`。
+**类型/默认**：str，`null`。
+**语义**：可编程看门狗策略（JSON）。看门狗从硬编码阈值改为策略引擎——按 `soft_sec`
+判定 → 执行 `soft_action`（默认 `interrupt`，即 PAUSE 中断当前生成并冻结推进）；
+`meta_gate_soft=true` 时该动作需智能判定确认后才执行；`hard_sec` 兜底 kill。
+**约束**：空/None = 默认策略（busy 且无 SSE 活性 > `stall_sec` → kill）。
+**示例**：
+
+```toml
+watchdog_policy_json = '{"soft_sec": 30, "soft_action": "interrupt", "meta_gate_soft": true, "hard_sec": 600}'
+```
+
+### `auto_resume_sec`（WORK_PLAN11）
+
+**类型/默认**：float，`30`。
+**语义**：被 PAUSE 中断的会话（等待恢复）超此秒自动 RESUME——注入"继续"文本让模型
+自然续接；若续跑后仍无活性才兜底 kill。这是"中断→等待→自然恢复→兜底终止"闭环的
+自动恢复步。
+**示例**：`auto_resume_sec = 60`。
 
 ---
 

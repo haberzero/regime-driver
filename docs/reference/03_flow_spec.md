@@ -25,7 +25,7 @@
 |------|------|------|
 | `version` | str | 描述符版本 |
 | `description` | str\|null | 可选描述 |
-| `meta` | object | 运行时旋钮：`source`、`session_turn_check`、`work_done_marker` |
+| `meta` | object | 运行时旋钮：`source`、`work_done_marker`；`session_turn_check` 为废弃死字段（保留兼容，无消费点） |
 | `flows` | object | 命名流程字典，每项一个 `{nodes}` |
 | `entry` | object | 默认流程与起始节点：`{flow, start_node}` |
 

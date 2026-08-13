@@ -17,7 +17,7 @@
 | 期限强制（deadline 永不无限跑） | **进程外**、独立时钟 | 不能 |
 | 纠正阶梯 L1–L5（abort/回退/重启/人工） | **进程外**编排 | 不能 |
 | 元分析（模型判 verdict + 确定性门） | 独立模型复盘 | 可（复用 Reporter/模型调用） |
-| 停滞首道防线（SSE 活性停滞检测，进程内 watchdog） | **进程内** | 可 |
+| 停滞首道防线（进程内 watchdog 策略引擎：SSE 活性 → Rule → 动作阶梯 nudge/interrupt/resume/kill） | **进程内** | 可 |
 | 任务注册表 / 提交接口 | 任务管理 | 可 |
 
 > **活性信号（WORK_PLAN10）**：停滞判定统一基于 opencode SSE `/event` 事件流
@@ -25,6 +25,13 @@
 > 记账（processor.ts 在 step-finish 才落账 + 异步 projector 写库），单步长思考期间
 > 恒为 0，不能作为流式活性信号。进程内 watchdog 与进程外 supervisor 共用同一
 > SSE 活性判定。
+>
+> **可编程策略（WORK_PLAN11）**：进程内 watchdog 是策略引擎（`app/watchdog_policy.py`）——
+> REPORT 证据 → `WatchdogPolicy.decide`（多规则取最严重；`meta=True` 走智能判定）→
+> 动作阶梯（`nudge`→`interrupt`(PAUSE)→`resume`→`fallback`→`kill`，per-session +
+> fire-once + `auto_resume_sec` 自动 RESUME）。中断（PAUSE）非破坏性：abort 当前生成、
+> 保持会话、冻结推进，RESUME 注入"继续"续接；只有最终 kill 才终止。配置见
+> `settings.watchdog_policy_json`。
 
 **结论**：进程外独立时钟监督是架构性必需的。监督功能作为 regime-driver 一等公民（`regime supervisor` /
 `regime task`），提供一套统一的进程外监督面。
@@ -51,7 +58,8 @@
 │        元分析（复用 Reporter 上下文 + 确定性门）             │
 │    · 任务模型：regime_driver.task（吸收 oc-task）             │
 │        submit/list/status/stop/logs/clean + 只读 web         │
-│    · 策略：Settings.policy（吸收 policy.json）               │
+│    · 可编程看门狗策略：Settings.watchdog_policy_json           │
+│        （WORK_PLAN11 策略引擎，进程内 watchdog 同用）         │
 │                                                            │
 │  报告总线：监督事件与 workflow 事件统一写入 Reporter           │
 │   → `regime report --tasks-dir` 由 Reporter 自身任务视图取代   │
@@ -62,7 +70,9 @@
 1. **单一包内**：`regime_driver.supervisor`、`regime_driver.task` 作为包内模块，而非 `ops/` 独立脚本。
 2. **单一真源**：监督事件（T1/T2/deadline/ladder/meta）全部经 `Reporter.ingest` 落同一 journal，
    与 workflow 事件同 schema（复用 `ReportRecord` + 归属键）。不再有独立 `run-ledger.jsonl`。
-3. **单一策略**：`Settings.policy` 承载 deadline/模型/阈值/重试（吸收 `policy.json`），不再双份。
+3. **单一策略**：`Settings.watchdog_policy_json`（WORK_PLAN11 可编程看门狗策略）+ 各独立字段
+   （deadline/stall_sec/meta_*），进程内 watchdog 与进程外 supervisor 共用同一活性信号
+   （SSE 事件流）与策略语义，不再双份。
 4. **任务视图**：`regime report` 的任务看板由 `regime_driver.task` 的注册表直接消费（吸收 oc-task），
    不再有两个 derive 逻辑（消除 `oc_tasks._derive` vs `oc-task.derive` 双写）。
 

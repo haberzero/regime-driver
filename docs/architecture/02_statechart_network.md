@@ -47,7 +47,7 @@
 | 现行实现 | 在状态机网络里的定位 |
 |---|---|
 | `app/statechart_runtime.py`（ThreadedUnit/Runtime + 信号队列） | 并行状态机运行时的载体 |
-| `app/watchdog_unit.py`（无智能 StatechartUnit，读黑板/发 STOP） | 看门狗状态机 |
+| `app/watchdog_unit.py` + `app/watchdog_policy.py`（策略引擎：REPORT→证据→规则→动作阶梯，发 NUDGE/PAUSE/RESUME/ESCALATE/STOP） | 看门狗状态机 |
 | `app/workflow_unit.py` + `app/statechart_driver.py` | 有智能体的工作流状态机（单线程混合循环） |
 | `app/dialog_control.py`（DialogControlUnit，role=human） | 控制对话框单元 |
 | `core/contract.py` 确定性门 | 看门狗状态机的"转移守卫" |
@@ -66,7 +66,7 @@
 | 执行模型 | 单线程混合循环（发派线程池 + session 轮询 + 消息队列，见 `WorkflowUnit._dispatch`） | 事件驱动：外部消息可触发转移/回调 |
 | 状态机间通信 | `Bus` 双向信号（点对点 / 广播 / 主题订阅）+ `Runtime.post` 异步投递 | 双向消息/信号/数据交换 |
 | 互相唤起 | 信号→处理回调（`on_signal` 按消息进入对应处理） | A 可唤起 B 的特定节点/智能判断 |
-| 权限/信号逻辑 | 看门狗单元（`watchdog` 角色）广播 STOP；CLI 写操作走 `--perm` 门禁 | 显式授权模型 |
+| 权限/信号逻辑 | 看门狗单元（`watchdog` 角色）按可编程策略发 NUDGE/PAUSE/RESUME/ESCALATE/STOP（`watchdog_policy_json` 可配）；CLI 写操作走 `--perm` 门禁 | 显式授权模型 |
 | 看门狗层可覆写 | 用户可注入自定义看门狗状态机；根不变量（I1/I2/I3）仍由运行时强制 | 可注入自定义看门狗状态机 |
 | 生命周期 | 单元自治（register/start/stop），`Runtime` 总线协调 | 状态机自治 + 总线协调 |
 
@@ -233,26 +233,30 @@ StatechartUnit {
 - `subscribe` 需在 `register` 之后（`register` 设置 `unit.bus`）。
 - 黑板变更即事件：工作流写指标 → 看门狗/遥测读黑板 + 订阅 `blackboard.changed`。
 
-**一次"看门狗拦截"的完整信号时序**：
+**一次"看门狗拦截"的完整信号时序（WORK_PLAN10/11：SSE 活性 + 可编程策略 + 中断恢复）**：
 
 ```mermaid
 sequenceDiagram
     participant 工作流 as WorkflowUnit
-    participant 看门狗 as WatchdogUnit（watchdog）
+    participant 看门狗 as WatchdogUnit（watchdog，策略引擎）
     participant 黑板 as Blackboard
 
-    工作流->>工作流: 逐节点执行（发派 session / 轮询）
-    工作流->>看门狗: REPORT 信号（session_id / status / activity_ts / latest_text）
+    工作流->>工作流: 逐节点执行（发派 session / 轮询 / 采 SSE 活性）
+    工作流->>看门狗: REPORT 信号（session_id/status/activity_ts/消息时间戳/node/paused）
     工作流->>黑板: 写指标（heartbeat / start_time …）
     黑板-->>看门狗: blackboard.changed 事件
-    看门狗->>看门狗: 死循环 / 卡死 / 停滞检测（确定性、无智能）
-    看门狗->>工作流: STOP 信号（点到点，只停出问题 workflow）
-    看门狗->>看门狗: 发 watchdog_fire 事件（可观测）
+    看门狗->>看门狗: 死循环检测（确定性）+ 策略 decide（Rule→Ladder）
+    看门狗->>工作流: NUDGE（轻提示）/ PAUSE（中断生成+冻结）/ RESUME（注入"继续"续接）
+    看门狗->>看门狗: 每次动作随发 watchdog_fire 事件（可观测）
+    工作流->>看门狗: paused 持续 REPORT（防证据枯竭；超 auto_resume_sec 自动 RESUME）
+    看门狗->>工作流: ESCALATE（meta-gated，需智能判定确认）
+    看门狗->>工作流: STOP（最终兜底 kill，只停出问题 workflow）
     工作流->>工作流: 中止当前节点 → 结果 blocked（monitor: …）
 ```
 
-> 图例：实线箭头 = 消息/信号，虚线箭头 = 订阅推送事件。看门狗不产生智能指令，
-> 只做确定性检测并发出控制信号；STOP 是点到点，不影响其它并行 workflow。
+> 图例：实线箭头 = 消息/信号，虚线箭头 = 订阅推送事件。看门狗按可编程策略
+> （`watchdog_policy_json`）做判定并发出控制信号；NUDGE/PAUSE/RESUME 是非破坏性
+> 恢复动作（中断→等待→续接），只有 STOP（kill）是最终兜底且点到点，不影响其它并行 workflow。
 
 ---
 

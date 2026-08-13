@@ -50,9 +50,10 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
 （subagent 是只读的，无法代你做写操作）。被委派的 subagent 是独立上下文，天然帮你分流上下文占用。
 
 ## 权限等级（--perm）
-CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`，默认到 clean）。等级由低到高：
+CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`）。等级由低到高：
 `read`(只读监控) < `interact`(+session send) < `run`(+run/run-many/flow design) < `clean`(+sessions --clean/--kill)。
-你作为控制对话框，默认持有最高 `clean`；如需降权只读，给写命令传 `--perm read`（此时 run/send/clean 会被拒绝）。
+权限**ceiling**（`REGIME_PERMISSION_CEILING`）默认 `clean` 是最高允许等级，`--perm` 只能降不能升；
+每个写命令有各自默认等级（如 `run` 默认 `--perm run`）。如需降权只读，给写命令传 `--perm read`。
 判定规则见 `docs/reference/04_permissions.md` 与 `src/regime_driver/infra/permission.py`。
 
 **分层用法**：
@@ -60,13 +61,32 @@ CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`，默认�
 - **只读观察者**（`--perm read` 或 `--perm interact`）：只 `status --deep`/`sessions`/`report`/`events` 监控全局，不触发任何写操作。适合多操作者场景下的"旁观者"角色。
 - 配置 ceiling（`REGIME_PERMISSION_CEILING`）是最高允许等级，`--perm` 只能降不能升。
 
+## 运行时中断恢复（可编程看门狗，WORK_PLAN11）
+
+`run`/`drive` 由进程内可编程策略看门狗监督（`settings.watchdog_policy_json`）。运行中可能
+**自动中断并续跑，这不是失败**：
+
+- **PAUSE（interrupt）**：判定需要时中断当前生成、保持会话、冻结节点推进；
+- **自动 RESUME**：paused 超 `auto_resume_sec`（默认 30s）自动注入"继续"续接；
+  只有最终兜底（kill）才 STOP 终止。
+- **配置前提**：PAUSE/RESUME 仅在 `watchdog_policy_json` 配置了 soft 动作（如
+  `{"soft_sec":30,"soft_action":"interrupt"}`）时发生；默认策略（null）下停滞直接 kill
+  （`blocked (monitor: …)`），不经历中断续跑。
+- **事件识别**（`regime events --ledger <p> --follow`）：`workflow_paused` / `workflow_resumed` /
+  `workflow_nudged` / `watchdog_fire`（kind ∈ nudge/interrupt/resume/fallback/kill/auto_resume/
+  dead_loop/global_timeout/global_budget/heartbeat_loss）/ `escalate_request`。
+  其中 `auto_resume`（自动续跑）、`nudge`/`interrupt`/`resume` 都是恢复性事件。
+- **诊断口径**：见到上述恢复性事件 ≠ 失败。`outcome` 仍以最终节点结果为准（续跑成功则
+  `complete`）；`blocked (monitor: ...)` 仅在续跑后仍无活性（兜底 kill）时才出现。
+  不要因一次 interrupt/resume 就把任务误判为停滞或终止。
+
 ## 操作纪律
 1. **先健康后行动**：任何操作前 `regime status --json`；worker 不可用则说明并停止。
 2. **优先 `--json`**：用结构化输出精确判断，不靠猜富文本。
 3. **非阻塞监控**：启动后可轮询 `sessions`/`events`；`run`/`run-many` 会阻塞到完成，启动后别同时期望实时响应。
 4. **写操作谨慎**：`run/run-many/session send/--clean/--kill` 有副作用，先向用户确认或说明后果；
-   默认持 `clean`，除非用户要求降权，否则不要主动降低 `--perm`。
-5. **失败诊断**：`outcome` 非 complete 时看 `detail` 并对照手册 §4.5；仍不明查 `KNOWN_LIMITS.md`。
+   按各命令默认等级持权（ceiling 默认 `clean`），除非用户要求降权，否则不要主动降低 `--perm`。
+5. **失败诊断**：`outcome` 非 complete 时看 `detail` 并对照手册 §4/§4.1（含中断恢复）；仍不明查 `KNOWN_LIMITS.md`。
 6. **不绕过安全**：看门狗/根不变量在确定性后端，你无需也不能绕过；只读操作始终允许，写操作经确认。
 7. **事实以源代码为准**：文档与代码冲突时报告"待验证"，不擅改代码。
 
