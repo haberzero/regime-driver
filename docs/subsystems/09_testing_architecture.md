@@ -94,7 +94,7 @@ regime run <flow>  ──HTTP──▶  worker 容器(:4097)  真正干任务
 | T-E | **文档/交接收口**：更新 HANDOVER/TECH_DEBT 标记 T1/T2/E2E 缺口已补 | 本文件 + HANDOVER |
 
 > 注：T-C 打通过程暴露并修复 regime-dialog-control.js 三个真 bug（null-args 崩溃、conda run 输出丢失、
-> `.text()` 不捕获）与 `validate --deep` 在无 skills-dir 时硬失败的过度默认。详见 TASK.md。
+> `.text()` 不捕获）与 `validate --deep` 在无 skills-dir 时硬失败的过度默认。详见 tasks_docs/WORKLOG.md。
 
 ---
 

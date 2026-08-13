@@ -1,4 +1,9 @@
-# TASK.md — 自主运行任务控制文档
+# WORKLOG — 工作日志文档（决策/质询/方案取舍/变化沉淀）
+
+> 任务控制体系四类关键文档之一（规范见 `workflow-regime/task-control/01_worklog.md`）。
+> 记录所有自主决策、质询分析、方案取舍、变化前后（实现+测试+文档）。常驻，持续追加。
+> 本文件原为 `TASK.md`（2026-08-05 起），2026-08-13 依任务控制体系归并为工作日志。
+> 历史验证记录与自省记录均留档于此（从最初基线起，供追溯）。
 
 > 分支：`autonomous-2026-08-05`
 > 日期：2026-08-05
@@ -6,10 +11,11 @@
 
 ## 目标
 
-推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN8.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
+推进 regime-driver 后续候选工作（HANDOVER.md / MAIN_TASKS.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **当前主线规划见 `WORK_PLAN8.md`**（对外供给/分发重构 + 深度核查 + 测试净化，阶段 1–4 ✅ / 阶段 5 待夜间整合重跑）。
-> 历史规划（WORK_PLAN1–7）已完成，归档清理。技术债治理见 `TECH_DEBT.md`。文档治理遵循
+> 以下为历史指针（当前主线见 `MAIN_TASKS.md`）：对外供给/分发重构 + 深度核查 + 测试净化
+> （WORK_PLAN8 阶段 1–4 ✅ / 阶段 5 待夜间整合重跑）。历史规划（WORK_PLAN1–7）已完成，归档清理。
+> 技术债治理见 `TECH_DEBT.md`。文档治理遵循
 > `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。
 
 ## 候选清单（按优先级，见 WORK_PLAN5）

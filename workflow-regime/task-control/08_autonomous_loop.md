@@ -13,7 +13,7 @@
 ## 二、各步
 
 ### 1. 理解
-- 输入：任务指令 / NEXT_STEPS / PENDING_TASKS
+- 输入：任务指令 / MAIN_TASKS / PENDING_TASKS
 - 动作：定位任务、阻塞与硬约束；读项目级 AGENTS.md（测试命令/目录/约定）
 - 输出：任务是什么、边界是什么、硬约束是什么
 
@@ -49,7 +49,7 @@
 
 ### 8. 收尾
 - 输入：可提交代码
-- 动作：本地 commit（禁 push）+ 文档同步（NEXT_STEPS/PENDING_TASKS/WORKLOG）+ 临时文档清理 + 汇报
+- 动作：本地 commit（禁 push）+ 文档同步（MAIN_TASKS/PENDING_TASKS/WORKLOG）+ 临时文档清理 + 汇报
 - 输出：commit + 文档同步 + 汇报
 
 ## 三、质量门（每批强制）

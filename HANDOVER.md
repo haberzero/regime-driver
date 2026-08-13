@@ -242,7 +242,7 @@
   - dialog-control.md bash 改 `*: allow`（headless HTTP 死锁根治；安全靠 edit/write deny + --perm 门禁）。
   - 真实 E2E：dialog-control 设计 mini_wf → 注册 → 运行 → 正确诊断；官方模型下 drive --flow 31.4s COMPLETE 零 ladder。
 - **实践暴露问题修复 ✅（2026-08-11）**：supervisor T2 stall 误报根治 + 僵尸进程 bug + 控制对话框容器漂移 +
-  A-route 权限死锁 + reporter 噪音 + 易用性（见 TASK 验证记录）。
+  A-route 权限死锁 + reporter 噪音 + 易用性（见 `tasks_docs/WORKLOG.md` 验证记录）。
 - **流程热编译/热加载基础设施（WORK_PLAN5 F1–F11）✅**：`src/regime_driver/flow.py`
   `FlowRegistry`（命名 flow 单一真源 + `compile_spec` 统一编译 + 深检门 + 原子替换/旧快照 +
   持久 store `REGIME_FLOW_STORE`，跨 CLI 调用单一真源）+ `regime flow list/validate(--watch)/load/
@@ -279,9 +279,12 @@
 > **上一 session（2026-08-13）已完成「内部代码质量检查 + 工作日志流程深度核查」全部
 > 交接清单（A–E）+ WORK_PLAN8 体系化重构（阶段 1–4）+ 测试套件净化**，见下方
 > "本 session 已完成（2026-08-13）"。
-> **下一 session 唯一主线 = WORK_PLAN8 阶段 5：夜间整合重跑 + 能力覆盖审计**
+> **下一 session 唯一主线 = 夜间整合重跑 + 能力覆盖审计**（见 `tasks_docs/MAIN_TASKS.md`）
 > （用新 8 任务套件 + developer-quality skill 配置 + 对话框能力全链路重跑，输出能力覆盖报告）。
 > 数据已归档（见下方数据地图），`ops/quality_run.py` 已支持新套件。
+>
+> **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
+> 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
 
 #### 数据地图（已归档入库，防 /tmp 丢失）
 
@@ -293,7 +296,9 @@
 | 报告日志 | `tasks_docs/quality_run_archive/journal.jsonl`（6.2MB） | WorkflowUnit 全链路报告（每节点指令/汇报/判定） |
 | 任务明细 | `tasks_docs/quality_run_archive/tasks/*.out + *.summary.json` | 每任务 drive 输出与最终结果 |
 | 深度核查报告 | `tasks_docs/quality_deep_check.md` | A–E 全项结论 + 两轮改进记录（根因/修复/复核） |
-| 体系化重构规划 | `tasks_docs/WORK_PLAN8.md` | 阶段 1–4 ✅ / 阶段 5 待夜间 |
+| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（夜间整合重跑） + 下一步 + 硬约束 |
+| **搁置任务文档** | `tasks_docs/PENDING_TASKS.md` | 阻塞/搁置但有价值的规划 |
+| **工作日志文档** | `tasks_docs/WORKLOG.md` | 全部决策/质询/方案取舍/变化前后（原 TASK.md 归并） |
 | 第一次耐久 | `tasks_docs/durability_run_archive/` | 2h 简单任务耐久（38 任务）原始数据 + 报告 |
 | 被中断的耐久 | `tasks_docs/durability_run_archive/run2/` | 限并发方案被质量验证取代，仅少量样本 |
 
@@ -336,7 +341,7 @@
 ### 本 session 已完成（2026-08-13，8 个 commit）
 
 > 本轮完成了交接清单 A–E（深度核查）+ WORK_PLAN8 阶段 1–4 + 测试套件净化。
-> 详细报告：`tasks_docs/quality_deep_check.md`（A–E 结论）、`tasks_docs/WORK_PLAN8.md`（规划）。
+> 详细报告：`tasks_docs/quality_deep_check.md`（A–E 结论）、`tasks_docs/MAIN_TASKS.md`（规划）。
 
 | commit | 内容 |
 |---|---|

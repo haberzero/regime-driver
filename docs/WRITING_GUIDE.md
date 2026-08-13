@@ -7,7 +7,7 @@
 > **适用范围**：`docs/` 下全部技术文档——根索引手册（`README.md`、`CLI_REFERENCE.md`、
 > `ARCHITECTURE.md`、`SUBSYSTEM_DESIGN.md`、`KNOWN_LIMITS.md`）与各子目录（`guide/`、`howto/`、
 > `reference/`、`architecture/`、`subsystems/`）。
-> 任务/过程文档（根 `AGENTS.md`、`TASK.md`、`WORK_PLAN*.md`、`HANDOVER.md`）不在本准则管辖范围内，
+> 任务/过程文档（根 `AGENTS.md`、`tasks_docs/MAIN_TASKS.md`、`tasks_docs/WORKLOG.md`、`HANDOVER.md`）不在本准则管辖范围内，
 > 属智能体工作流层。`tasks_docs/` 若存在亦不受本准则约束（历史档案区）。
 
 ---
@@ -287,7 +287,7 @@ model = "deepseek-api/deepseek-v4-flash"
 | 未实现的设计（除非独立"规划"章节且明确标注） | 文档描述当前真实行为 |
 | 自治豁免标注（"已归档"、"封存"、"备份，不参与治理"） | docs/ 一律受本准则约束；归档/备份内容移入 `tasks_docs/`，未完成规划进任务控制文档 |
 | 任务编号 / 里程碑代号 / PR 编号 | 对读者是噪音 |
-| 冻结的测试通过数字（"N passed"） | 数字纪律：测试基线只在 `TASK.md` 顶部写一次，其余文档用"以 `python -m pytest` 实跑为准" |
+| 冻结的测试通过数字（"N passed"） | 数字纪律：测试基线只在 `tasks_docs/MAIN_TASKS.md` 顶部写一次，其余文档用"以 `python -m pytest` 实跑为准" |
 | 代码的散文翻译（逐行解释代码做了什么） | 代码自己会说 |
 | 核查记录 / 验证清单 / 进度表 / 状态追踪 | 过程产物，属于 git 或任务文档 |
 | 只有作者能理解的缩写/代号 | 用描述性名称替代 |
