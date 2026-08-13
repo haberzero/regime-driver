@@ -54,6 +54,29 @@ def _json(text):
     return out if isinstance(out, dict) else {}
 
 
+def seed_task_files(root: Path, task: QualityTask) -> None:
+    """Pre-seed files into the worker /root/work/code for refactor/fix tasks.
+
+    Writes each `task.seed_files` entry into a host staging dir, `docker cp`s
+    it into the container, and chowns to root (the worker runs as root). This
+    lets tasks act on EXISTING code (refactor / bug-fix shapes) instead of only
+    writing from scratch.
+    """
+    if not task.seed_files:
+        return
+    stage = root / "seeds" / task.id
+    stage.mkdir(parents=True, exist_ok=True)
+    for name, content in task.seed_files.items():
+        (stage / name).write_text(content, encoding="utf-8")
+        p = _run(["sg", "docker", "-c",
+                  f"docker cp {stage / name} {CONTAINER}:/root/work/code/{name}"],
+                 timeout=30.0)
+        if p.returncode != 0:
+            print(f"  [seed] {name}: rc={p.returncode}: {p.stderr[:200]}", flush=True)
+        else:
+            print(f"  [seed] {name} -> worker /root/work/code/", flush=True)
+
+
 def submit_drive(root: Path, task: QualityTask, deadline: int) -> str | None:
     """Submit one supervised drive (async); return the task id (from output)."""
     tasks_dir = root / "tasks"
@@ -66,6 +89,8 @@ def submit_drive(root: Path, task: QualityTask, deadline: int) -> str | None:
            "--deadline", str(deadline), "--reporter", str(journal),
            "--ledger", str(ledger), "--tasks-dir", str(tasks_dir),
            "--async", "--json"]
+    if task.flow:
+        cmd += ["--flow", task.flow]
     p = _run(cmd, timeout=90.0)
     if p.returncode != 0:
         print(f"  [submit] rc={p.returncode}: {p.stderr[:300]}", flush=True)
@@ -104,11 +129,12 @@ def _locate_in_container(name: str) -> list[str]:
 
 
 def collect_artifacts(root: Path, task: QualityTask) -> Path | None:
-    """docker cp the produced module + test file into root/<task.id>/."""
+    """docker cp the produced files (module + test + extra) into root/<task.id>/."""
     dest = root / "artifacts" / task.id
     dest.mkdir(parents=True, exist_ok=True)
+    names = (task.module, task.test_file) + tuple(task.extra_files or ())
     found_any = False
-    for name in (task.module, task.test_file):
+    for name in names:
         paths = _locate_in_container(name)
         if not paths:
             print(f"  [cp] {name}: not found in worker", flush=True)
@@ -196,9 +222,11 @@ def run_one(root: Path, task: QualityTask, deadline: int,
             start_line: int) -> dict:
     print(f"== task {task.id}: {task.module} / {task.test_file} ==", flush=True)
     t0 = time.time()
+    seed_task_files(root, task)
     task_id = submit_drive(root, task, deadline)
     if not task_id:
-        return {"id": task.id, "submit": "failed", "elapsed_sec": round(time.time() - t0, 1)}
+        return {"id": task.id, "submit": "failed", "elapsed_sec": round(time.time() - t0, 1),
+                "covers": list(task.covers)}
     rec = wait_task(root, task_id, timeout=deadline + 120)
     elapsed = round(time.time() - t0, 1)
     summary = (rec or {}).get("summary") or {}
@@ -215,6 +243,8 @@ def run_one(root: Path, task: QualityTask, deadline: int,
         "detail": detail,
         "host_pytest": py,
         "reviewer": audit,
+        "covers": list(task.covers),
+        "flow": task.flow,
     }
     print(f"  -> outcome={outcome} elapsed={elapsed}s pytest={py} audit={audit}", flush=True)
     return result
@@ -269,7 +299,8 @@ def main() -> None:
 
     report = {"elapsed_sec": round(time.time() - start, 1),
               "tasks_attempted": len(results),
-              "results": results}
+              "results": results,
+              "capability_coverage": _capability_coverage(results)}
     summary_path = root / "quality-report.json"
     summary_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
                             encoding="utf-8")
@@ -283,6 +314,42 @@ def main() -> None:
               f"pytest={py.get('passed')}passed/{py.get('failed')}failed "
               f"verdicts={r.get('reviewer', {}).get('verdicts')} "
               f"elapsed={r.get('elapsed_sec')}s", flush=True)
+
+    # capability-coverage summary (WORK_PLAN8): which designed capabilities were
+    # exercised by which tasks, and which were not triggered at all.
+    print("\n== capability coverage ==", flush=True)
+    cov = report["capability_coverage"]
+    for cap, tasks_list in cov["covered"].items():
+        print(f"  {cap:28s} <- {', '.join(tasks_list)}", flush=True)
+    if cov["uncovered"]:
+        print("  -- NOT covered (designed but never triggered):", flush=True)
+        for cap in sorted(cov["uncovered"]):
+            print(f"     {cap}", flush=True)
+
+
+def _capability_coverage(results: list[dict]) -> dict:
+    """Aggregate which designed capabilities were exercised by which tasks.
+
+    A capability counts as covered if at least one task that DECLARES it in
+    `covers` completed (the capability is exercised by the run, not just
+    declared). Uncovered = declared by some task but no declaring task
+    completed successfully.
+    """
+    covered: dict[str, list[str]] = {}
+    declared: dict[str, list[str]] = {}
+    for r in results:
+        tid = r.get("id")
+        caps = r.get("covers") or []
+        ok = r.get("outcome") in ("complete", None)  # None = preflight-only info
+        for cap in caps:
+            declared.setdefault(cap, []).append(tid)
+            if ok:
+                covered.setdefault(cap, []).append(tid)
+    uncovered = sorted(set(declared) - set(covered))
+    return {"covered": dict(sorted(covered.items())),
+            "uncovered": uncovered,
+            "declared_total": len(declared),
+            "covered_total": len(covered)}
 
 
 if __name__ == "__main__":
