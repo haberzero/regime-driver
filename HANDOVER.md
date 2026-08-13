@@ -199,8 +199,8 @@
   - 框架展示细化：对话背后发生了什么（制度驱动规划 → 角色/节点出现 → 会话按角色分配 → 逐节点配合 →
     事件记录）；为什么 skill 不直接加载进对话框（上下文/专注度/结构性保证三重考量）。
   - worker 干净执行器 / dialog-control 带插件对话面的分层说明。
-- **初学者读者视角文档批评 + 落地（✅ 2026-08-12）**：以普通读者视角通读全部对外文档产出批评报告
-  （`tasks_docs/docs_reader_critique.md`），逐条核实代码后全面改进——guide 编号去重（03 双号→00-07）、
+- **初学者读者视角文档批评 + 落地（✅ 2026-08-12）**：以普通读者视角通读全部对外文档产出批评报告，
+  逐条核实代码后全面改进——guide 编号去重（03 双号→00-07）、
   reference/05 契约归位"参考"区、README 中英去 L0/L1/L2 代号与密钥段重复、去 stale 表述（DELETE 真删、
   CLI 契约已就绪、架构文档对齐实现）、概念去重（code_workflow 表 / worker-dialog-control 表收敛单一归属）、
   新增图解（index 系统全景图 / 审查判定闭环 / 监督纠正阶梯 / 事件链时间线 / 并行任务隔离图）。零回归、
@@ -314,19 +314,24 @@
 
 #### 环境状态（交接时）
 
-- `opencode-worker` / `opencode-dialog-control` 容器健康，**已重建到 HEAD `3377500`**
-  （含全部修复 + WORK_PLAN8 阶段 1–4 + 测试净化）。
-- 测试基线 **419 passed（46s）**，0 warnings；`sync_templates.py --check` 绿；
+- `opencode-worker` / `opencode-dialog-control` 容器健康，**已重建到 HEAD `4967579`**
+  （含全部修复 + WORK_PLAN8 阶段 1–4 + 测试净化 + 分发重构 + 卸载机制）。
+- 测试基线 **425 passed（46s）**，0 warnings；`sync_templates.py --check` 绿；
   `ops/check_capabilities.py` 绿（22 CLI / 3 mounted skills / 11 packaged / 22 covers）。
 - **E2E 已移出单元套件**：`e2e_tests/test_e2e_worker.py`（真实 worker+LLM，独立运行
   `REGIME_E2E=1 pytest e2e_tests/...`），`pytest`（testpaths=["tests"]）不再收集。
+- **分发就绪**：docker 资产不入 wheel（GitHub 仓库提供）；A 路插件 + dialog-control agent +
+  opencode.json + package.json 随 wheel 分发，`regime scaffold`/`setup` 装配主机 opencode 主载体；
+  `regime uninstall` 按部署清单安全移除（保留用户改动）；wheel 合规断言在 CI。
 - 新试用套件：`ops/quality_tasks.py` 8 任务（4 深度保留 + 4 新形态），harness 支持
   seed_files 预置 / 多文件收集 / 能力覆盖报告。
 - 复用工具：`ops/quality_run.py --tasks <id>`（单任务重跑）、`--root <dir>`（产出 quality-report.json
-  含 capability_coverage）。
+  含 capability_coverage）、`ops/run_nightly.sh`（夜间一键长跑）。
+- 已 push 到 GitHub（`origin main`，本地=远端 `4967579`），CI 含装配冒烟 + wheel 卫生断言。
 - 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 +
-  示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + **WORK_PLAN8 阶段 1–4**。
- - 剩余候选：**V-2 PyPI（待用户）**、**WORK_PLAN8 阶段 5 夜间整合重跑**（下一主线）。
+  示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + **WORK_PLAN8 阶段 1–4** + 分发重构 + 卸载机制。
+- 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**WORK_PLAN8 阶段 5 夜间整合重跑**（下一主线）、
+  **GitHub Pages 启用**（Settings→Pages→GitHub Actions）。
 
 ### 本 session 已完成（2026-08-13，8 个 commit）
 
@@ -342,6 +347,14 @@
 | `d2ff8db` | **WORK_PLAN8 阶段3**：对话框成为全能力引导枢纽——`capabilities` 命令（按场景分组能力地图）+ GUIDE 值守模式章节。 |
 | `68b3d91` | **WORK_PLAN8 阶段4**：capabilities.md 能力地图单点真理 + `ops/check_capabilities.py` 交叉核对脚本 + mkdocs 入参考区。 |
 | `3377500` | **测试套件净化**：E2E 真实调用移出 `tests/`→`e2e_tests/`（不再被收集），warnings 清零（专用 basetemp），提速 60%（114s→46s），419 passed。 |
+| `d1216c2` | **部署审计**：硬编码清零（worker 默认路径 `oc-meta`→`~/.regime/workspaces`）、doctor 环境检测（docker/opencode/conda/平台）+ 部署路径引导、scaffold 部署 opencode.json/config.example（真源随 wheel）。 |
+| `3b5aa23` | **分发重构**：插件 + dialog-control agent + package.json 随 wheel 分发（经 opencode 官方本地插件机制），scaffold 一键装配主机 opencode 主载体；插件 BASE 支持 `REGIME_WORKER_BASE`（远程/docker worker）。 |
+| `f1fe51a` | **分发合规**：docker 构建资产移出 wheel（GitHub 提供），插件去容器路径回退（纯 PATH 解析）；wheel 合规审计（无 docker/主机路径）+ 反向断言守卫。 |
+| `32da91a` | **分发蓝图 + setup**：`docs/architecture/04_distribution_blueprint.md`（渠道/内容归属/数据位置/用户路径全情形）；`regime setup` 引导安装（检测+装配+分步指引）。 |
+| `9ec570d` | **容器重建**：dialog-control 镜像加 regime env 入 PATH（修 A 路插件 regime 解析）。 |
+| `4918e5f` | **卸载与恢复**：部署清单 manifest（`.regime-deployed.json` 含 sha256）+ `regime uninstall` 安全移除（保留用户改动）+ doctor 部署完整性检测。 |
+| `4967579` | **文档体系同步**：插件随 wheel + 主控需插件新表述、god 残留清理、setup/uninstall 登记、单一真源表更新。 |
+| `af4058f` | **chore**：gitignore dist/build；push 到 GitHub（本地=远端）。 |
 
 **关键成果**：所有交接发现（D1–D6 + A–F）已全部修复并经测试/真实运行核实；WORK_PLAN8
 建设性重构阶段 1–4 完成并各自真实验证；唯一未执行 = 阶段 5 夜间整合重跑（属验证非修复）。
@@ -417,6 +430,12 @@ conda run -n regime-driver regime report --journal /tmp/rep.jsonl --prune --max-
 # 会话 / 事件 / 控制对话框
 conda run -n regime-driver regime sessions|session <id> send|reply|events --ledger ... --json
 conda run -n regime-driver regime dialog --live --base http://127.0.0.1:4097 --perm run
+
+# 部署 / 装配 / 卸载（分发与恢复）
+conda run -n regime-driver regime setup [--target ~/.config/opencode] [--json]   # 引导安装
+conda run -n regime-driver regime scaffold [--assistants] [--dry-run]             # 装配官方模板(含插件)
+conda run -n regime-driver regime uninstall [--dry-run]                           # 按清单安全移除
+conda run -n regime-driver regime doctor [--json]                                 # 自检(含部署完整性/环境检测)
 
 # 任务注册表（收编 oc-task）
 conda run -n regime-driver regime task list|status|logs|stop|clean <task-id> [--json]

@@ -6,9 +6,11 @@
 
 ## 目标
 
-推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
+推进 regime-driver 后续候选工作（HANDOVER.md §8 / WORK_PLAN8.md），按优先级逐项实施，每项过质量门 + 全量测试零回归 + code-review，然后 commit 并接续下一项。所有推进方向都阻塞时停止并完整汇报。
 
-> **改进工作清单/规划见 `WORK_PLAN.md`**（已完成）、`WORK_PLAN2.md`（已完成）、`WORK_PLAN3.md`（CLI 契约升级，已完成）、**`WORK_PLAN4.md`**（已完成：I1/I2/E1/R-A~C）。**`WORK_PLAN5.md`**（F1–F11 + C1/C2/C4 已完成；遗留 L1–L3/C3/F6b/P3）。**`WORK_PLAN6.md`**（发布就绪：II/III/IV/V 大部分完成；剩余 I 耐久 + e2e-real 密钥 + README 精校）。**`WORK_PLAN7.md`（当前主线：对外供给就绪——模板进包 + scaffold + 单一真源 + 文档修复，审查见 `tasks_docs/release_readiness_audit.md`）**。**技术债治理见 `TECH_DEBT.md`（用户高优先，禁止 tricky/兼容层）**。文档治理遵循 `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。上帝对话框载体决策见 `docs/subsystems/07_god_dialog_carrier.md`。
+> **当前主线规划见 `WORK_PLAN8.md`**（对外供给/分发重构 + 深度核查 + 测试净化，阶段 1–4 ✅ / 阶段 5 待夜间整合重跑）。
+> 历史规划（WORK_PLAN1–7）已完成，归档清理。技术债治理见 `TECH_DEBT.md`。文档治理遵循
+> `docs/WRITING_GUIDE.md`（尺子）+ `workflow-regime/skills/doc-governance/SKILL.md`（治理流程）。
 
 ## 候选清单（按优先级，见 WORK_PLAN5）
 

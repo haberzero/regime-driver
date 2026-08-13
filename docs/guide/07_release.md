@@ -2,7 +2,7 @@
 
 > 面向维护者：把 regime-driver 从"开发态"推向"发布态"。给读者的是"别人能用"
 > 的完整路径：构建 → 供给自检 → 发布渠道 → 复核。
-> 书写遵守 `docs/WRITING_GUIDE.md`；发布就绪主线见 `WORK_PLAN7.md`。
+> 书写遵守 `docs/WRITING_GUIDE.md`；发布就绪主线见 `tasks_docs/WORK_PLAN8.md`。
 
 ## 1. 发布姿态与硬缺口
 
@@ -95,5 +95,5 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
 ## 5. 发布后收尾
 
-- 更新 `TASK.md`（发布记录 + REFLECT）、`HANDOVER.md`（§8 主线指针）、`WORK_PLAN7.md`（进度）。
+- 更新 `TASK.md`（发布记录 + REFLECT）、`HANDOVER.md`（§8 主线指针）、`tasks_docs/WORK_PLAN8.md`（进度）。
 - 本地 commit；push 需明确授权（AGENTS.md 硬原则）。

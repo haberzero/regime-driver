@@ -39,7 +39,7 @@
 | events | `regime events` | 值守 | — | 01_cli.md |
 | session | `regime session` | 值守 | — | 01_cli.md |
 | task | `regime task` | 值守/无人值守 | harness `task status` | 01_cli.md |
-| flow | `regime flow` | 值守/流程期 | design_decision（流程注册） | 01_cli.md + WORK_PLAN5 |
+| flow | `regime flow` | 值守/流程期 | design_decision（流程注册） | 01_cli.md |
 | worker | `regime worker` | 一次性/并发 | — | 01_cli.md |
 | chaos | `regime chaos` | 一次性/演练 | — | 01_cli.md |
 | job | `regime job` | 值守 | — | 01_cli.md |
