@@ -163,6 +163,12 @@ class Drive:
             deadline_sec=self.deadline_sec, session_id=session_id, goal=context,
             meta_enabled=self.meta_enabled, meta_model=self.meta_model,
         )
+        # stop_when: end supervision once the workflow yields ANY result. The
+        # in-process watchdog now uses the SSE-activity liveness chain (WORK_PLAN10)
+        # so a BLOCKED outcome is a genuine stall (already aborted via
+        # `_abort_waiting_session`), not a token-blind false kill — the external
+        # supervisor's T1 (docker restart) and deadline still guard the run, and
+        # its T2 ladder remains fully usable via `regime supervisor`.
         sup_outcome = sup.run(stop_when=lambda: "res" in self._result)
         t.join(timeout=5)
         if self.driver.ledger is not None:

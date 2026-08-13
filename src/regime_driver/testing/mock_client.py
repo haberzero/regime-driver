@@ -79,6 +79,9 @@ class MockClient:
         self.msgs: dict[str, list[Message]] = {}
         self.sent: list[tuple[str, str, str]] = []
         self.aborted: list[str] = []
+        # sessions currently in a simulated `delay` generation: they are BUSY and
+        # STREAMING (emit SSE deltas) — the "long-thinking" liveness scenario.
+        self._generating: set[str] = set()
 
     # -- rules --------------------------------------------------------------
 
@@ -109,7 +112,8 @@ class MockClient:
         return sid
 
     def session_status(self, session_id: str) -> str | None:
-        return "busy" if self._is_stalled(session_id) else "idle"
+        return "busy" if (self._is_stalled(session_id)
+                          or session_id in self._generating) else "idle"
 
     def session_tokens(self, session_id: str) -> tuple[int, int]:
         return (0, 0)
@@ -128,7 +132,14 @@ class MockClient:
         rule = self._rule_for(agent, node_id)
         self.sent.append((session_id, text, agent))
         if rule.delay:
-            time.sleep(rule.delay)
+            # simulate a long generation: the session is BUSY and STREAMING
+            # (emits SSE deltas) during the delay — the "long-thinking" case the
+            # watchdog must NOT misclassify as a stall.
+            self._generating.add(session_id)
+            try:
+                time.sleep(rule.delay)
+            finally:
+                self._generating.discard(session_id)
         if rule.stall:
             # mark the session as persistently busy; never append a completing reply
             self.msgs.setdefault(session_id, []).append(
@@ -178,6 +189,31 @@ class MockClient:
                         return m.reply or m.text
             time.sleep(self.tick)
         raise TimeoutError("ask_and_get_text: no reply")
+
+    def event_stream(self, reconnect: bool = True, max_retries: int | None = None,
+                     backoff_sec: float = 2.0):
+        """Simulate the SSE /event stream (WORK_PLAN10 parity with the real client).
+
+        Emits ``server.connected`` once, then a ``message.part.delta`` progress
+        event for every session whose latest assistant message is NOT a stall.
+        Stalled sessions (``session_status() == "busy"`` with no completion)
+        emit NOTHING further — so the SSE-activity tracker sees no progress and
+        the watchdog stalls them, exactly like a real frozen generation.
+        """
+        yield {"event": "server.connected", "data": {}}
+        while True:
+            progressed = False
+            for sid, msgs in self.msgs.items():
+                if not self._is_stalled(sid):
+                    progressed = True
+                    yield {"event": "message.part.delta",
+                           "data": {"type": "message.part.delta",
+                                    "properties": {"sessionID": sid}}}
+            if not progressed:
+                # nothing alive: simulate the 10s heartbeat so the tracker loop
+                # stays responsive without spinning hot.
+                time.sleep(self.tick)
+                yield {"event": "server.heartbeat", "data": {}}
 
     # -- stall bookkeeping ----------------------------------------------------
 

@@ -71,7 +71,7 @@ class Settings(BaseModel):
         default=None,
         description="JSON session-cleanup policy (see docstring); None = disabled"
     )
-    stall_sec: int = Field(default=120, ge=1, description="busy but no token growth (output nor reasoning) beyond this -> stall")
+    stall_sec: int = Field(default=120, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (WORK_PLAN10: liveness = SSE, not token counts)")
     on_stall: Literal["abort", "report_user", "none"] = Field(
         default="abort", description="action when a session stalls (no progress)"
     )

@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from .app.reporter import Reporter
+from .app.sse_activity import is_progress_event
 from .infra.opencode import OpenCodeClient
 
 # correction ladder levels (L1 light -> L5 human)
@@ -98,21 +99,6 @@ def choose_action(verdict: str, action: str, confidence: float,
     return action
 
 
-def _is_progress_event(event_type: str | None) -> bool:
-    """True for SSE events that indicate genuine session progress (not the
-    per-poll `server.connected` connection handshake).
-
-    Used by T2 stall detection: only progress keeps a session alive. The
-    `server.connected` event fires on every new `/event` connection, so it must
-    not count as activity or stall detection would never fire.
-    """
-    if not event_type:
-        return False
-    if event_type == "server.connected":
-        return False
-    return event_type.startswith(("message.", "session."))
-
-
 def docker_restart(container: str) -> bool:
     """L4: restart the worker container. Returns success. (Host-side, docker.)
 
@@ -138,85 +124,65 @@ def docker_restart(container: str) -> bool:
 class SessionWatch:
     """Per-session stall bookkeeping (pure, testable).
 
-    T2 semantics: a session is STALLED only if it has been busy AND produced no
-    growth (output NOR reasoning tokens, and no SSE activity) for a *contiguous*
-    window of at least ``stall_sec`` seconds. Any growth or any SSE activity
-    (streaming deltas) resets the window — so a session that is streaming text
-    or deep-reasoning (reasoning tokens grow while text output lags) is never
-    misjudged.
+    T2 semantics (WORK_PLAN10): a session is STALLED only if it has been busy
+    AND produced no SSE progress for a *contiguous* window of at least
+    ``stall_sec`` seconds. Liveness is measured by the SSE-activity timestamp
+    (``activity_ts``) fed in from ``Supervisor.ingest_events`` — token counts
+    are deliberately NOT used because opencode persists them only at
+    step-finish (stale during long single-step generations).
 
-    ``last_message_ts`` = last time we saw *any* progress (output/reasoning
-    growth or SSE activity). ``_stalled_since`` = start of the current frozen
-    window (0 = none). ``consecutive_stalls`` counts contiguous windows that
-    each exceeded stall_sec, driving the deterministic correction ladder one
-    rung per window.
+    ``last_message_ts`` = last time we saw any SSE progress.
+    ``_stalled_since`` = start of the current frozen window (0 = none).
+    ``consecutive_stalls`` counts contiguous windows that each exceeded
+    stall_sec, driving the deterministic correction ladder one rung per window.
     """
 
-    last_output: int = 0
-    last_reasoning: int = 0
     last_message_ts: float = 0.0
     consecutive_stalls: int = 0
     _stalled_since: float = 0.0
 
-    def observe(self, now: float, busy: bool, output: int,
-                reasoning: int = 0, activity_ts: float = 0.0) -> bool:
+    def observe(self, now: float, busy: bool, activity_ts: float = 0.0) -> bool:
         """Update bookkeeping from one poll observation (pure state updater).
 
-        Returns True when the session recovered (output grew / reasoning grew /
-        went idle / streaming resumed) — used by ``is_stalled`` to reset the
-        consecutive escalation counter so a stall episode is counted only while
-        it persists.
+        Returns True when the session recovered (SSE activity resumed / went
+        idle) — used by ``is_stalled`` to reset the consecutive escalation
+        counter so a stall episode is counted only while it persists.
         """
         recovered = False
-        # SSE streaming activity counts as progress even if the token snapshot
-        # has not caught up yet (opencode-go updates tokens.output lazily).
         if activity_ts and activity_ts > self.last_message_ts:
+            # SSE streaming activity counts as progress (long deep-reasoning
+            # phases stream message.part.delta continuously).
             self.last_message_ts = activity_ts
             self._stalled_since = 0.0
             recovered = True
         if self.last_message_ts == 0.0:
             # first observation: establish the baseline, never false-stall
-            self.last_output = output
-            self.last_reasoning = reasoning
             self.last_message_ts = now
             self._stalled_since = 0.0
             return recovered
         if not busy:
             # not busy -> no stall possible; reset so a later busy window starts
             # from a fresh baseline
-            self.last_output = output
-            self.last_reasoning = reasoning
             self.last_message_ts = now
             self._stalled_since = 0.0
             return True
-        if output != self.last_output or reasoning != self.last_reasoning:
-            # output OR reasoning growth is liveness (deep-reasoning phases
-            # stream reasoning tokens before any text lands)
-            self.last_output = output
-            self.last_reasoning = reasoning
-            self.last_message_ts = now
-            self._stalled_since = 0.0
-            return True
-        # output frozen and no newer activity: anchor the frozen window at the
-        # last time ANY progress was seen (so the elapsed-time check in
-        # is_stalled is measured against real silence, not this poll).
         if self._stalled_since == 0.0:
+            # frozen: anchor the window at the last progress time
             self._stalled_since = self.last_message_ts
         return recovered
 
-    def is_stalled(self, now: float, stall_sec: float, busy: bool, output: int,
-                   reasoning: int = 0, activity_ts: float = 0.0) -> bool:
+    def is_stalled(self, now: float, stall_sec: float, busy: bool,
+                   activity_ts: float = 0.0) -> bool:
         """True once the session has been frozen-and-busy for >= stall_sec.
 
         The window is anchored at the last progress time (``last_message_ts`` /
         ``_stalled_since``), so a session silent for ``stall_sec`` fires. Returns
         True once per expired window (then advances the anchor to consume it),
         so continued frozen escalates the ladder one rung per stall_sec. A
-        recovery (output/reasoning growth / idle / resumed streaming) resets the
-        consecutive counter so escalation does not leak across separate episodes.
+        recovery (SSE activity resumed / idle) resets the consecutive counter so
+        escalation does not leak across separate episodes.
         """
-        recovered = self.observe(now, busy, output, reasoning=reasoning,
-                                 activity_ts=activity_ts)
+        recovered = self.observe(now, busy, activity_ts=activity_ts)
         if recovered:
             self.consecutive_stalls = 0
             return False
@@ -352,7 +318,7 @@ class Supervisor:
                 if self.reporter is not None:
                     self.reporter.ingest_worker_event(
                         raw, session_id=self.session_id)
-                if _is_progress_event(etype):
+                if is_progress_event(etype):
                     self._last_activity_ts = time.time()
                 count += 1
                 if time.monotonic() - start > stream_timeout:
@@ -455,13 +421,17 @@ class Supervisor:
                 return "workflow_done"
             self.ingest_events()
             if self.session_id is not None and self.client.health():
-                # T2: session stall
+                # T2: session stall — liveness is the SSE-activity timestamp
+                # (WORK_PLAN10). opencode's session_tokens are step-granular
+                # (persisted only at step-finish by an async projector) so they
+                # stay 0 during a long single-step generation; only the SSE
+                # /event stream is an immediate liveness signal. We deliberately
+                # do NOT read session_tokens here.
                 status = self.client.session_status(self.session_id)
-                reasoning, output = self.client.session_tokens(self.session_id)
                 busy = status == "busy"
                 stalled = self.watch.is_stalled(
-                    time.time(), self.stall_sec, busy, output,
-                    reasoning=reasoning, activity_ts=self._last_activity_ts)
+                    time.time(), self.stall_sec, busy,
+                    activity_ts=self._last_activity_ts)
                 if stalled:
                     if self.meta_enabled:
                         meta = self.meta_analyze()

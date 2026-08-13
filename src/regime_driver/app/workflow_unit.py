@@ -35,6 +35,7 @@ from ..infra.task_control import TaskControl
 from .reviewer import Reviewer
 from .session_lifecycle import SessionLifecycle, SessionRotator
 from .session_manager import SessionRegistry
+from .sse_activity import SseActivity
 from .statechart_runtime import ThreadedUnit
 
 # internal states
@@ -94,6 +95,12 @@ class WorkflowUnit(ThreadedUnit):
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dispatch")
         self._active_dispatch = None  # future of the in-flight dispatch POST
         self._dispatch_errors: list[str] = []  # last dispatch failures (for diagnostics)
+        # SSE liveness tracker (WORK_PLAN10): the ONLY reliable streaming-liveness
+        # signal. opencode's session_tokens are step-granular (persisted only at
+        # step-finish by an async projector) so they stay 0 during a long single
+        # step; the SSE /event stream (message.part.delta ...) is immediate.
+        # The watchdog's stall detection reads activity_ts from our REPORTs.
+        self._sse = SseActivity(client)
 
         # run state
         self._state = _ST_IDLE
@@ -129,6 +136,7 @@ class WorkflowUnit(ThreadedUnit):
     # -- lifecycle (ThreadedUnit override) -----------------------------------
 
     def stop(self, timeout: float = 2.0) -> None:
+        self._sse.stop()
         super().stop(timeout)
         self._executor.shutdown(wait=False, cancel_futures=True)
 
@@ -619,24 +627,22 @@ class WorkflowUnit(ThreadedUnit):
         A REPORT must always be sent; a read failure must never silently drop it
         (that would blind the watchdog into a false stall/loop verdict). Failures
         are recorded as auditable events and surfaced in the REPORT payload.
+
+        Liveness is the SSE-activity timestamp (WORK_PLAN10): token counts are
+        step-granular in opencode and stale during long generations, so they are
+        NOT used for stall detection.
         """
         if self.bus is None or self._wait_sid is None:
             return
         payload: dict = {"session_id": self._wait_sid, "status": None,
-                         "output": 0, "reasoning": 0, "latest_text": "",
+                         "activity_ts": 0.0, "latest_text": "",
                          "report_error": None}
         try:
             payload["status"] = self.client.session_status(self._wait_sid)
-            # reasoning AND output both count as liveness: a long "thinking"
-            # phase streams reasoning tokens before any text lands (deepseek
-            # spends minutes reasoning for hard tasks). Dropping reasoning here
-            # would blind the watchdog into a false stall on a healthy session.
-            reasoning, output = self.client.session_tokens(self._wait_sid)
-            payload["output"] = output
-            payload["reasoning"] = reasoning
         except Exception as exc:
-            payload["report_error"] = f"status/tokens: {exc}"
+            payload["report_error"] = f"status: {exc}"
             self._log("report_error", session=self._wait_sid, err=str(exc))
+        payload["activity_ts"] = self._sse.last_activity(self._wait_sid)
         try:
             payload["latest_text"] = self._latest_text(
                 self.client.read_messages(self._wait_sid))
