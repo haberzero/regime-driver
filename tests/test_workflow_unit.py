@@ -4,7 +4,7 @@ import json
 import re
 import time
 
-from regime_driver.app.workflow_unit import WorkflowUnit
+from regime_driver.app.workflow_unit import WorkflowUnit, _PH_AGENT
 from regime_driver.core.models import Outcome
 from regime_driver.core.statechart import SignalKind
 from regime_driver.infra.ledger import Ledger
@@ -771,6 +771,72 @@ def test_context_handover_forced_at_hard_threshold():
     new_sid = unit.sessions.get("developer").session_id
     assert new_sid != old_sid  # rotated
     assert any("【上下文交接】" in t for t in sent_texts)  # readable handover opening
+
+
+def test_external_abort_agent_blocks_not_hangs():
+    """An externally-aborted agent session (supervisor T2 kill, no pause) must
+    terminate as BLOCKED instead of polling a dead session forever."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    sid = unit.sessions.ensure("developer", "t").session_id
+    unit._wait_sid = sid
+    unit._wait_role = "developer"
+    unit._phase = _PH_AGENT
+    unit._paused = False
+    client.msgs[sid] = [Message("assistant", "draft", error="MessageAbortedError",
+                                completed=str(time.time()), finish=None)]
+    unit._step_agent()
+    assert unit._result is not None
+    assert unit._result[0] == Outcome.BLOCKED
+    assert "externally aborted" in unit._result[2]
+
+
+def test_paused_external_abort_not_blocked():
+    """A paused session (in-process watchdog PAUSE aborts the session but sets
+    _paused=True first) must NOT be treated as a dead session."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    sid = unit.sessions.ensure("developer", "t").session_id
+    unit._wait_sid = sid
+    unit._wait_role = "developer"
+    unit._phase = _PH_AGENT
+    unit._paused = True
+    client.msgs[sid] = [Message("assistant", "draft", error="MessageAbortedError",
+                                completed=str(time.time()), finish=None)]
+    unit._step_agent()
+    assert unit._result is None  # still waiting for RESUME
+
+
+def test_resume_window_own_abort_sentinel_not_blocked():
+    """B1 regression: after a PAUSE abort + RESUME, the old abort sentinel is
+    still the latest message until the session's reply materializes. The
+    workflow must NOT treat its own pause sentinel as an external dead session."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    sid = unit.sessions.ensure("developer", "t").session_id
+    unit._wait_sid = sid
+    unit._wait_role = "developer"
+    unit._phase = _PH_AGENT
+    unit._node = "a"
+    # simulate PAUSE: workflow aborts its own session and marks _own_abort
+    unit._paused = True
+    client.msgs[sid] = [Message("assistant", "draft", error="MessageAbortedError",
+                                completed=str(time.time()), finish=None)]
+    unit._abort_waiting_session("pause")
+    unit._own_abort = True
+    # simulate RESUME: unpause; the sentinel is still the latest message
+    unit._paused = False
+    unit._step_agent()
+    assert unit._result is None  # own pause sentinel -> keep polling, not BLOCKED
+    # once a real reply arrives the flag clears and flow continues (node completes)
+    client.msgs[sid] = [Message("assistant", "work done\n[WORK_DONE]",
+                                completed=str(time.time()), finish="stop")]
+    unit._step_agent()
+    assert not unit._own_abort  # flag cleared on non-abort message
+    assert unit._result is not None  # the done reply advanced the flow
 
 
 # --- transition policy (anchor / rotate) -----------------------------------

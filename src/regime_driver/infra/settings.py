@@ -30,7 +30,7 @@ class Settings(BaseModel):
     regime_path: str | None = Field(default=None, description="path to regime.json")
     session_turn_check: int = Field(default=5, ge=1, description="[deprecated] dead config, no consumer")
     skills_dir: str | None = Field(default=None, description="path to workflow-regime skills dir")
-    max_reviewer_retries: int = Field(default=2, ge=0, description="reviewer gate retries per node")
+    max_reviewer_retries: int = Field(default=3, ge=0, description="reviewer gate retries per node")
     max_dialogue_rounds: int = Field(
         default=5, ge=1,
         description="max reviewer/developer interrogation rounds per node (independent of gate retries)"

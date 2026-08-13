@@ -50,6 +50,42 @@ def test_extract_json_none():
     assert extract_json("no json here") is None
 
 
+def test_extract_json_prose_around_object():
+    # the reviewer occasionally wraps the verdict in analysis prose
+    text = ("方案需要进一步分析：因为并发边界未定。"
+            '{"node":"design","verdict":"issue_pending","action":"ask_developer",'
+            '"message_to_developer":"补齐设计","next_state":null,"confidence":0.8,'
+            '"reason":"ok"}以上是判定。')
+    assert extract_json(text)["node"] == "design"
+
+
+def test_extract_json_brace_inside_string():
+    text = '{"a": "{ not a real brace }", "b": 1} trailing'
+    assert extract_json(text) == {"a": "{ not a real brace }", "b": 1}
+
+
+def test_extract_json_skips_truncated_trailing():
+    # token-limit cut at the END: complete object first, truncated object after
+    text = '{"node":"test","verdict":"advance","action":"advance","next_state":"wrap",' + \
+           '"confidence":0.9,"reason":"ok"}{"node": "design", "verdict": "advance", "confiden'
+    obj = extract_json(text)
+    assert obj is not None and obj["node"] == "test"
+
+
+def test_extract_json_truncated_only_returns_none():
+    assert extract_json('{"node": "design", "verdict": "advance"') is None
+
+
+def test_extract_json_multiple_objects_takes_first_valid():
+    text = '{"a":1} then {"b":2}'
+    assert extract_json(text) == {"a": 1}
+
+
+def test_extract_json_stray_closing_brace_in_prose():
+    text = "答案：} 然后 {'a': 1}".replace("'", '"') + " 完成"
+    assert extract_json(text) == {"a": 1}
+
+
 def test_reviewer_parse_ok():
     sm = make_sm()
     reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))

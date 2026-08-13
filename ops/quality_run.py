@@ -190,7 +190,7 @@ def snapshot_sessions(dest: Path) -> list[str]:
 # drive submission / wait / audit
 # --------------------------------------------------------------------------- #
 
-def submit_drive(root: Path, task: QualityTask, deadline: int) -> str | None:
+def submit_drive(root: Path, task: QualityTask, deadline: int, stall: int = 60) -> str | None:
     tasks_dir = root / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     journal = root / "journal.jsonl"
@@ -201,6 +201,8 @@ def submit_drive(root: Path, task: QualityTask, deadline: int) -> str | None:
            "--deadline", str(deadline), "--reporter", str(journal),
            "--ledger", str(ledger), "--tasks-dir", str(tasks_dir),
            "--async", "--json"]
+    if stall:
+        cmd += ["--stall", str(stall)]
     if task.flow:
         cmd += ["--flow", task.flow]
     p = _run(cmd, timeout=90.0)
@@ -310,7 +312,7 @@ def host_pytest(dest: Path) -> dict:
 # --------------------------------------------------------------------------- #
 
 def run_one(root: Path, archive: Path | None, task: QualityTask, deadline: int,
-            start_line: int, journal_start: int) -> dict:
+            start_line: int, journal_start: int, stall: int = 60) -> dict:
     print(f"== task {task.id}: est {task.minutes_est}min, deadline {deadline}s ==",
           flush=True)
     t0 = time.time()
@@ -329,7 +331,7 @@ def run_one(root: Path, archive: Path | None, task: QualityTask, deadline: int,
         _write_task_result(task_dir, res)
         return res
     seed_task_files(task)
-    task_id = submit_drive(root, task, deadline)
+    task_id = submit_drive(root, task, deadline, stall=stall)
     if not task_id:
         res = {"id": task.id, "submit": "failed",
                "elapsed_sec": round(time.time() - t0, 1),
@@ -422,6 +424,8 @@ def main() -> None:
                     help="per-task drive deadline override (sec)")
     ap.add_argument("--tasks", type=str, default="",
                     help="comma list of task ids to run (default: all)")
+    ap.add_argument("--stall", type=int, default=60,
+                    help="drive session-stall detection seconds (long complex tasks: raise it)")
     ap.add_argument("--sample-sec", type=float, default=60.0)
     ap.add_argument("--clean-sessions", action="store_true",
                     help="clean worker sessions AFTER each task is archived")
@@ -455,7 +459,8 @@ def main() -> None:
         deadline = _deadline_for(task, args.deadline)
         start_line = _ledger_lines(root / "events.jsonl")
         journal_start = _ledger_lines(root / "journal.jsonl")
-        res = run_one(root, archive, task, deadline, start_line, journal_start)
+        res = run_one(root, archive, task, deadline, start_line, journal_start,
+                      stall=args.stall)
         results.append(res)
         # interruption-safe: rewrite the aggregate after EVERY task
         write_report(root, results, start)

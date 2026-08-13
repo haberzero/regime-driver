@@ -1,0 +1,96 @@
+{
+  "elapsed_sec": 1130.0,
+  "tasks_attempted": 1,
+  "results": [
+    {
+      "id": "distributed_scheduler",
+      "task_id": "task-20260814-043056-f81c",
+      "elapsed_sec": 1127.5,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 26,
+        "failed": 0,
+        "errors": 0,
+        "snippet": " warnings.warn(\n\n../.local/lib/python3.12/site-packages/_pytest/pathlib.py:95\n  /home/haber/.local/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-3afdaa96-5d00-41e7-a3d9-692d0ca6eb83\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-3afdaa96-5d00-41e7-a3d9-692d0ca6eb83'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n26 passed, 12 warnings in 0.85s\n"
+      },
+      "reviewer": {
+        "verdicts": 4,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0,
+        "inquiries": 2
+      },
+      "covers": [
+        "multi-module",
+        "cross-module-contract",
+        "concurrency-testing",
+        "thread-safety",
+        "design-node",
+        "api-design",
+        "error-isolation",
+        "integration",
+        "edge-cases",
+        "tradeoff-documentation",
+        "read-existing-code",
+        "wrap-hygiene"
+      ],
+      "flow": "code_workflow_v13",
+      "archive": "/tmp/recheck-20260814/archive/distributed_scheduler",
+      "sessions_snapshotted": [
+        "ses_0031d7bc4ffe14RDGcX7qij8Bk",
+        "ses_0032c56dbffeEwT2LSfXhnjDWd",
+        "ses_0032dde99ffeK553qvHsU7iCjE"
+      ],
+      "slices": {
+        "journal": 227,
+        "events": 29
+      }
+    }
+  ],
+  "capability_coverage": {
+    "covered": {
+      "api-design": [
+        "distributed_scheduler"
+      ],
+      "concurrency-testing": [
+        "distributed_scheduler"
+      ],
+      "cross-module-contract": [
+        "distributed_scheduler"
+      ],
+      "design-node": [
+        "distributed_scheduler"
+      ],
+      "edge-cases": [
+        "distributed_scheduler"
+      ],
+      "error-isolation": [
+        "distributed_scheduler"
+      ],
+      "integration": [
+        "distributed_scheduler"
+      ],
+      "multi-module": [
+        "distributed_scheduler"
+      ],
+      "read-existing-code": [
+        "distributed_scheduler"
+      ],
+      "thread-safety": [
+        "distributed_scheduler"
+      ],
+      "tradeoff-documentation": [
+        "distributed_scheduler"
+      ],
+      "wrap-hygiene": [
+        "distributed_scheduler"
+      ]
+    },
+    "uncovered": [],
+    "declared_total": 12,
+    "covered_total": 12
+  }
+}

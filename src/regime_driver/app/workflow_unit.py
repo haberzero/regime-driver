@@ -117,6 +117,10 @@ class WorkflowUnit(ThreadedUnit):
             self._log("context_policy_error", err=str(exc))
         self._verify_evidence: str | None = None
         self._verify_failed: bool = False
+        # WORK_PLAN11 pause-abort bookkeeping: an abort sentinel we caused
+        # ourselves (pause) must not be treated as an external dead session
+        # while the session is recovering (see _latest_abort / _on_pause).
+        self._own_abort: bool = False
         # dispatch pool: blocking send_message (up to the client timeout) runs on
         # a worker thread so the mixed loop never blocks and stays responsive to
         # STOP even while a prompt is being generated remotely.
@@ -233,6 +237,7 @@ class WorkflowUnit(ThreadedUnit):
         self._pause_reason = signal.get("reason") or "watchdog interrupt"
         self._paused = True
         self._abort_waiting_session(reason=self._pause_reason)
+        self._own_abort = True  # the sentinel this abort leaves is OUR pause
         self._log("workflow_paused", node=self._node, reason=self._pause_reason)
 
     def _on_resume(self, signal: Signal) -> None:
@@ -521,6 +526,7 @@ class WorkflowUnit(ThreadedUnit):
             return
         done, report = self._latest_agent_done(messages)
         if done:
+            self._own_abort = False  # session produced a real reply (resumed)
             rlen = len(report or "")
             self._log("node_done", node=self._node, outcome="complete",
                       report_len=rlen)
@@ -542,6 +548,19 @@ class WorkflowUnit(ThreadedUnit):
                 self._enter_judge(judge_node)  # re-judge after rework
             else:
                 self._advance()
+        elif not self._paused and self._latest_abort(messages):
+            # WORK_PLAN13-fix: the waiting session was aborted by an EXTERNAL
+            # authority (e.g. the drive's process-external supervisor T2) with no
+            # pause/recovery flow. Polling a dead session forever is a deadlock;
+            # terminate honestly as BLOCKED instead (the in-process watchdog's
+            # pause/resume path sets _paused=True first, so a recoverable pause
+            # never lands here).
+            self._log("session_external_abort", node=self._node,
+                      session=self._wait_sid)
+            self._state = _ST_ABORTED
+            self._result = (Outcome.BLOCKED, self._node,
+                            "agent session externally aborted (stalled); no recovery")
+            return
         self._report_to_watchdog()
 
     def _latest_agent_done(self, messages) -> tuple[bool, str | None]:
@@ -582,12 +601,43 @@ class WorkflowUnit(ThreadedUnit):
             return False, None
         return False, None
 
+    def _latest_abort(self, messages) -> bool:
+        """True if the MOST RECENT assistant message carries an abort sentinel
+        (message error, or a completed turn with no finish — the real-worker
+        abort shape). Used to detect an externally-aborted (dead) session.
+
+        An abort sentinel caused by OUR OWN pause (`_own_abort`, set in
+        _on_pause) is NOT treated as dead: after RESUME the old sentinel stays
+        the latest message until the session's reply materializes, and a
+        genuine recovery must not be killed in that window. The flag clears
+        automatically once a non-abort message appears."""
+        for m in reversed(messages):
+            if getattr(m, "role", None) != "assistant":
+                continue
+            is_abort = bool(getattr(m, "error", None)) or (
+                getattr(m, "completed", None) and getattr(m, "finish", "stop") is None)
+            if not is_abort:
+                self._own_abort = False  # session resumed producing
+            return is_abort and not self._own_abort
+        return False
+
     def _step_judge(self) -> None:
         try:
             messages = self.client.read_messages(self._wait_sid)
         except Exception as exc:
             self._state = _ST_ERROR
             self._result = (Outcome.ERROR, self._node, str(exc))
+            return
+        # external-abort deadlock guard FIRST (before dedup): a dead judge
+        # session can never produce a verdict — and the guard must not be
+        # short-circuited by the dedup key skipping an empty-reply sentinel.
+        if not self._paused and self._latest_abort(messages):
+            self._log("session_external_abort", node=self._node,
+                      session=self._wait_sid, phase="judge")
+            self._state = _ST_ABORTED
+            self._result = (Outcome.BLOCKED, self._node,
+                            "reviewer session externally aborted (stalled); no recovery")
+            self._report_to_watchdog()
             return
         latest = self._latest_assistant(messages)
         if latest is None:

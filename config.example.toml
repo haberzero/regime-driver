@@ -24,7 +24,7 @@ agent_reviewer = "reviewer"                  # 审查者 agent 名
 # --- 流程控制 ---
 default_deadline_sec = 600                   # 每节点等待超时(秒)
 poll_sec = 5.0                               # session 轮询间隔(秒)
-max_reviewer_retries = 2                     # 审查者 gate 每节点重试
+max_reviewer_retries = 3                     # 审查者 gate 每节点重试（复杂判定偶尔输出散文，多给一次机会）
 max_dialogue_rounds = 5                      # 审查者/开发者质询轮数上限
 convergence_max_identical = 2                # 同一质询 N+ 次且汇报未变 -> 判打转
 max_total_nodes = 50                         # 全局节点预算防 runaway
