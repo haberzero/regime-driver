@@ -54,7 +54,8 @@ class WatchdogUnit(ThreadedUnit):
         self.global_deadline_sec = global_deadline_sec
         self.max_global_nodes = max_global_nodes
         self.heartbeat_stale_sec = heartbeat_stale_sec
-        self._last_output: dict[str, int] = {}
+        self._last_output: dict[tuple[str, str], int] = {}
+        self._last_reasoning: dict[tuple[str, str], int] = {}
         self._stall_since: dict[str, float] = {}
         self._stall_fired: set[str] = set()
         self._dead_loop_fired: set[str] = set()
@@ -73,6 +74,7 @@ class WatchdogUnit(ThreadedUnit):
             session_id=p.get("session_id", ""),
             status=p.get("status"),
             output=int(p.get("output") or 0),
+            reasoning=int(p.get("reasoning") or 0),
             latest_text=p.get("latest_text", ""),
         )
         if event is not None:
@@ -146,7 +148,8 @@ class WatchdogUnit(ThreadedUnit):
         session_id: str,
         status: str | None,
         output: int,
-        latest_text: str,
+        reasoning: int = 0,
+        latest_text: str = "",
     ) -> tuple[str, str] | None:
         """Return (kind, detail) if a dead loop or stall is detected, else None."""
         if not session_id:
@@ -161,20 +164,35 @@ class WatchdogUnit(ThreadedUnit):
             else:
                 self._dead_loop_fired.discard(session_id)
 
-        # 2. stall: busy but no output growth for stall_sec
-        prev = self._last_output.get(session_id)
-        if prev is not None and output == prev:
-            if status == "busy":
-                since = self._stall_since.setdefault(session_id, time.time())
-                if time.time() - since >= self.stall_sec:
-                    if session_id not in self._stall_fired:
-                        self._stall_fired.add(session_id)
-                        return ("stall", f"busy but no output growth for {self.stall_sec}s")
+        # 2. stall: busy but no growth (output NOR reasoning) for stall_sec.
+        #    Reasoning token growth is liveness too: long "thinking" phases of
+        #    hard tasks stream reasoning before any text lands, and counting
+        #    only output would false-kill a healthy deep-reasoning session.
+        key = (session_id, "out")
+        prev_out = self._last_output.get(key)
+        if prev_out is not None and output == prev_out:
+            key_r = (session_id, "rsn")
+            prev_rsn = self._last_reasoning.get(key_r)
+            if prev_rsn is not None and reasoning == prev_rsn:
+                if status == "busy":
+                    since = self._stall_since.setdefault(session_id, time.time())
+                    if time.time() - since >= self.stall_sec:
+                        if session_id not in self._stall_fired:
+                            self._stall_fired.add(session_id)
+                            return ("stall",
+                                    f"busy but no growth (output nor reasoning) "
+                                    f"for {self.stall_sec}s")
+                else:
+                    self._stall_since.pop(session_id, None)
+                    self._stall_fired.discard(session_id)
             else:
+                self._last_reasoning[key_r] = reasoning
                 self._stall_since.pop(session_id, None)
                 self._stall_fired.discard(session_id)
         else:
-            self._last_output[session_id] = output
+            self._last_output[key] = output
+            if self._last_reasoning.get((session_id, "rsn")) is None:
+                self._last_reasoning[(session_id, "rsn")] = reasoning
             self._stall_since.pop(session_id, None)
             self._stall_fired.discard(session_id)
         return None

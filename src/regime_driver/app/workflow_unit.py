@@ -177,8 +177,25 @@ class WorkflowUnit(ThreadedUnit):
 
     def _cancel_running(self) -> None:
         if self._state == _ST_RUNNING:
+            # Abort the in-flight session so the model stops producing orphan
+            # work the moment the watchdog declares a stall/loop. If we only
+            # mark BLOCKED, the worker keeps generating (a STOP interrupts the
+            # workflow, not the session) — writing files, burning budget, and
+            # polluting artifact collection with post-mortem writes.
+            self._abort_waiting_session(reason=self._monitor_stop)
             self._state = _ST_ABORTED
             self._result = (Outcome.BLOCKED, self._node, f"monitor: {self._monitor_stop}")
+
+    def _abort_waiting_session(self, reason: str | None = None) -> None:
+        """Abort whatever session the workflow is currently waiting on (best-effort)."""
+        if self._wait_sid is None:
+            return
+        try:
+            self.client.abort_session(self._wait_sid)
+            self._log("monitor_abort", session=self._wait_sid,
+                      reason=reason or self._monitor_stop or "abort")
+        except Exception as exc:
+            self._log("monitor_abort_error", session=self._wait_sid, err=str(exc))
 
     # -- public start ---------------------------------------------------------
 
@@ -268,6 +285,8 @@ class WorkflowUnit(ThreadedUnit):
             # per-node wait timeout: never hang forever on a stuck idle session
             if (self._phase_started
                     and time.time() - self._phase_started > self.settings.default_deadline_sec):
+                self._abort_waiting_session(
+                    reason=f"node timeout after {self.settings.default_deadline_sec}s")
                 self._state = _ST_ERROR
                 self._result = (Outcome.TIMEOUT, self._node,
                                 self._with_dispatch_diag(
@@ -604,11 +623,17 @@ class WorkflowUnit(ThreadedUnit):
         if self.bus is None or self._wait_sid is None:
             return
         payload: dict = {"session_id": self._wait_sid, "status": None,
-                         "output": 0, "latest_text": "", "report_error": None}
+                         "output": 0, "reasoning": 0, "latest_text": "",
+                         "report_error": None}
         try:
             payload["status"] = self.client.session_status(self._wait_sid)
-            _, output = self.client.session_tokens(self._wait_sid)
+            # reasoning AND output both count as liveness: a long "thinking"
+            # phase streams reasoning tokens before any text lands (deepseek
+            # spends minutes reasoning for hard tasks). Dropping reasoning here
+            # would blind the watchdog into a false stall on a healthy session.
+            reasoning, output = self.client.session_tokens(self._wait_sid)
             payload["output"] = output
+            payload["reasoning"] = reasoning
         except Exception as exc:
             payload["report_error"] = f"status/tokens: {exc}"
             self._log("report_error", session=self._wait_sid, err=str(exc))

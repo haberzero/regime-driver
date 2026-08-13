@@ -139,30 +139,33 @@ class SessionWatch:
     """Per-session stall bookkeeping (pure, testable).
 
     T2 semantics: a session is STALLED only if it has been busy AND produced no
-    output growth for a *contiguous* window of at least ``stall_sec`` seconds.
-    Any output growth (token delta) or any SSE activity (streaming deltas) resets
-    the window — so a session that is streaming text (e.g. a long opencode-go
-    generation where the ``tokens.output`` snapshot lags behind the live stream)
-    is never misjudged.
+    growth (output NOR reasoning tokens, and no SSE activity) for a *contiguous*
+    window of at least ``stall_sec`` seconds. Any growth or any SSE activity
+    (streaming deltas) resets the window — so a session that is streaming text
+    or deep-reasoning (reasoning tokens grow while text output lags) is never
+    misjudged.
 
-    ``last_message_ts`` = last time we saw *any* progress (output delta or SSE
-    activity). ``_stalled_since`` = start of the current frozen window (0 = none).
-    ``consecutive_stalls`` counts contiguous windows that each exceeded stall_sec,
-    driving the deterministic correction ladder one rung per window.
+    ``last_message_ts`` = last time we saw *any* progress (output/reasoning
+    growth or SSE activity). ``_stalled_since`` = start of the current frozen
+    window (0 = none). ``consecutive_stalls`` counts contiguous windows that
+    each exceeded stall_sec, driving the deterministic correction ladder one
+    rung per window.
     """
 
     last_output: int = 0
+    last_reasoning: int = 0
     last_message_ts: float = 0.0
     consecutive_stalls: int = 0
     _stalled_since: float = 0.0
 
     def observe(self, now: float, busy: bool, output: int,
-                activity_ts: float = 0.0) -> bool:
+                reasoning: int = 0, activity_ts: float = 0.0) -> bool:
         """Update bookkeeping from one poll observation (pure state updater).
 
-        Returns True when the session recovered (output grew / went idle /
-        streaming resumed) — used by ``is_stalled`` to reset the consecutive
-        escalation counter so a stall episode is counted only while it persists.
+        Returns True when the session recovered (output grew / reasoning grew /
+        went idle / streaming resumed) — used by ``is_stalled`` to reset the
+        consecutive escalation counter so a stall episode is counted only while
+        it persists.
         """
         recovered = False
         # SSE streaming activity counts as progress even if the token snapshot
@@ -174,6 +177,7 @@ class SessionWatch:
         if self.last_message_ts == 0.0:
             # first observation: establish the baseline, never false-stall
             self.last_output = output
+            self.last_reasoning = reasoning
             self.last_message_ts = now
             self._stalled_since = 0.0
             return recovered
@@ -181,11 +185,15 @@ class SessionWatch:
             # not busy -> no stall possible; reset so a later busy window starts
             # from a fresh baseline
             self.last_output = output
+            self.last_reasoning = reasoning
             self.last_message_ts = now
             self._stalled_since = 0.0
             return True
-        if output != self.last_output:
+        if output != self.last_output or reasoning != self.last_reasoning:
+            # output OR reasoning growth is liveness (deep-reasoning phases
+            # stream reasoning tokens before any text lands)
             self.last_output = output
+            self.last_reasoning = reasoning
             self.last_message_ts = now
             self._stalled_since = 0.0
             return True
@@ -197,17 +205,18 @@ class SessionWatch:
         return recovered
 
     def is_stalled(self, now: float, stall_sec: float, busy: bool, output: int,
-                   activity_ts: float = 0.0) -> bool:
+                   reasoning: int = 0, activity_ts: float = 0.0) -> bool:
         """True once the session has been frozen-and-busy for >= stall_sec.
 
         The window is anchored at the last progress time (``last_message_ts`` /
         ``_stalled_since``), so a session silent for ``stall_sec`` fires. Returns
         True once per expired window (then advances the anchor to consume it),
         so continued frozen escalates the ladder one rung per stall_sec. A
-        recovery (output growth / idle / resumed streaming) resets the
+        recovery (output/reasoning growth / idle / resumed streaming) resets the
         consecutive counter so escalation does not leak across separate episodes.
         """
-        recovered = self.observe(now, busy, output, activity_ts=activity_ts)
+        recovered = self.observe(now, busy, output, reasoning=reasoning,
+                                 activity_ts=activity_ts)
         if recovered:
             self.consecutive_stalls = 0
             return False
@@ -448,11 +457,11 @@ class Supervisor:
             if self.session_id is not None and self.client.health():
                 # T2: session stall
                 status = self.client.session_status(self.session_id)
-                _, output = self.client.session_tokens(self.session_id)
+                reasoning, output = self.client.session_tokens(self.session_id)
                 busy = status == "busy"
                 stalled = self.watch.is_stalled(
                     time.time(), self.stall_sec, busy, output,
-                    activity_ts=self._last_activity_ts)
+                    reasoning=reasoning, activity_ts=self._last_activity_ts)
                 if stalled:
                     if self.meta_enabled:
                         meta = self.meta_analyze()
