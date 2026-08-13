@@ -5,19 +5,15 @@ import { tool } from "@opencode-ai/plugin"
 
 // Invoke the regime CLI entry point DIRECTLY (no `conda run` wrapper): conda run's
 // subprocess output capture is lost when spawned from the tool process, which makes
-// the tool return empty. The env's `regime` binary streams output reliably.
+// the tool return empty. The `regime` binary (pip-installed) is on PATH.
 //
 // Portability (WORK_PLAN6 III + deployment UX): the `regime` binary is resolved at
-// load time as REGIME_BIN env -> `regime` on PATH -> known conda default. The worker
-// base URL is REGIME_WORKER_BASE env -> localhost:4097, so a host-installed dialog
-// control can drive a remote / docker worker by setting the env var.
-const _DEFAULT_REGIME = "/opt/miniconda3/envs/regime-driver/bin/regime"
-function resolveRegime() {
-  if (process.env.REGIME_BIN) return process.env.REGIME_BIN
-  const onPath = (typeof Bun !== "undefined" && Bun.which && Bun.which("regime")) || null
-  return onPath || _DEFAULT_REGIME
-}
-const REGIME = [resolveRegime()]
+// load time as REGIME_BIN env -> `regime` on PATH. The worker base URL is
+// REGIME_WORKER_BASE env -> localhost:4097, so a host-installed dialog control can
+// drive a remote / docker worker by setting the env var. No container-specific
+// fallback path: this plugin is distributed via pip and runs on the host, where a
+// pip-installed regime-driver always provides `regime` on PATH.
+const REGIME = [process.env.REGIME_BIN || "regime"]
 const BASE = process.env.REGIME_WORKER_BASE || "http://127.0.0.1:4097"
 
 // Run a regime command and return trimmed output (JSON). Throws on non-zero exit.

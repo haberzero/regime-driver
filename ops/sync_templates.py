@@ -35,7 +35,6 @@ PAIRS = [
     ("agents", REPO / "docker" / "worker-config" / "agents"),
     ("dialog-control-assistants", REPO / "docker" / "dialog-control-config" / "agents"),
     ("skills", REPO / "workflow-regime" / "skills"),
-    ("docker", REPO / "docker"),
     # A-route dialog-control carrier: the opencode plugin. True source = repo
     # root .opencode/plugins/; data/plugins ships it in the wheel.
     ("plugins", REPO / ".opencode" / "plugins"),
@@ -48,6 +47,10 @@ FILES = [
     # data/dialog-control-agent/ (keeps data/agents byte-identical to its true
     # source); scaffold merges it into the target agents/ directory.
     ("dialog-control-agent/dialog-control.md", REPO / ".opencode" / "agent" / "dialog-control.md"),
+    # opencode.json assembly template — a user-facing config (model providers),
+    # sourced from the worker image config. Docker build assets themselves are
+    # NOT shipped via pip (they live in the GitHub repo); only this template is.
+    ("opencode-template/opencode.json", REPO / "docker" / "worker-config" / "opencode.json"),
 ]
 
 

@@ -37,10 +37,10 @@ PKG = REPO / "src" / "regime_driver"
     "data/agents/reviewer.md",
     "data/dialog-control-assistants/analyst.md",
     "data/dialog-control-assistants/advisor.md",
-    "data/docker/Dockerfile.worker",
-    "data/docker/Dockerfile.dialog-control",
-    "data/docker/worker-config/opencode.json",
-    "data/docker/dialog-control-config/opencode.json",
+    "data/plugins/regime-dialog-control.js",
+    "data/dialog-control-agent/dialog-control.md",
+    "data/opencode-package.json",
+    "data/opencode-template/opencode.json",
 ])
 def test_packaged_template_file_exists(relative: str):
     assert (PKG / relative).is_file(), f"missing packaged template: {relative}"
@@ -118,7 +118,6 @@ def test_packaged_templates_match_true_sources():
         ("data/agents", "docker/worker-config/agents"),
         ("data/dialog-control-assistants", "docker/dialog-control-config/agents"),
         ("data/skills", "workflow-regime/skills"),
-        ("data/docker", "docker"),
         ("data/plugins", ".opencode/plugins"),
     ]
     for pkg_rel, src_rel in pairs:
@@ -203,12 +202,21 @@ def test_wheel_contains_templates(tmp_path):
         "regime_driver/data/agents/reviewer.md",
         "regime_driver/data/dialog-control-assistants/analyst.md",
         "regime_driver/data/dialog-control-assistants/advisor.md",
-        "regime_driver/data/docker/Dockerfile.worker",
-        "regime_driver/data/docker/Dockerfile.dialog-control",
+        "regime_driver/data/plugins/regime-dialog-control.js",
+        "regime_driver/data/dialog-control-agent/dialog-control.md",
+        "regime_driver/data/opencode-package.json",
+        "regime_driver/data/opencode-template/opencode.json",
         "regime_driver/data/regime.json",
         "regime_driver/data/examples/verify_then_report.json",
     ]:
         assert entry in entries, f"wheel missing packaged template: {entry}"
+
+    # pip wheel must be Python-package-only: Docker build assets (Dockerfiles,
+    # container configs) are NOT pip's responsibility — they ship in the GitHub
+    # repo. Verify the wheel carries no docker build material.
+    docker_entries = [e for e in entries if "/data/docker/" in e or e.endswith("Dockerfile")]
+    assert not docker_entries, (
+        f"wheel must NOT contain docker build assets, found: {docker_entries}")
 
     # A skill dir must be exactly regime_driver/data/skills/<name>/SKILL.md; any
     # other depth (a stray file directly under data/skills/, or a nested

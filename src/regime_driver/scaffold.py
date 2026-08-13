@@ -106,7 +106,7 @@ def scaffold_plan(target: str | Path, *, assistants: bool = False) -> list[CopyI
     # opencode main config (model providers; `{env:...}` placeholders, no secrets).
     # Needed by HOST mode (no docker): without it opencode has no provider entry.
     # Local plugins auto-load; no `plugin` array entry required (official mode).
-    _oc = DATA_DIR / "docker" / "worker-config" / "opencode.json"
+    _oc = DATA_DIR / "opencode-template" / "opencode.json"
     if _oc.is_file():
         plan.append(CopyItem(_oc, target / "opencode.json"))
 
