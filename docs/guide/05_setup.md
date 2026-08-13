@@ -73,24 +73,30 @@ worker 默认端口为 4097，dialog-control 默认端口为 4098。
 > regime-driver 通过 HTTP 驱动干活），dialog-control 是"对话载体"（带插件，承载控制对话框）。
 > 为什么这样分层，见 [控制对话框（第一入口）](00_dialog_control.md)。
 
-### 4. 方式 B：配置主机 opencode
+### 4. 方式 B：配置主机 opencode（无 Docker，opencode 作主对话框）
 
-无 Docker 时，直接用主机 opencode 当 worker。
-regime 用 `developer` 与 `reviewer` 两个 agent 驱动会话。
+无 Docker 时，直接用主机 opencode 既当 worker 也当**主操作对话框**。
+`regime scaffold` 一条命令装配全部官方模板（agents + skills + 插件 + opencode.json）：
 
 ```bash
-# 主机模式同样先部署官方模板（agents + skills + opencode.json 模型配置）
 regime scaffold
 ```
 
-预期结果：`~/.config/opencode/` 下生成官方 agent / skill / opencode 主配置
-（模型 provider，`{env:...}` 占位），opencode 自动发现。
-`regime doctor` 应全部通过（worker 健康 + 密钥 + 模板 + 环境检测）。
+预期结果：`~/.config/opencode/` 下生成：
+- `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 17 个
+  opencode 工具，opencode 启动自动加载）
+- `agents/dialog-control.md` + `reviewer.md` —— 对话控制主 agent + 只读审查 subagent
+- `skills/`、`opencode.json`（provider 占位）、`package.json`（插件 SDK 依赖，opencode
+  自动 `bun install`）、`config.example.toml`
 
-> **无 Docker 也能跑**：regime-driver 不强制 Docker。Docker 只是方式 A（容器化
-> worker）的可选依赖；方式 B 直接用主机 opencode，`regime run --base <主机端口>`
-> 即可跑流程。`regime doctor` 的环境检测（docker/opencode/conda 是否可用）会
-> 告诉你本机支持哪条路径。
+`regime doctor` 自检（含环境检测）应全部通过。
+
+> **Docker 不是必须**：regime-driver 不强制 Docker。Docker 只是方式 A（容器化 worker）的
+> 可选依赖；方式 B 直接用主机 opencode（对话框 + worker 一体或分开）。
+> `regime doctor` 的环境检测（docker/opencode/conda 是否可用）会告诉你本机支持哪条路径。
+>
+> **混合部署**：对话框与 worker 可以是不同 opencode 实例/机器——插件连远程 worker 时设
+> `REGIME_WORKER_BASE=http://<地址>:<端口>`；regime CLI 用 `--base` 指 worker。
 
 ### 5. 自检
 

@@ -7,6 +7,11 @@ user does not need to clone the source repository:
 
 - agents   → <target>/agents/       (developer/reviewer templates)
 - skills   → <target>/skills/       (the runtime skills the flows reference)
+- plugins/ → <target>/plugins/      (regime-dialog-control.js — the A-route plugin that
+                                     lets a HOST opencode be the primary dialog; opencode
+                                     auto-loads local plugins here)
+- agents/dialog-control.md → <target>/agents/  (the dialog-control agent, auto-discovered)
+- package.json → <target>/package.json         (plugin SDK dep; opencode auto `bun install`)
 - opencode.json → <target>/opencode.json  (model providers; host-mode without docker)
 - config.example.toml → <target>/config.example.toml  (config reference, single truth)
 - --assistants    → also copies the dialog-control-assistant subagents (analyst/advisor/reviewer)
@@ -84,8 +89,23 @@ def scaffold_plan(target: str | Path, *, assistants: bool = False) -> list[CopyI
     if assistants:
         plan += _copies_from("dialog-control-assistants", "agents", target)
 
+    # A-route dialog-control carrier (host opencode as the primary dialog):
+    #   - the plugin goes to plugins/ (opencode auto-loads local plugins there)
+    #   - the dialog-control agent merges into agents/ (opencode auto-discovers
+    #     markdown agents there)
+    #   - a package.json declares the plugin SDK dependency (opencode runs
+    #     `bun install` at startup automatically — official plugin mechanism)
+    plan += _copies_from("plugins", "plugins", target)
+    _dc = DATA_DIR / "dialog-control-agent" / "dialog-control.md"
+    if _dc.is_file():
+        plan.append(CopyItem(_dc, target / "agents" / "dialog-control.md"))
+    _pkg = DATA_DIR / "opencode-package.json"
+    if _pkg.is_file():
+        plan.append(CopyItem(_pkg, target / "package.json"))
+
     # opencode main config (model providers; `{env:...}` placeholders, no secrets).
     # Needed by HOST mode (no docker): without it opencode has no provider entry.
+    # Local plugins auto-load; no `plugin` array entry required (official mode).
     _oc = DATA_DIR / "docker" / "worker-config" / "opencode.json"
     if _oc.is_file():
         plan.append(CopyItem(_oc, target / "opencode.json"))

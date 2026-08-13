@@ -36,11 +36,18 @@ PAIRS = [
     ("dialog-control-assistants", REPO / "docker" / "dialog-control-config" / "agents"),
     ("skills", REPO / "workflow-regime" / "skills"),
     ("docker", REPO / "docker"),
+    # A-route dialog-control carrier: the opencode plugin. True source = repo
+    # root .opencode/plugins/; data/plugins ships it in the wheel.
+    ("plugins", REPO / ".opencode" / "plugins"),
 ]
 
 # single-file syncs: (packaged name, true source file)
 FILES = [
     ("config.example.toml", REPO / "config.example.toml"),
+    # dialog-control agent — a single markdown agent. Packaged under its own
+    # data/dialog-control-agent/ (keeps data/agents byte-identical to its true
+    # source); scaffold merges it into the target agents/ directory.
+    ("dialog-control-agent/dialog-control.md", REPO / ".opencode" / "agent" / "dialog-control.md"),
 ]
 
 

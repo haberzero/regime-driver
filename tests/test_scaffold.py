@@ -43,6 +43,10 @@ def test_scaffold_writes_files(tmp_path):
     assert (tmp_path / "opencode.json").is_file()
     # config reference (single source of truth) ships too
     assert (tmp_path / "config.example.toml").is_file()
+    # A-route dialog-control carrier: plugin + dialog-control agent + package.json
+    assert (tmp_path / "plugins" / "regime-dialog-control.js").is_file()
+    assert (tmp_path / "agents" / "dialog-control.md").is_file()
+    assert (tmp_path / "package.json").is_file()
     assert len(result.copied) == len(result.plan) - len(result.skipped)
     assert result.skipped == []
 

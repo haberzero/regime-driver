@@ -119,6 +119,7 @@ def test_packaged_templates_match_true_sources():
         ("data/dialog-control-assistants", "docker/dialog-control-config/agents"),
         ("data/skills", "workflow-regime/skills"),
         ("data/docker", "docker"),
+        ("data/plugins", ".opencode/plugins"),
     ]
     for pkg_rel, src_rel in pairs:
         pkg_dir = PKG / pkg_rel
@@ -142,6 +143,12 @@ def test_packaged_templates_match_true_sources():
     # single-file syncs (config reference single source of truth)
     assert filecmp.cmp(PKG / "data" / "config.example.toml",
                        REPO / "config.example.toml", shallow=False)
+
+    # A-route dialog-control agent + plugin SDK package file
+    assert filecmp.cmp(
+        PKG / "data" / "dialog-control-agent" / "dialog-control.md",
+        REPO / ".opencode" / "agent" / "dialog-control.md", shallow=False)
+    assert (PKG / "data" / "opencode-package.json").is_file()
 
 
 def _dirs_equal(a: Path, b: Path) -> bool:
