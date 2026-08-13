@@ -71,6 +71,16 @@
   bash 命令）且无 LLM delta 时，SSE 活性链看不到进展 → 判停滞并 abort（破坏性）。默认
   `stall_sec=120` 缓解；如需覆盖，提高 `stall_sec` 或把 `session.status`/`tool.*` 事件计入活性。
   归属：`app/watchdog_unit.py`。
+- **可编程看门狗策略（WORK_PLAN11）**：watchdog 是策略引擎（`app/watchdog_policy.py`）——
+  `SessionEvidence`（SSE活性/消息时间戳/节点/首次busy/系统时间/paused）+ 可注入 `Rule`
+  判定（多规则取最严重）+ 动作阶梯 `Ladder`（nudge→interrupt(PAUSE)→resume→fallback→kill，
+  per-session 隔离 + fire-once）。PAUSE 中断当前生成并冻结节点推进，RESUME 恢复（agent 注入
+  "继续"/judge 重发判定），paused 超 `auto_resume_sec` 自动 RESUME 再兜底 kill。`meta=True`
+  规则发 ESCALATE 交由智能判定确认。默认 `default_policy` 保持经典行为。
+- **两级 watchdog 协调边界（WORK_PLAN11 记录）**：drive 同时有进程内 policy watchdog
+  （默认 stall_sec=120）与进程外 supervisor（默认 60）。外部 T2 先 abort 会让内部误判"已恢复"
+  并重置阶梯。建议部署时让外部 stall_sec ≥ 内部，或明确职责边界（内部护栏 / 外部纠正阶梯）。
+  归属：`app/watchdog_unit.py` + `supervisor.py`。
 - **测试套件分层（2026-08-13 起）**：单元/功能正确性套件在 `tests/`（`testpaths=["tests"]`，
    纯 mock 无真实 LLM/Docker，全绿）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
    （`REGIME_E2E=1` 显式运行）。`pytest` 默认不收集 E2E。归属：`pyproject.toml` + `e2e_tests/`。

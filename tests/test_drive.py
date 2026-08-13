@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 
 from regime_driver.core.models import Outcome
 from regime_driver.drive import Drive, DriveResult
@@ -15,11 +16,15 @@ SUCC = {"design": "implement", "test": "wrap"}
 
 
 class Message:
-    def __init__(self, role, text="", error=None, sid=None):
+    def __init__(self, role, text="", error=None, sid=None, ts=None,
+                 completed=None, finish=None):
         self.role = role
         self.text = text
         self.error = error
         self.id = sid or f"m-{role}"
+        self.ts = ts
+        self.completed = completed
+        self.finish = finish
 
 
 class FakeClient:
@@ -47,12 +52,17 @@ class FakeClient:
             v = {"node": node, "verdict": "advance", "action": "advance",
                  "next_state": SUCC.get(node, "wrap"), "confidence": 0.9,
                  "reason": "ok"}
-            self.msgs[sid] = [Message("assistant", json.dumps(v), sid=sid)]
+            self.msgs[sid] = [Message("assistant", json.dumps(v), sid=sid,
+                                      ts=str(time.time()), completed=str(time.time()),
+                                      finish="stop")]
         else:
             if self.stall:
-                self.msgs[sid] = [Message("assistant", "thinking endlessly...", sid=sid)]
+                self.msgs[sid] = [Message("assistant", "thinking endlessly...", sid=sid,
+                                          ts=str(time.time()))]
             else:
-                self.msgs[sid] = [Message("assistant", "done\n[WORK_DONE]", sid=sid)]
+                self.msgs[sid] = [Message("assistant", "done\n[WORK_DONE]", sid=sid,
+                                          ts=str(time.time()), completed=str(time.time()),
+                                          finish="stop")]
 
     def read_messages(self, sid):
         return self.msgs.get(sid, [])

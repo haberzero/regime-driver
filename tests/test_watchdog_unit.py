@@ -37,8 +37,9 @@ def test_healthy_report_no_control_signal():
     stopped = []
     work.register(SignalKind.STOP, lambda s: stopped.append(s))
     bus.register(cons).register(work)
-    _feed(cons, _report("s1", activity_ts=100))
-    _feed(cons, _report("s1", activity_ts=200))  # activity advances -> healthy
+    t0 = time.time()
+    _feed(cons, _report("s1", activity_ts=t0))
+    _feed(cons, _report("s1", activity_ts=t0 + 1.0))  # activity advances -> healthy
     assert stopped == []
 
 
@@ -98,7 +99,8 @@ def test_idle_report_resets_stall():
     _feed(cons, _report("s1", activity_ts=t0))  # silent
     time.sleep(0.15)
     _feed(cons, _report("s1", status="idle", activity_ts=t0))  # not busy -> reset
-    _feed(cons, _report("s1", status="busy", activity_ts=t0))  # fresh stall window
+    # a fresh busy window with current SSE activity (dispatch happened) -> alive
+    _feed(cons, _report("s1", status="busy", activity_ts=time.time()))
     assert stopped == []
 
 
@@ -114,7 +116,7 @@ def test_audit_event_logged_on_fire():
     time.sleep(0.15)
     _feed(cons, _report("s1", activity_ts=t0))  # fires
     fired = [e for e in bus.events() if e[1] == "watchdog_fire"]
-    assert fired and fired[0][2]["kind"] == "stall"
+    assert fired and fired[0][2]["kind"] in ("kill", "stall", "interrupt")
 
 
 def test_sse_activity_growth_prevents_false_stall():

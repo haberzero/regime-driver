@@ -77,7 +77,7 @@
 | 能力 | 说明 | 验证 |
 |---|---|---|
 | supervisor T1/T2/deadline/阶梯 | 进程外监督 | 全部任务（ladder 事件） |
-| watchdog 根不变量 + 重复检测 | 死循环/卡死拦截 | 复杂任务长思考/并发压力场景 |
+| watchdog 根不变量 + 可编程策略 | 死循环/卡死拦截 + 可注入规则/阶梯（nudge→interrupt→resume→kill） | 复杂任务长思考/并发压力场景 |
 | 确定性 gate | reviewer verdict 门禁 | 全部任务（reviewer_verdict 事件） |
 | reporter 报告总线 | journal + rollup + 模板 | harness 每任务 journal 审计 |
 | FlowRegistry 热加载 | 命名 flow 注册/重载 | 复杂任务 + flow 命令 |
