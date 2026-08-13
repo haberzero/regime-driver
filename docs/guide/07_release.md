@@ -7,16 +7,20 @@
 ## 1. 发布姿态与硬缺口
 
 项目已公开于 GitHub（`haberzero/regime-driver`）。"发布"不等于"clone 源码跑"——
-pip 安装的 wheel 必须自带官方模板（agents/skills/控制对话框助手/docker 配方），否则用户
-`regime preflight` 必败。硬缺口的审查快照见 `tasks_docs/release_readiness_audit.md`。
+pip 安装的 wheel 必须自带用户运行所需的官方模板（agents/skills/插件/opencode.json/regime.json），
+否则用户 `regime preflight` / `regime scaffold` 必败。硬缺口的审查快照见
+`tasks_docs/release_readiness_audit.md`。
 
-**当前状态**：模板已随 wheel 打包（`src/regime_driver/data/`），`regime scaffold`
-一键生成配置，单一真源 + CI 漂移守卫已就位。
+**当前状态**：模板已随 wheel 打包（`src/regime_driver/data/`），`regime scaffold` / `regime setup`
+一键装配（含 A 路插件 + dialog-control agent + opencode.json），单一真源 + CI 漂移守卫已就位。
+**Docker 资产（Dockerfile/镜像配置）不进 pip wheel**（属容器化辅助，GitHub 仓库提供），
+符合"pip 只和 pip 有关"的分发原则。完整渠道/内容归属见
+[分发与部署蓝图](../architecture/04_distribution_blueprint.md)。
 
 ## 2. 构建与自检清单（每次发布前）
 
 ```bash
-# 1) 同步模板真源 → 包内 data/（若改过 docker/*-config 或 workflow-regime/skills）
+# 1) 同步模板真源 → 包内 data/（若改过 docker/*-config、workflow-regime/skills、.opencode/ 等真源）
 python ops/sync_templates.py            # 复制；--check 校验是否漂移（exit 1 则需同步）
 
 # 2) 构建 wheel
@@ -31,10 +35,12 @@ cd /tmp && unzip -q /tmp/wheeltest/regime_driver-*.whl -d /tmp/wheeltest/extract
   PYTHONPATH=/tmp/wheeltest/extracted conda run -n regime-driver \
   python -m regime_driver.cli preflight --json   # 期望 {"ok":true,"outcome":"complete"}
 
-# 5) scaffold 可用：向临时目录生成全套配置（--dry-run 不写）
+# 5) scaffold 可用：向临时目录生成全套配置（--dry-run 不写；含 A 路插件/agent/package.json）
 conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --assistants --dry-run
+# 6) setup 引导可用：环境检测 + 装配 + 分步指引
+conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
-# 6) README 无死链（全仓跨引用扫描在 CI / doc-governance 流程）
+# 7) README 无死链（全仓跨引用扫描在 CI / doc-governance 流程）
 ```
 
 ## 3. 发布渠道

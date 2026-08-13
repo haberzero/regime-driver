@@ -42,8 +42,10 @@ conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
 
-> pip 安装（wheel）自带官方模板（agents/skills/控制对话框助手/docker 配方），无需 clone 仓库即可
-> `regime scaffold` 生成全套配置；`regime doctor` 自检就绪度。
+> pip 安装（wheel）自带用户运行所需的官方模板（agents/skills/插件/dialog-control agent/
+> opencode.json/regime.json/config），无需 clone 仓库即可 `regime scaffold` / `regime setup`
+> 一键装配；`regime doctor` 自检就绪度。Docker 资产（Dockerfile/镜像配置）经 GitHub 仓库提供，
+> 不进 pip wheel（分发原则见 `docs/architecture/04_distribution_blueprint.md`）。
 
 ## 部署
 
@@ -67,9 +69,9 @@ ops/up.sh all          # worker + dialog-control
 ops/up.sh dialog-control --rebuild   # 强制重建固化镜像
 ```
 
-> `ops/up.sh` 是源码仓库脚本（wheel 安装不含）。仅 wheel 安装的用户可用"主机模式"
-> 直接驱动本机 opencode，或用 `regime worker up <ws>` 起每工作区实例（需先有
-> `opencode-worker` 镜像，配方见 `src/regime_driver/data/docker/`）。
+> `ops/up.sh` 是源码仓库脚本（wheel 安装不含）。仅 wheel 安装的用户用**主机模式**
+> （推荐，opencode 作主对话框 + worker）直接驱动本机 opencode；需要容器化时 clone
+> 仓库（Dockerfile 在仓库 `docker/`，不进 wheel）。
 
 **主机模式**——直接驱动宿主机上的 opencode 服务：
 

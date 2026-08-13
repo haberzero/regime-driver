@@ -78,9 +78,9 @@ ops/up.sh dialog-control --rebuild  # force-rebuild the pinned image
 ```
 
 > `ops/up.sh` lives in the source repo (not shipped in the wheel). Wheel-only
-> users can use host mode below, or `regime worker up <ws>` for per-workspace
-> instances (requires an `opencode-worker` image; recipes in
-> `src/regime_driver/data/docker/`).
+> users use **host mode** below (opencode as the primary dialog + worker); for
+> containers, clone the repo (Dockerfiles live in the repo `docker/`, not in the
+> wheel). See `docs/architecture/04_distribution_blueprint.md`.
 
 **Host mode** — drive an opencode service running on the host directly:
 

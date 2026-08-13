@@ -41,6 +41,24 @@ jobs:
         run: |
           regime validate --json
           regime preflight --json
+      - name: Setup/scaffold assembly smoke (no worker)
+        run: |
+          # guided install must assemble the A-route carrier (plugin/agent/opencode.json)
+          regime setup --target /tmp/ci-opencode --json | tee /tmp/setup.json
+          test -f /tmp/ci-opencode/plugins/regime-dialog-control.js
+          test -f /tmp/ci-opencode/agents/dialog-control.md
+          test -f /tmp/ci-opencode/opencode.json
+          test -f /tmp/ci-opencode/package.json
+          # wheel must NOT carry docker build assets (pip-only hygiene)
+          python -m pip wheel . --no-deps -w /tmp/ci-wheel -q
+          python - <<'PY'
+          import zipfile, glob
+          w = glob.glob('/tmp/ci-wheel/*.whl')[0]
+          with zipfile.ZipFile(w) as z:
+              bad = [n for n in z.namelist() if '/data/docker/' in n or 'Dockerfile' in n]
+          assert not bad, f"wheel must not contain docker assets: {bad}"
+          print("wheel docker-asset hygiene OK")
+          PY
       - name: Unit tests + coverage gate
         run: |
           set +e
