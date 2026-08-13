@@ -37,7 +37,7 @@ from typing import Callable
 from .infra.opencode import OpenCodeClient
 
 DEFAULT_WORKSPACE_ROOT = os.environ.get(
-    "REGIME_WORKSPACE_ROOT", str(Path.home() / "oc-meta" / "workspaces"))
+    "REGIME_WORKSPACE_ROOT", str(Path.home() / ".regime" / "workspaces"))
 DEFAULT_IMAGE = os.environ.get("REGIME_WORKER_IMAGE", "opencode-worker:1.18.11")
 DEFAULT_PORT_BASE = int(os.environ.get("REGIME_WORKER_PORT_BASE", "4200"))
 DEFAULT_MAX_INSTANCES = os.environ.get("REGIME_WORKER_MAX_INSTANCES")

@@ -79,12 +79,18 @@ worker 默认端口为 4097，dialog-control 默认端口为 4098。
 regime 用 `developer` 与 `reviewer` 两个 agent 驱动会话。
 
 ```bash
-# 主机模式同样先部署官方模板（含两个 agent）
+# 主机模式同样先部署官方模板（agents + skills + opencode.json 模型配置）
 regime scaffold
 ```
 
-预期结果：官方 agent 配置已就位，opencode 自动发现。
-`regime doctor` 应全部通过。
+预期结果：`~/.config/opencode/` 下生成官方 agent / skill / opencode 主配置
+（模型 provider，`{env:...}` 占位），opencode 自动发现。
+`regime doctor` 应全部通过（worker 健康 + 密钥 + 模板 + 环境检测）。
+
+> **无 Docker 也能跑**：regime-driver 不强制 Docker。Docker 只是方式 A（容器化
+> worker）的可选依赖；方式 B 直接用主机 opencode，`regime run --base <主机端口>`
+> 即可跑流程。`regime doctor` 的环境检测（docker/opencode/conda 是否可用）会
+> 告诉你本机支持哪条路径。
 
 ### 5. 自检
 

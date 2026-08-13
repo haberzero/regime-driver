@@ -734,6 +734,49 @@ def drive_many(
 # ---------------------------------------------------------------------------
 # doctor (usability self-check: model/key/worker readiness + guidance)
 # ---------------------------------------------------------------------------
+def _env_readiness() -> list[dict]:
+    """Detect the user's host environment for deployment guidance (advisory).
+
+    Pure detection: reports what IS available (docker? conda? opencode? a
+    configured image mirror?) without mutating anything. Returns a list of
+    {check, ok, ...} entries used by `regime doctor`. Availability here does not
+    gate the run — host-mode needs no docker, docker-path needs no conda — but a
+    fresh user sees at a glance which deployment path their machine supports.
+    """
+    import os as _os
+    import shutil
+    import sys as _sys
+
+    out: list[dict] = []
+
+    docker = shutil.which("docker")
+    out.append({"check": "docker available", "ok": docker is not None,
+                "advisory": True,
+                "detail": "" if docker else "容器化路径(方式A)需要; 主机模式(方式B)可跳过"})
+
+    opencode_bin = shutil.which("opencode")
+    out.append({"check": "opencode available", "ok": opencode_bin is not None,
+                "advisory": True,
+                "detail": "" if opencode_bin else "主机模式(方式B)需要; 容器化路径自动内置"})
+
+    conda = shutil.which("conda") or _os.environ.get("CONDA_PREFIX")
+    out.append({"check": "conda available", "ok": conda is not None,
+                "advisory": True,
+                "detail": "" if conda else "源码/wheel 安装建议用 conda 隔离环境(可选)"})
+
+    # docker registry mirror for walled networks (mainland CN mirrors)
+    mirror = _os.environ.get("REGIME_DOCKER_MIRROR")
+    out.append({"check": "docker mirror set", "ok": True,
+                "advisory": True,
+                "env": mirror or "(未设置)",
+                "detail": "网络受限时设 REGIME_DOCKER_MIRROR 指向可用镜像源"})
+
+    out.append({"check": "platform", "ok": True,
+                "advisory": True,
+                "platform": _sys.platform})
+    return out
+
+
 @app.command("doctor")
 def doctor(
     base: Optional[str] = typer.Option(None, "--base", help="worker URL"),
@@ -810,6 +853,13 @@ def doctor(
     _tpl = templates_ready()
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
 
+    # host-environment readiness (WORK_PLAN8 / deployment UX): docker / conda /
+    # opencode / registry-mirror presence. ADVISORY — these don't gate the run
+    # (host mode works without docker; docker path works without conda), but the
+    # user must KNOW which path is available on their machine.
+    env_checks = _env_readiness()
+    checks.extend(env_checks)
+
     # accumulated-session hygiene (from durability finding): session records
     # accumulate over long runs; warn at a threshold so the operator knows when
     # to run the cleanup policy (`regime sessions --cleanup ... --perm clean`).
@@ -829,7 +879,7 @@ def doctor(
                                       f"`regime sessions --cleanup "
                                       f'{{\"max_sessions\": {threshold}}} --perm clean`') if not ok else ""})
 
-    all_ok = all(c["ok"] for c in checks)
+    all_ok = all(c["ok"] for c in checks if not c.get("advisory"))
     if json_out:
         _emit_json({"model": model, "provider": provider, "ok": all_ok,
                     "checks": checks})
@@ -839,8 +889,10 @@ def doctor(
 
     console.print(f"[bold]regime doctor[/bold] · model={model}")
     for c in checks:
-        mark = "✓" if c["ok"] else "✗"
-        detail = " ".join(f"{k}={v}" for k, v in c.items() if k not in ("check", "ok"))
+        # advisory entries are environment facts (info), not failures
+        mark = "·" if c.get("advisory") else ("✓" if c["ok"] else "✗")
+        detail = " ".join(f"{k}={v}" for k, v in c.items()
+                          if k not in ("check", "ok", "advisory"))
         console.print(f"  {mark} {c['check']} {detail}")
     if not all_ok:
         console.print("\n[bold]建议：[/bold]")
@@ -858,6 +910,17 @@ def doctor(
             console.print("  · 设 DEEPSEEK_API_KEY 或写 ~/.regime/keys/deepseek.key")
         raise typer.Exit(1)
     console.print("\n✓ 配置就绪：可用 `regime run/drive`（默认模型 deepseek-api）")
+    # deployment-path guidance based on the advisory env facts (WORK_PLAN8 UX):
+    # tell the user which run path their machine supports, not just that config
+    # is OK.
+    env = {c["check"]: c.get("ok") for c in env_checks}
+    console.print("  部署路径：")
+    if env.get("docker available"):
+        console.print("    · 容器化（方式A）：`ops/up.sh all` 起 worker/dialog-control")
+    if env.get("opencode available"):
+        console.print("    · 主机模式（方式B）：`regime run --base <主机 opencode 端口> <任务>`")
+    if not env.get("docker available") and not env.get("opencode available"):
+        console.print("    · 本机未检测到 docker 与 opencode —— 先装其一，或查看 05_setup 教程")
 
 
 # ---------------------------------------------------------------------------

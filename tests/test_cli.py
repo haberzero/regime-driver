@@ -288,6 +288,30 @@ def test_doctor_readonly_reports_unhealthy():
     assert data["provider"] == "deepseek-api"
 
 
+def test_doctor_env_readiness_advisory_does_not_gate():
+    """Deployment UX (WORK_PLAN8): doctor's environment detection (docker /
+    opencode / conda / platform) is ADVISORY — it informs the user which
+    deployment path their machine supports, but a missing docker/conda must NOT
+    fail the doctor run (host mode works without either)."""
+    res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:1", "--json"])
+    data = json.loads(res.output)
+    checks = {c["check"]: c for c in data["checks"]}
+    assert "docker available" in checks
+    assert "opencode available" in checks
+    assert "conda available" in checks
+    assert "platform" in checks
+    assert all(c["advisory"] is True
+               for c in checks.values() if c["check"] in (
+                   "docker available", "opencode available",
+                   "conda available", "docker mirror set", "platform"))
+    # worker-unhealthy still gates (exit 1), but the advisory env facts did not
+    # add their own failures
+    assert data["ok"] is False  # only the worker-health failure
+    failers = [c for c in data["checks"] if not c["ok"] and not c.get("advisory")]
+    assert all("worker health" in c["check"] or "version" in c["check"]
+               for c in failers)
+
+
 def test_doctor_session_hygiene_warns_on_low_threshold(monkeypatch):
     """with a tiny threshold, doctor must flag accumulated sessions (ok=False)."""
     monkeypatch.setenv("REGIME_SESSION_HYGIENE_THRESHOLD", "1")

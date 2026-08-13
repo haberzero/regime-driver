@@ -24,7 +24,7 @@
 | run-many | `regime run-many` | 无人值守/并发 | — | 01_cli.md |
 | drive | `regime drive` | **无人值守核心** | 全部 8 任务（harness 入口） | 01_cli.md |
 | drive-many | `regime drive-many` | 并发隔离 | — | 01_cli.md |
-| doctor | `regime doctor` | 一次性/运维 | — | 01_cli.md |
+| doctor | `regime doctor` | 一次性/运维 | 环境检测(docker/opencode/conda/平台) + 部署路径引导 | 01_cli.md |
 | preflight | `regime preflight` | 无人值守（drive 内嵌） | 全部任务（默认强制） | 01_cli.md |
 | report | `regime report` | 值守 | —（capabilities 引导） | 01_cli.md |
 | supervisor | `regime supervisor` | 值守/专项 | drive 内嵌等价 | 01_cli.md |
@@ -33,7 +33,7 @@
 | status | `regime status` | 值守 | — | 01_cli.md |
 | sessions | `regime sessions` | 值守/运维 | harness 每任务 `--clean` | 01_cli.md |
 | dialog | `regime dialog` | **值守** | — | 05_dialog_control_contract.md |
-| scaffold | `regime scaffold` | 一次性/运维 | — | 06_release.md |
+| scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/opencode.json/config.example.toml | 06_release.md |
 | events | `regime events` | 值守 | — | 01_cli.md |
 | session | `regime session` | 值守 | — | 01_cli.md |
 | task | `regime task` | 值守/无人值守 | harness `task status` | 01_cli.md |

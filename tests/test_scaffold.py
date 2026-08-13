@@ -39,6 +39,10 @@ def test_scaffold_writes_files(tmp_path):
     assert (tmp_path / "agents" / "reviewer.md").is_file()
     assert (tmp_path / "agents" / "analyst.md").is_file()
     assert (tmp_path / "skills" / "design-philosophy" / "SKILL.md").is_file()
+    # host-mode opencode main config (model providers, {env:...} placeholders)
+    assert (tmp_path / "opencode.json").is_file()
+    # config reference (single source of truth) ships too
+    assert (tmp_path / "config.example.toml").is_file()
     assert len(result.copied) == len(result.plan) - len(result.skipped)
     assert result.skipped == []
 

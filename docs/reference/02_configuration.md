@@ -6,6 +6,8 @@
 > 配置来源优先级（低→高）：默认值 < 配置文件 < 环境变量 `REGIME_<字段>` < CLI 参数。
 > 配置文件格式为 TOML 或 JSON，经 `--config <path>` 传入。
 > 配置字段以 `config.example.toml`（含全部字段与注释）为**唯一真源**；下表为字段摘要。
+> **获取方式**：`regime scaffold` 会把它部署到 `~/.config/opencode/config.example.toml`
+> （wheel 自带，无需 clone 仓库）；仓库内真源在根目录 `config.example.toml`。
 
 ## 配置字段总表
 
@@ -95,7 +97,7 @@ export REGIME_STALL_SEC=90
 | `REGIME_FLOW_STORE` | `~/.regime/flows` | 命名流程持久存储目录 |
 | `REGIME_TASKS_DIR` | `~/.regime/tasks` | 受监管任务注册目录 |
 | `REGIME_JOBS_DIR` | `~/.regime/jobs` | 后台 job 注册目录 |
-| `REGIME_WORKSPACE_ROOT` | `~/oc-meta/workspaces` | workspace 实例根目录 |
+| `REGIME_WORKSPACE_ROOT` | `~/.regime/workspaces` | workspace 实例根目录 |
 | `REGIME_WORKER_PORT_BASE` | `4200` | 实例主机端口基址 |
 | `REGIME_WORKER_IMAGE` | `opencode-worker:1.18.11` | worker 容器镜像 |
 
@@ -127,4 +129,4 @@ export REGIME_STALL_SEC=90
 | `~/.regime/tasks/` | 受监管任务记录（`REGIME_TASKS_DIR`） |
 | `~/.regime/jobs/` | 后台 job 记录（`REGIME_JOBS_DIR`） |
 | `~/.regime/keys/` | provider 密钥文件 |
-| `~/oc-meta/workspaces/` | workspace 工作目录（`REGIME_WORKSPACE_ROOT`） |
+| `~/.regime/workspaces/` | workspace 工作目录（`REGIME_WORKSPACE_ROOT`） |

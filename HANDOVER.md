@@ -429,7 +429,7 @@ ops/up.sh all          # worker+dialog-control
 ops/up.sh dialog-control --rebuild   # 强制重建固化镜像再起
 
 # 多 opencode 实例工作区隔离（P2: 每工作区一个实例, 无重复, 角色用session）
-export REGIME_WORKSPACE_ROOT=~/oc-meta/workspaces   # 工作区根(默认)
+export REGIME_WORKSPACE_ROOT=~/.regime/workspaces   # 工作区根(默认)
 export REGIME_WORKER_MAX_INSTANCES=8                # 可选: 并行任务实例上限
 conda run -n regime-driver regime worker up <ws>     # 起/复用工作区实例(不重复)
 conda run -n regime-driver regime worker list        # 列实例+健康

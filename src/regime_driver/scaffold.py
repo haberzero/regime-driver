@@ -7,6 +7,8 @@ user does not need to clone the source repository:
 
 - agents   → <target>/agents/       (developer/reviewer templates)
 - skills   → <target>/skills/       (the runtime skills the flows reference)
+- opencode.json → <target>/opencode.json  (model providers; host-mode without docker)
+- config.example.toml → <target>/config.example.toml  (config reference, single truth)
 - --assistants    → also copies the dialog-control-assistant subagents (analyst/advisor/reviewer)
            → <target>/agents/
 
@@ -81,6 +83,19 @@ def scaffold_plan(target: str | Path, *, assistants: bool = False) -> list[CopyI
     plan += _copies_from("skills", "skills", target)
     if assistants:
         plan += _copies_from("dialog-control-assistants", "agents", target)
+
+    # opencode main config (model providers; `{env:...}` placeholders, no secrets).
+    # Needed by HOST mode (no docker): without it opencode has no provider entry.
+    _oc = DATA_DIR / "docker" / "worker-config" / "opencode.json"
+    if _oc.is_file():
+        plan.append(CopyItem(_oc, target / "opencode.json"))
+
+    # config.example.toml — the configuration single source of truth. Ship it to
+    # <target>/config.example.toml so a wheel user has the reference without
+    # cloning the repo (docs/reference/02_configuration.md declares it the truth).
+    _cfg = DATA_DIR / "config.example.toml"
+    if _cfg.is_file():
+        plan.append(CopyItem(_cfg, target / "config.example.toml"))
 
     # Dedupe by destination (reviewer.md ships in both data/agents and
     # data/dialog-control-assistants; first occurrence wins, content is identical).

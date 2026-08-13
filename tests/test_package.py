@@ -139,6 +139,10 @@ def test_packaged_templates_match_true_sources():
         shallow=False,
     )
 
+    # single-file syncs (config reference single source of truth)
+    assert filecmp.cmp(PKG / "data" / "config.example.toml",
+                       REPO / "config.example.toml", shallow=False)
+
 
 def _dirs_equal(a: Path, b: Path) -> bool:
     import filecmp

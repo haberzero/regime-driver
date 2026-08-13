@@ -6,6 +6,8 @@ in ONE place per asset class —
     agents   → docker/worker-config/agents/   (developer/reviewer)
     dialog-control → docker/dialog-control-config/agents/  (analyst/advisor/reviewer)
     skills   → workflow-regime/skills/        (runtime skills)
+    docker   → docker/                        (worker/dialog-control recipes)
+    config.example.toml → data/config.example.toml  (config reference, single truth)
 and the packaged copies under src/regime_driver/data/ are DERIVED — they ship in
 the wheel so a pip user gets the templates without cloning the repo.
 
@@ -36,6 +38,11 @@ PAIRS = [
     ("docker", REPO / "docker"),
 ]
 
+# single-file syncs: (packaged name, true source file)
+FILES = [
+    ("config.example.toml", REPO / "config.example.toml"),
+]
+
 
 def _dirs_equal(a: Path, b: Path) -> bool:
     fa = {p.relative_to(a) for p in a.rglob("*") if p.is_file()}
@@ -52,6 +59,10 @@ def sync() -> None:
             shutil.rmtree(dst)
         shutil.copytree(src, dst)
         print(f"synced {sub} <- {src.relative_to(REPO)}")
+    for name, src in FILES:
+        dst = DATA / name
+        shutil.copy2(src, dst)
+        print(f"synced {name} <- {src.relative_to(REPO)}")
 
 
 def check() -> bool:
@@ -60,6 +71,11 @@ def check() -> bool:
         dst = DATA / sub
         if not dst.is_dir() or not _dirs_equal(dst, src):
             print(f"[DRIFT] {sub}: packaged {dst} != true source {src}", file=sys.stderr)
+            ok = False
+    for name, src in FILES:
+        dst = DATA / name
+        if not dst.is_file() or not filecmp.cmp(dst, src, shallow=False):
+            print(f"[DRIFT] {name}: packaged {dst} != true source {src}", file=sys.stderr)
             ok = False
     if ok:
         print("packaged templates in sync with true sources")
