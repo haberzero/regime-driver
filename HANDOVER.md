@@ -274,14 +274,14 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-13 晚）
+### 下一 session 主线任务（唯一指针，2026-08-13 夜）
 
-> **上一 session（2026-08-13）已完成「内部代码质量检查 + 工作日志流程深度核查」全部
-> 交接清单（A–E）+ WORK_PLAN8 体系化重构（阶段 1–4）+ 测试套件净化**，见下方
-> "本 session 已完成（2026-08-13）"。
+> **本 session（2026-08-13 夜）已完成 WORK_PLAN9 体系重构**（watchdog 误杀修复 +
+> 复杂任务套件 + per-task 全量归档/清理重建），见下方"本 session 已完成（2026-08-13 夜）"。
 > **下一 session 唯一主线 = 夜间整合重跑 + 能力覆盖审计**（见 `tasks_docs/MAIN_TASKS.md`）
-> （用新 8 任务套件 + developer-quality skill 配置 + 对话框能力全链路重跑，输出能力覆盖报告）。
-> 数据已归档（见下方数据地图），`ops/quality_run.py` 已支持新套件。
+> （用新 4 复杂任务套件 + reasoning 活性修复后的 watchdog，全链路重跑输出能力覆盖报告，
+> 验证 thinking 误杀不再发生）。
+> 数据已归档（见下方数据地图），`ops/quality_run.py`/`run_nightly.sh` 已支持新套件。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
@@ -290,13 +290,13 @@
 
 | 数据 | 位置 | 内容 |
 |---|---|---|
-| **质量套件产物** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，深审结论见 `quality_deep_check.md`） |
-| 质量报告 | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
-| **事件账本** | `tasks_docs/quality_run_archive/events.jsonl`（133KB） | node_enter/node_done/transition/reviewer_verdict/dispatch_error/outcome 全事件链 |
-| 报告日志 | `tasks_docs/quality_run_archive/journal.jsonl`（6.2MB） | WorkflowUnit 全链路报告（每节点指令/汇报/判定） |
-| 任务明细 | `tasks_docs/quality_run_archive/tasks/*.out + *.summary.json` | 每任务 drive 输出与最终结果 |
+| **质量套件产物（旧 12 任务）** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，深审结论见 `quality_deep_check.md`） |
+| 质量报告（旧 43 次） | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
+| **事件账本（旧）** | `tasks_docs/quality_run_archive/events.jsonl`（133KB） | node_enter/node_done/transition/reviewer_verdict/dispatch_error/outcome 全事件链 |
+| 报告日志（旧） | `tasks_docs/quality_run_archive/journal.jsonl`（6.2MB） | WorkflowUnit 全链路报告（每节点指令/汇报/判定） |
+| **WORK_PLAN9 新套件归档** | `tasks_docs/nightly_run_archive/` | 新 4 复杂任务 per-task 全量归档（会话消息快照+完整工作区+journal/events 切片+result.json） |
 | 深度核查报告 | `tasks_docs/quality_deep_check.md` | A–E 全项结论 + 两轮改进记录（根因/修复/复核） |
-| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（夜间整合重跑） + 下一步 + 硬约束 |
+| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（WORK_PLAN9 已完成，夜间整合重跑待执行） + 下一步 + 硬约束 |
 | **搁置任务文档** | `tasks_docs/PENDING_TASKS.md` | 阻塞/搁置但有价值的规划 |
 | **工作日志文档** | `tasks_docs/WORKLOG.md` | 全部决策/质询/方案取舍/变化前后（原 TASK.md 归并） |
 | 第一次耐久 | `tasks_docs/durability_run_archive/` | 2h 简单任务耐久（38 任务）原始数据 + 报告 |
@@ -319,30 +319,30 @@
 
 #### 环境状态（交接时）
 
-- `opencode-worker` / `opencode-dialog-control` 容器健康，**已重建到 HEAD `d7dd9c4`**
-  （含全部修复 + WORK_PLAN8 阶段 1–4 + 测试净化 + 分发重构 + 卸载机制 + 任务控制体系重构）。
-- 测试基线 **425 passed（46s）**，0 warnings；`sync_templates.py --check` 绿；
-  `ops/check_capabilities.py` 绿（22 CLI / 3 mounted skills / 11 packaged / 22 covers）。
+- `opencode-worker` / `opencode-dialog-control` 容器健康（镜像 `opencode-worker:1.18.11`）。
+- 测试基线 **432 passed 零回归**；`sync_templates.py --check` 绿；
+  `ops/check_capabilities.py` 绿（24 CLI / 3 mounted skills / 11 packaged / 17 covers）。
 - **E2E 已移出单元套件**：`e2e_tests/test_e2e_worker.py`（真实 worker+LLM，独立运行
   `REGIME_E2E=1 pytest e2e_tests/...`），`pytest`（testpaths=["tests"]）不再收集。
-- **分发就绪**：docker 资产不入 wheel（GitHub 仓库提供）；A 路插件 + dialog-control agent +
-  opencode.json + package.json 随 wheel 分发，`regime scaffold`/`setup` 装配主机 opencode 主载体；
-  `regime uninstall` 按部署清单安全移除（保留用户改动）；wheel 合规断言在 CI。
-- 新试用套件：`ops/quality_tasks.py` 8 任务（4 深度保留 + 4 新形态），harness 支持
-  seed_files 预置 / 多文件收集 / 能力覆盖报告。
+- **WORK_PLAN9 套件重构**：`ops/quality_tasks.py` 4 复杂任务（shop_inventory / kv_cluster /
+  payment_ledger / etl_pipeline），每个 15-30 分钟多文件 + seed 既有代码 + 设计决策 +
+  并发/故障隔离压力；covers 标签 17 个（每任务 8-10 能力）。
+- **WORK_PLAN9 归档/清理**：`ops/quality_run.py` 每任务前 wipe 共享工作区（per-task 隔离）、
+  任务完成后全量归档（会话消息快照 + 完整工作区 + journal/events 切片 + result.json）、
+  `--clean-sessions` 归档后才执行、quality-report.json 每任务后即写（中断可续）；
+  `ops/run_nightly.sh` trap EXIT 保证中断也归档。
 - 复用工具：`ops/quality_run.py --tasks <id>`（单任务重跑）、`--root <dir>`（产出 quality-report.json
   含 capability_coverage）、`ops/run_nightly.sh`（夜间一键长跑）。
-- 已 push 到 GitHub（`origin main`，本地=远端 `d7dd9c4`），CI 含装配冒烟 + wheel 卫生断言。
 - 历史主线（已完成）：WORK_PLAN7 供给就绪 + WORK_PLAN6 耐久 + L2 资源治理 + 版本护栏 +
-  示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + **WORK_PLAN8 阶段 1–4** + 分发重构 + 卸载机制。
-- 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**WORK_PLAN8 阶段 5 夜间整合重跑**（下一主线）、
+  示例流程 + 文档站重构 + 术语改名 + 质量收益验证 + WORK_PLAN8 阶段 1–4 + 分发重构 + 卸载机制 +
+  **WORK_PLAN9 体系重构**（本 session）。
+- 剩余候选：**V-2 PyPI（待用户，dist/ 已构建）**、**夜间整合重跑（下一主线）**、
   **GitHub Pages 启用**（Settings→Pages→GitHub Actions）。
 
 ### 本 session 已完成（2026-08-13，8 个 commit）
 
 > 本轮完成了交接清单 A–E（深度核查）+ WORK_PLAN8 阶段 1–4 + 测试套件净化。
 > 详细报告：`tasks_docs/quality_deep_check.md`（A–E 结论）、`tasks_docs/MAIN_TASKS.md`（规划）。
-
 | commit | 内容 |
 |---|---|
 | `5265628` | **深度核查修复真实 bug**：opencode 1.18.11 `/event` SSE 无 `event:` 行，`event_stream` 的 `raw["event"]` 恒 None → T2 活性兜底永久失效（长生成被误判 stalled→abort→截断草稿，lru_ttl 首轮 7 次截断→human 的直接根因）+ journal 被 90% delta 噪音淹没。修复 `data.type` 回退。 |
@@ -365,6 +365,22 @@
 
 **关键成果**：所有交接发现（D1–D6 + A–F）已全部修复并经测试/真实运行核实；WORK_PLAN8
 建设性重构阶段 1–4 完成并各自真实验证；唯一未执行 = 阶段 5 夜间整合重跑（属验证非修复）。
+
+### 本 session 已完成（2026-08-13 夜，WORK_PLAN9，2 个 commit）
+
+> 本轮完成 WORK_PLAN9 体系重构：watchdog 误杀修复 + 复杂任务套件 + per-task
+> 全量归档/清理重建。冒烟验证：payment_ledger 复杂任务 complete + 宿主 pytest
+> 34p/0f + 2 verdicts + 全量归档含会话消息快照。
+
+| commit | 内容 |
+|---|---|
+| `24f01d1` | **watchdog thinking 误杀修复**：reasoning 令牌计入活性（`_report_to_watchdog` 传 reasoning + `_detect`/`SessionWatch` 双维度判定）+ STOP/超时 abort 会话防孤儿。测试 +9。 |
+| `757bd3c` | **WORK_PLAN9 套件/留档/清理**：4 复杂任务套件 + per-task 隔离/全量归档/归档后清理/中断可续 + capabilities §五 声明检查 + 冒烟归档入库。 |
+
+**关键成果**：框架误杀根因（thinking 盲区：watchdog 只统计文本令牌）三处修复；
+任务套件从 8 浅任务变为 4 复杂工程任务；日志留档改为 per-task 全量归档（会话
+消息快照可回溯 reasoning 推理过程）；清理机制改为归档后才清理 + 中断可续。
+全量 432 passed 零回归，general 只读 review 0 blocker。
 
 ### 已完成主线（历史，参考）
 
