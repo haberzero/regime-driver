@@ -263,6 +263,57 @@ def test_supervisor_ingests_events(monkeypatch):
         assert len(recs) == 2  # both events recorded to the journal
 
 
+def test_supervisor_ingests_events_data_type_format(monkeypatch):
+    """Regression (2026-08-13 quality-run): the real opencode 1.18.11 SSE
+    stream emits the event type inside the `data` JSON with NO `event:` line.
+    Before the event_stream fix, `raw["event"]` was always None, so T2
+    liveness (`_last_activity_ts`) never updated and streaming deltas flooded
+    the journal (90% noise). With the fix the event type must surface and
+    `_last_activity_ts` must advance on genuine progress."""
+    import urllib.request
+
+    class _Resp:
+        def __init__(self, text):
+            self._lines = [(l + "\n").encode() for l in text.split("\n")]
+            self._i = 0
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self._i >= len(self._lines):
+                raise StopIteration
+            line = self._lines[self._i]
+            self._i += 1
+            return line
+
+        def close(self):
+            pass
+
+    sse = (
+        "data: {\"type\": \"server.connected\", \"properties\": {}}\n\n"
+        "data: {\"type\": \"message.part.delta\", \"properties\": {\"sessionID\": \"s1\"}}\n\n"
+    )
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, **kw: _Resp(sse))
+
+    from regime_driver.app.reporter import Reporter
+    from regime_driver.infra.opencode import OpenCodeClient
+
+    import tempfile
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="supervisor")
+        sup = Supervisor(OpenCodeClient("http://x:4097"), rep, session_id="s1")
+        n = sup.ingest_events(max_events=2, stream_timeout=5)
+        assert n == 2
+        recs = rep.journal_slice()
+        # the delta is noise -> dropped; only the lifecycle event is recorded
+        assert len(recs) == 1
+        assert recs[0]["event_type"] == "server.connected"
+        # genuine streaming progress advanced the T2 liveness timestamp
+        assert sup._last_activity_ts > 0.0
+
+
 class _StallLoopClient:
     """Scripted worker for the Supervisor run-loop T2 test.
 

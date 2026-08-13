@@ -122,12 +122,17 @@
 
 - [DONE] 2026-08-13 交接准备: 清理进程 + 运行痕迹全量归档入库 + 书写交接文档(下一session主线=内部代码质量+工作日志深度核查) | verified: 进程0残留 + 归档7.7M质量套件(artifacts/events/journal/tasks/report) + 4.2M耐久(含run2) + 407测试基线 | 交接要点: pytest全绿≠质量好, 对12任务产物做独立只读深审(测试真实性/代码质量/规格符合度) + reviewer_verdict实质性与过场判定核查 + 工作日志流程核查(节点推进/developer跳流程提前实现/transition决策/异常事件收集) + 6条待深挖线索(①lru_ttl 7次截断→human根因 ②task_sched gate exhausted原因 ③json_config blocked根因 ④worker MaxListenersExceeded监听器泄漏 ⑤4非complete首轮自愈真相 ⑥developer提前实现vs节点约束) | 处置: 发现问题→修复→全量测试→commit | next: 下一session执行深度核查 | escalate: no
 
+- [DONE] 2026-08-13 深度核查执行(内部代码质量+工作日志, 用户指示选择性/针对性/系统性核查) | verified: 409 passed零回归(407+2新增) + 真实worker SSE生效确认 + general只读review无blocker(1 warning已修) | 方法: 从43次运行选择性深挖4个失败任务(lru_ttl human/task_sched error×2/json_config blocked)+3个'有ladder但complete'对照组, 全事件链还原+journal全文+对照regime内核代码(supervisor/opencode/reporter/workflow/watchdog/repetition) | **发现并修复真实系统bug(测试全绿掩盖)**: opencode 1.18.11 /event SSE只有data:行无event:行, event_stream只认event:行→raw["event"]恒None(10755条100%证实)→两个静默失效: ①supervisor _is_progress_event(None)恒False→T2活性兜底永久失效→SSE delta不能续命→长生成(>stall_sec)被误判stalled→abort打断输出→报告截断成草稿(→lru_ttl首轮7次截断→human的直接根因); ②reporter delta过滤etype恒None→journal被90%delta噪音淹没(9155+529/10755) | 修复: src/regime_driver/infra/opencode.py event_stream从data.type回退事件类型(isinstance防御+显式event:优先), 新增2回归测试(修复前必败), 报告tasks_docs/quality_deep_check.md | 其余5条线索核查结论: D2 task_sched gate exhausted=确定性门正确拦截(失败源头仍T2误判); D3 json_config blocked=watchdog重复检测(adjacent_sim=0.93)非reviewer判定(旧quality_report.md描述不准确,待更); D4 MaxListenersExceeded=opencode内部监听器泄漏,regime侧已有clean-sessions/L2缓解,非本仓缺陷; D5首轮自愈真相=非系统自愈是误判偶然性(对照组有ladder却complete),修复后系统性消除; D6无系统性跳流程 | reviewer判定质量合格(95条verdict, 低置信度advance仅3条均与截断输入相关, 非过场判定) | next: 夜间重跑质量套件验证修复后lru_ttl首轮行为(可选) 或 V-2 PyPI待用户 | escalate: no
+
+
 
 ## 阻塞
 
 （无）
 
 ## 自省记录
+
+- [REFLECT] 2026-08-13(3) | progress: 深度核查执行——从43次运行选择性深挖4个失败任务+3个有ladder成功对照组, 全事件链还原+journal全文+对照内核代码, 发现并修复真实系统bug: opencode 1.18.11 /event SSE无event:行→event_stream raw["event"]恒None→T2活性兜底永久失效(长生成被误判stalled→abort打断输出→截断草稿)+journal被90%delta噪音淹没; 修复data.type回退, 409 passed零回归, general review无blocker | verified: 409 passed(407+2) + 真实worker SSE生效 + 报告tasks_docs/quality_deep_check.md | 关键工程判断: 用户'深度核查'指示价值巨大——此类bug pytest永远测不出(测试mock用event:行格式, 真实worker无event:行, 测试绿但生产行为不同='测了个寂寞'的底层形态), 只有对真实运行痕迹(journal/events)做逆向对比才能暴露; 事件链+journal双源交叉验证法有效(events给时序/verdict, journal给报告长度/ladder/liveness证据); '首轮自愈'实为误判偶然性而非系统能力, 修复T2活性信号后系统性消除, 比'相信自愈'更可靠 | risk: 修复仅src层, 运行容器需重建镜像才生效(下轮夜间套件重跑验证可选); quality_report.md的json_config描述与事实不符待更正; MaxListenersExceeded为opencode内部问题已确认非本仓缺陷 | next: 夜间重跑质量套件验证lru_ttl首轮不再误杀(可选) 或 V-2 PyPI待用户 | escalate: no
 
 - [REFLECT] 2026-08-13(2) | progress: 交接准备——清理全部运行进程(0残留), 质量套件与耐久数据(artifacts/events/journal/tasks/report, ~12M)全量归档入库(tasks_docs/quality_run_archive + durability_run_archive), 书写交接文档(下一session主线=内部代码质量+工作日志深度核查, 含数据地图/核查清单A-E/6条待深挖线索) | 关键工程判断: 用户'代码质量分析不能只靠pytest'的洞察正确——pytest全绿≠质量好, 深查要落在三处: ①产物代码本身(测试真实性/边界/安全/规格符合度) ②reviewer判定实质(是否过场/低置信度放行) ③工作日志流程(节点推进/developer跳流程/异常事件); 归档而非删除运行痕迹是'可复核'前提, 否则深度核查无据可查; 交接文档要点式列出待深挖线索(4个非complete根因 + worker监听器泄漏 + 跳流程), 下一session无需重新发现即可开工 | risk: 归档~12M入库使仓库增大(可接受, 核查证据); /tmp原数据保留双份(归档后/tmp可清, 但保留更稳) | next: 下一session执行深度核查 | escalate: no
 

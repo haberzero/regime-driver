@@ -45,6 +45,30 @@ def test_event_stream_parses_sse(monkeypatch):
     assert events[1] == {"event": "session.idle", "data": {"sessionID": "s1"}}
 
 
+def test_event_stream_falls_back_to_data_type(monkeypatch):
+    """Regression: opencode 1.18.11 emits the event type inside the `data`
+    JSON (`{"type": "message.part.delta", ...}`) with NO SSE `event:` line. The
+    stream must still surface the real event type, otherwise supervisor T2
+    liveness and reporter delta-drop both silently see None (the 2026-08-13
+    quality-run failure mode: journal flooded with 90% delta noise and long
+    generations misjudged as stalled)."""
+    import urllib.request
+    from regime_driver.infra.opencode import OpenCodeClient
+
+    sse = (
+        "data: {\"type\": \"server.connected\", \"properties\": {}}\n\n"
+        "data: {\"type\": \"message.part.delta\", \"properties\": {}}\n\n"
+        "data: {\"type\": \"session.idle\", \"properties\": {\"sessionID\": \"s1\"}}\n\n"
+    )
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda req, **kw: _FakeSSEResponse(sse))
+    c = OpenCodeClient("http://x:4097")
+    events = list(c.event_stream())
+    assert [e["event"] for e in events] == [
+        "server.connected", "message.part.delta", "session.idle"]
+    assert events[2]["data"]["properties"]["sessionID"] == "s1"
+
+
 class _FailingIter:
     """An iterator that raises partway through (simulates a dropped SSE stream)."""
 

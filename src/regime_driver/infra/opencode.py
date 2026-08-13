@@ -242,6 +242,16 @@ class OpenCodeClient:
                                 data = json.loads(payload)
                             except json.JSONDecodeError:
                                 data = payload
+                            # The opencode server (>=1.18.11) emits the event type
+                            # inside the `data` JSON (`{"type": "message.part.delta",
+                            # ...}`) and does NOT send an SSE `event:` line, so
+                            # `event_type` stays None. Fall back to `data.type` so
+                            # consumers (reporter delta-drop, supervisor T2 liveness)
+                            # see the real event type instead of None.
+                            if event_type is None and isinstance(data, dict):
+                                _t = data.get("type")
+                                if isinstance(_t, str) and _t:
+                                    event_type = _t
                             yield {"event": event_type, "data": data}
                         event_type = None
                         data_lines = []
