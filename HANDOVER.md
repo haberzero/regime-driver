@@ -301,16 +301,74 @@
 > 全阶段：每阶段 general 只读 review（0 blocker 收口）+ 全量测试零回归 + 真实 worker 冒烟
 > （hooks 6 节点 fire / run-many --regime-name 16s / 语义契约 87.5s / 阶段4 88s 全 complete）。
 > **测试基线 610 passed 零回归**；sync_templates / check_capabilities / 守卫全绿。
->
-> **下一 session 主线 = 常规推进**：
-> 1. **真实 E2E 冒烟验证阶段 4**：真实 worker 上触发 ask_human（构造一个 reviewer 返回 ask_human
->    的流程）→ 对话框 decide yes/no → 推进；意图级 `design <NL>` 真实 LLM 生成整制度 → `--regime-name`
->    运行。
-> 2. **顺延候选**：V-2 PyPI（待用户 token，dist/ 已构建）→ P-005 覆盖率优化 → 限并发耐久二次验证 →
->    GitHub Pages 启用（待用户 Settings）。
->
-> **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
-> 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
+
+---
+
+> **下一 session 主线 = 文档体系 + 自说明体系全方位同步**（用户指示：技术文档必须更新到最新状态，
+> 避免误导读者；试用 regime-driver 的智能体必须获得完善且合理的说明书；相关插件可能需更新）。
+> 五阶段重构的**代码/参考/架构/subsystems** 已在各阶段同步，但**读者层与部分自说明体系未同步**——
+> 本次交接前已做 grep 实测审计，下方"审计结论"是经过验证的事实，可直接开工。
+
+### 审计结论（2026-08-14 深夜，grep 实测）
+
+**已同步（各阶段中做过）**：
+- `docs/reference/01_cli.md`：`--regime-name` 已列 run/drive/run-many/drive-many 四表；`regime regime`
+  list/inspect/design 已列（reload/rm/load 命令表完整性待复核）。
+- `docs/reference/02_configuration.md`：human_confirm_timeout_sec/human_default_on_timeout/verify
+  白名单/handover 模板 已补；config.example.toml 同步（守卫绿）。
+- `docs/reference/03_flow_spec.md`（verify 白名单）、`05_dialog_control_contract.md`（W3/W4/ask_human/
+  decide）、`architecture/02_statechart_network.md`（ask_human/verify 白名单）、
+  `subsystems/03_parallel.md`（--regime-name）、`04_supervisor.md`（1c 判定统一）、
+  `06_dialog_control.md`（design/hook/decide）、`10_extension_points.md`（新）、`capabilities.md`（decide）、
+  `KNOWN_LIMITS.md`（verify 阻塞/瞬时错误边界）。
+- `.opencode/agent/dialog-control.md`（制度设计/扩展点/ask_human）+ 打包副本（sync_templates 绿）。
+
+**未同步（本次 grep 确认，需更新）**：
+- `docs/guide/*`（00-07 共 8 篇）：**零提及**新特性（hooks.py/ask_human/decide/regime-name/整制度
+  设计/意图级 design/verify 白名单）。读者层最大缺口。
+- `docs/howto/*`（7 篇）：**零提及**新特性。
+- `README.md`/`README.en.md`：**零提及**新特性。
+- `docs/reference/01_cli.md`：`regime regime` 组 reload/rm/load 是否入册待复核；与 guide 交叉引用待核。
+- `docs/architecture/01_principles.md`/`03_boundary.md`/`04_distribution_blueprint.md`、
+  `docs/subsystems/01_drive.md`/`02_worker_isolation.md`/`05_chaos.md`/`07_dialog_control_carrier.md`/
+  `08_mock.md`/`09_testing_architecture.md`：逐篇复核是否需补新特性表述（多数可不改，但要确认无误导）。
+- `.opencode/plugins/regime-dialog-control.js`（19 工具）：已有 regime_regime_design/list +
+  regime_run_many --regime-name；**缺** regime_regime_inspect/reload/rm；regime_run 是否转发
+  `--regime-name`/`--flow` 待核验；ask_human/decide 是 Dialog> 命令（B 路），插件（A 路壳 CLI）无法
+  直连——如需 A 路接入 ask_human 需新增机制，属可选。
+- **智能体说明书（用户明确要的交付）**：为"要试用 regime-driver 的智能体"提供完善且合理的说明书——
+  把 dialog-control.md + guide + 插件工具说明整合成**一份连贯的 agent 视角手册**（能做什么/命令面/
+  插件工具/制度与扩展点/ask_human 交互/踩坑/真实起栈）。
+
+### 任务清单（建议顺序，每项 code-workflow + 质量门 + 全量零回归 + general review）
+
+1. **读者层全面同步（最优先）**：`docs/guide/*` 8 篇 + `docs/howto/*` 7 篇 + `README/README.en`。
+   把五阶段新特性补入并"以实跑为准"（指南里的命令真跑一遍验证，不冻结数字）：制度一等公民/
+   `--regime-name`/整制度设计/意图级 design/`~/.regime/hooks.py` 扩展点/ask_human+decide/verify
+   白名单。注意 guide 是"人类手册"，禁止智能体元信息（AGENTS 硬约束）。
+2. **参考/架构/子系统复核**：01_cli（regime regime 组完整性 + 与 guide 交叉引用）；architecture
+   01/03/04；subsystems 01/02/05/07/08/09——逐篇核验，消灭误导；单点真理（概念归属不重复）。
+3. **自说明体系**：dialog-control.md 完整性复核；插件补 regime_regime_inspect/reload/rm（如适用）
+   + 核验 run/drive `--regime-name`/`--flow` 转发；skills/模板核验（漂移守卫已绿）。
+4. **智能体说明书**：整合"试用 regime-driver 的智能体说明书"（agent 视角完整手册），随 wheel 分发
+   （入 `src/regime_driver/data/` 或文档站，遵守单一真源 + sync_templates）。
+5. **验证门**：智能侧说明同步硬约束（settings↔config+02、CLI↔01_cli+插件、信号↔architecture/02+
+   subsystems、智能行为↔dialog-control.md、能力↔capabilities）；守卫测试；sync_templates；
+   check_capabilities；全量测试零回归；general 只读 review。
+6. **mkdocs build 本地挂起（运维项）**：本地 `mkdocs build --strict` 超时挂起（非内容问题，疑似
+   主题/CDN 网络；mermaid2 插件只注入 script 标签不下载）。CI docs.yml（GitHub Actions）可构建。
+   下一 session 需解决本地验证路径（镜像/缓存/定位挂起根因），否则文档改动无法本地验证。
+
+### 硬约束（交接提醒）
+
+- 智能侧说明同步硬约束（`MAIN_TASKS.md` 顶部）；单点真理；临时文档完成即删（`_` 前缀工作簿总结入
+  WORKLOG 即删）；全量测试零回归（`~/miniconda3/envs/regime-driver/bin/python -m pytest tests/`）；
+  审查一律 `general` 只读 agent（严禁 reviewer）；push 已授权（见 §3.x，push 前全量测试零回归 +
+  review 收口）。
+- 任务控制四类文档：MAIN_TASKS / PENDING_TASKS / HANDOVER / WORKLOG；其余临时。
+
+**测试基线**：610 passed 零回归。**环境**：worker/dialog-control 容器健康；conda env 可编辑安装
+（Editable → `/home/haber/oc-meta`，含阶段 0-4 全部代码）。
 
 #### 环境核验（2026-08-14 交接时）
 

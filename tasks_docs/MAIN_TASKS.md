@@ -97,9 +97,20 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 > 补 verify/readonly。
 
 **体系化重构（阶段 0–4）全部完成。** 蓝图 `_regime_redesign.md` 已总结并入 WORKLOG 并删除。
-后续主线 = 常规推进：真实 worker 端到端冒烟验证 ask_human/意图级设计 → 顺延候选。
 
-**顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
+### 下一步（下一 session 主线 = 文档体系 + 自说明体系全方位同步）
+
+用户指示：技术文档必须更新到最新状态避免误导；试用 regime-driver 的智能体必须获得完善且合理的
+说明书；相关插件可能需更新。交接前 grep 实测审计（详见 `HANDOVER.md` §8"审计结论"）：
+- **最需更新**：`docs/guide/*`（8 篇）+ `docs/howto/*`（7 篇）+ `README/README.en`——**零提及**
+  五阶段新特性（hooks.py/ask_human/decide/regime-name/整制度设计/意图级 design/verify 白名单）。
+- **复核**：01_cli `regime regime` 组完整性；architecture 01/03/04；subsystems 01/02/05/07/08/09。
+- **自说明体系**：插件补 regime_regime_inspect/reload/rm + 核验 run/drive --regime-name 转发；
+  **智能体说明书**（agent 视角完整手册，用户明确要求，随 wheel 分发）。
+- **运维**：mkdocs build 本地挂起（网络/CDN），需解决本地验证路径（CI docs.yml 可构建）。
+
+每项：以实跑为准（命令真跑验证）+ 智能侧说明同步硬约束 + 全量测试零回归 + general 只读 review。
+顺延候选不变：V-2 PyPI（待用户 token）→ P-005 覆盖率 → 限并发耐久 → GitHub Pages（待用户）。
 
 **硬约束（防断裂）**：任何新增/修改功能、CLI、配置、信号/事件、行为语义的里程碑，
 落地时**必须同步智能侧说明**（settings→config+02_configuration；CLI→01_cli+插件；
