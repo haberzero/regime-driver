@@ -276,51 +276,63 @@
 
 ### 下一 session 主线任务（唯一指针，2026-08-14）
 
-> **本 session 已完成**：**体系化重构启动**（用户授权破坏性重构，蓝图
-> `tasks_docs/_regime_redesign.md`）——宏观根因分析（W1–W6 + 交接硬编码 + 自定义缺失收敛到
-> 3 个体系化根因：Regime 非一等公民 / 监督职责分裂 / 核心语义未在底层定义）+ **阶段 0 落地**：
-> 监督统一抽象收敛（commit `989dac6`，W1/W2 根治 + watchdog_fire 落盘可观测性 + SseActivity
-> 单一活性源 + meta 智能第二意见通道 + `--stall` 语义归一；general 只读 review 全处理；真实
-> worker drive 冒烟 124s complete 无回归）。基线 **512 passed 零回归**，已 commit（未 push）。
+> **本 session 已完成**：**体系化重构 阶段 0 + 阶段 1a/1b/1d**（用户授权破坏性重构，蓝图
+> `tasks_docs/_regime_redesign.md`）。宏观根因分析把 W1–W6 + 交接硬编码 + 自定义缺失收敛到
+> 3 个体系化根因（Regime 非一等公民 / 监督职责分裂 / 核心语义未在底层定义）。
 >
-> **下一 session 主线 = 体系化重构 阶段 1**（见 `tasks_docs/MAIN_TASKS.md` + 蓝图
-> `tasks_docs/_regime_redesign.md`）：**Regime 一等公民（根因 A，最大块）**——flow +
-> watchdog_policy + handover_policy + role policy + verify + hooks 收敛为 `Regime` 单对象，
-> 统一生命周期（compile→deep_validate→preflight→hot-reload→version→permission→audit）；
-> `regime design/validate/reload` 从 flow 升级为整个制度；构造收敛传 Regime；settings 中 policy
-> 字段并入 regime 声明；独立 supervisor 判定统一到 watchdog_policy（删 SessionWatch/_verdict_for_stall）。
-> 后续：阶段 2 扩展点模型（hooks/verify 白名单，去交接硬编码）、阶段 3 语义契约下放（W3/W4）、
-> 阶段 4 对话框意图级。
+> **阶段 0（commit `989dac6`，W1/W2 根治）**：监督统一抽象收敛——drive 模式会话级监督归
+> in-process watchdog（跟随 wait_sid + 全恢复阶梯）；进程外退为 T1/docker 重启 + deadline +
+> meta 智能第二意见通道（`supervise_sessions=False`）；`watchdog_fire` 落共享 journal（修诊断
+> 盲区）；`SseActivity` 共享单一活性源；`--stall` 语义归一。
+>
+> **阶段 1（commit `bb73524`，Regime 一等公民落地）**：新增 `regime.py`——`Regime` 聚合对象
+> （flow+roles+watchdog+handover+stall/auto_resume）+ `compile_regime/validate_regime` 统一编译
+> 校验门 + `RegimeRegistry`（命名制度单一真源、持久 store、原子热重载、失败保留当前版本）；
+> `StatechartDriver.from_regime` 构造收敛 + `WorkflowUnit` context_policy 注入 + `Drive` regime
+> 参数；CLI `regime regime` 命令组（list/inspect/design/load/reload/rm）+ `run/drive --regime-name`
+> （解析同一持久 store）；死代码守卫接入；文档同步。general 只读 review 两轮（2 blocker + 4
+> warning + nits 全处理）；真实 worker `--regime-name` 冒烟 14s complete。基线 **552 passed
+> 零回归**，已 commit（未 push）。
+>
+> **下一 session 主线 = 体系化重构 阶段 1 收尾 + 阶段 2**（见 `tasks_docs/MAIN_TASKS.md` +
+> 蓝图 `tasks_docs/_regime_redesign.md`）：
+> 1. **阶段 1c**：独立 `regime supervisor` 判定统一到 watchdog_policy 规则引擎（删除自研
+>    SessionWatch/_verdict_for_stall 第二套判定实现；行为语义重设计：连续窗口 vs 绝对时长多级
+>    规则，需慎重设计并重写 test_supervisor 相关测试）。
+> 2. **阶段 1d 补全**：run-many/drive-many `--regime-name`；对话框制度设计入口（dialog `design`
+>    升级为整制度）。
+> 3. **阶段 2：统一扩展点模型**——`~/.regime/hooks.py` 插件 + register_tool/rule/hook 统一注册表；
+>    hook 点 on_node_enter/done/transition/judge_verdict/stall/handover（全审计）；handover 文档/
+>    提示词/协商改声明式模板+可选回调（去硬编码）；verify 白名单化（消 RCE，W5）；对话框 hook 装配。
+> 4. 阶段 3（W3/W4 语义契约）、阶段 4（对话框意图级）随后。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
-> **重构临时工作簿** `tasks_docs/_regime_redesign.md`（含根因/目标架构/分阶段方案），阶段全完成后
-> 总结入 WORKLOG 并删除。
+> **重构临时工作簿** `tasks_docs/_regime_redesign.md`（含根因/目标架构/分阶段方案/每阶段完成与
+> 遗留状态），阶段全完成后总结入 WORKLOG 并删除。
 
 #### 环境核验（2026-08-14 交接时）
 
 | 资源 | 状态 | 说明 |
 |---|---|---|
-| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话（复查后已清） |
+| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话（阶段1 冒烟后已清） |
 | `opencode-dialog-control` 容器 | ✅ 健康 | opencode 1.18.11，端口 4098（A 路验证窗） |
-| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含 WORK_PLAN13 全部新代码 |
+| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含阶段0/1 全部新代码（regime.py/RegimeRegistry/from_regime/regime CLI） |
 | 模型 key | ✅ | `DEEPSEEK_API_KEY` / `~/.regime/keys/deepseek.key`，`regime doctor` 全绿 |
 | `regime doctor` | ✅ 12 项全过 | worker 健康/版本/key/模板/部署完整性/docker/opencode/conda/session |
 | `regime preflight` | ✅ complete | 离线试跑整条 flow 干净完成 |
 | sync_templates / check_capabilities | ✅ 绿 | 24 CLI / 3 mounted skills / 11 packaged / 17 covers |
-| 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_package |
-| 任务套件 | ✅ 就绪 | 4 复杂任务 + **新 `distributed_scheduler`**（flow=code_workflow_v13, minutes_est=45, 复查任务） |
-| 注册 flow | ✅ | `code_workflow_v13` 已注册（`ops/flow_v13.json`：readonly understand/read_code + test 门 verify） |
-| 测试基线 | ✅ 512 passed | 全量零回归（含 guard/e2e 门控；体系化重构阶段0 后） |
+| 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_deadcode（含 regime.py）+ test_package |
+| 测试基线 | ✅ 552 passed | 全量零回归（含 guard/e2e 门控；阶段0+阶段1 后） |
 
 > **注意**：`opencode-dialog-control` 容器内的 regime-driver 是旧 wheel（0.2.0，无
-> `watchdog_policy_json`、`context_handover_policy_json`、`verify`）。它仅作 A 路验证窗，
+> `watchdog_policy_json`、`context_handover_policy_json`、`verify`、`regime` 命令）。它仅作 A 路验证窗，
 > 不影响宿主实验（drive/harness 全在宿主源码上跑）。如需同步最新代码用
 > `ops/up.sh dialog-control --rebuild`。
 
-#### 遗留问题清单（2026-08-14，体系化重构后）
+#### 遗留问题清单（2026-08-14，体系化重构阶段 0+1 后）
 
-**W 类状态更新（阶段 0 已处理 W1/W2 ✅，2026-08-14）**
+**W 类状态更新（阶段 0 已处理 W1/W2 ✅；阶段 1 已落地 Regime 一等公民）**
 
 | # | 遗留问题 | 状态 | 说明 |
 |---|---|---|---|
@@ -332,6 +344,8 @@
 | W6 | 上下文交接 token 读取失败 fail-open | ✅ 已达标 | fail-open 方向正确 + 留痕，无需处理 |
 | W-硬编码 | 交接文档模板/提示词/协商流程硬编码（无用户注入入口） | ⏳ 待处理（阶段 2：扩展点模型） | 声明式模板 + 可选 Python 回调 |
 | W-自定义 | 开发者/对话框可自定义、可注入回调、可确认状态机交互缺失 | ⏳ 待处理（阶段 2 hooks + 阶段 4 对话框意图级） | hooks 注册表 + ask_human 确认点 |
+| 1c | 独立 supervisor 判定仍自研（SessionWatch/_verdict_for_stall 第二套实现） | ⏳ 下一 session 主线第 1 项 | 统一到 watchdog_policy 规则引擎；行为语义重设计（连续窗口 vs 绝对时长多级规则），慎重 |
+| 1d-补 | run-many/drive-many `--regime-name`；对话框制度设计入口 | ⏳ 下一 session 主线第 2 项 | 与 run/drive 对齐；dialog `design` 升级为整制度 |
 
 **P 类（长期搁置，待用户或低优先）**：见 `tasks_docs/PENDING_TASKS.md`（V-2 PyPI 待用户 token、
 GitHub Pages 待用户 Settings、P-005 覆盖率、C3 延迟调优、FakeClient 收敛、MaxListeners doctor 检查）。
@@ -563,6 +577,22 @@ fallback 在 drive 模式仍未实证）；`--meta` 元分析 / chaos 故障注�
 **遗留**：阶段 1（Regime 一等公民）为下一 session 主线（见 §8）；fallback 阶梯接线、
 独立 supervisor 判定统一到 watchdog_policy、W3/W4/W5、交接硬编码、hooks/自定义 均为后续阶段。
 
+### 本 session 已完成（2026-08-14 续，体系化重构 阶段 1a/1b/1d）
+
+> 承接阶段 0，落地根因 A（运行制度碎片化）。蓝图同 `tasks_docs/_regime_redesign.md`。
+
+| commit | 内容 |
+|---|---|
+| `bb73524` | **阶段 1：Regime 一等公民**——新增 `regime.py`（Regime 聚合对象 flow+roles+watchdog+handover + `compile_regime/validate_regime` 统一编译校验门 + `RegimeRegistry` 持久 store/原子热重载/失败保留当前）；`StatechartDriver.__init__` 接受可选 regime（制度权威源，阈值优先 settings）+ `from_regime`；`WorkflowUnit` context_policy 注入；`Drive` regime 参数；CLI `regime regime` 命令组（list/inspect/design/load/reload/rm）+ `run/drive --regime-name`（解析同一持久 store；修复 `--flow` 复用已解析 sm；run --async 转发）；permission regime 分类；死代码守卫接入 regime.py；文档（01_cli regime 命令表 + capabilities）；测试（test_regime.py 33 + test_cli regime 9，含 B1/B2/W1/W2 回归）；真实 worker `--regime-name` 冒烟 14s complete；552 passed 零回归 |
+| `9bec61a` | 文档同步：阶段 1 完成状态 + 阶段 1c/1d 遗留明确（工作簿/MAIN_TASKS） |
+
+**关键成果**：运行制度从 6 个碎片载体升为一等公民，拥有与 flow 相同的完整生命周期
+（compile→deep_validate→preflight→hot-reload→version→permission→audit）；按名运行整制度
+（`run/drive --regime-name`）真实可用；general 只读 review 两轮（2 blocker + 4 warning + nits
+全处理）。**遗留**：阶段 1c（独立 supervisor 判定统一到 watchdog_policy，行为语义重设计）、
+1d 补全（run-many/drive-many --regime-name、对话框制度入口）、阶段 2（扩展点/hooks/verify 白名单/
+去交接硬编码）、阶段 3（W3/W4）、阶段 4（对话框意图级）。
+
 ### 已完成主线（历史，参考）
 
 - **P0#1/P0#2/P1#3/P1#4/P2#5** ✅：见上方表格。
@@ -609,6 +639,15 @@ conda run -n regime-driver regime run "<任务>" --base http://127.0.0.1:4097 --
 conda run -n regime-driver regime run-many "t1" "t2" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl
 conda run -n regime-driver regime run "<任务>" --async --reporter /tmp/rep.jsonl   # 非阻塞
 conda run -n regime-driver regime job list|status <id> --json
+
+# 命名运行制度（Regime 一等公民，阶段1；持久 store 默认 ~/.regime/regimes）
+conda run -n regime-driver regime regime design <name> '<spec>' [--json]   # 内联设计并注册整制度(flow+roles+watchdog+handover)
+conda run -n regime-driver regime regime load <spec.json> [--name] [--json]  # 文件加载
+conda run -n regime-driver regime regime list|inspect <name> [--json]
+conda run -n regime-driver regime regime reload <name> [--json]   # 原子热重载(失败保留当前)
+conda run -n regime-driver regime regime rm <name> [--json]
+conda run -n regime-driver regime run "<任务>" --regime-name <name>   # 按整制度运行
+conda run -n regime-driver regime drive "<任务>" --regime-name <name> --container opencode-worker
 
 # 夜间整合重跑（下一 session 主线；WORK_PLAN9 套件 + per-task 全量归档）
 # 只跑一轮（4 复杂任务，不设时间上限）：bash ops/run_nightly.sh
