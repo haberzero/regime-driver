@@ -62,19 +62,23 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 > 全阶梯 + 跟随 wait_sid）；进程外 supervisor 退为 T1/docker 重启 + 全局 deadline + meta 智能复盘
 > 通道（supervise_sessions=False）；watchdog_fire 落共享 journal（修 W1 诊断盲区）；SseActivity
 > 共享单一活性源；`--stall` 语义归一。general 只读 review 全处理；真实 worker drive 冒烟 complete。
+>
+> **阶段 1 部分完成（2026-08-14，commit `bb73524`，552 passed 零回归 + 真实 `--regime-name` 冒烟）**：
+> Regime 一等公民落地——`regime.py`（Regime 聚合对象 + compile/validate + RegimeRegistry 持久
+> store + 原子热重载）+ `StatechartDriver.from_regime` 构造收敛 + `regime regime` CLI 命令组 +
+> `run/drive --regime-name`（真实可用）。general 只读 review 两轮（2 blocker + 4 warning + nits 全处理）。
 
-1. **阶段 1：Regime 一等公民（根因 A，最大块）**——flow + watchdog_policy + handover_policy +
-   role policy + verify + hooks 收敛为 `Regime` 单对象，统一生命周期
-   （compile→deep_validate→preflight→hot-reload→version→permission→audit）；
-   `regime design/validate/reload` 从 flow 升级为整个制度；StatechartDriver/WorkflowUnit/Drive
-   构造收敛传 Regime；settings 中 policy 字段并入 regime 声明；独立 supervisor 判定统一到
-   watchdog_policy 规则引擎（删 SessionWatch/_verdict_for_stall 自研实现）。
-2. **阶段 2：统一扩展点模型**——`~/.regime/hooks.py` 插件 + register_tool/rule/hook 统一注册表；
+1. **阶段 1c：独立 supervisor 判定统一**——`regime supervisor` 的自研 SessionWatch/_verdict_for_stall
+   统一到 watchdog_policy 规则引擎（删除第二套判定实现；行为语义重设计：连续窗口 vs 绝对时长多级
+   规则，需慎重）。
+2. **阶段 1d 补全**：run-many/drive-many `--regime-name`；对话框制度设计入口（dialog `design` 升级
+   为整制度）。
+3. **阶段 2：统一扩展点模型**——`~/.regime/hooks.py` 插件 + register_tool/rule/hook 统一注册表；
    hook 点 on_node_enter/done/transition/judge_verdict/stall/handover（全审计）；handover 文档/
    提示词/协商改声明式模板+可选回调（去硬编码）；verify 白名单化（消 RCE，W5）；对话框 hook 装配。
-3. **阶段 3：语义契约下放**——Message.error 区分 abort vs transient（W3）；reviewer 契约容错层
+4. **阶段 3：语义契约下放**——Message.error 区分 abort vs transient（W3）；reviewer 契约容错层
    （W4）。
-4. **阶段 4：对话框意图级制度操作面**——`design` 意图级；gate 扩展 ask_human 确认点。
+5. **阶段 4：对话框意图级制度操作面**——`design` 意图级；gate 扩展 ask_human 确认点。
 
 **顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
 

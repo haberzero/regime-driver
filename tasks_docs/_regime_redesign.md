@@ -99,18 +99,26 @@ Review（general 只读）：1 blocker（drive --meta 失效）+ 4 warning + 4 n
 `_on_escalate` 仅记录日志）；W3 语义契约（Message error 区分）；独立 supervisor 判定统一到
 watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实现，留阶段 1 Regime 收敛时处理）。
 
-### 阶段 1：Regime 一等公民（根因 A）
+### 阶段 1：Regime 一等公民（根因 A）——1a/1b/1d 完成 ✅，1c 待续
 
 目标：flow + watchdog_policy + handover_policy + role policy + verify + hooks 收敛为 `Regime`
 对象，统一生命周期；settings 中 policy 字段并入 regime 声明；`regime design/validate/reload`
 从 flow 升级为整个制度。
 
-改动：
-- 新模块 `regime.py`：`Regime`（flow + roles + watchdog + handover + verify_allowlist + hooks）；
-  `compile_regime/validate_regime`；`RegimeRegistry`（命名制度单一真源+热重载，扩展 FlowRegistry）。
-- `StatechartDriver/WorkflowUnit/Drive` 构造收敛为传 `Regime`。
-- 配置文件 schema、CLI（flow→regime）、scaffold 模板、对话框同步。
-- 独立 supervisor 判定统一到 watchdog_policy 规则引擎（删除 SessionWatch/_verdict_for_stall 自研实现）。
+**已完成（commit `bb73524`，552 passed 零回归 + 真实 worker `--regime-name` 冒烟 14s complete）**：
+- `regime.py`：Regime 聚合对象（flow+roles+watchdog+handover+stall/auto_resume）+ compile_regime/
+  validate_regime（统一编译校验门）+ RegimeRegistry（命名制度单一真源 + 持久 store + 原子热重载）。
+- `StatechartDriver` 接受可选 regime（制度权威源，阈值优先 settings）+ `from_regime`；
+  `WorkflowUnit` context_policy 注入；`Drive` regime 参数。
+- CLI：`regime regime` 子命令组（list/inspect/design/load/reload/rm）+ `run/drive --regime-name`
+  （解析同一持久 store；修复 `--flow` 复用已解析 sm；run --async 转发）；permission 分类。
+- 死代码守卫接入 regime.py；文档同步（01_cli regime 命令表 + capabilities）。
+- general 只读 review 两轮：2 blocker（--regime-name 解析不到 store / --flow 跑错流程）+ 4 warning
+  （async 转发/load name 穿越/design name 注入/multi-soft roundtrip）+ nits 全处理。
+
+**遗留（阶段 1c）**：独立 `regime supervisor` 判定仍用自研 SessionWatch/_verdict_for_stall（第二套
+判定实现）——统一到 watchdog_policy 规则引擎（删除自研），属行为语义重设计（连续窗口 vs 绝对时长
+多级规则），留后续 session 慎重处理。**遗留（1d 补全）**：run-many/drive-many `--regime-name`。
 
 ### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）
 
