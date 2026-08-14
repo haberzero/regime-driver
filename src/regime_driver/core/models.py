@@ -131,7 +131,8 @@ Verdict = Literal[
     "issue_resolved", "issue_pending", "blocked", "advance", "human_escalate"
 ]
 Action = Literal[
-    "ask_developer", "request_context", "advance", "abort_session", "report_user"
+    "ask_developer", "request_context", "advance", "abort_session", "report_user",
+    "ask_human",
 ]
 
 
@@ -144,6 +145,7 @@ class ReviewerVerdict(BaseModel):
     message_to_developer: str | None = None
     next_state: str | None = None
     context_requested: str | None = None
+    human_question: str | None = None   # ask_human: the question posed to the dialog
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
     # structured findings (WORK_PLAN13): the reviewer's substantive review —

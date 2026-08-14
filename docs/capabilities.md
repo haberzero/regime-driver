@@ -58,6 +58,7 @@
 | flow list/validate/reload | `flow ...` | 值守/流程期 | test_flow |
 | regime list/inspect | `regime ...` | 值守/流程期 | test_regime_list_and_inspect |
 | hook list/path/reload | `hook ...` | 值守/运维 | test_hook_*（阶段2 统一扩展点） |
+| decide / 裁决 | `decide <wid> <yes\|no> [评论]` | 值守 | test_decide_*（阶段4 ask_human 人工确认点） |
 | talk | `talk <sid> <msg>` | 值守 | test_talk |
 | sessions / parallel / abort / reclaim | 会话管理 | 值守 | test_sessions |
 | doctor | `doctor` | 值守 | test_doctor |

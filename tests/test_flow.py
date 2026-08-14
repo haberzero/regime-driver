@@ -45,6 +45,20 @@ def test_compile_spec_compact() -> None:
     assert sm.flow_path() == ["a", "b"]
 
 
+def test_compile_spec_compact_preserves_verify_and_readonly() -> None:
+    """B2 (阶段 4): the compact whitelist must keep `verify` (and `readonly`) —
+    the intent-level design adds them to judge/agent nodes and they must NOT be
+    silently dropped."""
+    raw = ('{"entry": "a", "nodes": ['
+           '{"id": "a", "desc": "读", "role": "developer", "type": "agent",'
+           ' "next": "t", "readonly": true},'
+           '{"id": "t", "desc": "测", "role": "reviewer", "type": "judge",'
+           ' "verify": "docker exec {container} pytest -q"}]}')
+    sm = compile_spec("f", raw)
+    assert sm.node("a").readonly is True
+    assert sm.node("t").verify == "docker exec {container} pytest -q"
+
+
 def test_compile_spec_full_regime() -> None:
     sm = compile_spec("f", _regime_json("f"))
     assert sm.flow_path() == ["a", "b"]

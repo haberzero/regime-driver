@@ -20,6 +20,7 @@ ACTION_VERDICT_OK: dict[Action, set[Verdict]] = {
     "advance": {"issue_resolved", "advance"},
     "abort_session": {"blocked", "issue_pending"},
     "report_user": {"blocked", "human_escalate"},
+    "ask_human": {"blocked", "issue_pending", "human_escalate"},
 }
 
 # per-action minimum confidence (destructive/heavy actions demand higher proof)
@@ -29,6 +30,7 @@ ACTION_CONF_MIN: dict[Action, float] = {
     "advance": 0.5,
     "abort_session": 0.7,
     "report_user": 0.7,
+    "ask_human": 0.6,
 }
 
 
@@ -81,6 +83,8 @@ def gate_reviewer_verdict(
                 )
     if action == "request_context" and not (verdict.context_requested or "").strip():
         return GateResult(ok=False, reason="request_context requires context_requested")
+    if action == "ask_human" and not (verdict.human_question or "").strip():
+        return GateResult(ok=False, reason="ask_human requires human_question")
 
     # 3. confidence bound (already enforced by model, double-checked here)
     if not (0.0 <= verdict.confidence <= 1.0):

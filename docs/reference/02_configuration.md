@@ -19,6 +19,8 @@
 | `max_driver_wait_sec` | float | 3600.0 | `driver.run()` 无显式 deadline 时的等待上限（秒） |
 | `agent_reviewer` | str | `reviewer` | 审查者 agent 名 |
 | `default_deadline_sec` | int | 600 | 每段等待超时（秒） |
+| `human_confirm_timeout_sec` | int | 300 | **ask_human 人工确认等待超时（秒，阶段 4）** |
+| `human_default_on_timeout` | str | `block` | ask_human 超时默认动作：`block`（安全兜底）\| `advance`（放行）\| `rework`（回开发者重做） |
 | `poll_sec` | float | 5.0 | session 轮询间隔（秒） |
 | `ledger_path` | str\|null | null | JSONL 事件账本路径 |
 | `regime_path` | str\|null | null | regime.json 路径（默认打包版） |

@@ -113,6 +113,29 @@ def test_reviewer_parse_ok():
     assert result.verdict.action == "advance"
 
 
+def test_reviewer_parse_ask_human():
+    """Phase-4: an ask_human verdict (human-in-the-loop checkpoint) parses and
+    passes the deterministic gate with its human_question."""
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict(
+        verdict="blocked", action="ask_human", human_question="该方案能否放行？",
+        next_state=None)), "design")
+    assert result.ok
+    assert result.verdict.action == "ask_human"
+    assert result.verdict.human_question == "该方案能否放行？"
+
+
+def test_reviewer_parse_ask_human_requires_question():
+    """The gate rejects ask_human without a human_question (fail-fast)."""
+    sm = make_sm()
+    reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))
+    result = reviewer.parse_reply(json.dumps(good_verdict(
+        verdict="blocked", action="ask_human", next_state=None)), "design")
+    assert not result.ok
+    assert "human_question" in result.gate.reason
+
+
 def test_reviewer_parse_node_mismatch():
     sm = make_sm()
     reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))

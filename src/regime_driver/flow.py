@@ -105,7 +105,8 @@ def compile_spec(flow_name: str, spec_text: str) -> StateMachine:
             if not isinstance(n, dict) or "id" not in n:
                 raise FlowError("每个 node 需含 'id'")
             node = {k: n[k] for k in ("id", "desc", "role", "type") if k in n}
-            for extra in ("next", "skill", "tool", "tool_args", "branches"):
+            for extra in ("next", "skill", "tool", "tool_args", "branches",
+                          "readonly", "verify"):
                 if n.get(extra) is not None:
                     node[extra] = n[extra]
             nodes[n["id"]] = node

@@ -290,6 +290,12 @@ sequenceDiagram
 "阻塞性问题"又挥手放行（kv_failover-advance 类矛盾被直接拒绝）。`ask_developer` 要求
 `message_to_developer` 仍成立。该字段可选（缺省 `[]`），旧审查输出向后兼容。
 
+**人工确认点（阶段 4）**：新增动作 `ask_human`（要求 `human_question`，置信度 ≥ 0.6）——
+workflow 冻结推进（`human_wait` 相），把问题写黑板 `{wid}.human_ask` 等待对话框裁决
+（`decide <wid> <yes|no>`；yes 放行推进、no 回开发者重做带评论）；超时按
+`human_confirm_timeout_sec`/`human_default_on_timeout`（默认 block）兜底。事件
+`human_ask`/`human_decision`/`human_timeout`/`human_rework`。
+
 ### 12.2 节点能力边界：`readonly`
 
 `Node.readonly`：只读节点禁止写/改/删文件（提示词注入"节点能力：本节点为【只读】…"）。

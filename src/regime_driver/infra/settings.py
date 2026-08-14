@@ -26,6 +26,12 @@ class Settings(BaseModel):
     agent_reviewer: str = Field(default="reviewer", description="reviewer agent name (for meta-analysis)")
     default_deadline_sec: int = Field(default=600, ge=1, description="per-segment deadline")
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")
+    human_confirm_timeout_sec: int = Field(
+        default=300, ge=1,
+        description="ask_human: how long the workflow waits for a dialog decision before the timeout default")
+    human_default_on_timeout: Literal["block", "advance", "rework"] = Field(
+        default="block",
+        description="ask_human timeout default: 'block' | 'advance' (proceed to next node) | 'rework' (back to developer)")
     ledger_path: str | None = Field(default=None, description="JSONL ledger path (None = off)")
     regime_path: str | None = Field(default=None, description="path to regime.json")
     session_turn_check: int = Field(default=5, ge=1, description="[deprecated] dead config, no consumer")

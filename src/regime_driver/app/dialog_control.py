@@ -229,6 +229,12 @@ class DialogControlUnit(ThreadedUnit):
             return self._write_gate(t) or self._abort(t)
         if self._is_reclaim_cmd(low):
             return self._write_gate(t) or self._reclaim(t)
+        if self._is_decide_cmd(low):
+            # bare `decide` (list pending checkpoints) is READ-only; only an
+            # actual decision (decide <wid> <yes|no>) is a write op.
+            if len(t.split()) < 3:
+                return self._decide(t)
+            return self._write_gate(t) or self._decide(t)
         if self._is_talk_cmd(low):
             return self._write_gate(t) or self._talk(t)
         if self._is_design_cmd(low):
@@ -310,6 +316,10 @@ class DialogControlUnit(ThreadedUnit):
     @staticmethod
     def _is_reclaim_cmd(low: str) -> bool:
         return low.startswith(("reclaim", "回收", "清理 "))
+
+    @staticmethod
+    def _is_decide_cmd(low: str) -> bool:
+        return low in ("decide", "确认", "裁决") or low.startswith(("decide ", "裁决 ", "应答 "))
 
     @staticmethod
     def _int_in(text: str, default: int = 10) -> int:
@@ -423,12 +433,21 @@ class DialogControlUnit(ThreadedUnit):
 
     def _run_design_nl(self, name: str, spec: str) -> None:
         try:
+            # 阶段 4 intent-level design: the LLM turns a natural-language
+            # regime/flow request into a flow JSON, or a WHOLE regime JSON when
+            # the intent mentions supervision/verification/handover concerns.
             prompt = (
-                "请把下面的流程描述转成一个 JSON（只输出 JSON，不要其它文字）：\n"
-                "{\"entry\":\"<起始node id>\",\"nodes\":[{\"id\":\"<id>\",\"desc\":\"<中文描述>\","
-                "\"role\":\"developer|reviewer\",\"type\":\"agent|judge\",\"next\":\"<下一id>\"}]}\n"
+                "请把下面的制度/流程需求转成一个 JSON（只输出 JSON，不要其它文字）。\n"
+                "简单流程输出：{\"entry\":\"<起始node id>\",\"nodes\":["
+                "{\"id\":\"<id>\",\"desc\":\"<中文描述>\",\"role\":\"developer|reviewer\","
+                "\"type\":\"agent|judge\",\"next\":\"<下一id>\"}]}\n"
+                "只有当需求**明确提到**监督/自动中断/看门狗/人工确认时，才输出整制度 JSON："
+                "{\"flow\":{...flow如上...},\"watchdog\":{\"soft_sec\":120,\"hard_sec\":1800}}\n"
+                "若需求明确要求\"审查前必须验证测试/跑测试\"，在对应 judge 节点加 "
+                "\"verify\":\"docker exec {container} pytest -q\"。\n"
                 "要求：agent=开发者干活，judge=审查者判定；最后一个节点 next 为 null；"
-                f"流程必须有且仅有一个起始节点。\n流程描述：{spec}"
+                "流程必须有且仅有一个起始节点。除非需求明确要求监督配置，不要擅自加 watchdog。\n"
+                f"需求描述：{spec}"
             )
             raw = self.llm(prompt, "")
             data = json.loads(raw)
@@ -763,6 +782,46 @@ class DialogControlUnit(ThreadedUnit):
             return f"reclaim {sid} 失败：{exc}"
         return f"已回收 session {sid}（abort + delete）。"
 
+    def _decide(self, text: str) -> str:
+        """`decide <workflow> <yes|no> [评论]` — answer an ask_human checkpoint
+        (阶段 4). `decide` alone lists pending checkpoints.
+
+        Writes `{wid}.human_decision` to the blackboard; the workflow consumes it
+        (YES -> advance, NO -> developer rework with the comment). Write-gated.
+        """
+        parts = text.split(maxsplit=3)
+        if len(parts) < 3:
+            return self._pending_human_asks()
+        wid, answer, comment = parts[1], parts[2].lower(), (parts[3] if len(parts) > 3 else "")
+        bb = self.bus.blackboard if self.bus is not None else None
+        if bb is None:
+            return "decide 需要接入 bus（blackboard）。"
+        if not bb.get(f"{wid}.human_waiting"):
+            return f"workflow '{wid}' 没有待处理的人工确认点（用 `decide` 查看待决列表）。"
+        yes = answer in ("yes", "y", "是", "确认", "通过")
+        if not yes and answer not in ("no", "n", "否", "否决", "不通过"):
+            return "用法：decide <workflow> <yes|no> [评论]。"
+        bb.update(**{f"{wid}.human_decision": {
+            "answer": "yes" if yes else "no", "comment": comment}})
+        return (f"已提交对 workflow '{wid}' 的裁决："
+                f"{'通过' if yes else '否决'}"
+                + (f"（评论：{comment}）" if comment else "")
+                + "。workflow 将据此推进。")
+
+    def _pending_human_asks(self) -> str:
+        bb = self.bus.blackboard if self.bus is not None else None
+        lines = ["=== 待人工裁决的 ask_human 检查点 ==="]
+        found = False
+        if bb is not None:
+            for key in sorted(bb.keys()):
+                if key.endswith(".human_ask") and bb.get(key.replace(".human_ask", ".human_waiting")):
+                    found = True
+                    lines.append(f"  {key[:-len('.human_ask')]}: {bb.get(key)}")
+        if not found:
+            lines.append("  （无待决检查点）")
+        lines.append("用法：decide <workflow> <yes|no> [评论]")
+        return "\n".join(lines)
+
     def _run_talk(self, sid: str, msg: str) -> None:
         try:
             self.session_client.send_message(sid, msg, self.talk_agent)
@@ -832,6 +891,7 @@ class DialogControlUnit(ThreadedUnit):
             "\n"
             "── 运行任务 ────────────────────────────────\n"
             "  start [flow名] <任务> / 启动 ..      非阻塞启动 workflow\n"
+            "  decide <wid> <yes|no> [评论] / 裁决   应答 ask_human 人工确认点（阶段4）\n"
             "  talk <session_id> <内容>            与指定 session 独立交互\n"
             "  abort / reclaim <session_id>         中止 / 回收会话(写)\n"
             "\n"
@@ -866,6 +926,7 @@ class DialogControlUnit(ThreadedUnit):
             "  status / monitor [字段] / 状态        —— 实时 workflow 快照（可只查 node/state/…）\n"
             "  watch [n] [watchdog|blackboard|notify]  —— 最近 n 条事件/按主题\n"
             "  start [flow名] <任务上下文> / 启动 ..   —— 非阻塞启动一个 workflow\n"
+            "  decide <workflow_id> <yes|no> [评论] —— 应答 ask_human 人工确认点（写）\n"
             "  inspect <workflow_id> / 查看 ..         —— 查看某 workflow 黑板指标\n"
             "  parallel / 并行任务                           —— 全部工作区实例 + 健康（并行任务视图）\n"
             "  sessions / 会话 [busy]                    —— 列出 worker 会话及实时状态\n"

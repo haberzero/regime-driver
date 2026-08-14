@@ -146,6 +146,17 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
   **瞬时消息错误**（模型 HTTP/限流/网络）**不是**死会话——工作流继续轮询（受节点
   `default_deadline_sec` 上限），并记 `message_transient_error` 审计事件，绝不误判 BLOCKED。
 
+### 4.2 人工确认点（ask_human，阶段 4）
+
+审查者判定可返回 `action: "ask_human"` + `human_question`——**人工介入检查点**：workflow
+冻结推进，把问题写黑板（`{wid}.human_ask`，对话框监控可见），等待对话框裁决。
+
+- **应答**：`decide <workflow> <yes|no> [评论]`（或 `裁决`；写、权限门控）——`yes` 放行推进到
+  下一节点，`no` 回开发者重做（带评论）后重审。`decide` 单独调用列出全部待决检查点。
+- **超时兜底（无人值守）**：`human_confirm_timeout_sec`（默认 300s）无裁决时按
+  `human_default_on_timeout`（默认 `block`，最安全；`advance`/`rework` 可配）。
+- 事件：`human_ask` / `human_decision` / `human_timeout` / `human_rework`。
+
 ## 5. 配置与环境
 
 - 配置文件见 `config.example.toml`（全部字段+注释）；用法 `--config config.toml`。

@@ -38,6 +38,10 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
 - **扩展点（阶段 2）**：`~/.regime/hooks.py` 插件统一注入 hooks/rules/tools；对话框内 `hook list/
   path/reload` 查看与热重载（reload 为写操作，需权限）。verify 命令已白名单化：只允许
   `docker exec {container} <pytest|python|node|bash|...>` 形态（消 RCE）。
+- **人工确认点（阶段 4）**：审查者可返回 `ask_human` 请求人工介入——workflow 冻结等待对话框
+  `decide <wid> <yes|no> [评论]`（或 `裁决`）应答；超时按 `human_confirm_timeout_sec` 默认兜底。
+  `design <名称> <自然语言>` 已升级为**意图级**：需求提到监督/验证/交接 → 自动生成整制度
+  （judge 节点带 `verify`）。
 - 独立交互：`regime session <id> send "<msg>" --reply --json`、`regime session <id> reply --json`。
 - 校验：`regime validate --json`、`regime gate '<verdict>'`。
 - 清理：`regime sessions --clean` / `--kill <id>`（写操作，谨慎）。

@@ -27,6 +27,37 @@ def test_subscribes_and_renders_blackboard():
     assert "design" in out
 
 
+def test_decide_lists_and_answers_ask_human():
+    """Phase-4: `decide` answers an ask_human checkpoint via the blackboard."""
+    rt = Runtime(enforce_invariants=False)
+    d = DialogControlUnit(bus=rt.bus, allow_write=True)
+    rt.register(d)
+    rt.start()
+    # a workflow surfaced an ask_human checkpoint
+    rt.blackboard.update(**{"w1.human_ask": "确认放行？", "w1.human_waiting": True})
+    # `decide` alone lists pending checkpoints
+    out = d.command("decide")
+    assert "w1" in out and "确认放行？" in out
+    # answer YES
+    out = d.command("decide w1 yes 同意")
+    assert "通过" in out
+    assert rt.blackboard.get("w1.human_decision") == {"answer": "yes", "comment": "同意"}
+    # a workflow with no pending checkpoint is rejected
+    rt.blackboard.update(**{"w2.human_ask": "x", "w2.human_waiting": False})
+    assert "没有待处理" in d.command("decide w2 yes")
+    rt.stop()
+
+
+def test_decide_is_write_gated():
+    rt = Runtime(enforce_invariants=False)
+    d = DialogControlUnit(bus=rt.bus)  # read-only default
+    rt.register(d)
+    rt.start()
+    rt.blackboard.update(**{"w1.human_ask": "x", "w1.human_waiting": True})
+    assert "门禁" in d.command("decide w1 yes")
+    rt.stop()
+
+
 def test_command_monitor_and_events():
     rt = Runtime(enforce_invariants=False)
     d = DialogControlUnit(bus=rt.bus)

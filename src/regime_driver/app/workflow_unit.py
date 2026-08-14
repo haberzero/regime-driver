@@ -55,6 +55,7 @@ _ST_ERROR = "error"
 _PH_NONE = "none"
 _PH_AGENT = "agent_wait"   # agent node dispatched, polling its session
 _PH_JUDGE = "judge_wait"   # judge node dispatched, polling the reviewer session
+_PH_HUMAN = "human_wait"   # phase-4: awaiting a dialog decision on an ask_human checkpoint
 
 
 class _LegacyPolicy:
@@ -131,6 +132,8 @@ class WorkflowUnit(ThreadedUnit):
         self._own_abort: bool = False
         # phase-3 (W3): last logged transient message error, for throttled audit
         self._last_transient_logged = None
+        # phase-4: pending ask_human checkpoint question (None when not waiting)
+        self._human_question = None
         # dispatch pool: blocking send_message (up to the client timeout) runs on
         # a worker thread so the mixed loop never blocks and stays responsive to
         # STOP even while a prompt is being generated remotely.
@@ -419,6 +422,11 @@ class WorkflowUnit(ThreadedUnit):
 
     def _step(self) -> None:
         self._touch_heartbeat()
+        if self._phase == _PH_HUMAN:
+            # phase-4 ask_human checkpoint: awaits the dialog's decision with its
+            # OWN timeout (`human_confirm_timeout_sec`), not the per-node deadline
+            self._step_human()
+            return
         if self._phase != _PH_NONE:
             # per-node wait timeout: never hang forever on a stuck idle session
             if (self._phase_started
@@ -808,8 +816,124 @@ class WorkflowUnit(ThreadedUnit):
             self._state = _ST_DONE
             self._result = (Outcome.HUMAN, self._node, verdict.reason)
             return
+        if action == "ask_human":
+            # phase-4 human-in-the-loop checkpoint: surface the question to the
+            # dialog (blackboard.human_ask) and wait for its decision
+            self._begin_human_checkpoint(
+                verdict.human_question or verdict.reason or "需要人工确认")
+            return
         self._state = _ST_ERROR
         self._result = (Outcome.ERROR, self._node, f"unknown action '{action}'")
+
+    def _begin_human_checkpoint(self, question: str) -> None:
+        """Surface an ask_human checkpoint and freeze advancement until the
+        dialog decides (`human_decision` on the blackboard)."""
+        self._human_question = question
+        self._log("human_ask", node=self._node, question=question[:300],
+                  session=self._wait_sid)
+        bb = self.bus.blackboard if self.bus is not None else None
+        if bb is not None:
+            bb.update(**{
+                f"{self.id}.human_ask": question,
+                f"{self.id}.human_waiting": True,
+                f"{self.id}.human_decision": None,
+            })
+        self._begin_wait(_PH_HUMAN)
+        self._report_to_watchdog()
+
+    def _clear_human_checkpoint(self) -> None:
+        """Consume a human checkpoint: clear ALL its blackboard keys so a decided
+        checkpoint is never listed as pending again or re-answered."""
+        bb = self.bus.blackboard if self.bus is not None else None
+        if bb is not None:
+            bb.set(f"{self.id}.human_decision", None)
+            bb.set(f"{self.id}.human_waiting", None)
+            bb.set(f"{self.id}.human_ask", None)
+
+    def _step_human(self) -> None:
+        """Phase-4: poll for a dialog decision on an ask_human checkpoint.
+
+        `decide <workflow> <yes|no> [comment]` (dialog) writes
+        `{wid}.human_decision`; YES -> advance, NO -> developer rework with the
+        comment. On `human_confirm_timeout_sec` without a decision the configured
+        timeout default applies (`block` | `advance` | `rework`).
+        """
+        bb = self.bus.blackboard if self.bus is not None else None
+        decision = bb.get(f"{self.id}.human_decision") if bb is not None else None
+        if decision is None:
+            if (self._phase_started
+                    and time.time() - self._phase_started
+                    > self.settings.human_confirm_timeout_sec):
+                self._human_timeout_default()
+            self._report_to_watchdog()
+            return
+        if not isinstance(decision, dict):
+            # a malformed write must not kill the step loop — surface and clear
+            self._log("human_decision_error", node=self._node, err=str(decision)[:200])
+            self._clear_human_checkpoint()
+            self._phase = _PH_NONE
+            self._phase_started = None
+            self._report_to_watchdog()
+            return
+        answer = str(decision.get("answer", "")).lower()
+        comment = str(decision.get("comment", ""))
+        self._log("human_decision", node=self._node, answer=answer,
+                  comment=comment[:200], session=self._wait_sid)
+        self._clear_human_checkpoint()  # consume ALL checkpoint keys (B3)
+        self._phase = _PH_NONE
+        self._phase_started = None
+        if answer in ("yes", "y", "是", "确认", "通过", "approve"):
+            self._advance()
+        else:
+            self._route_human_rework(comment or f"human answered '{answer}'")
+
+    def _human_timeout_default(self) -> None:
+        mode = self.settings.human_default_on_timeout
+        self._log("human_timeout", node=self._node, default=mode)
+        self._clear_human_checkpoint()
+        self._phase = _PH_NONE
+        self._phase_started = None
+        if mode == "advance":
+            self._advance()
+        elif mode == "rework":
+            self._route_human_rework("human confirmation timed out")
+        else:  # block (safest unattended default)
+            self._state = _ST_ABORTED
+            self._result = (Outcome.BLOCKED, self._node,
+                            "awaiting human confirmation timed out (no dialog decision)")
+
+    def _route_human_rework(self, comment: str) -> None:
+        """Send the developer back for rework with the human's comment, then
+        re-judge the node (mirrors the ask_developer rework path, including the
+        loop-detection bookkeeping)."""
+        self._dialogue_rounds += 1
+        if self._dialogue_rounds > self.settings.max_dialogue_rounds:
+            self._state = _ST_ERROR
+            self._result = (Outcome.ERROR, self._node, "human rework rounds exhausted")
+            return
+        inquiry = Handoff.reviewer_inquiry(
+            criticisms=[comment] if comment else [],
+            required_rework=comment or "",
+            flow_node=self._node,
+        )
+        self._log("human_rework", node=self._node, msg=inquiry.summary)
+        self._rounds.append((inquiry.inquiry_text(), self._developer_report or ""))
+        if detect_loop(self._rounds, self.settings.convergence_max_identical):
+            self._state = _ST_ABORTED
+            self._result = (Outcome.BLOCKED, self._node,
+                            "human rework is looping")
+            return
+        work_sid = self.sessions.ensure("developer").session_id
+        try:
+            self._dispatch(work_sid, inquiry.inquiry_text(),
+                           self.sessions.agent_for("developer"))
+        except Exception as exc:
+            self._state = _ST_ERROR
+            self._result = (Outcome.ERROR, self._node, str(exc))
+            return
+        self._rejudge = self._node
+        self._wait_sid = work_sid
+        self._begin_wait(_PH_AGENT)
 
     def _advance(self, next_node: str | None = None) -> None:
         if next_node is None:
@@ -891,7 +1015,13 @@ class WorkflowUnit(ThreadedUnit):
                          "paused": self._paused,
                          "report_error": None}
         try:
-            payload["status"] = self.client.session_status(self._wait_sid)
+            if self._phase == _PH_HUMAN:
+                # a human checkpoint is BY DEFINITION idle (waiting for the
+                # operator, not generating) — never a busy session the watchdog
+                # could stall-kill while we wait for the decision.
+                payload["status"] = "idle"
+            else:
+                payload["status"] = self.client.session_status(self._wait_sid)
         except Exception as exc:
             payload["report_error"] = f"status: {exc}"
             self._log("report_error", session=self._wait_sid, err=str(exc))

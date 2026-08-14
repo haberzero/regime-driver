@@ -4,7 +4,7 @@ import json
 import re
 import time
 
-from regime_driver.app.workflow_unit import WorkflowUnit, _PH_AGENT, _PH_JUDGE
+from regime_driver.app.workflow_unit import WorkflowUnit, _PH_AGENT, _PH_JUDGE, _PH_HUMAN
 from regime_driver.core.models import Outcome
 from regime_driver.core.statechart import SignalKind
 from regime_driver.infra.ledger import Ledger
@@ -933,6 +933,82 @@ def test_transient_error_persistent_times_out_via_node_deadline():
     unit.stop()
     assert outcome == Outcome.TIMEOUT
     assert "default_deadline_sec" in detail
+
+
+def _ask_human_unit(nodes, overrides=None):
+    from regime_driver.app.statechart_runtime import Runtime
+    rt = Runtime(enforce_invariants=False)
+    unit, client = _wu(nodes, {}, overrides)
+    unit.bus = rt.bus
+    unit._context = "ctx"
+    return unit, client, rt
+
+
+def _human_verdict(node="t", question="确认放行？"):
+    from regime_driver.core.models import ReviewerVerdict
+    from regime_driver.app.reviewer import ReviewerResult
+    verdict = ReviewerVerdict(node=node, verdict="blocked", action="ask_human",
+                              human_question=question, confidence=0.8,
+                              reason="需人工确认")
+    return ReviewerResult(verdict=verdict)
+
+
+def test_ask_human_yes_advances_and_consumes_decision():
+    """Phase-4: an ask_human checkpoint waits for the dialog's YES and then
+    advances; the decision is consumed (one-shot)."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+    unit, client, rt = _ask_human_unit(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next="t"),
+         Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE, next=None)])
+    unit._node = "t"
+    unit._valid_targets = set()
+    unit._handle_verdict(_human_verdict())
+    assert unit._phase == _PH_HUMAN
+    assert rt.blackboard.get("workflow.human_ask") == "确认放行？"
+    assert rt.blackboard.get("workflow.human_waiting") is True
+    # dialog decides YES -> advance; t is terminal -> COMPLETE
+    rt.blackboard.set("workflow.human_decision", {"answer": "yes", "comment": "ok"})
+    unit._step_human()
+    assert unit._result is not None and unit._result[0] == Outcome.COMPLETE
+    # decision consumed AND all checkpoint keys cleared (B3): never listed pending again
+    assert rt.blackboard.get("workflow.human_decision") is None
+    assert rt.blackboard.get("workflow.human_waiting") is None
+    assert rt.blackboard.get("workflow.human_ask") is None
+
+
+def test_ask_human_no_routes_developer_rework():
+    """Phase-4: a dialog NO sends the developer back for rework with the
+    comment, then re-judges the node."""
+    from regime_driver.core.models import Node, NodeType
+    unit, client, rt = _ask_human_unit(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next="t"),
+         Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE, next=None)])
+    unit._node = "t"
+    unit._valid_targets = set()
+    unit._handle_verdict(_human_verdict())
+    assert unit._phase == _PH_HUMAN
+    rt.blackboard.set("workflow.human_decision", {"answer": "no", "comment": "重做"})
+    unit._step_human()
+    assert unit._phase == _PH_AGENT  # back to the developer for rework
+    assert unit._rejudge == "t"      # the node is re-judged after rework
+
+
+def test_ask_human_timeout_defaults_to_block():
+    """Phase-4: without a dialog decision the configured timeout default applies
+    (block = the safest unattended default)."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+    unit, client, rt = _ask_human_unit(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next="t"),
+         Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE, next=None)],
+        overrides={"human_confirm_timeout_sec": 1})
+    unit._node = "t"
+    unit._valid_targets = set()
+    unit._handle_verdict(_human_verdict())
+    assert unit._phase == _PH_HUMAN
+    unit._phase_started = time.time() - 5  # already past the 1s timeout
+    unit._step_human()
+    assert unit._result is not None and unit._result[0] == Outcome.BLOCKED
+    assert "human confirmation timed out" in unit._result[2]
 
 
 def test_resume_window_own_abort_sentinel_not_blocked():
