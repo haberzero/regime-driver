@@ -82,10 +82,15 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 > dialog）；handover 声明式化（document_template/opening_template，优先级 hook>模板>内置）；verify
 > 白名单化消 RCE（docker exec {container} <白名单程序>，argv 无宿主 shell，sg 回退再引号化）；对话框
 > hook list/path/reload。
+>
+> **阶段 3 全部完成（commit `7a38e9a`，602 passed 零回归 + 真实 worker 冒烟 87.5s complete）**：
+> 语义契约下放——`is_abort_error`（Message.error 分类：仅 MessageAbortedError 类锚定为真 abort，
+> 瞬时错误=可恢复继续轮询，防 ConnectionAbortedError 误判）；`_latest_abort` 只判真 abort BLOCK +
+> 瞬时错误节点 deadline 兜底 + 节流审计 message_transient_error；judge 路径与 agent 对称（error 消息
+> 不解析为判定）；extract_json 尾部逗号容错（字符串安全）。
 
-1. **阶段 3：语义契约下放**——Message.error 区分 abort vs transient（W3）；reviewer 契约容错层
-   （W4）；verify 阻塞混合循环记录 KNOWN_LIMITS。
-2. **阶段 4：对话框意图级制度操作面**——`design` 意图级；gate 扩展 ask_human 确认点。
+1. **阶段 4：对话框意图级制度操作面**——`design` 意图级（如"让 reviewer 在通过前必须验证测试"→
+   自动生成 verify+gate+hook 的制度）；gate 扩展 ask_human 确认点（W-自定义）。
 
 **顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
 

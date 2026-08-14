@@ -190,15 +190,33 @@ test_workflow_unit verify 测试改 mock。
   半径从宿主移到 worker 容器——`bash -c` 仍允许（容器内脚本，意图面），但宿主 shell 解释被移除；
   ④ 交接"可选回调"落点为 handover hook 返回覆盖，声明式模板为 config 化，双通道归一到一个入口。
 
-### 阶段 3：语义契约下放（根因 C/W3/W4）
+### 阶段 3：语义契约下放（根因 C/W3/W4）—— ✅ 完成（commit `7a38e9a`，602 passed 零回归）
 
 目标：Message.error 区分 abort vs transient；reviewer 契约容错层；watchdog_fire 已落盘（阶段0）。
 
-改动：
-- `OpenCodeClient.read_messages`/`ask_and_get_text`：错误分类（`MessageAbortedError` vs transient）。
-- workflow `_latest_abort`：只把真正 abort 哨兵判 BLOCKED，瞬时故障走重试/ERROR（W3）。
-- reviewer 契约：extract_json 增强 + gate 容忍"JSON 对象+可选前后文"（W4）。
-- 新增 Message 错误类型单测。
+**W3（瞬时错误分类）**：
+- `infra/opencode.py` 新增 `is_abort_error(error)`：仅锚定 `MessageAbortedError`/`generation aborted`/
+  `aborted by user` 为真 abort；HTTP/限流/网络=瞬时可恢复。**窄匹配**——`ConnectionAbortedError`
+  （"connection aborted by peer"）这类含 abort 字样的网络瞬时错误绝不误判（review 抓出裸 "abort"
+  子串过宽，收窄）。
+- `workflow._latest_abort`：只把真 abort 判死会话 BLOCK；瞬时错误继续轮询（受节点
+  `default_deadline_sec` 上限）。`_latest_transient_error`/`_audit_transient`：节流记
+  `message_transient_error` 审计（(sid, err[:300]) 键，不刷屏）。
+- `_latest_assistant` 跳过 error 消息：judge 路径与 agent 对称——瞬时错误文本不再被误解析为
+  reviewer 判定（review W2）。
+
+**W4（reviewer 契约容错）**：`extract_json` 增尾部逗号容错（`_strip_trailing_commas` 字符串安全地
+删 `,}`/`,]` 前逗号，绝不破坏字符串内 `, }`；只在原样解析失败后修复；真坏截断仍拒绝）。
+
+**测试 +9**：is_abort_error 分类（含"连接含 abort 字样的网络瞬时反例"）/ _latest_abort 区分 /
+瞬时不 BLOCK 继续轮询 / 审计事件节流 / judge 瞬时错误不解析 / 持久瞬时错误节点 deadline TIMEOUT /
+尾部逗号 + 字符串安全。general 只读 review（0 blocker，W1/W2/W3 全修）。
+
+**工程判断**：
+- ① 瞬时错误的正确语义=可恢复（继续轮询）≠ 死等：由节点 `default_deadline_sec`（默认 600s）兜底，
+  不是无限挂；② abort 判定用"窄锚定 + completed 无 finish 形状"双信号，避免网络瞬时误杀；③
+  reviewer 契约容错只做"字符串安全的机械修复"（尾部逗号），不做"散文转判定"的语义猜测——后者会
+  削弱确定性门。
 
 ### 阶段 4：对话框意图级制度操作面（根因 A 的易用性兑现）
 
