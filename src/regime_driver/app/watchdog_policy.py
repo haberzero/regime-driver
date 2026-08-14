@@ -53,17 +53,24 @@ class Ladder:
     ``fired`` records which rung's action has already been emitted for the
     current episode, so a repeated hit at the same rung (no recovery) fires
     only once.
+
+    ``order`` is the action vocabulary this ladder walks. Defaults to the
+    unified in-process vocabulary; a process-external Actor with a different
+    capability set (docker restart / human escalation) declares its own order
+    (phase-1c: the judgment engine is shared, the action set is per-Actor
+    capability).
     """
 
     index: int = 0
     fired: int = -1  # -1 = nothing emitted yet this episode
+    order: tuple = LADDER_ORDER
 
     def current(self) -> str:
-        return LADDER_ORDER[min(self.index, len(LADDER_ORDER) - 1)]
+        return self.order[min(self.index, len(self.order) - 1)]
 
     def advance(self) -> str:
         """Escalate one rung (does not wrap). Returns the new current action."""
-        if self.index < len(LADDER_ORDER) - 1:
+        if self.index < len(self.order) - 1:
             self.index += 1
         return self.current()
 
@@ -150,6 +157,11 @@ class WatchdogPolicy:
     the same rung for the same session fires only once (the fired guard) until
     it recovers.
 
+    `actions` is the ladder vocabulary this policy walks (default: the unified
+    in-process actions). Actors with a different capability set declare their
+    own order — the judgment engine (rules -> decide -> ladder -> fired-guard ->
+    recovery-reset) is shared, only the action vocabulary differs.
+
     A rule with `meta=True` is meta-gated: the policy returns ``"meta:<action>"``
     so the caller can route the hit to an independent reviewer (e.g. the
     supervisor's meta_analyze) for confirmation before acting.
@@ -158,19 +170,20 @@ class WatchdogPolicy:
     rules: list[Rule] = field(default_factory=list)
     probes: list[Callable[[SessionEvidence], SessionEvidence]] = field(default_factory=list)
     name: str = "default"
+    actions: tuple = LADDER_ORDER
     _ladders: dict[str, "Ladder"] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         # an operator typo (action not on the ladder) must fail loudly at
         # construction, not silently degrade to a light nudge at runtime.
         for rule in self.rules:
-            if rule.action not in LADDER_ORDER:
+            if rule.action not in self.actions:
                 raise ValueError(
                     f"rule '{rule.name}' action {rule.action!r} not in "
-                    f"ladder {LADDER_ORDER}")
+                    f"ladder {self.actions}")
 
     def _ladder_for(self, session_id: str) -> "Ladder":
-        return self._ladders.setdefault(session_id, Ladder())
+        return self._ladders.setdefault(session_id, Ladder(order=self.actions))
 
     def enrich(self, ev: SessionEvidence) -> SessionEvidence:
         for probe in self.probes:
@@ -183,6 +196,14 @@ class WatchdogPolicy:
         `recovered=True` (the session resumed) resets escalation. Among all
         rules that fire, the MOST severe action wins (the one highest on the
         ladder), so a soft rule can never mask a hard rule that also applies.
+
+        A rule with `meta=True` is meta-gated: the policy reports
+        ``"meta:<action>"`` so the caller can route the hit to an independent
+        reviewer (e.g. the supervisor's meta_analyze) for confirmation BEFORE
+        acting — but only when that action is proposed solely by meta rules. If
+        a non-meta (deterministic) rule also proposes the same action, the
+        deterministic floor already holds and it acts directly: meta is a gate,
+        never a mask for a harder deterministic rule.
         The session's ladder then climbs to that rung; a repeated hit at the
         same rung (no recovery) fires only once.
         """
@@ -191,8 +212,8 @@ class WatchdogPolicy:
         if recovered:
             ladder.reset()
             return None
-        hits = []
-        meta_hits = []
+        hits: list[str] = []
+        meta_hits: list[str] = []
         for rule in self.rules:
             try:
                 if rule.predicate(ev):
@@ -202,30 +223,20 @@ class WatchdogPolicy:
                         hits.append(rule.action)
             except Exception:  # a broken operator rule must not kill the loop
                 continue
-        # A meta-gated rule requires independent confirmation before acting. The
-        # policy reports an ESCALATE (confirmed-by-meta) action; the caller (the
-        # governed unit / supervisor) decides whether the intelligent reviewer
-        # approves. We only emit it once per rung.
-        if meta_hits:
-            meta_action = max(meta_hits, key=lambda a: LADDER_ORDER.index(a)
-                              if a in LADDER_ORDER else 0)
-            ladder = self._ladder_for(ev.session_id)
-            self._climb_to(ladder, meta_action)
-            if not ladder.should_fire():
-                return None
-            return f"meta:{ladder.current()}"
-        if not hits:
+        candidates = hits + meta_hits
+        if not candidates:
             return None
-        action = max(hits, key=lambda a: LADDER_ORDER.index(a)
-                     if a in LADDER_ORDER else 0)
-        ladder = self._ladder_for(ev.session_id)
+        # rule actions are validated against self.actions at construction, so
+        # the severity lookup is total (no dead defensive `else`).
+        action = max(candidates, key=lambda a: self.actions.index(a))
+        gated = action in meta_hits and action not in hits
         self._climb_to(ladder, action)
         if not ladder.should_fire():
             return None  # fired once for this session, no recovery
-        return ladder.current()
+        return f"meta:{action}" if gated else action
 
     def _climb_to(self, ladder: "Ladder", action: str) -> None:
-        target = LADDER_ORDER.index(action) if action in LADDER_ORDER else 0
+        target = self.actions.index(action) if action in self.actions else 0
         while ladder.index < target:
             ladder.advance()
 

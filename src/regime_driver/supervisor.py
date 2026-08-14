@@ -13,8 +13,11 @@ in-process WatchdogUnit cannot have (platform limit). This runs on the host
 The watchdog loop is fully wired (no dead ladder): each poll it
   ingest_events   consumes the worker SSE /event stream into the Reporter
   T1              polls worker health -> L4 docker restart if down
-  T2              detects session stall -> escalates through the correction
-                  ladder (abort -> fallback -> restart -> human), executing real
+  T2              detects session stall through the SHARED watchdog_policy rule
+                  engine (phase-1c: the old hand-rolled SessionWatch /
+                  _verdict_for_stall second judgment implementation is gone) ->
+                  escalates through the external action ladder
+                  (abort -> fallback_model -> restart -> human), executing real
                   actions and recording each to the Reporter
   deadline        aborts once the budget is exhausted
 """
@@ -30,6 +33,7 @@ from typing import Callable
 
 from .app.reporter import Reporter
 from .app.sse_activity import is_progress_event
+from .app.watchdog_policy import Rule, SessionEvidence, WatchdogPolicy, no_activity_for
 from .infra.opencode import OpenCodeClient
 
 # correction ladder levels (L1 light -> L5 human)
@@ -38,6 +42,14 @@ L2_ABORT = "abort"
 L3_FALLBACK = "fallback_model"
 L4_RESTART = "restart"
 L5_HUMAN = "human"
+
+# process-external action vocabulary (phase-1c): the external supervisor walks
+# its OWN ladder order through the shared watchdog_policy engine — the judgment
+# (evidence -> rules -> ladder -> fired-guard -> recovery-reset) is the single
+# unified engine; only the action set differs because its capability set does
+# (docker restart + human escalation, no in-process pause/resume).
+EXTERNAL_ACTIONS = (L2_ABORT, L3_FALLBACK, L4_RESTART, L5_HUMAN)
+EXTERNAL_ACTION_INDEX = {a: i for i, a in enumerate(EXTERNAL_ACTIONS)}
 
 ALLOWED_VERDICTS = {"normal", "stalled", "looping", "blocked", "error", "escalate"}
 ALLOWED_ACTIONS = {"none", L1_NUDGE, L2_ABORT, L3_FALLBACK, L4_RESTART, L5_HUMAN}
@@ -120,89 +132,41 @@ def docker_restart(container: str) -> bool:
     return False
 
 
-@dataclass
-class SessionWatch:
-    """Per-session stall bookkeeping (pure, testable).
+def external_policy(stall_sec: float) -> WatchdogPolicy:
+    """Default process-external T2 policy (absolute-duration multi-level rules).
 
-    T2 semantics (WORK_PLAN10): a session is STALLED only if it has been busy
-    AND produced no SSE progress for a *contiguous* window of at least
-    ``stall_sec`` seconds. Liveness is measured by the SSE-activity timestamp
-    (``activity_ts``) fed in from ``Supervisor.ingest_events`` — token counts
-    are deliberately NOT used because opencode persists them only at
-    step-finish (stale during long single-step generations).
-
-    ``last_message_ts`` = last time we saw any SSE progress.
-    ``_stalled_since`` = start of the current frozen window (0 = none).
-    ``consecutive_stalls`` counts contiguous windows that each exceeded
-    stall_sec, driving the deterministic correction ladder one rung per window.
+    A frozen-busy session escalates by TOTAL silence duration: abort at
+    ``stall_sec``, fallback model at ``2*stall_sec``, restart at ``3*stall_sec``,
+    human at ``4*stall_sec``. This is the behavioral redesign of the old
+    per-window ladder (SessionWatch/_verdict_for_stall — the second, hand-rolled
+    judgment implementation — is gone): escalation timing is equivalent, but the
+    decision now runs through the SHARED `watchdog_policy` rule engine used by
+    the in-process watchdog. Rules fire once per rung (ladder fired-guard); a
+    recovery (SSE activity resumed / session idle) resets the ladder so a later
+    separate stall episode starts fresh from abort.
     """
-
-    last_message_ts: float = 0.0
-    consecutive_stalls: int = 0
-    _stalled_since: float = 0.0
-
-    def observe(self, now: float, busy: bool, activity_ts: float = 0.0) -> bool:
-        """Update bookkeeping from one poll observation (pure state updater).
-
-        Returns True when the session recovered (SSE activity resumed / went
-        idle) — used by ``is_stalled`` to reset the consecutive escalation
-        counter so a stall episode is counted only while it persists.
-        """
-        recovered = False
-        if activity_ts and activity_ts > self.last_message_ts:
-            # SSE streaming activity counts as progress (long deep-reasoning
-            # phases stream message.part.delta continuously).
-            self.last_message_ts = activity_ts
-            self._stalled_since = 0.0
-            recovered = True
-        if self.last_message_ts == 0.0:
-            # first observation: establish the baseline, never false-stall
-            self.last_message_ts = now
-            self._stalled_since = 0.0
-            return recovered
-        if not busy:
-            # not busy -> no stall possible; reset so a later busy window starts
-            # from a fresh baseline
-            self.last_message_ts = now
-            self._stalled_since = 0.0
-            return True
-        if self._stalled_since == 0.0:
-            # frozen: anchor the window at the last progress time
-            self._stalled_since = self.last_message_ts
-        return recovered
-
-    def is_stalled(self, now: float, stall_sec: float, busy: bool,
-                   activity_ts: float = 0.0) -> bool:
-        """True once the session has been frozen-and-busy for >= stall_sec.
-
-        The window is anchored at the last progress time (``last_message_ts`` /
-        ``_stalled_since``), so a session silent for ``stall_sec`` fires. Returns
-        True once per expired window (then advances the anchor to consume it),
-        so continued frozen escalates the ladder one rung per stall_sec. A
-        recovery (SSE activity resumed / idle) resets the consecutive counter so
-        escalation does not leak across separate episodes.
-        """
-        recovered = self.observe(now, busy, activity_ts=activity_ts)
-        if recovered:
-            self.consecutive_stalls = 0
-            return False
-        if self._stalled_since and now - self._stalled_since >= stall_sec:
-            self.consecutive_stalls += 1
-            # consume this window: re-fire only after another stall_sec of silence
-            self._stalled_since = now
-            return True
-        return False
-
-
-def _verdict_for_stall(count: int) -> tuple[str, str, float]:
-    """Deterministic verdict for a consecutive-stall run: escalate as it persists."""
-    if count <= 1:
-        return "stalled", L2_ABORT, 0.6
-    if count == 2:
-        return "stalled", L3_FALLBACK, 0.6
-    if count == 3:
-        return "error", L4_RESTART, 0.8
-    return "escalate", L5_HUMAN, 0.9
+    return WatchdogPolicy(
+        name="external",
+        actions=EXTERNAL_ACTIONS,
+        rules=[
+            Rule(name="external-stall-1",
+                 predicate=no_activity_for(stall_sec),
+                 action=L2_ABORT,
+                 reason=f"frozen busy past stall_sec ({stall_sec:.0f}s)"),
+            Rule(name="external-stall-2",
+                 predicate=no_activity_for(2.0 * stall_sec),
+                 action=L3_FALLBACK,
+                 reason="still frozen: fallback model"),
+            Rule(name="external-stall-3",
+                 predicate=no_activity_for(3.0 * stall_sec),
+                 action=L4_RESTART,
+                 reason="still frozen: restart worker"),
+            Rule(name="external-stall-4",
+                 predicate=no_activity_for(4.0 * stall_sec),
+                 action=L5_HUMAN,
+                 reason="still frozen: escalate to human"),
+        ],
+    )
 
 
 # -- intelligent meta-analysis (real model judges verdict, deterministic-gated) --
@@ -261,6 +225,7 @@ class Supervisor:
         meta_model: str | None = None,
         agent_reviewer: str = "reviewer",
         meta_max_context_msgs: int = 20,
+        policy: WatchdogPolicy | None = None,
     ) -> None:
         self.client = client
         self.reporter = reporter
@@ -274,11 +239,21 @@ class Supervisor:
         self.meta_model = meta_model
         self.agent_reviewer = agent_reviewer
         self.meta_max_context_msgs = meta_max_context_msgs
-        self.watch = SessionWatch()
+        # phase-1c: the process-external T2 judgment runs through the SAME
+        # watchdog_policy rule engine as the in-process watchdog (Observer ->
+        # Judge -> Actor): `external_policy` walks the external action ladder
+        # (abort/fallback/restart/human) with absolute-duration multi-level
+        # rules. The old hand-rolled SessionWatch/_verdict_for_stall second
+        # implementation is gone.
+        self.policy = policy or external_policy(stall_sec)
+        # meta bounder (the deterministic gate on intelligence): each ladder
+        # type is used at most once per supervision run.
         self.ladder = LadderState()
         self._start = time.time()
         self._meta_sid: str | None = None
         self._last_activity_ts: float = 0.0
+        self._prev_activity_ts: float = 0.0   # last activity value we consumed
+        self._first_busy_ts: float = 0.0      # anchor for a silent busy session
         self._events_no_type = 0          # events whose type could not be resolved
         self._last_liveness_log = 0.0     # throttle liveness warnings
         # drive-mode meta channel: only review watchdog fires recorded AFTER this
@@ -466,6 +441,11 @@ class Supervisor:
         dual-watchdog race (an external T2 firing at a different stall_sec than
         the in-process watchdog and hard-aborting the session before its recovery
         ladder can run).
+
+        In both modes T2 judgment (when enabled) runs through the same
+        `WatchdogPolicy` engine the in-process watchdog uses — a single Judge,
+        two Actors (in-process: pause/resume/fallback/kill; external:
+        abort/fallback/restart/human per its capability set).
         """
         while True:
             if stop_when is not None and stop_when():
@@ -479,24 +459,21 @@ class Supervisor:
                     # stay 0 during a long single-step generation; only the SSE
                     # /event stream is an immediate liveness signal. We deliberately
                     # do NOT read session_tokens here.
+                    #
+                    # phase-1c: judgment runs through the shared watchdog_policy
+                    # rule engine (evidence -> rules -> ladder). The external
+                    # policy escalates by absolute silence duration; a recovery
+                    # (fresh SSE activity / idle) resets the per-session ladder.
                     status = self.client.session_status(self.session_id)
-                    busy = status == "busy"
-                    stalled = self.watch.is_stalled(
-                        time.time(), self.stall_sec, busy,
-                        activity_ts=self._last_activity_ts)
-                    if stalled:
-                        if self.meta_enabled:
-                            meta = self.meta_analyze()
-                        else:
-                            meta = None
-                        if meta is not None:
-                            verdict, action, confidence = meta
-                        else:
-                            # deterministic fallback (or no meta model available)
-                            verdict, action, confidence = _verdict_for_stall(
-                                self.watch.consecutive_stalls)
-                        action = choose_action(verdict, action, confidence, self.ladder)
-                        self._execute(action, verdict)
+                    ev, recovered = self._evidence(status)
+                    action = self.policy.decide(ev, recovered=recovered)
+                    if action is not None:
+                        # intelligent second opinion: meta may escalate (e.g.
+                        # straight to human) but never reduce the deterministic
+                        # action — the policy is the safety floor.
+                        action = self._meta_second_opinion(action)
+                        detail = f"watchdog policy '{self.policy.name}' -> {action}"
+                        self._execute(action, detail)
                         if action == L5_HUMAN:
                             return L5_HUMAN
                         # restart gives the worker a fresh start; abort/failed are retried
@@ -524,9 +501,63 @@ class Supervisor:
                 return "complete"
             time.sleep(self.health_poll_sec)
 
-    def _execute(self, action: str, verdict: str) -> None:
+    # -- T2 judgment (shared watchdog_policy engine) -------------------------
+
+    def _evidence(self, status: str) -> tuple[SessionEvidence, bool]:
+        """Build the session evidence + recovery flag for one T2 poll.
+
+        `recovered` = the session produced FRESH SSE activity since the last
+        poll (streaming progress) or is not busy — either resets the policy's
+        per-session ladder so a later separate stall episode starts fresh from
+        the first rung. A busy session with no new activity keeps counting
+        silence; the external policy's absolute-duration multi-level rules then
+        escalate every ``stall_sec`` of total silence.
+        """
+        now = time.time()
+        fresh = self._last_activity_ts > self._prev_activity_ts
+        self._prev_activity_ts = self._last_activity_ts
+        if fresh or status != "busy":
+            self._first_busy_ts = 0.0
+            recovered = True
+        else:
+            self._first_busy_ts = self._first_busy_ts or now
+            recovered = False
+        return SessionEvidence(
+            session_id=self.session_id,
+            status=status,
+            activity_ts=self._last_activity_ts,
+            latest_message_ts=0.0,
+            latest_message_age=0.0,
+            node=None,
+            phase=None,
+            now=now,
+            first_busy_ts=self._first_busy_ts,
+        ), recovered
+
+    def _meta_second_opinion(self, action: str) -> str:
+        """Intelligent second opinion on a deterministic stall action.
+
+        When `--meta` is on, an independent model judges the same stall; its
+        gated recommendation (``gate_meta`` + ``choose_action`` bounds) may
+        ESCALATE the deterministic action — e.g. straight to human for a clearly
+        dead session — but never reduces it. The deterministic policy is the
+        safety floor; intelligence advises within the gate and does not overrule
+        it (phase-0 decision).
+        """
+        if not self.meta_enabled:
+            return action
+        meta = self.meta_analyze()
+        if meta is None:
+            return action
+        verdict, meta_action, confidence = meta
+        resolved = choose_action(verdict, meta_action, confidence, self.ladder)
+        if EXTERNAL_ACTION_INDEX.get(resolved, -1) > EXTERNAL_ACTION_INDEX.get(action, -1):
+            return resolved
+        return action
+
+    def _execute(self, action: str, detail: str = "") -> None:
         """Execute a ladder action against the real worker (wired)."""
-        self._record("ladder_action", action=action, verdict=verdict,
+        self._record("ladder_action", action=action, reason=detail,
                      session=self.session_id)
         if action in (L2_ABORT, L3_FALLBACK) and self.session_id:
             self.client.abort_session(self.session_id)

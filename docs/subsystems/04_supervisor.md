@@ -32,6 +32,16 @@
 > fire-once + `auto_resume_sec` 自动 RESUME）。中断（PAUSE）非破坏性：abort 当前生成、
 > 保持会话、冻结推进，RESUME 注入"继续"续接；只有最终 kill 才终止。配置见
 > `settings.watchdog_policy_json`。
+>
+> **判定统一（阶段 1c）**：独立 `regime supervisor` 的 T2 判定**走同一 `watchdog_policy`
+> 规则引擎**（曾自研的 `SessionWatch`/`_verdict_for_stall` 第二套判定实现已删除）。
+> 引擎统一（Observer→Judge→Actor）：证据 `SessionEvidence` → 规则 → per-session 阶梯 +
+> fire-once + 恢复重置全部共享；仅动作词汇按 Actor 能力位声明——进程内走
+> `nudge/interrupt/resume/fallback/kill`，进程外走 `abort/fallback_model/restart/human`
+> （`Ladder.order` / `WatchdogPolicy.actions` 参数化）。**行为语义重设计**：进程外阶梯
+> 由**绝对静默时长多级规则**驱动（`stall_sec`→abort、`2×`→换模型、`3×`→重启、
+> `4×`→人工），等效于旧的连续窗口逐级升级，但判定源单一。meta 第二意见为
+> **只升不降**（可把确定性动作直接升到 human，但绝不减少——确定性策略是安全下限）。
 
 **结论**：进程外独立时钟监督是架构性必需的。监督功能作为 regime-driver 一等公民（`regime supervisor` /
 `regime task`），提供一套统一的进程外监督面。
@@ -102,7 +112,7 @@ flowchart TD
     T2{"T2 停滞：<br/>busy 但长时间无新输出？"}
     T1{"T1 健康：<br/>worker 进程 / 容器活着？"}
     DD{"超过 deadline？"}
-    LAD(["纠正阶梯 L1–L5<br/>nudge → abort → 换模型 → 重启 → 人工<br/>（连续停滞逐级升级）"])
+    LAD(["纠正阶梯 L1–L5<br/>abort → 换模型 → 重启 → 人工<br/>（绝对静默时长多级规则，共享 watchdog_policy 引擎）"])
     R(["L4 重启容器（docker）"])
     AB(["按 deadline 终止"])
     END(["写 Reporter：ladder / deadline / unhealthy 等事件<br/>（与 workflow 事件同一 journal）"])
@@ -120,10 +130,13 @@ flowchart TD
 ```
 
 > 图例：菱形 = 判定，圆角矩形 = 动作。正常路径每轮回到循环起点；异常路径最终都
-> 落到 Reporter 记账（唯一事件真源）。T2 阶梯中"换模型 / 重启 / 人工"由 `LadderState`
-> 限界，一次尝试内至多触发一次；主机模式（无容器）T1 异常时记为 `unhealthy` 而不重启。
-> **drive 模式**（`supervise_sessions=False`）下 T2 块被跳过，循环只跑 T1 + deadline + meta
-> （会话级停滞与恢复由进程内策略看门狗承担）。
+> 落到 Reporter 记账（唯一事件真源）。T2 判定经 `WatchdogPolicy.decide`（阶段 1c 起与
+> 进程内 watchdog 同一引擎），动作词汇为进程外能力集 `abort/fallback_model/restart/human`
+> （`EXTERNAL_ACTIONS`，`Ladder.order` 参数化）；阶梯逐级升级由绝对静默时长规则驱动
+> （`stall_sec`→abort、`2×`→换模型、`3×`→重启、`4×`→人工），恢复（SSE 活性恢复/idle）
+> 重置阶梯。meta 第二意见（`--meta`）只升不降。主机模式（无容器）T1 异常时记为
+> `unhealthy` 而不重启。**drive 模式**（`supervise_sessions=False`）下 T2 块被跳过，
+> 循环只跑 T1 + deadline + meta（会话级停滞与恢复由进程内策略看门狗承担）。
 
 ---
 

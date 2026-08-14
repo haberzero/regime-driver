@@ -432,6 +432,24 @@ def test_meta_gated_rule_emits_escalate_not_direct_action():
     assert ("pause", "interrupt") not in got, "meta-gated must not act directly"
 
 
+def test_meta_gated_soft_rule_never_masks_harder_deterministic_rule():
+    """Regression (phase-1c review W1): a meta-gated SOFT rule must not consume
+    the ladder and permanently mask a harder non-meta rule. Once the hard
+    threshold is crossed the deterministic kill acts directly (meta is a gate,
+    not a short-circuit)."""
+    now = time.time()
+    p = WatchdogPolicy(rules=[
+        Rule("soft-meta", no_activity_for(10), L2_INTERRUPT, meta=True),
+        Rule("hard", no_activity_for(60), L5_KILL),
+    ])
+    # only the soft-meta rule fires -> meta-gated
+    assert p.decide(_ev(activity_ts=now - 20, now=now)) == "meta:" + L2_INTERRUPT
+    # same meta rung, no recovery -> fired-once, nothing
+    assert p.decide(_ev(activity_ts=now - 30, now=now + 1)) is None
+    # hard threshold crossed: the deterministic kill must act (not be masked)
+    assert p.decide(_ev(activity_ts=now - 70, now=now + 2)) == L5_KILL
+
+
 def test_nudge_fires_once_per_episode():
     """A nudge (rung 0) fires once per episode, not on every report."""
     p = WatchdogPolicy(rules=[Rule("poke", no_activity_for(0.1), L1_NUDGE)])

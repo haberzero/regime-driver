@@ -99,7 +99,7 @@ Review（general 只读）：1 blocker（drive --meta 失效）+ 4 warning + 4 n
 `_on_escalate` 仅记录日志）；W3 语义契约（Message error 区分）；独立 supervisor 判定统一到
 watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实现，留阶段 1 Regime 收敛时处理）。
 
-### 阶段 1：Regime 一等公民（根因 A）——1a/1b/1d 完成 ✅，1c 待续
+### 阶段 1：Regime 一等公民（根因 A）——1a/1b/1c/1d 完成 ✅，剩余 1d-补
 
 目标：flow + watchdog_policy + handover_policy + role policy + verify + hooks 收敛为 `Regime`
 对象，统一生命周期；settings 中 policy 字段并入 regime 声明；`regime design/validate/reload`
@@ -116,9 +116,25 @@ watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实�
 - general 只读 review 两轮：2 blocker（--regime-name 解析不到 store / --flow 跑错流程）+ 4 warning
   （async 转发/load name 穿越/design name 注入/multi-soft roundtrip）+ nits 全处理。
 
-**遗留（阶段 1c）**：独立 `regime supervisor` 判定仍用自研 SessionWatch/_verdict_for_stall（第二套
-判定实现）——统一到 watchdog_policy 规则引擎（删除自研），属行为语义重设计（连续窗口 vs 绝对时长
-多级规则），留后续 session 慎重处理。**遗留（1d 补全）**：run-many/drive-many `--regime-name`。
+**阶段 1c（判定统一，commit `3f0aa1e`，550 passed 零回归 + general 只读 review）**：
+独立 `regime supervisor` 的 T2 判定统一到 `watchdog_policy` 规则引擎——
+- 删除自研第二套判定实现 `SessionWatch`/`_verdict_for_stall`。
+- `Ladder` 增 `order` 参数 + `WatchdogPolicy.actions`（动作词汇按 Actor 能力位参数化：
+  进程内 `nudge/interrupt/resume/fallback/kill`，进程外 `abort/fallback_model/restart/human`；
+  规则校验/阶梯/decide 全部走 `self.actions`）。
+- `supervisor.py` 新增 `external_policy(stall_sec)`（绝对静默时长多级规则：
+  `stall_sec`→abort、`2×`→换模型、`3×`→重启、`4×`→人工）；`Supervisor._evidence` 构造
+  `SessionEvidence` + 恢复旗标（SSE 新鲜活性/idle 重置阶梯）；T2 判定 = `policy.decide(ev, recovered)`。
+- meta 第二意见语义定案：**只升不降**（meta 可把确定性动作直接升到 human，绝不减少——
+  确定性策略是安全下限，智能不越确定性门，符合阶段 0 定案）。
+- 测试重写：删 SessionWatch/_verdict_for_stall 测试，新增 external policy 规则/阶梯/恢复/越界
+  拒绝 + meta 只升不降 + run-loop 升级路径；watchdog_policy 现有测试不变量保持。
+- 工程判断：判定统一 vs 动作词汇统一——1c 只统一 Judge（证据→规则→阶梯→decide→恢复全共享），
+  动作词汇按 Actor 能力位声明（进程外无 pause/resume、有 docker 重启+human）；强行把外部动作
+  硬塞进统一词汇会造出语义牵强的映射（restart vs kill vs human 不对齐），留 Action 层后续收敛。
+
+**遗留（1d 补全）**：run-many/drive-many `--regime-name`；对话框制度设计入口（dialog `design`
+升级为整制度）。
 
 ### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）
 

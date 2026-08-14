@@ -7,15 +7,16 @@ import time
 import pytest
 
 from regime_driver.supervisor import (
+    EXTERNAL_ACTIONS,
     L2_ABORT,
     L3_FALLBACK,
     L4_RESTART,
     L5_HUMAN,
     LadderState,
     MetaGateReject,
-    SessionWatch,
     Supervisor,
     choose_action,
+    external_policy,
     gate_meta,
     _parse_meta_verdict,
 )
@@ -61,53 +62,56 @@ def test_choose_action_restart_not_repeated_escalates_to_human():
     assert choose_action("error", L4_RESTART, 0.8, state) == L5_HUMAN
 
 
-def test_session_watch_first_observe_establishes_baseline():
-    # first observe must never false-stall (last_message_ts starts at 0)
-    w = SessionWatch()
-    assert w.observe(now=100.0, busy=True) is False
-    assert w.last_message_ts == 100.0
+def test_external_policy_actions_ladder():
+    """Phase-1c: the external supervisor declares its OWN action order through
+    the shared watchdog_policy engine (capability-set per Actor)."""
+    assert list(EXTERNAL_ACTIONS) == [L2_ABORT, L3_FALLBACK, L4_RESTART, L5_HUMAN]
+    p = external_policy(stall_sec=60)
+    assert p.name == "external"
+    assert [r.action for r in p.rules] == \
+        [L2_ABORT, L3_FALLBACK, L4_RESTART, L5_HUMAN]
 
 
-def test_session_watch_not_stalled_within_stall_window():
-    # frozen & busy but only 30s into the 60s window -> NOT stalled (negative case)
-    w = SessionWatch(last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True) is False
+def test_external_policy_escalates_by_absolute_silence():
+    """Behavioral redesign (phase-1c): escalation is driven by TOTAL silence
+    duration (multi-level absolute rules), not by consecutive per-window counts.
+    A session silent for k*stall_sec climbs to the k-th ladder rung; a recovery
+    resets the ladder so the next separate episode starts fresh from abort."""
+    from regime_driver.app.watchdog_policy import SessionEvidence
+
+    p = external_policy(stall_sec=60)
+    now = 1000.0
+
+    def ev(silent_since):
+        return SessionEvidence(session_id="s1", status="busy",
+                               activity_ts=silent_since, now=now)
+
+    # no silence yet -> nothing
+    assert p.decide(ev(now)) is None
+    # 60s silence -> abort (first rung)
+    assert p.decide(ev(now - 60)) == L2_ABORT
+    # same rung hit again (no recovery) -> fired-once guard -> None
+    assert p.decide(ev(now - 61)) is None
+    # 120s total silence -> fallback; 180s -> restart; 240s -> human (final)
+    assert p.decide(ev(now - 120)) == L3_FALLBACK
+    assert p.decide(ev(now - 180)) == L4_RESTART
+    assert p.decide(ev(now - 240)) == L5_HUMAN
+    # recovery resets the ladder
+    assert p.decide(ev(now - 240), recovered=True) is None
+    # fresh silence starts again from the first rung
+    assert p.decide(ev(now - 60)) == L2_ABORT
 
 
-def test_session_watch_stall_detection_after_window():
-    # frozen & busy continuously past stall_sec -> stalled exactly once
-    w = SessionWatch(last_message_ts=100.0)
-    assert w.is_stalled(now=100.0, stall_sec=60.0, busy=True) is False
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True) is True
-    # window consumed: no re-fire on the next poll while still frozen
-    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=True) is False
+def test_external_policy_rejects_action_outside_actions():
+    """An operator rule action outside the policy's declared ladder fails loudly
+    at construction (same engine guarantee as the in-process vocabulary)."""
+    from regime_driver.app.watchdog_policy import Rule, WatchdogPolicy
 
-
-def test_session_watch_sse_activity_resets_window():
-    # a long deep-reasoning generation streams SSE deltas: SSE activity must
-    # keep the session alive, never stalled.
-    w = SessionWatch(last_message_ts=100.0)
-    # SSE delta at +29s resets the window; +30s poll sees no stall
-    assert w.is_stalled(now=100.0 + 30.0, stall_sec=60.0, busy=True,
-                        activity_ts=100.0 + 29.0) is False
-    # SSE keeps arriving (at +69s); +70s poll still no stall
-    assert w.is_stalled(now=100.0 + 70.0, stall_sec=60.0, busy=True,
-                        activity_ts=100.0 + 69.0) is False
-    # SSE stops at +69s; frozen for 60s afterwards (at +130s) -> finally stalled
-    assert w.is_stalled(now=100.0 + 130.0, stall_sec=60.0, busy=True,
-                        activity_ts=100.0 + 69.0) is True
-
-
-def test_session_watch_recovery_resets_consecutive_stalls():
-    # a stall window fires once; a recovery (idle) resets the consecutive
-    # counter so a later separate episode starts fresh (no cross-episode
-    # escalation leak).
-    w = SessionWatch(last_message_ts=100.0)
-    assert w.is_stalled(now=100.0 + 61.0, stall_sec=60.0, busy=True) is True
-    assert w.consecutive_stalls == 1
-    # session goes idle -> recovery
-    assert w.is_stalled(now=100.0 + 62.0, stall_sec=60.0, busy=False) is False
-    assert w.consecutive_stalls == 0
+    with pytest.raises(ValueError):
+        WatchdogPolicy(
+            actions=EXTERNAL_ACTIONS,
+            rules=[Rule("bad", lambda e: True, "kill")],  # not in external ladder
+        )
 
 
 def test_is_progress_event():
@@ -120,11 +124,6 @@ def test_is_progress_event():
     assert is_progress_event("message.part.delta") is True
     assert is_progress_event("message.completed") is True
     assert is_progress_event("session.idle") is True
-
-
-def test_session_watch_not_stalled_when_idle():
-    w = SessionWatch(last_message_ts=100.0)
-    assert w.is_stalled(now=200.0, stall_sec=60.0, busy=False) is False
 
 
 # -- meta-analysis (real model judges verdict, deterministic-gated) -----------
@@ -203,19 +202,35 @@ def test_meta_analyze_bad_verdict_rejected_falls_back_none():
     sup = Supervisor(client, session_id="s1", meta_enabled=True, meta_model="m")
     assert sup.meta_analyze() is None
 
-
 def test_meta_analyze_model_error_returns_none():
     sup = Supervisor(_MetaClient(fail=True), session_id="s1",
                      meta_enabled=True, meta_model="m")
     assert sup.meta_analyze() is None
 
 
+def test_meta_second_opinion_escalates_but_never_reduces():
+    """Phase-1c meta semantics: intelligence may escalate the deterministic
+    action (e.g. straight to human) but never reduce it — the deterministic
+    policy is the safety floor and meta advises within the gate."""
+    # meta recommends human -> deterministic abort is escalated to human
+    client = _MetaClient(reply='{"verdict":"blocked","confidence":0.9,'
+                               '"recommended_action":"human","reason":"hard block"}')
+    sup = Supervisor(client, session_id="s1", meta_enabled=True, meta_model="m")
+    assert sup._meta_second_opinion(L2_ABORT) == L5_HUMAN
+    assert client.calls == 1
 
-def test_verdict_for_stall_escalates():
-    from regime_driver.supervisor import _verdict_for_stall
-    assert _verdict_for_stall(1) == ("stalled", L2_ABORT, 0.6)
-    assert _verdict_for_stall(3) == ("error", L4_RESTART, 0.8)
-    assert _verdict_for_stall(4) == ("escalate", L5_HUMAN, 0.9)
+    # meta recommends nothing (normal/none) -> deterministic action preserved
+    client2 = _MetaClient(reply='{"verdict":"normal","confidence":0.6,'
+                                '"recommended_action":"none","reason":"ok"}')
+    sup2 = Supervisor(client2, session_id="s1", meta_enabled=True, meta_model="m")
+    assert sup2._meta_second_opinion(L2_ABORT) == L2_ABORT
+    assert client2.calls == 1
+
+    # meta disabled -> no model call, deterministic action used unchanged
+    client3 = _MetaClient()
+    sup3 = Supervisor(client3, session_id="s1", meta_enabled=False)
+    assert sup3._meta_second_opinion(L4_RESTART) == L4_RESTART
+    assert client3.calls == 0
 
 
 def test_supervisor_ingests_events(monkeypatch):
@@ -389,38 +404,34 @@ class _StallLoopClient:
         self.aborts += 1
 
 
-def test_supervisor_t2_fires_on_genuine_stall_not_on_handshake():
+def test_supervisor_t2_never_fires_when_streaming():
     """Regression for the live-loop wiring: per-poll `server.connected` must not
-    count as session activity (or T2 would never fire); a genuinely frozen-busy
-    session must escalate after stall_sec."""
-    from regime_driver.supervisor import Supervisor, L2_ABORT
+    count as session activity; a session that keeps streaming SSE progress must
+    NEVER be flagged stalled by the shared policy engine."""
+    from regime_driver.supervisor import Supervisor
 
-    # stall=false: worker always streams progress -> T2 must NEVER fire
-    sup_ok = Supervisor(_StallLoopClient(progress=True), session_id="s1",
-                        stall_sec=0.1, health_poll_sec=0.01)
-    for _ in range(12):
-        sup_ok.ingest_events(max_events=5, stream_timeout=0.05)
-        if sup_ok.watch.is_stalled(
-                time.time(), sup_ok.stall_sec, True,
-                activity_ts=sup_ok._last_activity_ts):
-            break
-    assert sup_ok.watch.consecutive_stalls == 0
+    sup = Supervisor(_StallLoopClient(progress=True), session_id="s1",
+                     stall_sec=0.1, health_poll_sec=0.01)
+    for _ in range(15):
+        sup.ingest_events(max_events=5, stream_timeout=0.05)
+        ev, recovered = sup._evidence(sup.client.session_status("s1"))
+        action = sup.policy.decide(ev, recovered=recovered)
+        assert action is None, f"streaming session must never stall, got {action!r}"
 
-    # stall=true: only server.connected handshakes, never progress -> T2 fires
-    # (the frozen session stalls past stall_sec and escalates to abort)
-    sup_bad = Supervisor(_StallLoopClient(progress=False), session_id="s1",
-                         stall_sec=0.1, health_poll_sec=0.01)
-    t0 = time.monotonic()
-    fired = False
-    while time.monotonic() - t0 < 2.0:
-        sup_bad.ingest_events(max_events=5, stream_timeout=0.05)
-        if sup_bad.watch.is_stalled(
-                time.time(), sup_bad.stall_sec, True,
-                activity_ts=sup_bad._last_activity_ts):
-            fired = True
-            break
-    assert fired, "T2 must fire on a genuinely frozen-busy session"
-    assert sup_bad.watch.consecutive_stalls >= 1
+
+def test_supervisor_t2_escalates_to_human_on_frozen_busy():
+    """The independent `regime supervisor` path keeps the full T2 ladder: a
+    genuinely frozen-busy session escalates abort -> fallback -> restart -> human
+    through the shared watchdog_policy engine (absolute-duration rules), and the
+    loop exits at L5 human."""
+    from regime_driver.supervisor import Supervisor
+
+    c = _StallFrozenClient()
+    sup = Supervisor(c, session_id="s1", stall_sec=0.01, health_poll_sec=0.01,
+                     deadline_sec=0.5)
+    out = sup.run(once=False, supervise_sessions=True)
+    assert c.aborts >= 1
+    assert out == "human"
 
 
 class _StallFrozenClient:
@@ -449,12 +460,12 @@ def test_supervise_sessions_false_disables_t2():
     """drive-mode convergence: with supervise_sessions=False the external
     supervisor must NOT run the T2 session-stall ladder (the in-process watchdog
     owns session recovery); a frozen-busy session is left alone."""
-    from regime_driver.supervisor import SessionWatch, Supervisor
+    from regime_driver.supervisor import Supervisor
 
     c = _StallFrozenClient()
     sup = Supervisor(c, session_id="s1", stall_sec=0.01, health_poll_sec=0.01)
-    # prime the watch so the stall window is already expired (would fire if T2 ran)
-    sup.watch = SessionWatch(last_message_ts=time.time() - 100.0)
+    # prime the silence baseline so a stall would fire immediately if T2 ran
+    sup._first_busy_ts = time.time() - 100.0
     out = sup.run(once=True, supervise_sessions=False)
     assert c.aborts == 0
     assert out == "complete"
@@ -462,17 +473,17 @@ def test_supervise_sessions_false_disables_t2():
 
 def test_supervise_sessions_true_still_fires_t2():
     """The independent `regime supervisor` path keeps the full T2 ladder: a
-    frozen-busy session escalates (abort) even when no in-process watchdog is
-    present."""
-    from regime_driver.supervisor import SessionWatch, Supervisor
+    frozen-busy session escalates (abort first) even when no in-process watchdog
+    is present, and the loop exits at L5 human."""
+    from regime_driver.supervisor import Supervisor
 
     c = _StallFrozenClient()
     sup = Supervisor(c, session_id="s1", stall_sec=0.01, health_poll_sec=0.01,
-                     deadline_sec=0.05)
-    sup.watch = SessionWatch(last_message_ts=time.time() - 100.0)
-    out = sup.run(once=True, supervise_sessions=True)
-    # the frozen session climbs the full T2 ladder (abort -> ... -> human), so
-    # the loop only exits at L5 human; aborts were really executed.
+                     deadline_sec=0.5)
+    # prime the silence baseline just past the FIRST threshold so the first
+    # poll fires abort; continued freezing then climbs abort->...->human.
+    sup._first_busy_ts = time.time() - (sup.stall_sec + 0.001)
+    out = sup.run(once=False, supervise_sessions=True)
     assert c.aborts >= 1
     assert out == "human"
 
