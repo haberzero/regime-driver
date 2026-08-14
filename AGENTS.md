@@ -25,6 +25,18 @@
 - 每完成一个里程碑/阶段，用 `general` agent 做独立只读 code-review（正确性/安全/质量），
   修复其报告的 blocker/warning 后方可标记完成并 commit。
 
+## 测试（必须遵守）
+
+- **全量测试用这条稳定命令**（直接调用 conda env 的 python，输出带 pass/fail 汇总行；
+  实测比 `conda run -m pytest` 更可靠，后者会吞掉 summary）：
+
+  ```bash
+  ~/miniconda3/envs/regime-driver/bin/python -m pytest tests/ 2>&1 | grep -E "FAILED|ERROR|passed|failed" | tail -4
+  ```
+
+- 改动必须全量测试零回归才算完成；基线以实跑为准，不冻结数字。
+- 单测定位用同一条命令 + `-k "关键词"` / `::测试名`。
+
 ## 自主运行（下游会话必须遵守，详见 HANDOVER.md §3.x）
 
 - **禁 push**：除非明确授权，禁止 `git push`；只本地 commit。
