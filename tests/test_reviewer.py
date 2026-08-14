@@ -86,6 +86,25 @@ def test_extract_json_stray_closing_brace_in_prose():
     assert extract_json(text) == {"a": 1}
 
 
+def test_extract_json_trailing_comma_quirk():
+    """W4 contract tolerance: a model trailing-comma quirk is repaired."""
+    assert extract_json('{"a": 1, "b": 2,}') == {"a": 1, "b": 2}
+    assert extract_json('prose {"a": [1, 2,], "b": {"c": 3,}} done') == {
+        "a": [1, 2], "b": {"c": 3}}
+
+
+def test_extract_json_trailing_comma_repair_is_string_safe():
+    """The repair must never corrupt a comma+brace INSIDE a string value."""
+    text = '{"reason": "keep, } this", "v": 1}'
+    assert extract_json(text) == {"reason": "keep, } this", "v": 1}
+
+
+def test_extract_json_still_rejects_truly_broken():
+    # a genuinely truncated object is NOT rescued by the trailing-comma repair
+    assert extract_json('{"a": 1,') is None
+    assert extract_json('{"a": ,1}') is None
+
+
 def test_reviewer_parse_ok():
     sm = make_sm()
     reviewer = Reviewer(None, "s1", "reviewer", sm, skills_dir=str(SKILLS))

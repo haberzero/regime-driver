@@ -88,8 +88,17 @@
   做交叉核对（CLI 命令/skills/covers 标签），改动能力时应同步文档或跑脚本确认。归属：
   `ops/check_capabilities.py` + `docs/capabilities.md`。
 - **默认流程 skill 注入**：`code_workflow` 的 design/test（reviewer judge）挂 design-philosophy/code-review，
-  implement/wrap（developer）挂 developer-quality。agent 节点 skill 缺失会 fail-fast（配置错误）。
+   implement/wrap（developer）挂 developer-quality。agent 节点 skill 缺失会 fail-fast（配置错误）。
   归属：`data/regime.json` + `app/workflow_unit.py`。
+- **verify 阻塞混合循环（阶段 2 review W4 记录）**：`verify` 是同步 `subprocess.run`（上限
+  `min(request_timeout, 300)`s），执行期间 workflow 混合循环无法 drain STOP/PAUSE——兜底 kill
+  或 deadline 期间若恰在跑 verify 会等它结束。已白名单化到 docker-exec（argv、无宿主 shell）。
+  归属：`app/verify.py` + `app/workflow_unit.py`。
+- **瞬时消息错误不误杀（阶段 3 W3）**：`_latest_abort` 只把真正 abort（`MessageAbortedError`
+  类 / completed 无 finish 形状）判死会话；瞬时错误（模型 HTTP/限流）继续轮询（受节点
+  `default_deadline_sec` 上限）+ 记 `message_transient_error` 审计。边界：若瞬时错误恰带
+  completed 且 finish=None 的 abort 形状，无法与真 abort 区分（判 abort）。归属：
+  `infra/opencode.py` + `app/workflow_unit.py`。
 
 ## 边界（设计使然）
 

@@ -28,7 +28,7 @@ from ..core.statechart import Signal, SignalKind
 from ..core.state_machine import StateMachine
 from ..core.tools import UnknownToolError, run_tool
 from ..infra.ledger import Ledger
-from ..infra.opencode import OpenCodeClient
+from ..infra.opencode import OpenCodeClient, is_abort_error
 from ..infra.settings import Settings
 from ..infra.skill_loader import SkillNotFoundError, load_skill
 from ..infra.task_control import TaskControl
@@ -129,6 +129,8 @@ class WorkflowUnit(ThreadedUnit):
         # ourselves (pause) must not be treated as an external dead session
         # while the session is recovering (see _latest_abort / _on_pause).
         self._own_abort: bool = False
+        # phase-3 (W3): last logged transient message error, for throttled audit
+        self._last_transient_logged = None
         # dispatch pool: blocking send_message (up to the client timeout) runs on
         # a worker thread so the mixed loop never blocks and stays responsive to
         # STOP even while a prompt is being generated remotely.
@@ -578,6 +580,7 @@ class WorkflowUnit(ThreadedUnit):
             self._result = (Outcome.BLOCKED, self._node,
                             "agent session externally aborted (stalled); no recovery")
             return
+        self._audit_transient(messages)
         self._report_to_watchdog()
 
     def _latest_agent_done(self, messages) -> tuple[bool, str | None]:
@@ -620,8 +623,15 @@ class WorkflowUnit(ThreadedUnit):
 
     def _latest_abort(self, messages) -> bool:
         """True if the MOST RECENT assistant message carries an abort sentinel
-        (message error, or a completed turn with no finish — the real-worker
-        abort shape). Used to detect an externally-aborted (dead) session.
+        (an abort-TYPE message error, or a completed turn with no finish — the
+        real-worker abort shape). Used to detect an externally-aborted (dead)
+        session.
+
+        Phase-3 (W3): a TRANSIENT message error (model HTTP error / rate limit /
+        network) is NOT an abort — the session may recover, so the workflow keeps
+        polling (bounded by the per-node deadline) instead of blocking the run.
+        Only a genuine abort (MessageAbortedError and friends) is a dead-session
+        sentinel.
 
         An abort sentinel caused by OUR OWN pause (`_own_abort`, set in
         _on_pause) is NOT treated as dead: after RESUME the old sentinel stays
@@ -631,12 +641,40 @@ class WorkflowUnit(ThreadedUnit):
         for m in reversed(messages):
             if getattr(m, "role", None) != "assistant":
                 continue
-            is_abort = bool(getattr(m, "error", None)) or (
-                getattr(m, "completed", None) and getattr(m, "finish", "stop") is None)
+            err = getattr(m, "error", None)
+            is_abort = bool(
+                (err and is_abort_error(err))
+                or (getattr(m, "completed", None)
+                    and getattr(m, "finish", "stop") is None))
             if not is_abort:
                 self._own_abort = False  # session resumed producing
             return is_abort and not self._own_abort
         return False
+
+    def _latest_transient_error(self, messages) -> str | None:
+        """The error text of the newest assistant message carrying a TRANSIENT
+        (non-abort) error, else None. Used to audit recoverable failures without
+        treating them as a dead session (W3)."""
+        for m in reversed(messages):
+            if getattr(m, "role", None) != "assistant":
+                continue
+            err = getattr(m, "error", None)
+            return err if (err and not is_abort_error(err)) else None
+        return None
+
+    def _audit_transient(self, messages) -> None:
+        """Surface a transient message error once per distinct (session, error)
+        — recoverable, so the run keeps polling (bounded by the node deadline),
+        but the failure is visible in the journal, never silently swallowed."""
+        err = self._latest_transient_error(messages)
+        if not err:
+            return
+        key = (self._wait_sid, err[:300])
+        if key == self._last_transient_logged:
+            return
+        self._last_transient_logged = key
+        self._log("message_transient_error", node=self._node,
+                  session=self._wait_sid, err=err[:300])
 
     def _step_judge(self) -> None:
         try:
@@ -656,6 +694,7 @@ class WorkflowUnit(ThreadedUnit):
                             "reviewer session externally aborted (stalled); no recovery")
             self._report_to_watchdog()
             return
+        self._audit_transient(messages)
         latest = self._latest_assistant(messages)
         if latest is None:
             self._report_to_watchdog()
@@ -960,9 +999,17 @@ class WorkflowUnit(ThreadedUnit):
         return latest
 
     def _latest_assistant(self, messages):
-        """Return the newest assistant message carrying a non-empty reply, else None."""
+        """Return the newest assistant message carrying a non-empty reply and NO
+        error, else None.
+
+        Phase-3 (W3): an error-carrying message is never a verdict candidate —
+        symmetric with the agent path (`_latest_agent_done`), so a transient
+        error is not mis-parsed as a reviewer verdict; the judge keeps polling
+        (bounded by the node deadline)."""
         for m in reversed(messages):
             if getattr(m, "role", None) != "assistant":
+                continue
+            if getattr(m, "error", None):
                 continue
             if (getattr(m, "reply", "") or getattr(m, "text", "") or "").strip():
                 return m

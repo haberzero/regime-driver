@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from regime_driver.infra.opencode import Message, OpenCodeClient, OpenCodeError
+from regime_driver.infra.opencode import Message, OpenCodeClient, OpenCodeError, is_abort_error
 
 
 class _FakeSSEResponse:
@@ -27,6 +27,25 @@ class _FakeSSEResponse:
 
     def close(self):
         self.closed = True
+
+
+def test_is_abort_error_classifies_abort_vs_transient():
+    """W3 semantic contract: only a genuine abort is a dead-session sentinel;
+    transient message errors (model/HTTP/rate-limit) are recoverable."""
+    # abort sentinels
+    assert is_abort_error("MessageAbortedError") is True
+    assert is_abort_error("generation aborted by user") is True
+    assert is_abort_error("MessageAbortedError: interrupted") is True
+    # transient failures
+    assert is_abort_error("HTTP 500 on POST /message") is False
+    assert is_abort_error("rate limit exceeded, retry later") is False
+    assert is_abort_error("connection reset by peer") is False
+    # W3: a network transient whose wording contains "abort" must STAY transient
+    # (ConnectionAbortedError's text is "connection aborted by peer")
+    assert is_abort_error("connection aborted by peer") is False
+    assert is_abort_error("Software caused connection abort") is False
+    assert is_abort_error(None) is False
+    assert is_abort_error("") is False
 
 
 def test_event_stream_parses_sse(monkeypatch):

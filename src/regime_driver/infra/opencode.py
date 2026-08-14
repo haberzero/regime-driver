@@ -32,6 +32,34 @@ class Message:
     reply: str = ""                # text-parts only (developer's final reply, no reasoning)
 
 
+#: Substrings that mark a message `error` as a DELIBERATE abort (the session
+#: was interrupted by an authority) rather than a transient failure. The real
+#: opencode worker surfaces an abort as `MessageAbortedError`. Deliberately
+#: NARROW: bare "abort"/"aborted" is NOT enough — network errors like
+#: `ConnectionAbortedError` ("connection aborted by peer") are transient and
+#: must stay recoverable (W3). The completed-but-no-finish shape is the second,
+#: independent abort indicator.
+_ABORT_MARKERS = (
+    "messageaborted",       # the real opencode worker abort exception
+    "generation aborted",   # explicit generation interrupt
+    "aborted by user",      # explicit user/authority interrupt
+)
+
+
+def is_abort_error(error: str | None) -> bool:
+    """True when a message `error` is a deliberate ABORT sentinel.
+
+    Phase-3 (W3): message errors are no longer all treated as dead-session
+    aborts. A transient failure (model HTTP error, rate limit, network) must not
+    classify a session as externally dead — it may recover; only a genuine abort
+    (MessageAbortedError and friends) is a terminal sentinel.
+    """
+    if not error:
+        return False
+    low = (error or "").lower()
+    return any(m in low for m in _ABORT_MARKERS)
+
+
 @dataclass
 class OpenCodeClient:
     """Thin typed client over the opencode server REST API."""

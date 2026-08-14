@@ -4,7 +4,7 @@ import json
 import re
 import time
 
-from regime_driver.app.workflow_unit import WorkflowUnit, _PH_AGENT
+from regime_driver.app.workflow_unit import WorkflowUnit, _PH_AGENT, _PH_JUDGE
 from regime_driver.core.models import Outcome
 from regime_driver.core.statechart import SignalKind
 from regime_driver.infra.ledger import Ledger
@@ -69,7 +69,7 @@ def _make(overrides=None):
     s = Settings(monitor_enabled=False, **(overrides or {}))
     sm = load_regime()
     client = FakeClient()
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     return unit, client
 
 
@@ -171,7 +171,7 @@ def test_multiround_interrogation_converges_on_advance():
     s = Settings(monitor_enabled=False, max_dialogue_rounds=5)
     sm = load_regime()
     client = ScriptedClient(script)
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     unit.start()
     unit.submit("任务")
     outcome, end, detail = _wait_result(unit)
@@ -185,7 +185,7 @@ def test_convergence_loop_detected():
     s = Settings(monitor_enabled=False, convergence_max_identical=2)
     sm = load_regime()
     client = ScriptedClient(script)
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     unit.start()
     unit.submit("任务")
     outcome, end, detail = _wait_result(unit)
@@ -199,7 +199,7 @@ def test_dialogue_rounds_exhausted():
     s = Settings(monitor_enabled=False, max_dialogue_rounds=3)
     sm = load_regime()
     client = ScriptedClient(script)
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     unit.start()
     unit.submit("任务")
     outcome, end, detail = _wait_result(unit)
@@ -370,7 +370,7 @@ def test_judge_waits_for_new_reply_not_stale():
     good = {"node": "judge", "verdict": "advance", "action": "advance",
             "next_state": "end", "confidence": 0.9, "reason": "ok"}
     client = StaleWindowClient(bad, good)
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     unit.start()
     unit.submit("task")
     outcome, end_node, detail = _wait_result(unit)
@@ -448,7 +448,7 @@ def test_per_node_wait_timeout():
     s = Settings(monitor_enabled=False, poll_sec=0.1, default_deadline_sec=1)
     sm = load_regime()
     client = NeverClient()
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     unit.start()
     unit.submit("任务")
     outcome, end, detail = _wait_result(unit, timeout=5)
@@ -495,7 +495,7 @@ def test_dispatch_is_non_blocking():
     s = Settings(monitor_enabled=False)
     sm = load_regime()
     client = SlowClient()
-    unit = WorkflowUnit(s, sm, client, poll_sec=0.05)
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
     t0 = _t.monotonic()
     unit._dispatch("s1", "prompt", "developer")  # must return immediately
     elapsed = _t.monotonic() - t0
@@ -815,6 +815,124 @@ def test_paused_external_abort_not_blocked():
                                 completed=str(time.time()), finish=None)]
     unit._step_agent()
     assert unit._result is None  # still waiting for RESUME
+
+
+def test_latest_abort_distinguishes_transient_from_abort():
+    """W3: `_latest_abort` classifies only genuine aborts as dead-session
+    sentinels; a transient message error (model HTTP / rate limit) is NOT."""
+    from regime_driver.core.models import Node, NodeType
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    unit.sessions.ensure("developer", "t")
+    # transient error -> not an abort; surfaced as the transient error
+    msgs_t = [Message("assistant", "x", error="HTTP 500 on POST /message", reply="x")]
+    assert unit._latest_abort(msgs_t) is False
+    assert unit._latest_transient_error(msgs_t) == "HTTP 500 on POST /message"
+    # abort error -> IS an abort
+    msgs_a = [Message("assistant", "x", error="MessageAbortedError", reply="x")]
+    assert unit._latest_abort(msgs_a) is True
+    assert unit._latest_transient_error(msgs_a) is None
+    # real-worker abort shape (completed ts, no finish) -> abort regardless
+    msgs_s = [Message("assistant", "x", completed="1786008000000", finish=None)]
+    assert unit._latest_abort(msgs_s) is True
+
+
+def test_transient_error_not_blocked_keeps_polling():
+    """W3: a TRANSIENT message error must NOT block the run as a dead session —
+    the workflow keeps polling (bounded by the node deadline)."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    sid = unit.sessions.ensure("developer", "t").session_id
+    unit._wait_sid = sid
+    unit._wait_role = "developer"
+    unit._phase = _PH_AGENT
+    unit._paused = False
+    client.msgs[sid] = [Message("assistant", "partial",
+                                error="HTTP 500 on POST /message", reply="partial")]
+    unit._step_agent()
+    assert unit._result is None  # not blocked — keeps polling, not BLOCKED
+
+
+def test_transient_error_audited_in_journal():
+    """W3: a transient message error is surfaced as a `message_transient_error`
+    audit event (throttled per distinct error), never silently swallowed."""
+    from pathlib import Path
+
+    from regime_driver.app.reporter import Reporter
+    from regime_driver.core.models import Node, NodeType
+
+    unit, client = _wu([Node(id="a", desc="work", type=NodeType.AGENT, next=None)], {})
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="t")
+        unit.reporter = rep
+        sid = unit.sessions.ensure("developer", "t").session_id
+        unit._wait_sid = sid
+        unit._wait_role = "developer"
+        unit._phase = _PH_AGENT
+        unit._paused = False
+        client.msgs[sid] = [Message("assistant", "partial",
+                                    error="HTTP 500 on POST /message", reply="partial")]
+        unit._step_agent()
+        assert unit._result is None
+        recs = rep.journal_slice()
+        assert any(r["event_type"] == "message_transient_error" for r in recs)
+        assert any("HTTP 500" in r.get("detail", {}).get("err", "") for r in recs)
+        # second poll with the SAME error is throttled (no duplicate audit spam)
+        unit._step_agent()
+        n = sum(1 for r in rep.journal_slice() if r["event_type"] == "message_transient_error")
+        assert n == 1
+        rep.close()
+
+
+def test_judge_transient_error_not_parsed_as_verdict():
+    """W3: a transient error on the judge session is NOT a verdict candidate —
+    the judge keeps polling instead of mis-parsing the error text."""
+    import json as _json
+
+    from regime_driver.core.models import Node, NodeType
+
+    unit, client = _wu(
+        [Node(id="a", desc="work", type=NodeType.AGENT, next="t"),
+         Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE, next=None)], {})
+    unit.sessions.ensure("developer", "t")
+    sid = unit.sessions.ensure("reviewer", "t").session_id
+    unit._wait_sid = sid
+    unit._wait_role = "reviewer"
+    unit._node = "t"
+    unit._valid_targets = {"wrap"}
+    unit._phase = _PH_JUDGE
+    unit._paused = False
+    # a transient-error message whose text looks like a verdict must NOT be parsed
+    verdict_like = _json.dumps({"node": "t", "verdict": "advance", "action": "advance",
+                                "next_state": "wrap", "confidence": 0.9})
+    client.msgs[sid] = [Message("assistant", verdict_like,
+                                error="rate limit exceeded, retry later", reply=verdict_like)]
+    assert unit._latest_assistant(client.msgs[sid]) is None  # error msg skipped
+
+
+def test_transient_error_persistent_times_out_via_node_deadline():
+    """W3: a session that NEVER recovers from a transient error is bounded by the
+    per-node deadline -> TIMEOUT (not a hang, not a false BLOCK)."""
+    from regime_driver.core.models import Node, NodeType, Outcome
+
+    class AlwaysErr(NodeClient):
+        def send_message(self, sid, text, agent):
+            self.sent.append((sid, text, agent))
+            self.msgs[sid] = [Message("assistant", "partial",
+                                      error="HTTP 500 on POST /message", reply="partial")]
+
+    s = Settings(monitor_enabled=False, poll_sec=0.1, default_deadline_sec=1)
+    sm = _sm([Node(id="a", desc="work", type=NodeType.AGENT, next=None)])
+    client = AlwaysErr({})
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    unit.start()
+    unit.submit("任务")
+    outcome, end, detail = _wait_result(unit, timeout=3)
+    unit.stop()
+    assert outcome == Outcome.TIMEOUT
+    assert "default_deadline_sec" in detail
 
 
 def test_resume_window_own_abort_sentinel_not_blocked():
