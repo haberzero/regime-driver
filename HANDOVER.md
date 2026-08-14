@@ -274,47 +274,75 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-14 凌晨）
+### 下一 session 主线任务（唯一指针，2026-08-14）
 
-> **本 session 已完成夜间整合重跑**（WORK_PLAN8 阶段5 + WORK_PLAN9 验证）：
-> 4/4 复杂任务 complete、宿主 pytest 全 0 failed、能力覆盖 17/17、归档入库
-> `tasks_docs/nightly_run_archive/20260814-012700/`、全量 469 passed 零回归。
-> 报告见 `tasks_docs/quality_report.md` §7。
+> **本 session 已完成**：夜间整合重跑（4/4 complete，能力覆盖 17/17，归档
+> `20260814-012700`）+ **WORK_PLAN13**（语义门 / readonly 能力边界 / verify 运行时验证 /
+> 上下文预算交接）+ 真实超长任务复查（`distributed_scheduler` 1127.5s complete，归档
+> `20260814-wp13-recheck`），暴露并修复 drive 外部 supervisor T2 abort 死锁等真实 bug。
+> 基线 **506 passed 零回归**，工作树干净，已 push。
 >
-> **随后完成 WORK_PLAN13**（2026-08-14，语义门 + 节点能力边界 + 运行时验证 +
-> 上下文交接）并经真实超长任务复查（distributed_scheduler 1127.5s complete，
-> 设计门两次质询 + verify 宿主证据 + wrap 84% 真实交接），暴露并修复 drive 外部
-> supervisor T2 abort 死锁等真实 bug。归档 `nightly_run_archive/20260814-wp13-recheck/`。
->
-> **下一 session 候选主线**（按序）：V-2 PyPI 发布（待用户 token）→
-> P-005 测试套件优化（覆盖率提升/xdist）→ 限并发耐久二次验证 → WORK_PLAN14
-> （meta 元分析 / chaos 故障注入接入复查，把异常保障能力从"代码写好未逼过"变实证）
-> → GitHub Pages 启用（待用户 Settings 操作）。详见 `tasks_docs/MAIN_TASKS.md`。
+> **下一 session 主线 = WORK_PLAN14**（见 `tasks_docs/MAIN_TASKS.md`）：
+> **in-process watchdog 与外部 supervisor 的职责收编 + 恢复路径实证**——本 session 复查
+> 暴露的最大残留架构债（详见下方"遗留问题清单" W1）。候选顺延：V-2 PyPI（待用户 token）、
+> P-005 覆盖率优化、限并发耐久二次验证。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
 
-#### 环境核验（2026-08-14 交接前全项通过）
+#### 环境核验（2026-08-14 交接时）
 
 | 资源 | 状态 | 说明 |
 |---|---|---|
-| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话 |
+| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话（复查后已清） |
 | `opencode-dialog-control` 容器 | ✅ 健康 | opencode 1.18.11，端口 4098（A 路验证窗） |
-| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含 WORK_PLAN10/11 全部新代码 |
+| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含 WORK_PLAN13 全部新代码 |
 | 模型 key | ✅ | `DEEPSEEK_API_KEY` / `~/.regime/keys/deepseek.key`，`regime doctor` 全绿 |
 | `regime doctor` | ✅ 12 项全过 | worker 健康/版本/key/模板/部署完整性/docker/opencode/conda/session |
 | `regime preflight` | ✅ complete | 离线试跑整条 flow 干净完成 |
-| sync_templates | ✅ 绿 | skill/agent/插件/opencode.json 真源与打包副本一致 |
-| check_capabilities | ✅ 绿 | 24 CLI / 3 mounted skills / 11 packaged / 17 covers |
+| sync_templates / check_capabilities | ✅ 绿 | 24 CLI / 3 mounted skills / 11 packaged / 17 covers |
 | 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_package |
-| 任务套件 | ✅ 就绪 | 4 复杂任务（shop_inventory/kv_cluster/payment_ledger/etl_pipeline）|
-| `run_nightly.sh` | ✅ 语法通过 | per-task 归档 + trap EXIT 中断可续 |
-| 端到端实测 | ✅ 通过 | shop_inventory complete 385s，宿主 pytest 53/0，归档完整含会话快照 48 条 |
+| 任务套件 | ✅ 就绪 | 4 复杂任务 + **新 `distributed_scheduler`**（flow=code_workflow_v13, minutes_est=45, 复查任务） |
+| 注册 flow | ✅ | `code_workflow_v13` 已注册（`ops/flow_v13.json`：readonly understand/read_code + test 门 verify） |
+| 测试基线 | ✅ 506 passed | 全量零回归（含 guard/e2e 门控） |
 
 > **注意**：`opencode-dialog-control` 容器内的 regime-driver 是旧 wheel（0.2.0，无
-> `watchdog_policy_json`）。它仅作 A 路验证窗，不影响宿主夜间实验（drive/harness 全在
-> 宿主源码上跑）。如需对话框容器同步最新代码，需重新 `pip install -e` 或装新 wheel
-> （`ops/up.sh dialog-control --rebuild`）。**夜间实验不需要动它。**
+> `watchdog_policy_json`、`context_handover_policy_json`、`verify`）。它仅作 A 路验证窗，
+> 不影响宿主实验（drive/harness 全在宿主源码上跑）。如需同步最新代码用
+> `ops/up.sh dialog-control --rebuild`。
+
+#### 遗留问题清单（2026-08-14 交接，下一 session 处理优先级）
+
+**W 类（本 session 复查暴露 / 深度分析遗留，优先处理）**
+
+| # | 遗留问题 | 证据/背景 | 建议处理 |
+|---|---|---|---|
+| W1 | **in-process watchdog 未先于外部 supervisor 触发（drive 模式架构债）** | 复查首跑：外部 supervisor T2 在 61s 判 stalled→abort 会话，而 in-process watchdog（默认策略 hard-stall kill at stall_sec）**从未触发**（journal 无 watchdog_fire）。导致 drive 模式恢复路径（PAUSE/RESUME/fallback）从未在真实运行中实证。当前死锁已用 workflow 侧"外部 abort→BLOCK"兜底，但根治未做、根因未彻底定位（怀疑 REPORT→watchdog 路由或默认策略评估，需探针确认） | **WORK_PLAN14 主线**：①探针定位 in-process watchdog 为何不触发；②收编 drive 模式双看门狗职责（in-process 为准，外部 supervisor 退为 T1/deadline 兜底或与 workflow 协调）；③真实驱动 PAUSE→RESUME→fallback→kill 恢复路径实证 |
+| W2 | **drive 外部 supervisor T2 只盯 anchor/首个会话**（W4） | workflow 交接（rotate）到新会话后，T2 可能 abort 一个 workflow 当前并未轮询的会话，死锁保护对该路径无效 | WORK_PLAN14 一并处理（T2 目标应跟随 workflow 当前 wait_sid 或禁用 drive 模式 T2） |
+| W3 | **瞬时性消息 error 被硬编码 BLOCKED（归因过宽）** | 外部 abort 死锁修复把"非 pause 的 abort 哨兵"一律判 BLOCKED"stalled"；若 error 来自瞬时网络/服务端故障，会被消费方归因为 stall | 区分 error 类型：MessageAbortedError→BLOCK；瞬时错误→重试/ERROR |
+| W4 | **reviewer 复杂判定仍可能输出散文**（已缓解未根治） | 复查暴露 3 次散文未过纯 JSON 门；已用鲁棒 extract_json + SYSTEM_PROMPT 强化 + max_reviewer_retries 2→3 缓解 | 若再遇：考虑 reviewer 分离"思考通道"（或放宽纯 JSON 约束为"JSON 对象 + 可选前后文"并让 gate 容忍） |
+| W5 | **verify 是宿主任意 shell 执行面（RCE 面）** | judge 节点 `verify` 命令在宿主 `shell=True` 执行；`~/.regime/flows` 注册表若被污染即宿主代码执行。已 opt-in（默认 false）+ deep_validate 限 judge 节点 | 文档已注明；可考虑命令白名单/参数化（如只允许 `docker exec ... pytest` 形态） |
+| W6 | **上下文交接 token 读取失败 fail-open** | `_context_fraction` 读 token 失败→返回 0→永不交接，但已记 `context_token_read_error` 审计事件（不静默） | 已达标（fail-open 方向正确 + 留痕），无需处理，仅记录 |
+
+**P 类（长期搁置，待用户或低优先）**：见 `tasks_docs/PENDING_TASKS.md`（V-2 PyPI 待用户 token、
+GitHub Pages 待用户 Settings、P-005 覆盖率、C3 延迟调优、FakeClient 收敛、MaxListeners doctor 检查）。
+
+**产物技术债（任务归档内，已显式登记，非本仓缺陷）**：
+- payment_ledger：`_op_keys` 无淘汰策略、内存态无持久化（`20260814-012700/payment_ledger/`）
+- kv_cluster：failover 中途崩溃数据丢失窗口（`20260814-012700/kv_cluster/`）
+- etl_pipeline：依赖图"建而不用"（执行按插入序）、RateLimitStage `consumed_at` 无界增长
+- shop_inventory：`_is_valid_qty` 三处复制、float 计账漂移
+
+**复查工具速查**（WORK_PLAN13 验证复用）：
+```bash
+# 新超长任务复查（distributed_scheduler, code_workflow_v13 flow, verify+上下文交接）
+REGIME_VERIFY_ENABLED=true \
+REGIME_CONTEXT_HANDOVER_POLICY_JSON='{"soft_fraction":0.5,"hard_fraction":0.9,"min_continue_nodes":2,"handover_keep_messages":30}' \
+conda run -n regime-driver python ops/quality_run.py --root /tmp/recheck-20260814 \
+  --archive /tmp/recheck-20260814/archive --tasks distributed_scheduler \
+  --clean-sessions --deadline 3600 --stall 300
+# 注意：verify 命令在宿主需 `sg docker` 包装（本环境 docker 组权限），已内置于 ops/flow_v13.json
+```
 
 #### 数据地图（已归档入库，防 /tmp 丢失）
 
@@ -323,8 +351,9 @@
 | **质量套件产物（旧 12 任务）** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，深审结论见 `quality_deep_check.md`） |
 | 质量报告（旧 43 次） | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
 | **WORK_PLAN9 新套件归档** | `tasks_docs/nightly_run_archive/` | 新 4 复杂任务 per-task 全量归档（会话消息快照+完整工作区+journal/events 切片+result.json） |
+| **WORK_PLAN13 复查归档** | `tasks_docs/nightly_run_archive/20260814-wp13-recheck/` | distributed_scheduler 超长任务（1127.5s complete，设计门 2 质询 + verify 宿主证据 + wrap 84% 交接）全量归档 |
 | 深度核查报告 | `tasks_docs/quality_deep_check.md` | A–E 全项结论 + 两轮改进记录（根因/修复/复核） |
-| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（夜间整合重跑） + 下一步 + 硬约束 |
+| **主线任务文档** | `tasks_docs/MAIN_TASKS.md` | 当前主线（WORK_PLAN14 候选） + 下一步 + 硬约束 |
 | **搁置任务文档** | `tasks_docs/PENDING_TASKS.md` | 阻塞/搁置但有价值的规划 |
 | **工作日志文档** | `tasks_docs/WORKLOG.md` | 全部决策/质询/方案取舍/变化前后 |
 | 第一次耐久 | `tasks_docs/durability_run_archive/` | 2h 简单任务耐久（38 任务）原始数据 + 报告 |

@@ -53,14 +53,22 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 **基线**：506 passed 零回归；归档 `tasks_docs/nightly_run_archive/20260814-wp13-recheck/`。
 
-### 下一步（下一 session 主线候选）
+### 下一步（下一 session 主线）
 
-- **V-2 PyPI 发布**（待用户提供 PyPI 账号/token，`dist/` 已构建）。
-- **P-005 测试套件优化**（覆盖率提升、xdist 并行评估，可自主推进）。
-- **限并发耐久二次验证**（复杂任务限并发，验证 ~100% 完成率）。
-- **GitHub Pages 启用**（待用户 Settings→Pages→GitHub Actions）。
-- **WORK_PLAN14 候选**（自主）：把 `--meta` 元分析 / chaos 故障注入接入复查套件，把异常保障
-  能力从"代码写好未逼过"变成实证。
+**主线 = WORK_PLAN14（W1 遗留，见 HANDOVER 遗留问题清单）：in-process watchdog 与外部
+supervisor 职责收编 + 恢复路径实证。**
+
+1. **探针定位**：复查暴露 in-process watchdog 在真实 drive 下从未先于外部 supervisor 触发
+   （journal 无 watchdog_fire）；根因待确认（REPORT→watchdog 路由 / 默认策略评估 / SseActivity
+   活动信号），用隔离复现 + 日志探针定位。
+2. **职责收编**：drive 模式双看门狗统一（in-process 为准，外部 supervisor T2 退为 T1/deadline
+   兜底，或与 workflow 协调 abort 目标跟随当前 wait_sid）。
+3. **恢复路径实证**：真实驱动 PAUSE→RESUME→fallback→kill 全阶梯，验证 recover 语义。
+4. **W3**：区分 MessageAbortedError vs 瞬时错误归因。
+5. **可选扩展**：`--meta` 元分析 / chaos 故障注入接入复查套件，把异常保障能力从"代码写好未逼过"
+   变成实证。
+
+**顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
 
 **硬约束（防断裂）**：任何新增/修改功能、CLI、配置、信号/事件、行为语义的里程碑，
 落地时**必须同步智能侧说明**（settings→config+02_configuration；CLI→01_cli+插件；

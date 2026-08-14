@@ -12,6 +12,11 @@
 | P-003 | 收敛测试内零散 FakeClient | T6 已评估不转；如需统一另建轻量脚本化 fake | 待做 |
 | P-004 | MaxListenersExceeded 纳入 doctor 检查 | opencode 内部监听器泄漏提示（非本仓缺陷） | 低优先 |
 | P-005 | 测试套件进一步优化 | 覆盖率 68%→提升、xdist 并行评估 | 待做 |
+| W3 | 瞬时性消息 error 归因过宽 | 外部 abort 死锁修复把瞬时错误也判 BLOCKED"stalled"；应区分 MessageAbortedError vs 瞬时故障（瞬时→重试/ERROR） | 已记录 HANDOVER 遗留清单，随 WORK_PLAN14 处理 |
+
+> **W1–W6 遗留问题清单**（2026-08-14 WORK_PLAN13 复查暴露/深度分析遗留）：完整记录在
+> `HANDOVER.md`"遗留问题清单"节。W1（in-process watchdog 未先于外部 supervisor 触发）为
+> **下一 session 主线 WORK_PLAN14**，见 `MAIN_TASKS.md`。
 
 ## 明确排除方向
 
