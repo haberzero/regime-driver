@@ -40,6 +40,7 @@
 | session | `regime session` | 值守 | — | 01_cli.md |
 | task | `regime task` | 值守/无人值守 | harness `task status` | 01_cli.md |
 | flow | `regime flow` | 值守/流程期 | 复杂任务 design 节点（流程设计） | 01_cli.md |
+| regime | `regime regime` | 值守/流程期 | **命名运行制度设计/加载/热重载**（flow+roles+watchdog+handover 合一，体系化重构阶段1） | 01_cli.md |
 | worker | `regime worker` | 一次性/并发 | — | 01_cli.md |
 | chaos | `regime chaos` | 一次性/演练 | — | 01_cli.md |
 | job | `regime job` | 值守 | — | 01_cli.md |

@@ -25,6 +25,7 @@ GUARDED = {
     "app/preflight.py": {},
     "app/dialog_control.py": {},
     "flow.py": {},
+    "regime.py": {},
 }
 
 

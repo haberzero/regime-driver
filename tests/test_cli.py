@@ -11,7 +11,7 @@ import json
 import pytest
 from typer.testing import CliRunner
 
-from regime_driver.cli import app, _reset_flow_registry
+from regime_driver.cli import app, _reset_flow_registry, _reset_regime_registry
 
 runner = CliRunner()
 
@@ -22,9 +22,12 @@ def _isolate_flow_registry(tmp_path, monkeypatch):
     # store dir, so CLI flow load/rm never touch the user's real ~/.regime/flows
     # and never leak across tests.
     monkeypatch.setenv("REGIME_FLOW_STORE", str(tmp_path / "flowstore"))
+    monkeypatch.setenv("REGIME_STORE", str(tmp_path / "regimestore"))
     _reset_flow_registry()
+    _reset_regime_registry()
     yield
     _reset_flow_registry()
+    _reset_regime_registry()
 
 
 def test_validate_json_ok():
@@ -429,3 +432,159 @@ def test_doctor_version_drift_flags(monkeypatch):
     ver = [c for c in data["checks"] if c["check"] == "opencode version"]
     assert ver and ver[0]["ok"] is False
     assert "drift" in ver[0]["detail"]
+
+
+# -- regime (whole operating rule) CLI ----------------------------------------
+
+_REGIME_SPEC = {
+    "name": "cli-regime",
+    "flow": {"entry": "a", "nodes": [
+        {"id": "a", "desc": "干", "role": "developer", "type": "agent"},
+    ]},
+    "roles": {
+        "developer": {"agent": "developer"},
+        "reviewer": {"agent": "reviewer"},
+    },
+    "watchdog": {"soft_sec": 30, "hard_sec": 600},
+    "handover": {"soft_fraction": 0.4, "hard_fraction": 0.8},
+}
+
+
+def test_regime_design_inline_registers():
+    r1 = runner.invoke(app, ["regime", "design", "cli-regime",
+                             json.dumps(_REGIME_SPEC, ensure_ascii=False), "--json"])
+    assert r1.exit_code == 0
+    assert json.loads(r1.output)["ok"] is True
+    r2 = runner.invoke(app, ["regime", "list", "--json"])
+    names = [e["name"] for e in json.loads(r2.output)["regimes"]]
+    assert "cli-regime" in names
+
+
+def test_regime_inspect_shows_components():
+    runner.invoke(app, ["regime", "design", "cli-regime",
+                        json.dumps(_REGIME_SPEC, ensure_ascii=False)])
+    res = runner.invoke(app, ["regime", "inspect", "cli-regime", "--json"])
+    assert res.exit_code == 0
+    d = json.loads(res.output)
+    assert d["name"] == "cli-regime"
+    assert d["has_watchdog"] is True
+    assert d["has_handover"] is True
+
+
+def test_regime_design_rejects_invalid_watchdog():
+    bad = dict(_REGIME_SPEC, watchdog={"soft_sec": -5})
+    res = runner.invoke(app, ["regime", "design", "bad-regime",
+                              json.dumps(bad, ensure_ascii=False), "--json"])
+    assert res.exit_code == 1
+    assert json.loads(res.output)["ok"] is False
+
+
+def test_regime_load_file_then_reload(tmp_path):
+    p = tmp_path / "r.json"
+    p.write_text(json.dumps(_REGIME_SPEC, ensure_ascii=False), encoding="utf-8")
+    r1 = runner.invoke(app, ["regime", "load", str(p), "--json"])
+    assert r1.exit_code == 0
+    assert json.loads(r1.output)["ok"] is True
+    # reload bumps the version
+    ins1 = json.loads(runner.invoke(app, ["regime", "inspect", "cli-regime", "--json"]).output)
+    runner.invoke(app, ["regime", "reload", "cli-regime"])
+    ins2 = json.loads(runner.invoke(app, ["regime", "inspect", "cli-regime", "--json"]).output)
+    assert ins2["version"] > ins1["version"]
+
+
+def test_regime_rm_is_write_gated(monkeypatch):
+    monkeypatch.setenv("REGIME_PERMISSION_CEILING", "read")
+    res = runner.invoke(app, ["regime", "rm", "cli-regime", "--perm", "run"])
+    assert res.exit_code == 1
+    assert "permission denied" in res.output
+
+
+def test_regime_design_is_write_gated(monkeypatch):
+    monkeypatch.setenv("REGIME_PERMISSION_CEILING", "read")
+    res = runner.invoke(app, ["regime", "design", "x",
+                              json.dumps(_REGIME_SPEC, ensure_ascii=False), "--perm", "run"])
+    assert res.exit_code == 1
+    assert "permission denied" in res.output
+
+
+def test_regime_run_unknown_name_fails():
+    res = runner.invoke(app, ["run", "task", "--regime-name", "nope"])
+    assert res.exit_code == 1
+    assert "unknown regime" in res.output
+
+
+def test_regime_run_named_regime_uses_registry_store():
+    """B1: run --regime-name must resolve against the SAME persistent registry
+    the design command wrote to (not a fresh empty one), assembling the whole
+    operating rule into the driver."""
+    import regime_driver.cli as cli
+
+    r1 = runner.invoke(app, ["regime", "design", "cli-regime",
+                             json.dumps(_REGIME_SPEC, ensure_ascii=False)])
+    assert r1.exit_code == 0
+    captured = {}
+    original = cli._run_impl
+
+    def spy(driver, ledger, sm, context, title, json_out):
+        captured["flow"] = sm.flow_name
+        captured["watchdog"] = driver.watchdog.policy is not None
+        captured["roles"] = sorted(driver.roles.ids())
+        # do NOT actually run (no worker round-trip needed for the resolution check)
+
+    cli._run_impl = spy
+    try:
+        res = runner.invoke(app, ["run", "task", "--regime-name", "cli-regime",
+                                  "--no-preflight"])
+    finally:
+        cli._run_impl = original
+    assert res.exit_code == 0, res.output
+    assert captured.get("flow") == "cli-regime"
+    assert captured.get("watchdog") is True
+    assert captured.get("roles") == ["developer", "reviewer"]
+
+
+def test_regime_run_with_flow_uses_resolved_sm():
+    """B2: run --flow must drive the preflighted named flow, not the default."""
+    import regime_driver.cli as cli
+
+    compact = ('{"entry":"start","nodes":['
+               '{"id":"start","desc":"理解","role":"developer","type":"agent","next":null}]}')
+    r0 = runner.invoke(app, ["flow", "design", "mini", compact])
+    assert r0.exit_code == 0
+    captured = {}
+    original = cli._run_impl
+
+    def spy(driver, ledger, sm, context, title, json_out):
+        captured["sm"] = sm.flow_name
+        # do NOT actually run
+
+    cli._run_impl = spy
+    try:
+        res = runner.invoke(app, ["run", "task", "--flow", "mini", "--no-preflight"])
+    finally:
+        cli._run_impl = original
+    assert res.exit_code == 0, res.output
+    assert captured.get("sm") == "mini"
+
+
+def test_regime_run_async_forwards_regime_name():
+    """W1: run --async must forward --regime-name to the background job."""
+    from regime_driver.cli import _submit_job
+
+    captured = {}
+    original = _submit_job
+
+    def spy(job_type, argv, **kw):
+        captured["argv"] = argv
+        return {"id": "j1", "pid": 1, "status": "running"}
+
+    import regime_driver.cli as cli
+    cli._submit_job = spy
+    try:
+        res = runner.invoke(app, ["run", "task", "--regime-name", "cli-regime",
+                                  "--async", "--perm", "run"])
+    finally:
+        cli._submit_job = original
+    assert res.exit_code == 0
+    assert "--regime-name" in captured["argv"]
+    assert "cli-regime" in captured["argv"]

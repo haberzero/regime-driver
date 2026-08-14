@@ -127,6 +127,9 @@ def run(
     regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
     flow: str = typer.Option(None, "--flow", help="run a named flow from the FlowRegistry "
                              "(designed/loaded; resolves to its persisted spec)"),
+    regime_name: str = typer.Option(
+        None, "--regime-name", help="run a named regime from the RegimeRegistry "
+        "(the whole operating rule: flow + roles + watchdog + handover)"),
     ledger: Optional[Path] = typer.Option(None, "--ledger", help="JSONL ledger path"),
     deadline: int = typer.Option(None, "--deadline", help="per-segment deadline (sec)"),
     title: str = typer.Option("regime-driver", "--title"),
@@ -171,6 +174,7 @@ def run(
             *(["--config", str(config)] if config else []),
             *(["--regime", str(regime)] if regime else []),
             *(["--flow", flow] if flow else []),
+            *(["--regime-name", regime_name] if regime_name else []),
             *(["--ledger", str(ledger)] if ledger else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--title", title] if title != "regime-driver" else []),
@@ -183,7 +187,7 @@ def run(
                     title=title, json_out=json_out)
         return
     # mandatory preflight (offline trial) before touching a real worker/session
-    sm = _sm_from_flow_or_regime(flow, regime)
+    sm = _sm_from_flow_or_regime(flow, regime, regime_name)
     if not no_preflight:
         from ..app.preflight import preflight
 
@@ -201,17 +205,27 @@ def run(
             # so machine output stays clean.)
             if not json_out:
                 _note("preflight is structural only: it does not predict real-model behavior")
-    _run(settings, context, title, json_out=json_out, reporter=reporter, sm=sm)
+    _run(settings, context, title, json_out=json_out, reporter=reporter, sm=sm,
+         regime_name=regime_name)
 
 
-def _sm_from_flow_or_regime(flow: str | None, regime: Path | None):
-    """Resolve the StateMachine to run: a named registry flow or a regime file.
+def _sm_from_flow_or_regime(flow: str | None, regime: Path | None,
+                            regime_name: str | None = None):
+    """Resolve the StateMachine to run: a named regime (whole rule), a named
+    registry flow, or a regime file.
 
-    ``--flow`` takes precedence (Dialog-Control-designed flows); ``--regime`` is the
-    file-based fallback; neither means the packaged default descriptor.
+    ``--regime-name`` takes precedence (the regime's flow); ``--flow`` next
+    (Dialog-Control-designed flows); ``--regime`` is the file-based fallback;
+    neither means the packaged default descriptor.
     """
     from ..core.state_machine import StateMachineError
 
+    if regime_name:
+        reg = _default_regime_registry()
+        entry = reg.get(regime_name)
+        if entry is None:
+            _fail(f"unknown regime '{regime_name}' (use `regime regime list`)")
+        return entry.regime.flow
     if flow:
         try:
             return _default_registry().get(flow).sm
@@ -223,9 +237,35 @@ def _sm_from_flow_or_regime(flow: str | None, regime: Path | None):
         _fail(f"error loading regime: {exc}")
 
 
-def _run(settings: Settings, context: str, title: str, json_out: bool = False,
-         reporter: Optional[Path] = None, sm: "StateMachine | None" = None) -> None:
+def _driver_from_options(settings: Settings, client: OpenCodeClient,
+                         ledger: Ledger | None, reporter,
+                         flow: str | None, regime: Path | None,
+                         regime_name: str | None, sm: "StateMachine | None" = None):
+    """Build the driver from the run options: a named regime uses the whole
+    operating rule (flow + roles + watchdog + handover); otherwise the legacy
+    flow/regime-file path with settings-JSON policies.
+
+    ``sm`` (already resolved by the caller for preflight) is reused for the
+    legacy path so `--flow`/`--regime` run exactly the flow that was preflighted.
+    """
+    if regime_name:
+        reg = _default_regime_registry()
+        r = reg.regime(regime_name)
+        if r is None:
+            _fail(f"unknown regime '{regime_name}' (use `regime regime list`)")
+        driver = StatechartDriver.from_regime(
+            r, settings, client, ledger, reporter=reporter)
+        return driver, r.flow
     if sm is None:
+        sm = _sm_from_flow_or_regime(flow, regime)
+    driver = StatechartDriver(settings, sm, client, ledger, reporter=reporter)
+    return driver, sm
+
+
+def _run(settings: Settings, context: str, title: str, json_out: bool = False,
+         reporter: Optional[Path] = None, sm: "StateMachine | None" = None,
+         regime_name: str | None = None) -> None:
+    if sm is None and regime_name is None:
         try:
             sm = load_regime(settings.regime_path)
         except (StateMachineError, FileNotFoundError) as exc:
@@ -237,7 +277,9 @@ def _run(settings: Settings, context: str, title: str, json_out: bool = False,
                             timeout=settings.request_timeout)
     ledger = Ledger(settings.ledger_path) if settings.ledger_path else None
     rep = Reporter(journal_path=reporter) if reporter else None
-    driver = StatechartDriver(settings, sm, client, ledger, reporter=rep)
+    driver, sm = _driver_from_options(
+        settings, client, ledger, rep, flow=None, regime=settings.regime_path,
+        regime_name=regime_name, sm=sm)
     try:
         _run_impl(driver, ledger, sm, context, title, json_out)
     finally:
@@ -459,6 +501,9 @@ def drive(
         None, "--ledger", help="JSONL event ledger path (workflow events)"),
     flow: str = typer.Option(None, "--flow", help="run a named flow from the FlowRegistry "
                              "(designed/loaded; resolves to its persisted spec)"),
+    regime_name: str = typer.Option(
+        None, "--regime-name", help="run a named regime from the RegimeRegistry "
+        "(the whole operating rule: flow + roles + watchdog + handover)"),
     tasks_dir: Optional[Path] = typer.Option(
         None, "--tasks-dir", help="supervised-task registry dir (default: ~/.regime/tasks)"),
     skills_dir: Optional[Path] = typer.Option(
@@ -517,6 +562,7 @@ def drive(
             *(["--config", str(config)] if config else []),
             *(["--regime", str(regime)] if regime else []),
             *(["--flow", flow] if flow else []),
+            *(["--regime-name", regime_name] if regime_name else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--container", container] if container else []),
             *(["--stall", str(stall)] if stall is not None else []),
@@ -545,7 +591,7 @@ def drive(
         return
 
     # mandatory preflight (offline trial) before touching a real worker/session
-    sm = _sm_from_flow_or_regime(flow, regime)
+    sm = _sm_from_flow_or_regime(flow, regime, regime_name)
     if not no_preflight:
         from ..app.preflight import preflight
 
@@ -576,7 +622,7 @@ def drive(
                             task_id=os.environ.get("REGIME_TASK_ID"))
     drv = Drive(
         settings, sm, client, rep, container=container,
-        deadline_sec=deadline,
+        deadline_sec=deadline, regime=_named_regime(regime_name),
         meta_enabled=meta, meta_model=meta_model,
         prune_max_records=prune_max_records, prune_max_age=prune_max_age,
     )
@@ -633,6 +679,17 @@ def drive(
                   + (f": {dr.detail}" if dr.detail else ""), markup=True)
     finally:
         rep.close()
+
+
+def _named_regime(regime_name: str | None):
+    """Load a named regime from the registry (None when not requested)."""
+    if not regime_name:
+        return None
+    reg = _default_regime_registry()
+    r = reg.regime(regime_name)
+    if r is None:
+        _fail(f"unknown regime '{regime_name}' (use `regime regime list`)")
+    return r
 
 
 def _write_drive_summary(summary_file: str, data: dict) -> None:
@@ -2049,6 +2106,211 @@ def flow_inspect(
 
 
 app.add_typer(_flow_app, name="flow")
+
+# ---------------------------------------------------------------------------
+# regime (the whole operating rule: flow + roles + watchdog + handover)
+# ---------------------------------------------------------------------------
+_regime_app = typer.Typer(
+    help="RegimeRegistry: compile/validate/load/reload of named operating rules "
+         "(flow + roles + watchdog + handover).")
+
+_regime_registry = None
+
+
+def _default_regime_registry():
+    global _regime_registry
+    if _regime_registry is None:
+        from ..regime import RegimeRegistry, default_regime_store_dir
+        _regime_registry = RegimeRegistry(store_dir=default_regime_store_dir())
+    return _regime_registry
+
+
+def _reset_regime_registry() -> None:
+    """Drop the cached registry (used by tests to isolate regime mutations)."""
+    global _regime_registry
+    _regime_registry = None
+
+
+@_regime_app.command("list")
+def regime_list(json_out: bool = typer.Option(False, "--json", help="machine-readable JSON")) -> None:
+    """List named regimes in the registry."""
+    reg = _default_regime_registry()
+    if json_out:
+        _emit_json({"regimes": [e.to_dict() for e in reg.list()]})
+        return
+    if not reg.list():
+        _note("no regimes registered (use `regime regime design/load`)")
+        return
+    for e in reg.list():
+        extra = []
+        if e.regime.watchdog is not None:
+            extra.append("watchdog")
+        if e.regime.handover is not None:
+            extra.append("handover")
+        if e.regime.roles is not None:
+            extra.append(f"roles:{','.join(e.regime.roles.ids())}")
+        _ok(f"v{e.version} {e.name} [{e.source}] "
+            f"({e.regime.flow.flow_name}, {len(e.regime.flow.flow.nodes)} nodes"
+            + (f", {','.join(extra)}" if extra else "") + ")")
+
+
+@_regime_app.command("inspect")
+def regime_inspect(
+    name: str = typer.Argument(..., help="regime name"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Inspect a named regime definition."""
+    reg = _default_regime_registry()
+    entry = reg.get(name)
+    if entry is None:
+        _fail(f"unknown regime '{name}'")
+    if json_out:
+        _emit_json(entry.to_dict())
+        return
+    try:
+        path = " → ".join(entry.regime.flow.flow_path())
+    except Exception:
+        path = "(cycle)"
+    console.print(f"  {entry.name} v{entry.version} [{entry.source}]")
+    console.print(f"  flow: {entry.regime.flow.flow_name} · {path}")
+    if entry.regime.roles:
+        console.print(f"  roles: {', '.join(entry.regime.roles.ids())}")
+    if entry.regime.watchdog is not None:
+        console.print(f"  watchdog: {entry.regime.watchdog.name} "
+                      f"({len(entry.regime.watchdog.rules)} rules)")
+    if entry.regime.handover is not None:
+        h = entry.regime.handover
+        console.print(f"  handover: soft={h.soft_fraction} hard={h.hard_fraction}")
+
+
+@_regime_app.command("design")
+def regime_design(
+    name: str = typer.Argument(..., help="regime name to register under"),
+    spec: str = typer.Argument(..., help="inline regime spec: {\"name\":..., "
+                                          "\"flow\":{...}, \"roles\":{...}, \"watchdog\":{...}, \"handover\":{...}}"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    preflight: bool = typer.Option(
+        False, "--preflight", help="also run an offline preflight trial"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Design + register a new regime (whole operating rule) from an inline spec."""
+    _gate(perm, ["regime", "design", name])
+    from ..flow import FlowError
+    from ..regime import compile_regime
+
+    reg = _default_regime_registry()
+    try:
+        # a spec without an embedded name is registered under the CLI name
+        import json as _json
+        data = _json.loads(spec)
+        if isinstance(data, dict) and not data.get("name"):
+            data["name"] = name
+            spec = _json.dumps(data, ensure_ascii=False)
+        r = compile_regime(spec)
+        if preflight:
+            from ..app.preflight import preflight as _preflight
+            res = _preflight(r.flow, timeout_sec=30.0)
+            if not res["ok"]:
+                raise FlowError(f"preflight FAILED: outcome={res['outcome']} "
+                                f"detail={res['detail']}")
+        entry = reg.register(r, source="design", validate=True,
+                             skills_dir=skills_dir)
+    except FlowError as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
+        _fail(f"design FAILED: {exc}")
+    if json_out:
+        _emit_json({"ok": True, **entry.to_dict()})
+        return
+    _ok(f"designed regime [bold]{entry.name}[/bold] (v{entry.version}, "
+        f"{len(entry.regime.flow.flow.nodes)} nodes, "
+        f"watchdog={'yes' if entry.regime.watchdog else 'no'})", markup=True)
+
+
+@_regime_app.command("load")
+def regime_load(
+    spec: Path = typer.Argument(..., help="path to a regime spec file"),
+    name: str = typer.Option(None, "--name", help="register under this regime name"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    preflight: bool = typer.Option(
+        False, "--preflight", help="also run an offline preflight trial"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Load + deep-validate + register a regime file (F9 gate)."""
+    _gate(perm, ["regime", "load"])
+    from ..flow import FlowError
+
+    reg = _default_regime_registry()
+    try:
+        entry = reg.load(spec, name=name, skills_dir=skills_dir,
+                         preflight=preflight)
+    except FlowError as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
+        _fail(f"load FAILED: {exc}")
+    if json_out:
+        _emit_json({"ok": True, **entry.to_dict()})
+        return
+    _ok(f"loaded regime [bold]{entry.name}[/bold] (v{entry.version}, "
+        f"{len(entry.regime.flow.flow.nodes)} nodes, source={entry.source})", markup=True)
+
+
+@_regime_app.command("reload")
+def regime_reload(
+    name: str = typer.Argument(..., help="regime name to reload"),
+    skills_dir: Optional[Path] = typer.Option(
+        None, "--skills-dir", help="path to workflow-regime skills dir"),
+    preflight: bool = typer.Option(
+        False, "--preflight", help="also run an offline preflight trial"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Atomically hot-reload a named regime. Running workflows keep their old
+    Regime snapshot; the registry swaps to the new version."""
+    _gate(perm, ["regime", "reload"])
+    from ..flow import FlowError
+
+    reg = _default_regime_registry()
+    try:
+        entry = reg.reload(name, skills_dir=skills_dir, preflight=preflight)
+    except FlowError as exc:
+        if json_out:
+            _emit_json({"ok": False, "error": str(exc)})
+            raise typer.Exit(1)
+        _fail(f"reload FAILED: {exc}")
+    if json_out:
+        _emit_json({"ok": True, **entry.to_dict()})
+        return
+    _ok(f"reloaded regime [bold]{entry.name}[/bold] → v{entry.version}", markup=True)
+
+
+@_regime_app.command("rm")
+def regime_rm(
+    name: str = typer.Argument(..., help="regime name to remove"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+    perm: str = typer.Option("run", "--perm", help="held permission level"),
+) -> None:
+    """Remove a named regime from the registry (running workflows keep theirs)."""
+    _gate(perm, ["regime", "rm"])
+    reg = _default_regime_registry()
+    if not reg.remove(name):
+        if json_out:
+            _emit_json({"ok": False, "error": f"unknown regime '{name}'"})
+            raise typer.Exit(1)
+        _fail(f"unknown regime '{name}'")
+    if json_out:
+        _emit_json({"removed": name})
+        return
+    _ok(f"removed regime {name}", markup=False)
+
+
+app.add_typer(_regime_app, name="regime")
 
 
 # ---------------------------------------------------------------------------

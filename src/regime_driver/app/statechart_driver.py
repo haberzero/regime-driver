@@ -44,30 +44,52 @@ class StatechartDriver:
         heartbeat_stale_sec: float | None = None,
         run_id: str | None = None,
         sse: "SseActivity | None" = None,
+        regime: "Regime | None" = None,
     ) -> None:
+        """Assemble the runtime.
+
+        A `Regime` (the whole operating rule) is the authoritative "how to run"
+        declaration when given: it supplies the flow, roles, supervision policy
+        and handover policy, with its thresholds taking precedence over the
+        settings defaults. The legacy positional form (state_machine/roles from
+        settings JSON) remains for direct low-level construction.
+        """
+        from .watchdog_policy import policy_from_json
+
         self.settings = settings
-        self.sm = state_machine
         self.client = client
         self.ledger = ledger
         self.reporter = reporter
-        self.roles = roles or default_roles()
         self.run_id = run_id or self._gen_run_id()
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
+        if regime is not None:
+            self.sm = regime.flow
+            self.roles = regime.roles or roles or default_roles()
+            stall_sec = (regime.stall_sec if regime.stall_sec is not None
+                         else float(settings.stall_sec))
+            auto_resume = (regime.auto_resume_sec if regime.auto_resume_sec is not None
+                           else float(settings.auto_resume_sec))
+            policy = regime.watchdog or policy_from_json(settings.watchdog_policy_json)
+            handover = regime.handover
+        else:
+            self.sm = state_machine
+            self.roles = roles or default_roles()
+            stall_sec = float(settings.stall_sec)
+            auto_resume = float(settings.auto_resume_sec)
+            policy = policy_from_json(settings.watchdog_policy_json)
+            handover = None
         # WORK_PLAN11: the watchdog is a programmable policy engine; build the
-        # policy from settings (operator JSON) or fall back to the default.
-        from .watchdog_policy import policy_from_json
-
-        policy = policy_from_json(settings.watchdog_policy_json)
+        # policy from the regime (or settings JSON), else the default.
         self.watchdog = watchdog or WatchdogUnit(
             unit_id="watchdog",
-            stall_sec=float(settings.stall_sec),
+            stall_sec=stall_sec,
             control_dst="workflow",
             bus=self.runtime.bus,
             global_deadline_sec=global_deadline_sec,
             max_global_nodes=max_global_nodes,
             heartbeat_stale_sec=heartbeat_stale_sec,
             policy=policy,
-            auto_resume_sec=float(settings.auto_resume_sec),
+            auto_resume_sec=auto_resume,
             reporter=reporter,
             run_id=self.run_id,
         )
@@ -76,13 +98,40 @@ class StatechartDriver:
             # bus so its send()/emit() work (it manages its own subscriptions).
             self.watchdog.bus = self.runtime.bus
         self.workflow = WorkflowUnit(
-            settings, state_machine, client, ledger,
+            settings, self.sm, client, ledger,
             reporter=reporter, roles=self.roles,
             unit_id="workflow", run_id=self.run_id, bus=self.runtime.bus,
-            sse=sse,
+            sse=sse, context_policy=handover,
         )
         self.runtime.register(self.watchdog)
         self.runtime.register(self.workflow)
+
+    @classmethod
+    def from_regime(
+        cls,
+        regime: "Regime",
+        settings: Settings,
+        client: OpenCodeClient,
+        ledger: Ledger | None = None,
+        reporter: "Reporter | None" = None,
+        watchdog: ThreadedUnit | None = None,
+        enforce_invariants: bool = True,
+        global_deadline_sec: float | None = None,
+        max_global_nodes: int | None = None,
+        heartbeat_stale_sec: float | None = None,
+        run_id: str | None = None,
+        sse: "SseActivity | None" = None,
+    ) -> "StatechartDriver":
+        """One-shot assembly from a whole operating rule (regime first-class)."""
+        return cls(
+            settings, regime.flow, client, ledger, reporter,
+            roles=regime.roles, watchdog=watchdog,
+            enforce_invariants=enforce_invariants,
+            global_deadline_sec=global_deadline_sec,
+            max_global_nodes=max_global_nodes,
+            heartbeat_stale_sec=heartbeat_stale_sec,
+            run_id=run_id, sse=sse, regime=regime,
+        )
 
     @staticmethod
     def _gen_run_id() -> str:

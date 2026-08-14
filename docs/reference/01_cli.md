@@ -28,6 +28,7 @@
 |------|------|------|
 | `context` | 位置参数 | 注入 developer 节点的任务上下文 |
 | `--flow` | str | 运行 FlowRegistry 中已设计/加载的命名流程（dialog-control 设计的工作流入口） |
+| `--regime-name` | str | 运行 RegimeRegistry 中已注册的**命名制度**（完整运行规则：flow+roles+watchdog+handover） |
 | `--base` | str | worker opencode 服务器 URL |
 | `--config` | path | 配置文件（JSON/TOML） |
 | `--regime` | path | regime.json 路径（默认打包版） |
@@ -93,6 +94,7 @@ regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:
 | `--config` | path | 配置文件（JSON/TOML） |
 | `--regime` | path | regime.json 路径（默认打包版） |
 | `--flow` | str | 运行 FlowRegistry 中已设计/加载的命名流程 |
+| `--regime-name` | str | 运行 RegimeRegistry 中已注册的**命名制度**（完整运行规则：flow+roles+watchdog+handover） |
 | `--deadline` | int | 全局期限（秒），执行器与 supervisor 共享 |
 | `--container` | str | worker docker 容器名（T1 失联时 L4 重启对象） |
 | `--stall` | int | 会话停滞检测秒数（drive 模式为进程内策略看门狗；默认取 config 的 `settings.stall_sec`=120） |
@@ -206,6 +208,77 @@ deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外�
 
 **参数**：`--json`。
 **输出**：`{name,version,source,nodes,path}`。
+
+---
+
+### `regime`（命名运行制度，一等公民）
+
+> **体系化重构（WORK_PLAN14 阶段 1）**：`Regime` = 完整"怎么跑一个任务"的声明对象
+> （flow + roles + watchdog 监督策略 + handover 交接策略 + stall/auto_resume 阈值），
+> 拥有与 flow 相同的生命周期（compile → deep_validate → preflight → hot-reload → version →
+> permission → audit）。`regime run/drive --regime-name <name>` 按整制度运行；
+> `--flow`/`--regime` 仍是只取流程的子集路径。持久 store 默认 `~/.regime/regimes`（`REGIME_STORE` 可覆盖）。
+
+#### `regime list`
+
+列出注册表中的命名制度。
+
+**参数**：`--json`。
+**输出**：每项 `{name,version,source,nodes,path,has_watchdog,has_handover,roles}`。
+
+#### `regime inspect <name>`
+
+显示一个命名制度的定义摘要（flow/roles/watchdog/handover）。
+
+**参数**：`--json`。
+**输出**：`{name,version,source,nodes,path,has_watchdog,has_handover,roles}`。
+
+#### `regime design <name> '<spec>'`
+
+从内联规格设计并注册一个新制度（控制对话框制度设计入口）。规格 JSON：
+
+```json
+{
+  "name": "my-regime",
+  "flow": {"entry": "a", "nodes": [{"id":"a","desc":"干","role":"developer","type":"agent"}]},
+  "roles": {"developer": {"agent": "developer", "context_threshold_normal": 0.4}},
+  "watchdog": {"soft_sec": 30, "soft_action": "interrupt", "meta_gate_soft": true, "hard_sec": 600},
+  "handover": {"soft_fraction": 0.5, "hard_fraction": 0.7},
+  "stall_sec": 120,
+  "auto_resume_sec": 30
+}
+```
+
+**参数**：`--skills-dir`、`--preflight`、`--perm`。
+**输出**：`{ok,name,version,nodes,source:"design",has_watchdog,has_handover}`。
+**权限**：`run`。
+**约束**：各组件编译时校验（watchdog 负/零阈值响亮拒绝、空 handover 对象拒绝、roles 未知字段拒绝、
+name 只允许 `[A-Za-z0-9._-]`）；F9 深检门对 flow 的 role/skill/tool 注册做检查。
+
+#### `regime load <spec.json>`
+
+加载 + 深度校验 + 注册一个制度文件（F9 门）。
+
+**参数**：`--name`（覆盖注册名）、`--skills-dir`、`--preflight`、`--perm`。
+**输出**：`{ok,name,version,nodes,source}`。
+**权限**：`run`。
+
+#### `regime reload <name>`
+
+原子热重载一个命名制度。运行中的 workflow 保持旧 Regime 快照，注册表切换到新版本；
+重载失败（编译/校验失败）保留当前版本不变。
+
+**参数**：`--skills-dir`、`--preflight`、`--perm`。
+**输出**：`{ok,name,version,nodes,source}`。
+**权限**：`run`。
+
+#### `regime rm <name>`
+
+从注册表移除一个命名制度，运行中的 workflow 不受影响。
+
+**参数**：`--perm`。
+**输出**：`{removed}`。
+**权限**：`run`。
 
 ---
 

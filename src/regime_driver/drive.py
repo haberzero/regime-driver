@@ -88,6 +88,7 @@ class Drive:
         meta_model: str | None = None,
         prune_max_records: int | None = None,
         prune_max_age: float | None = None,
+        regime: "Regime | None" = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -99,6 +100,9 @@ class Drive:
         self.session_discovery_timeout = session_discovery_timeout
         self.meta_enabled = meta_enabled
         self.meta_model = meta_model
+        # a whole operating rule (flow + roles + watchdog + handover): when given,
+        # the driver is assembled from it via StatechartDriver.from_regime
+        self.regime = regime
         # journal retention: bound the shared journal at drive teardown (both params
         # optional; enabled only when the caller passes at least one).
         self.prune_max_records = prune_max_records
@@ -145,12 +149,18 @@ class Drive:
         # is disabled in drive mode, so no two independent session-liveness
         # baselines exist.
         self._sse = SseActivity(self.client)
-        self.driver = StatechartDriver(
-            self.settings, self.sm, self.client, reporter=self.reporter,
-            ledger=_ledger_for(self.settings),
-            global_deadline_sec=self.deadline_sec,
-            sse=self._sse,
-        )
+        if self.regime is not None:
+            self.driver = StatechartDriver.from_regime(
+                self.regime, self.settings, self.client, reporter=self.reporter,
+                ledger=_ledger_for(self.settings),
+                global_deadline_sec=self.deadline_sec, sse=self._sse)
+        else:
+            self.driver = StatechartDriver(
+                self.settings, self.sm, self.client, reporter=self.reporter,
+                ledger=_ledger_for(self.settings),
+                global_deadline_sec=self.deadline_sec,
+                sse=self._sse,
+            )
         t0 = time.time()
 
         def _go() -> None:

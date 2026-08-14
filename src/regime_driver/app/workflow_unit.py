@@ -84,6 +84,7 @@ class WorkflowUnit(ThreadedUnit):
         bus=None,
         poll_sec: float | None = None,
         sse: SseActivity | None = None,
+        context_policy: ContextHandoverPolicy | None = None,
     ) -> None:
         super().__init__(unit_id, bus)
         # run_id distinguishes THIS run in the report bus from prior runs, so a
@@ -107,15 +108,17 @@ class WorkflowUnit(ThreadedUnit):
         )
         self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)
-        # WORK_PLAN13 context-budget handover policy (optional, settings JSON).
-        # When set, threshold negotiation + real handover documents apply;
-        # otherwise the per-role RolePolicy thresholds (legacy) drive it.
-        self._context_policy: ContextHandoverPolicy | None = None
-        try:
-            self._context_policy = ContextHandoverPolicy.from_json(
-                settings.context_handover_policy_json)
-        except ValueError as exc:
-            self._log("context_policy_error", err=str(exc))
+        # WORK_PLAN13 context-budget handover policy (optional). When set,
+        # threshold negotiation + real handover documents apply; otherwise the
+        # per-role RolePolicy thresholds (legacy) drive it. A regime-declared
+        # policy (injected) takes precedence over the settings JSON.
+        self._context_policy: ContextHandoverPolicy | None = context_policy
+        if self._context_policy is None:
+            try:
+                self._context_policy = ContextHandoverPolicy.from_json(
+                    settings.context_handover_policy_json)
+            except ValueError as exc:
+                self._log("context_policy_error", err=str(exc))
         self._verify_evidence: str | None = None
         self._verify_failed: bool = False
         # WORK_PLAN11 pause-abort bookkeeping: an abort sentinel we caused
