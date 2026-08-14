@@ -274,78 +274,79 @@
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。
 
-### 下一 session 主线任务（唯一指针，2026-08-14）
+### 下一 session 主线任务（唯一指针，2026-08-14 深夜）
 
-> **本 session 已完成**：**体系化重构 阶段 0 + 阶段 1a/1b/1d**（用户授权破坏性重构，蓝图
-> `tasks_docs/_regime_redesign.md`）。宏观根因分析把 W1–W6 + 交接硬编码 + 自定义缺失收敛到
-> 3 个体系化根因（Regime 非一等公民 / 监督职责分裂 / 核心语义未在底层定义）。
+> **本 session 已完成：体系化重构 全部五阶段（0/1/2/3/4）**（用户授权破坏性重构，蓝图
+> `tasks_docs/_regime_redesign.md` 已总结入 WORKLOG 并删除）。宏观根因（3 个体系化根因：
+> Regime 非一等公民 / 监督职责分裂 / 核心语义未在底层定义）已全部落地解决。
 >
-> **阶段 0（commit `989dac6`，W1/W2 根治）**：监督统一抽象收敛——drive 模式会话级监督归
-> in-process watchdog（跟随 wait_sid + 全恢复阶梯）；进程外退为 T1/docker 重启 + deadline +
-> meta 智能第二意见通道（`supervise_sessions=False`）；`watchdog_fire` 落共享 journal（修诊断
-> 盲区）；`SseActivity` 共享单一活性源；`--stall` 语义归一。
+> **阶段 0（`989dac6`，监督统一抽象，W1/W2 根治）**：drive 模式会话级监督归 in-process watchdog；
+> 进程外退为 T1/deadline/meta；watchdog_fire 落 journal；SseActivity 单一活性源。
 >
-> **阶段 1（commit `bb73524`，Regime 一等公民落地）**：新增 `regime.py`——`Regime` 聚合对象
-> （flow+roles+watchdog+handover+stall/auto_resume）+ `compile_regime/validate_regime` 统一编译
-> 校验门 + `RegimeRegistry`（命名制度单一真源、持久 store、原子热重载、失败保留当前版本）；
-> `StatechartDriver.from_regime` 构造收敛 + `WorkflowUnit` context_policy 注入 + `Drive` regime
-> 参数；CLI `regime regime` 命令组（list/inspect/design/load/reload/rm）+ `run/drive --regime-name`
-> （解析同一持久 store）；死代码守卫接入；文档同步。general 只读 review 两轮（2 blocker + 4
-> warning + nits 全处理）；真实 worker `--regime-name` 冒烟 14s complete。基线 **552 passed
-> 零回归**，已 commit（未 push）。
+> **阶段 1（`bb73524`/`4e1f2f7`/`ea50be8`，Regime 一等公民）**：`regime.py` + RegimeRegistry +
+> `from_regime` + `regime regime` CLI + `run/drive --regime-name`；1c 独立 supervisor 判定统一到
+> watchdog_policy 规则引擎（删 SessionWatch/_verdict_for_stall，meta 只升不降）；1d run-many/
+> drive-many `--regime-name` + 对话框整制度设计入口。
 >
-> **下一 session 主线 = 体系化重构 阶段 1 收尾 + 阶段 2**（见 `tasks_docs/MAIN_TASKS.md` +
-> 蓝图 `tasks_docs/_regime_redesign.md`）：
-> 1. **阶段 1c**：独立 `regime supervisor` 判定统一到 watchdog_policy 规则引擎（删除自研
->    SessionWatch/_verdict_for_stall 第二套判定实现；行为语义重设计：连续窗口 vs 绝对时长多级
->    规则，需慎重设计并重写 test_supervisor 相关测试）。
-> 2. **阶段 1d 补全**：run-many/drive-many `--regime-name`；对话框制度设计入口（dialog `design`
->    升级为整制度）。
-> 3. **阶段 2：统一扩展点模型**——`~/.regime/hooks.py` 插件 + register_tool/rule/hook 统一注册表；
->    hook 点 on_node_enter/done/transition/judge_verdict/stall/handover（全审计）；handover 文档/
->    提示词/协商改声明式模板+可选回调（去硬编码）；verify 白名单化（消 RCE，W5）；对话框 hook 装配。
-> 4. 阶段 3（W3/W4 语义契约）、阶段 4（对话框意图级）随后。
+> **阶段 2（`d1fe9f4`，统一扩展点模型）**：`extensions.py` HookRegistry（6 类生命周期 hook +
+> rules + tools）+ `~/.regime/hooks.py` 插件；handover 声明式模板化；verify 白名单化消 RCE（W5）；
+> 对话框 hook list/path/reload。
+>
+> **阶段 3（`7a38e9a`，语义契约下放）**：`is_abort_error` 瞬时错误分类（W3，防 ConnectionAbortedError
+> 误判）；extract_json 尾部逗号容错（W4）。
+>
+> **阶段 4（`3b06490`，对话框意图级制度操作面）**：`ask_human` 人工确认点（workflow `_PH_HUMAN` 相 +
+> 黑板决策通道 + decide 命令 + 超时兜底）；意图级设计（NL→flow 或整制度 JSON，审查前验证测试→verify）。
+>
+> 全阶段：每阶段 general 只读 review（0 blocker 收口）+ 全量测试零回归 + 真实 worker 冒烟
+> （hooks 6 节点 fire / run-many --regime-name 16s / 语义契约 87.5s / 阶段4 88s 全 complete）。
+> **测试基线 610 passed 零回归**；sync_templates / check_capabilities / 守卫全绿。
+>
+> **下一 session 主线 = 常规推进**：
+> 1. **真实 E2E 冒烟验证阶段 4**：真实 worker 上触发 ask_human（构造一个 reviewer 返回 ask_human
+>    的流程）→ 对话框 decide yes/no → 推进；意图级 `design <NL>` 真实 LLM 生成整制度 → `--regime-name`
+>    运行。
+> 2. **顺延候选**：V-2 PyPI（待用户 token，dist/ 已构建）→ P-005 覆盖率优化 → 限并发耐久二次验证 →
+>    GitHub Pages 启用（待用户 Settings）。
 >
 > **任务控制体系**（四类关键文档）：主线 `tasks_docs/MAIN_TASKS.md`、搁置 `tasks_docs/PENDING_TASKS.md`、
 > 交接 `HANDOVER.md`（本文件）、工作日志 `tasks_docs/WORKLOG.md`。其余均为临时（完成即删）。
-> **重构临时工作簿** `tasks_docs/_regime_redesign.md`（含根因/目标架构/分阶段方案/每阶段完成与
-> 遗留状态），阶段全完成后总结入 WORKLOG 并删除。
 
 #### 环境核验（2026-08-14 交接时）
 
 | 资源 | 状态 | 说明 |
 |---|---|---|
-| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话（阶段1 冒烟后已清） |
+| `opencode-worker` 容器 | ✅ 健康 | opencode 1.18.11，`http://127.0.0.1:4097`，零残留会话 |
 | `opencode-dialog-control` 容器 | ✅ 健康 | opencode 1.18.11，端口 4098（A 路验证窗） |
-| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含阶段0/1 全部新代码（regime.py/RegimeRegistry/from_regime/regime CLI） |
+| 宿主 conda env `regime-driver` | ✅ 可编辑安装 | Editable → `/home/haber/oc-meta`，含阶段0-4 全部新代码（regime.py/RegimeRegistry/extensions.py/ask_human 等） |
 | 模型 key | ✅ | `DEEPSEEK_API_KEY` / `~/.regime/keys/deepseek.key`，`regime doctor` 全绿 |
 | `regime doctor` | ✅ 12 项全过 | worker 健康/版本/key/模板/部署完整性/docker/opencode/conda/session |
 | `regime preflight` | ✅ complete | 离线试跑整条 flow 干净完成 |
 | sync_templates / check_capabilities | ✅ 绿 | 24 CLI / 3 mounted skills / 11 packaged / 17 covers |
-| 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_deadcode（含 regime.py）+ test_package |
-| 测试基线 | ✅ 552 passed | 全量零回归（含 guard/e2e 门控；阶段0+阶段1 后） |
+| 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_deadcode + test_package + test_capabilities_map |
+| 测试基线 | ✅ 610 passed | 全量零回归（阶段0–4 全部完成后） |
 
 > **注意**：`opencode-dialog-control` 容器内的 regime-driver 是旧 wheel（0.2.0，无
 > `watchdog_policy_json`、`context_handover_policy_json`、`verify`、`regime` 命令）。它仅作 A 路验证窗，
 > 不影响宿主实验（drive/harness 全在宿主源码上跑）。如需同步最新代码用
 > `ops/up.sh dialog-control --rebuild`。
 
-#### 遗留问题清单（2026-08-14，体系化重构阶段 0+1 后）
+#### 遗留问题清单（2026-08-14 深夜，体系化重构阶段 0–4 全部完成后）
 
-**W 类状态更新（阶段 0 已处理 W1/W2 ✅；阶段 1 已落地 Regime 一等公民）**
+**W 类状态更新（全部关闭 ✅）**
 
 | # | 遗留问题 | 状态 | 说明 |
 |---|---|---|---|
-| W1 | in-process watchdog 未先于外部 supervisor 触发（drive 模式架构债） | ✅ **阶段 0 根治** | 根因定位=双看门狗阈值竞态（外部 T2 stall_sec=60 < in-process 120 抢先硬 abort）+ watchdog_fire 不落 journal（诊断盲区）。修复=drive 模式 `supervise_sessions=False`，会话级监督归 in-process watchdog（跟随 wait_sid + 全恢复阶梯）；进程外只留 T1/deadline/meta；fire 落共享 journal。commit `989dac6` |
-| W2 | drive 外部 supervisor T2 只盯 anchor/首个会话 | ✅ **阶段 0 根治** | drive 模式外部 T2 已禁用（in-process 经 REPORT 天然跟随当前 wait_sid，会话旋转不失焦） |
-| W3 | 瞬时性消息 error 被硬编码 BLOCKED（归因过宽） | ⏳ 待处理（阶段 3：语义契约下放） | 区分 error 类型：MessageAbortedError→BLOCK；瞬时错误→重试/ERROR |
-| W4 | reviewer 复杂判定仍可能输出散文（已缓解未根治） | ⏳ 待处理（阶段 3） | reviewer 契约容错层 |
-| W5 | verify 是宿主任意 shell 执行面（RCE 面） | ⏳ 待处理（阶段 2：扩展点模型） | verify 白名单化（如只允许 `docker exec {container} <白名单>` 形态） |
+| W1 | in-process watchdog 未先于外部 supervisor 触发（drive 模式架构债） | ✅ **阶段 0 根治** | drive 模式会话级监督归 in-process watchdog；进程外只留 T1/deadline/meta；fire 落 journal。commit `989dac6` |
+| W2 | drive 外部 supervisor T2 只盯 anchor/首个会话 | ✅ **阶段 0 根治** | in-process 经 REPORT 跟随 wait_sid，会话旋转不失焦 |
+| W3 | 瞬时性消息 error 被硬编码 BLOCKED（归因过宽） | ✅ **阶段 3 根治** | `is_abort_error` 分类（MessageAbortedError 锚定 vs 瞬时错误继续轮询）；节点 deadline 兜底。commit `7a38e9a` |
+| W4 | reviewer 复杂判定仍可能输出散文 | ✅ **阶段 3 缓解** | extract_json 尾部逗号容错 + 已有鲁棒解析/重试；不做散文转判定的语义猜测（保确定性门） |
+| W5 | verify 是宿主任意 shell 执行面（RCE 面） | ✅ **阶段 2 根治** | verify 白名单化（`docker exec {container} <白名单程序>`，argv 无宿主 shell，sg 回退再引号化）。commit `d1fe9f4` |
 | W6 | 上下文交接 token 读取失败 fail-open | ✅ 已达标 | fail-open 方向正确 + 留痕，无需处理 |
-| W-硬编码 | 交接文档模板/提示词/协商流程硬编码（无用户注入入口） | ⏳ 待处理（阶段 2：扩展点模型） | 声明式模板 + 可选 Python 回调 |
-| W-自定义 | 开发者/对话框可自定义、可注入回调、可确认状态机交互缺失 | ⏳ 待处理（阶段 2 hooks + 阶段 4 对话框意图级） | hooks 注册表 + ask_human 确认点 |
-| 1c | 独立 supervisor 判定仍自研（SessionWatch/_verdict_for_stall 第二套实现） | ⏳ 下一 session 主线第 1 项 | 统一到 watchdog_policy 规则引擎；行为语义重设计（连续窗口 vs 绝对时长多级规则），慎重 |
-| 1d-补 | run-many/drive-many `--regime-name`；对话框制度设计入口 | ⏳ 下一 session 主线第 2 项 | 与 run/drive 对齐；dialog `design` 升级为整制度 |
+| W-硬编码 | 交接文档模板/提示词/协商流程硬编码 | ✅ **阶段 2 根治** | `document_template`/`opening_template` 声明式化 + handover hook 覆盖 |
+| W-自定义 | 自定义/注入回调/确认状态机交互缺失 | ✅ **阶段 2+4 根治** | `~/.regime/hooks.py` 统一扩展点（hooks/rules/tools）+ 对话框 hook 命令 + ask_human 确认点 |
+| 1c | 独立 supervisor 判定自研（SessionWatch/_verdict_for_stall） | ✅ **阶段 1c 根治** | 统一到 watchdog_policy 规则引擎（绝对静默时长多级规则）。commit `4e1f2f7` |
+| 1d-补 | run-many/drive-many `--regime-name`；对话框制度设计入口 | ✅ **阶段 1d 根治** | StatechartCluster.from_regime + Parallel.regime；dialog design 整制度。commit `ea50be8` |
 
 **P 类（长期搁置，待用户或低优先）**：见 `tasks_docs/PENDING_TASKS.md`（V-2 PyPI 待用户 token、
 GitHub Pages 待用户 Settings、P-005 覆盖率、C3 延迟调优、FakeClient 收敛、MaxListeners doctor 检查）。
