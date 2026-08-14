@@ -133,7 +133,7 @@ watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实�
   动作词汇按 Actor 能力位声明（进程外无 pause/resume、有 docker 重启+human）；强行把外部动作
   硬塞进统一词汇会造出语义牵强的映射（restart vs kill vs human 不对齐），留 Action 层后续收敛。
 
-**阶段 1d 补全（commit `fa8d2a1`，560 passed 零回归 + general 只读 review）**：
+**阶段 1d 补全（commit `ea50be8`，561 passed 零回归 + general 只读 review）**：
 - **run-many/drive-many `--regime-name`**：`StatechartCluster.from_regime`（制度 watchdog
   policy/阈值优先 settings，roles+handover 经 add_workflow 传入各 workflow）；`Parallel` 增
   `regime` 参数，`_make_drive` 把制度传入每个成员 Drive（drive-many = 并行个 drive
