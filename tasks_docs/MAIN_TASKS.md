@@ -88,9 +88,16 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 > 瞬时错误=可恢复继续轮询，防 ConnectionAbortedError 误判）；`_latest_abort` 只判真 abort BLOCK +
 > 瞬时错误节点 deadline 兜底 + 节流审计 message_transient_error；judge 路径与 agent 对称（error 消息
 > 不解析为判定）；extract_json 尾部逗号容错（字符串安全）。
+>
+> **阶段 4 全部完成（commit `3b06490`，610 passed 零回归）**：
+> 对话框意图级制度操作面——`ask_human` 人工确认点（Action+human_question、gate 一致性、workflow
+> `_PH_HUMAN` 相：黑板 human_ask/waiting/decision + decide yes→advance/no→rework + 超时 block 兜底 +
+> human_wait 报 idle 防误杀）；对话框 `decide <wid> <yes|no> [评论]` 命令（裸 decide 只读列表）；
+> 意图级设计（NL→flow 或整制度 JSON，审查前必须验证测试→judge 带 verify）；`compile_spec` 紧凑白名单
+> 补 verify/readonly。
 
-1. **阶段 4：对话框意图级制度操作面**——`design` 意图级（如"让 reviewer 在通过前必须验证测试"→
-   自动生成 verify+gate+hook 的制度）；gate 扩展 ask_human 确认点（W-自定义）。
+**体系化重构（阶段 0–4）全部完成。** 蓝图 `_regime_redesign.md` 已总结并入 WORKLOG 并删除。
+后续主线 = 常规推进：真实 worker 端到端冒烟验证 ask_human/意图级设计 → 顺延候选。
 
 **顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
 
