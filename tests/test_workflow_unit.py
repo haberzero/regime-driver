@@ -686,15 +686,23 @@ def test_instruction_asks_for_work_done_marker():
     assert "[WORK_DONE]" in instr
 
 
-def test_verify_evidence_fed_to_judge_prompt():
+def test_verify_evidence_fed_to_judge_prompt(monkeypatch):
     from regime_driver.core.models import Node, NodeType
-    # judge node declaring a verify command -> the driver runs it on the host
-    # (echo is harmless) and stores the runtime evidence for the judge prompt.
+    from regime_driver.app.verify import VerifyResult
+    # judge node declaring a whitelisted verify command -> the driver runs it
+    # and stores the runtime evidence for the judge prompt. The docker exec is
+    # mocked (no real container in unit tests).
     unit, client = _wu(
         [Node(id="a", desc="understand", type=NodeType.AGENT, next="t"),
          Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE,
-              skill="code-review", verify="echo 42 passed", next=None)],
+              skill="code-review", verify="docker exec {container} pytest -q",
+              next=None)],
         {}, {"verify_enabled": True})
+    monkeypatch.setattr(
+        "regime_driver.app.workflow_unit.run_verify",
+        lambda cmd, container="opencode-worker", timeout=300.0: VerifyResult(
+            ok=True, rc=0, stdout_tail="42 passed", stderr_tail="",
+            elapsed=0.5, timed_out=False))
     unit.sessions.ensure("developer", "t")
     unit._context = "ctx"
     unit._developer_report = "63 passed"

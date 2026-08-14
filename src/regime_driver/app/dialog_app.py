@@ -11,11 +11,14 @@ from typing import Callable
 
 from .dialog_control import DialogControlUnit
 from .statechart_cluster import StatechartCluster
+from ..extensions import load_user_hooks
 from ..flow import FlowRegistry
 from ..infra.opencode import OpenCodeClient
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
+from ..regime import RegimeRegistry, default_regime_store_dir
 from ..testing import MockClient
+from ..worker import WorkerPool
 
 
 def make_llm_runner(client: OpenCodeClient, timeout: float) -> Callable[[str, str], str]:
@@ -64,9 +67,11 @@ def run_dialog(
         client = MockClient(sm=sm)
         llm = None
 
-    cluster = StatechartCluster(client)
-    from ..regime import RegimeRegistry, default_regime_store_dir
-    from ..worker import WorkerPool
+    # 阶段 2 unified extension registry: the dialog owns the live registry so
+    # `hook list/reload` can inspect / hot-reload the user plugin. Passed to the
+    # cluster at CONSTRUCTION so the watchdog (built inside) gets the hooks too.
+    hooks = load_user_hooks()
+    cluster = StatechartCluster(client, hooks=hooks)
 
     dialog = cluster.register_unit(DialogControlUnit(
         bus=cluster.runtime.bus, llm=llm, session_client=client if live else None,
@@ -75,6 +80,7 @@ def run_dialog(
         # same persistent named-regime store as the `regime regime` CLI: a
         # regime designed here is runnable from another process (`--regime-name`).
         regime_registry=RegimeRegistry(store_dir=default_regime_store_dir()),
+        hook_registry=hooks,
         settings_render=lambda: settings.model_dump().__str__(), allow_write=allow_write))
 
     def launcher(ctx, title, flow_sm=None):

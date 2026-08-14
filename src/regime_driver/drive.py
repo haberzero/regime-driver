@@ -89,6 +89,7 @@ class Drive:
         prune_max_records: int | None = None,
         prune_max_age: float | None = None,
         regime: "Regime | None" = None,
+        hooks: "HookRegistry | None" = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -103,6 +104,8 @@ class Drive:
         # a whole operating rule (flow + roles + watchdog + handover): when given,
         # the driver is assembled from it via StatechartDriver.from_regime
         self.regime = regime
+        # 阶段 2 unified extension registry (hooks + user watchdog rules).
+        self.hooks = hooks
         # journal retention: bound the shared journal at drive teardown (both params
         # optional; enabled only when the caller passes at least one).
         self.prune_max_records = prune_max_records
@@ -153,13 +156,14 @@ class Drive:
             self.driver = StatechartDriver.from_regime(
                 self.regime, self.settings, self.client, reporter=self.reporter,
                 ledger=_ledger_for(self.settings),
-                global_deadline_sec=self.deadline_sec, sse=self._sse)
+                global_deadline_sec=self.deadline_sec, sse=self._sse,
+                hooks=self.hooks)
         else:
             self.driver = StatechartDriver(
                 self.settings, self.sm, self.client, reporter=self.reporter,
                 ledger=_ledger_for(self.settings),
                 global_deadline_sec=self.deadline_sec,
-                sse=self._sse,
+                sse=self._sse, hooks=self.hooks,
             )
         t0 = time.time()
 

@@ -21,6 +21,7 @@ from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.settings import Settings
+from .watchdog_policy import WatchdogPolicy
 from .watchdog_unit import WatchdogUnit
 from .statechart_runtime import Runtime, ThreadedUnit
 from .workflow_unit import WorkflowUnit
@@ -45,6 +46,7 @@ class StatechartDriver:
         run_id: str | None = None,
         sse: "SseActivity | None" = None,
         regime: "Regime | None" = None,
+        hooks: "HookRegistry | None" = None,
     ) -> None:
         """Assemble the runtime.
 
@@ -53,6 +55,10 @@ class StatechartDriver:
         and handover policy, with its thresholds taking precedence over the
         settings defaults. The legacy positional form (state_machine/roles from
         settings JSON) remains for direct low-level construction.
+
+        `hooks` (阶段 2 unified extension registry) supplies user watchdog rules
+        (merged into the policy) and lifecycle hooks (fired by the workflow /
+        watchdog units).
         """
         from .watchdog_policy import policy_from_json
 
@@ -61,6 +67,7 @@ class StatechartDriver:
         self.ledger = ledger
         self.reporter = reporter
         self.run_id = run_id or self._gen_run_id()
+        self.hooks = hooks
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
         if regime is not None:
             self.sm = regime.flow
@@ -78,6 +85,11 @@ class StatechartDriver:
             auto_resume = float(settings.auto_resume_sec)
             policy = policy_from_json(settings.watchdog_policy_json)
             handover = None
+        # 阶段 2: user watchdog rules from the extension registry merge into the
+        # policy so one declared rule set drives supervision.
+        if self.hooks is not None and self.hooks.rules:
+            policy = policy.with_rules(self.hooks.rules) if policy is not None \
+                else WatchdogPolicy(rules=list(self.hooks.rules))
         # WORK_PLAN11: the watchdog is a programmable policy engine; build the
         # policy from the regime (or settings JSON), else the default.
         self.watchdog = watchdog or WatchdogUnit(
@@ -92,6 +104,7 @@ class StatechartDriver:
             auto_resume_sec=auto_resume,
             reporter=reporter,
             run_id=self.run_id,
+            hooks=self.hooks,
         )
         if self.watchdog.bus is None:
             # a custom watchdog created without a bus: give it the runtime's
@@ -101,7 +114,7 @@ class StatechartDriver:
             settings, self.sm, client, ledger,
             reporter=reporter, roles=self.roles,
             unit_id="workflow", run_id=self.run_id, bus=self.runtime.bus,
-            sse=sse, context_policy=handover,
+            sse=sse, context_policy=handover, hooks=self.hooks,
         )
         self.runtime.register(self.watchdog)
         self.runtime.register(self.workflow)
@@ -121,6 +134,7 @@ class StatechartDriver:
         heartbeat_stale_sec: float | None = None,
         run_id: str | None = None,
         sse: "SseActivity | None" = None,
+        hooks: "HookRegistry | None" = None,
     ) -> "StatechartDriver":
         """One-shot assembly from a whole operating rule (regime first-class)."""
         return cls(
@@ -130,7 +144,7 @@ class StatechartDriver:
             global_deadline_sec=global_deadline_sec,
             max_global_nodes=max_global_nodes,
             heartbeat_stale_sec=heartbeat_stale_sec,
-            run_id=run_id, sse=sse, regime=regime,
+            run_id=run_id, sse=sse, regime=regime, hooks=hooks,
         )
 
     @staticmethod

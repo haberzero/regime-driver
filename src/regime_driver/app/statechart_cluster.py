@@ -39,17 +39,35 @@ class StatechartCluster:
         reporter: "Reporter | None" = None,
         watchdog: ThreadedUnit | None = None,
         enforce_invariants: bool = True,
+        hooks: "HookRegistry | None" = None,
         **watchdog_kwargs,
     ) -> None:
         self.client = client
         self.ledger = ledger
         self.reporter = reporter
+        self.hooks = hooks
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
-        self.watchdog = watchdog or WatchdogUnit(
-            unit_id="watchdog", control_dst="*", bus=self.runtime.bus,
-            reporter=reporter, **watchdog_kwargs,
-        )
+        if watchdog is None:
+            from .watchdog_unit import default_policy
+            # 阶段 2: merge user watchdog rules from the extension registry into
+            # the shared policy (same as StatechartDriver), so run-many/dialog
+            # get the SAME supervision rule set as run/drive.
+            policy = watchdog_kwargs.pop("policy", None)
+            if hooks is not None and hooks.rules:
+                base = (policy if policy is not None
+                        else default_policy(watchdog_kwargs.get("stall_sec") or 120.0))
+                watchdog_kwargs["policy"] = base.with_rules(hooks.rules)
+            elif policy is not None:
+                watchdog_kwargs["policy"] = policy
+            self.watchdog = WatchdogUnit(
+                unit_id="watchdog", control_dst="*", bus=self.runtime.bus,
+                reporter=reporter, hooks=hooks, **watchdog_kwargs,
+            )
+        else:
+            self.watchdog = watchdog
         if self.watchdog.bus is None:
+            # a custom watchdog created without a bus: give it the runtime's
+            # bus so its send()/emit() work (it manages its own subscriptions).
             self.watchdog.bus = self.runtime.bus
         self.workflows: dict[str, WorkflowUnit] = {}
         self.runtime.register(self.watchdog)
@@ -63,6 +81,7 @@ class StatechartCluster:
         ledger: Ledger | None = None,
         reporter: "Reporter | None" = None,
         enforce_invariants: bool = True,
+        hooks: "HookRegistry | None" = None,
         **watchdog_kwargs,
     ) -> "StatechartCluster":
         """Build the cluster from a whole `Regime` (phase-1d).
@@ -84,7 +103,7 @@ class StatechartCluster:
         policy = regime.watchdog or policy_from_json(settings.watchdog_policy_json)
         cluster = cls(
             client, ledger, reporter, enforce_invariants=enforce_invariants,
-            policy=policy, stall_sec=stall, auto_resume_sec=auto,
+            policy=policy, stall_sec=stall, auto_resume_sec=auto, hooks=hooks,
             **watchdog_kwargs,
         )
         cluster.regime = regime
@@ -120,7 +139,7 @@ class StatechartCluster:
             settings, state_machine, self.client, self.ledger,
             reporter=self.reporter, roles=roles,
             unit_id=workflow_id, bus=self.runtime.bus,
-            context_policy=context_policy,
+            context_policy=context_policy, hooks=self.hooks,
         )
         self.runtime.register(wf)
         self.workflows[workflow_id] = wf

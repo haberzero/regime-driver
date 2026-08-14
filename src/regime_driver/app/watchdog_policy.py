@@ -185,6 +185,21 @@ class WatchdogPolicy:
     def _ladder_for(self, session_id: str) -> "Ladder":
         return self._ladders.setdefault(session_id, Ladder(order=self.actions))
 
+    def with_rules(self, extra: list["Rule"]) -> "WatchdogPolicy":
+        """Return a new policy with `extra` rules appended (same ladder/name).
+
+        Used by the driver to merge user-declared rules from the extension
+        registry into a policy built from regime/settings JSON. The extra rules
+        are validated against `self.actions` at construction (fail-fast), and
+        per-session ladders are fresh in the copy.
+        """
+        return WatchdogPolicy(
+            rules=list(self.rules) + list(extra),
+            probes=list(self.probes),
+            name=self.name,
+            actions=self.actions,
+        )
+
     def enrich(self, ev: SessionEvidence) -> SessionEvidence:
         for probe in self.probes:
             ev = probe(ev)

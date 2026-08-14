@@ -85,6 +85,7 @@ class WorkflowUnit(ThreadedUnit):
         poll_sec: float | None = None,
         sse: SseActivity | None = None,
         context_policy: ContextHandoverPolicy | None = None,
+        hooks: "HookRegistry | None" = None,
     ) -> None:
         super().__init__(unit_id, bus)
         # run_id distinguishes THIS run in the report bus from prior runs, so a
@@ -97,6 +98,9 @@ class WorkflowUnit(ThreadedUnit):
         self.ledger = ledger
         self.reporter = reporter
         self.roles = roles or default_roles()
+        # 阶段 2 unified extension registry: lifecycle hooks (node_enter/done,
+        # transition, judge_verdict, handover) fire through it.
+        self.hooks = hooks
         self.poll_sec = poll_sec or settings.poll_sec
         self.segment_parser = SegmentParser(state_machine.regime.meta.work_done_marker)
         self.sessions = SessionRegistry(client, agent_by_role={
@@ -449,6 +453,8 @@ class WorkflowUnit(ThreadedUnit):
     def _enter_node(self, node_id: str) -> None:
         node = self.sm.node(node_id)
         self._log("node_enter", node=node_id, type=node.type.value, role=node.role)
+        self._fire_hooks("node_enter", node=node_id, role=node.role,
+                         type=node.type.value)
         self._node = node_id
         self._node_count += 1
         self._write_metrics()
@@ -539,6 +545,8 @@ class WorkflowUnit(ThreadedUnit):
             rlen = len(report or "")
             self._log("node_done", node=self._node, outcome="complete",
                       report_len=rlen)
+            self._fire_hooks("node_done", node=self._node, role=self._wait_role,
+                             outcome="complete", report_len=rlen)
             if rlen > self.settings.report_len_warn:
                 # an abnormally large report is a weak signal that the model
                 # output outgrew control (e.g. pasted history / truncated-draft
@@ -697,6 +705,9 @@ class WorkflowUnit(ThreadedUnit):
         action = verdict.action
         self._log("reviewer_verdict", node=self._node, verdict=verdict.verdict,
                   action=action, confidence=verdict.confidence)
+        self._fire_hooks("judge_verdict", node=self._node,
+                         verdict=verdict.verdict, action=action,
+                         confidence=verdict.confidence)
         if action == "advance":
             target = verdict.next_state
             if target is None and not self._valid_targets:
@@ -972,27 +983,16 @@ class WorkflowUnit(ThreadedUnit):
         decision = policy.on_node_transition(prev_node, next_node, self._env)
         self._log("transition", from_node=prev_node, to_node=next_node,
                   role=prev_role, decision=decision.value)
+        self._fire_hooks("transition", from_node=prev_node, to_node=next_node,
+                         role=prev_role, decision=decision.value)
         if decision == TransitionDecision.ROTATE:
             try:
-                try:
-                    msgs = self.client.read_messages(
-                        self.sessions.get(prev_role).session_id)
-                except Exception:
-                    msgs = []
+                state = self.sessions.get(prev_role)
                 _nd = next_node if next_node in self.sm.flow.nodes else prev_node
-                doc = build_handover_document(
-                    role=prev_role, node_id=prev_node,
-                    node_desc=self.sm.node(prev_node).desc,
-                    task_context=self._context, messages=msgs,
-                    last_report=self._developer_report,
-                    keep=30, report_max_chars=1200,
-                )
+                doc, opening = self._handover_package(
+                    state, node_id=_nd, usage=0.0, kind="normal", forced=False)
                 self.session_rotator.rotate_with_handover(
-                    prev_role, summary=build_handover_opening(
-                        role=prev_role, node_id=_nd,
-                        node_desc=self.sm.node(_nd).desc,
-                        task_context=self._context, document=doc, usage=0.0),
-                    handoff_kind="normal")
+                    prev_role, summary=opening, handoff_kind="normal")
                 self.reviewers.pop(prev_role, None)  # B1: drop stale reviewer cache
             except Exception as exc:
                 self._log("transition_rotate_error", from_node=prev_node,
@@ -1091,26 +1091,10 @@ class WorkflowUnit(ThreadedUnit):
                         forced: bool = False, reason: str = "",
                         assessment_summary: str = "") -> None:
         """Rotate a session with a REAL handover document (WORK_PLAN13)."""
-        node = self.sm.node(node_id)
-        try:
-            messages = self.client.read_messages(state.session_id or "")
-        except Exception:
-            messages = []
-        doc = build_handover_document(
-            role=state.role, node_id=node_id, node_desc=node.desc,
-            task_context=self._context, messages=messages,
-            last_report=self._developer_report,
-            keep=getattr(self._context_policy, "handover_keep_messages", 30)
-            if self._context_policy else 30,
-            report_max_chars=getattr(self._context_policy, "report_max_chars", 1200)
-            if self._context_policy else 1200,
-        )
+        doc, opening = self._handover_package(
+            state, node_id=node_id, usage=usage, kind=kind, forced=forced)
         if assessment_summary:
             doc += f"\n- 原会话自评：{assessment_summary}"
-        opening = build_handover_opening(
-            role=state.role, node_id=node_id, node_desc=node.desc,
-            task_context=self._context, document=doc, usage=usage,
-        )
         try:
             self.session_rotator.rotate_with_handover(
                 state.role, summary=opening,
@@ -1127,6 +1111,45 @@ class WorkflowUnit(ThreadedUnit):
                   kind="urgent" if forced else kind,
                   forced=forced, reason=(reason or "")[:200])
 
+    def _handover_package(self, state, node_id: str, usage: float, *,
+                          kind: str, forced: bool) -> tuple[str, str]:
+        """Build (document, opening) for a session rotation.
+
+        Honors, in order of precedence (阶段 2, W-硬编码):
+          1. a `handover` hook override registered in the extension registry
+             (returns {"document": ..., "opening": ...}),
+          2. declarative custom templates on the handover policy
+             (`document_template` / `opening_template`, `.format`-style),
+          3. the built-in deterministic builders.
+        """
+        node = self.sm.node(node_id)
+        try:
+            messages = self.client.read_messages(state.session_id or "")
+        except Exception:
+            messages = []
+        policy = self._context_policy
+        keep = getattr(policy, "handover_keep_messages", 30) if policy else 30
+        rmax = getattr(policy, "report_max_chars", 1200) if policy else 1200
+        doc = build_handover_document(
+            role=state.role, node_id=node_id, node_desc=node.desc,
+            task_context=self._context, messages=messages,
+            last_report=self._developer_report, keep=keep, report_max_chars=rmax,
+            template=getattr(policy, "document_template", None) if policy else None,
+        )
+        opening = build_handover_opening(
+            role=state.role, node_id=node_id, node_desc=node.desc,
+            task_context=self._context, document=doc, usage=usage,
+            template=getattr(policy, "opening_template", None) if policy else None,
+        )
+        for over in self._fire_hooks("handover", role=state.role, node=node_id,
+                                     usage=usage, kind=kind, forced=forced):
+            if isinstance(over, dict):
+                if over.get("document"):
+                    doc = over["document"]
+                if over.get("opening"):
+                    opening = over["opening"]
+        return doc, opening
+
     def _log(self, event, **fields) -> None:
         if self.ledger is not None:
             self.ledger.append(event, **fields)
@@ -1141,6 +1164,20 @@ class WorkflowUnit(ThreadedUnit):
                 event_type=event,
                 detail=dict(fields),
             )
+
+    def _fire_hooks(self, point: str, **ctx) -> list:
+        """Fire a lifecycle hook through the extension registry (阶段 2).
+
+        A hook error is audited as `hook_error` and never breaks the loop — the
+        same contract as a broken watchdog rule. Returns hook returns (the
+        `handover` hook uses them as overrides).
+        """
+        if self.hooks is None:
+            return []
+        return self.hooks.fire(
+            point, on_error=lambda p, exc: self._log(
+                "hook_error", point=p, err=str(exc)),
+            **{"workflow": self.run_id, **ctx})
 
     def record_outcome(self, outcome: str, *, node: str | None = None,
                        detail: str = "") -> None:

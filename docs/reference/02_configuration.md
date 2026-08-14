@@ -116,6 +116,15 @@ token 计数唯一可靠（step 结束已记账）的时刻。
 context_handover_policy_json = '{"soft_fraction": 0.5, "hard_fraction": 0.7, "min_continue_nodes": 2, "handover_keep_messages": 30}'
 ```
 
+**声明式模板（阶段 2，去硬编码）**：可选 `document_template` / `opening_template`（`.format` 风格）
+覆盖内置交接文档/提示词模板。`document_template` 字段：`{role} {node_id} {node_desc} {task_context}
+{report} {messages}`；`opening_template` 字段：`{role} {node_id} {node_desc} {task_context} {document}
+{usage}`。优先级：handover hook 覆盖 > 声明式模板 > 内置构建器。
+
+```toml
+context_handover_policy_json = '{"soft_fraction": 0.5, "hard_fraction": 0.7, "document_template": "# 交接（{role}）\n任务：{task_context}\n当前节点：{node_id}\n{messages}", "opening_template": "你接续 {role} 会话，处于 {node_id} 节点。\n{document}"}'
+```
+
 ### `worker_container` / `verify_enabled`（WORK_PLAN13）
 
 **类型/默认**：str `opencode-worker`；bool `true`。

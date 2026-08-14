@@ -1,15 +1,25 @@
-"""Runtime verification runner (WORK_PLAN13).
+"""Runtime verification runner (WORK_PLAN13 + 阶段 2 W5 whitelist).
 
-A judge node (e.g. `test`) may declare a `verify` shell command. When the
-driver enters that judge node, it runs the command on the HOST and feeds the
-output to the reviewer as independent runtime evidence — closing the gap where
-the reviewer (read-only, cannot execute) could only statically count tests
-instead of knowing whether they actually pass.
+A judge node (e.g. `test`) may declare a `verify` command. When the driver
+enters that judge node, it runs the command and feeds the output to the
+reviewer as independent runtime evidence — closing the gap where the reviewer
+(read-only, cannot execute) could only statically count tests instead of
+knowing whether they actually pass.
 
-The command is user-authored flow config (trusted), so it runs with the host
-shell. `{container}` in the command is substituted from
-settings.worker_container. Failures/timeouts are recorded as evidence, never
-silently swallowed, and never fatal on their own — the judge decides.
+W5 (阶段 2): the verify surface is WHITELISTED, not arbitrary host shell. A
+command must be the docker-exec shape
+
+    docker exec {container} <allowed-exec> <args...>
+
+and is executed as an ARGV list (`shell=False`, never a host shell), so the
+blast radius is bounded to the worker container and no host program / host
+metacharacter can be reached. `{container}` is substituted from
+settings.worker_container; the exec program must be in `VERIFY_ALLOWED_EXECS`.
+A docker-group-stale shell transparently falls back to an `sg docker -c`
+wrapper over the *validated, re-quoted* argv (no user-shell interpretation).
+
+Failures/timeouts are recorded as evidence, never silently swallowed, and never
+fatal on their own — the judge decides.
 """
 
 from __future__ import annotations
@@ -21,10 +31,15 @@ from dataclasses import dataclass
 
 _TAIL = 1500
 
+#: Verify commands may only exec these programs INSIDE the worker container.
+VERIFY_ALLOWED_EXECS = {
+    "pytest", "python", "python3", "py", "node", "npm", "npx", "bash", "sh",
+}
+
 
 @dataclass
 class VerifyResult:
-    """Result of one host-side verify command."""
+    """Result of one container-side verify command."""
 
     ok: bool            # rc == 0
     rc: int | None
@@ -45,7 +60,7 @@ class VerifyResult:
             head += " (TIMEOUT)"
         if self.error:
             head += f" error={self.error}"
-        parts = [f"运行验证（宿主执行，{head}）："]
+        parts = [f"运行验证（容器内执行，{head}）："]
         if self.stdout_tail:
             parts.append(self.stdout_tail)
         if self.stderr_tail:
@@ -69,15 +84,74 @@ def render_verify_prompt_block(result: VerifyResult, cmd: str) -> str:
     return f"命令：`{cmd}`\n{result.render()}{note}"
 
 
+def build_verify_argv(cmd: str, container: str) -> list[str]:
+    """Parse + validate a verify command into a whitelisted docker-exec argv.
+
+    Allowed shape: `docker exec {container} <allowed-exec> <args...>` where the
+    exec program is in `VERIFY_ALLOWED_EXECS`. Anything else raises `ValueError`
+    (fail-fast: a non-whitelisted verify command is a config error, not a
+    degraded silent run).
+    """
+    tokens = shlex.split(cmd)
+    if len(tokens) < 4 or tokens[0] != "docker" or tokens[1] != "exec":
+        raise ValueError(
+            f"verify command must be 'docker exec {{container}} <whitelisted-exec> ...': {cmd!r}")
+    ctr = tokens[2]
+    if ctr == "{container}":
+        ctr = container
+    prog = tokens[3]
+    if prog not in VERIFY_ALLOWED_EXECS:
+        raise ValueError(
+            f"verify exec '{prog}' not in whitelist {sorted(VERIFY_ALLOWED_EXECS)}")
+    return ["docker", "exec", ctr, *tokens[3:]]
+
+
+#: docker invocation that works in this process (direct, or `sg docker -c`
+#: when the shell's docker group is stale). Cached per process.
+_docker_prefix_cache_checked = False
+_docker_prefix_cache: list[str] | None = None  # None = direct; else ["sg","docker","-c"]
+
+
+def _docker_prefix() -> list[str]:
+    """Return the working docker invocation prefix for this process.
+
+    Probes `docker version` once; on failure (e.g. stale docker-group shell)
+    every docker call is wrapped in `sg docker -c` so verify still runs.
+    """
+    global _docker_prefix_cache_checked, _docker_prefix_cache
+    if not _docker_prefix_cache_checked:
+        _docker_prefix_cache_checked = True
+        try:
+            p = subprocess.run(["docker", "version"], capture_output=True,
+                               timeout=10)
+            if p.returncode == 0:
+                _docker_prefix_cache = None
+            else:
+                _docker_prefix_cache = ["sg", "docker", "-c"]
+        except Exception:
+            _docker_prefix_cache = ["sg", "docker", "-c"]
+    return _docker_prefix_cache
+
+
 def run_verify(cmd: str, *, container: str = "opencode-worker", timeout: float = 300.0,
                tail: int = _TAIL) -> VerifyResult:
-    """Run a verify command on the host (shell), substituting {container}."""
-    if "{container}" in cmd:
-        cmd = cmd.replace("{container}", shlex.quote(container))
+    """Run a whitelisted verify command (argv, no host shell), substituting
+    {container}. A non-whitelisted command fails loudly as evidence."""
+    try:
+        inner = build_verify_argv(cmd, container)
+    except ValueError as exc:
+        return VerifyResult(ok=False, rc=None, stdout_tail="", stderr_tail="",
+                            elapsed=0.0, timed_out=False,
+                            error=f"verify whitelist: {exc}")
+    prefix = _docker_prefix()
+    # direct argv (no shell at all) when docker is invocable; otherwise the
+    # `sg docker -c <shlex.join(argv)>` wrapper re-quotes the VALIDATED argv so
+    # the host shell cannot interpret any user metacharacter.
+    argv = inner if prefix is None else ["sg", "docker", "-c", shlex.join(inner)]
     t0 = time.time()
     try:
-        p = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(argv, shell=False, capture_output=True, text=True,
+                           timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         return VerifyResult(
             ok=False, rc=None,

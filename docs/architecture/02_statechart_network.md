@@ -298,13 +298,16 @@ sequenceDiagram
 
 ### 12.3 运行时验证：judge 节点 `verify`
 
-`Node.verify`：宿主 shell 命令。进入 judge 节点时驱动在宿主执行（`{container}` →
-`settings.worker_container`），把 `rc + 输出尾部` 作为独立运行时证据注入 judge 提示词
-（`verify_result` 事件留档）。补上"reviewer 只读、无法真跑测试"的缺口——test 门拿到真实
-pytest 结果而非只静态数用例。**失败是确定性阻断**：`_step_judge` 把一条 blocking 级 issue
-程序化注入解析后的 verdict 再进门——审查者即便试图掩盖，`advance` 也必然被门拒绝（其仍可走
+`Node.verify`：**白名单化的容器验证命令（阶段 2 W5，消 RCE）**——只允许
+`docker exec {container} <pytest|python|node|bash|sh...> <参数>` 形态，以 **argv** 执行
+（`shell=False`，绝无宿主 shell 解释），`{container}` → `settings.worker_container`；docker
+组过期时自动回退 `sg docker -c`（再引号化已校验 argv）。进入 judge 节点时驱动执行，把
+`rc + 输出尾部` 作为独立运行时证据注入 judge 提示词（`verify_result` 事件留档）。补上
+"reviewer 只读、无法真跑测试"的缺口——test 门拿到真实 pytest 结果而非只静态数用例。
+**失败是确定性阻断**：`_step_judge` 把一条 blocking 级 issue 程序化注入解析后的 verdict
+再进门——审查者即便试图掩盖，`advance` 也必然被门拒绝（其仍可走
 `ask_developer`/`request_context`/`report_user` 通道；rework 后 re-judge 会重跑 verify）。
-`verify_enabled` 默认 **false**（opt-in，宿主 shell 执行面），`preflight`/离线自动关闭；
+`verify_enabled` 默认 **false**（opt-in，容器内执行面），`preflight`/离线自动关闭；
 deep_validate 校验 `verify` 只允许出现在 judge 节点。
 
 ### 12.4 上下文预算交接：`context_handover_policy_json`

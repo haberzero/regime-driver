@@ -64,6 +64,7 @@ nav:
           - dialog control 载体: subsystems/07_dialog_control_carrier.md
           - mock: subsystems/08_mock.md
           - 测试架构: subsystems/09_testing_architecture.md
+          - 统一扩展点: subsystems/10_extension_points.md
       - 控制对话框容器验证窗: howto/dialog-control-window.md
       - 发布教程（维护者）: guide/07_release.md
       - 书写准则: WRITING_GUIDE.md

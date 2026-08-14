@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 from ..core.statechart import Signal, SignalKind
+from ..extensions import HookRegistry, default_hooks_path
 from ..flow import FlowError, FlowRegistry, compile_spec, validate_sm
 from ..regime import RegimeRegistry, compile_regime
 from .blackboard import WORKFLOW_METRICS, status_line, workflow_status
@@ -82,6 +83,7 @@ class DialogControlUnit(ThreadedUnit):
         worker_pool=None,
         flow_registry: FlowRegistry | None = None,
         regime_registry: RegimeRegistry | None = None,
+        hook_registry: "HookRegistry | None" = None,
         max_events: int = 200,
         allow_write: bool = False,
     ) -> None:
@@ -106,6 +108,8 @@ class DialogControlUnit(ThreadedUnit):
         # handover). `design <name> <regime JSON>` registers here; `regime
         # list/inspect` views it. Persistent store by default (~/.regime/regimes).
         self.regime_registry = regime_registry or RegimeRegistry()
+        # 阶段 2: the live unified extension registry (`hook list/reload/path`).
+        self.hook_registry = hook_registry
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dialog-llm")
@@ -213,6 +217,8 @@ class DialogControlUnit(ThreadedUnit):
             return self._write_gate(t) or self._start(t)
         if self._is_regime_cmd(low):
             return self._regime(t)
+        if self._is_hook_cmd(low):
+            return self._hook(t)
         if self._is_inspect_cmd(low):
             return self._inspect(t)
         if self._is_parallel_cmd(low):
@@ -271,6 +277,10 @@ class DialogControlUnit(ThreadedUnit):
     @staticmethod
     def _is_regime_cmd(low: str) -> bool:
         return low in ("regime", "制度") or low.startswith(("regime ", "制度 "))
+
+    @staticmethod
+    def _is_hook_cmd(low: str) -> bool:
+        return low.startswith(("hook", "插件"))
 
     @staticmethod
     def _is_doctor_cmd(low: str) -> bool:
@@ -538,6 +548,44 @@ class DialogControlUnit(ThreadedUnit):
                     f"(运行中 workflow 保持旧快照)")
         return "用法：flow list | flow validate <file> | flow reload <name>"
 
+    def _hook(self, text: str) -> str:
+        """`hook list` / `hook reload` / `hook path` — 阶段 2 extension registry.
+
+        list/path are read-only; reload (re-imports ~/.regime/hooks.py into a
+        fresh registry snapshot) is a write op honouring the write gate. Running
+        units keep their old registry snapshot — reload only affects runs started
+        afterwards.
+        """
+        if self.hook_registry is None:
+            return "hook 能力未接入（未提供 hook_registry）。"
+        parts = text.split(maxsplit=1)
+        sub = parts[1] if len(parts) > 1 else ""
+        if sub in ("list", "ls", "列表"):
+            s = self.hook_registry.summary()
+            lines = ["=== 扩展注册表（hooks）==="]
+            lines.append(f"  来源：{s['source'] or '（无 ~/.regime/hooks.py）'}")
+            for p, n in s["points"].items():
+                lines.append(f"  hook {p}: {n}")
+            lines.append(f"  rules: {', '.join(s['rules']) or '（无）'}")
+            lines.append(f"  tools: {', '.join(s['tools']) or '（无）'}")
+            return "\n".join(lines)
+        if sub in ("path", "路径"):
+            return f"hooks 插件路径：{self.hook_registry.source or default_hooks_path()}"
+        if sub in ("reload", "重载"):
+            gate = self._write_gate("hook reload")
+            if gate:
+                return gate
+            try:
+                fresh = self.hook_registry.reload()
+            except Exception as exc:
+                return f"hook 重载失败：{exc}"
+            self.hook_registry = fresh
+            s = fresh.summary()
+            return (f"✓ 已热重载 hooks 插件（{s['source'] or '空'}）："
+                    f"{sum(s['points'].values())} hooks, {len(s['rules'])} rules, "
+                    f"{len(s['tools'])} tools")
+        return "用法：hook list | hook path | hook reload"
+
     def _doctor(self) -> str:
         """Self-check (non-monitoring): worker health + flow registry + LLM.
 
@@ -780,6 +828,7 @@ class DialogControlUnit(ThreadedUnit):
             "                                    watchdog+handover）\n"
             "  flow list / validate / reload / 重载  热编译与热加载\n"
             "  regime list / inspect <name>    查看整制度注册表（只读）\n"
+            "  hook list / path / reload       扩展注册表查看 / 热重载插件（重载写）\n"
             "\n"
             "── 运行任务 ────────────────────────────────\n"
             "  start [flow名] <任务> / 启动 ..      非阻塞启动 workflow\n"
@@ -809,6 +858,7 @@ class DialogControlUnit(ThreadedUnit):
             "  design <名称> <JSON|自然语言>   —— 设计并注册 workflow 或整制度(含flow键)\n"
             "  regime list / 制度 列表         —— 列出整制度注册表\n"
             "  regime inspect <制度名> / 查看  —— 查看整制度定义\n"
+            "  hook list / path / reload      —— 扩展注册表（hooks/rules/tools）\n"
             "  flow list / 流程 列表             —— 列出已注册 flow\n"
             "  flow validate <regime.json> / 校验 —— 热校验一个 flow 文件\n"
             "  flow reload <flow名> / 重载       —— 原子热重载(运行中workflow不受影响)(写)\n"

@@ -54,8 +54,10 @@
 | watch / events | `watch [n] [主题]` | 值守 | test_watch_topic_filter |
 | start | `start [flow] <任务>` | 值守 | test_start |
 | inspect | `inspect <wid>` | 值守 | test_inspect |
-| design | `design <flow> <spec>` | 值守/流程期 | test_design |
+| design | `design <flow|regime> <spec>` | 值守/流程期 | test_design（含 regime JSON=整制度，阶段1d） |
 | flow list/validate/reload | `flow ...` | 值守/流程期 | test_flow |
+| regime list/inspect | `regime ...` | 值守/流程期 | test_regime_list_and_inspect |
+| hook list/path/reload | `hook ...` | 值守/运维 | test_hook_*（阶段2 统一扩展点） |
 | talk | `talk <sid> <msg>` | 值守 | test_talk |
 | sessions / parallel / abort / reclaim | 会话管理 | 值守 | test_sessions |
 | doctor | `doctor` | 值守 | test_doctor |

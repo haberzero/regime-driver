@@ -35,6 +35,9 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
   主入口：自然语言/JSON → 编译 → 深检 → 注册持久化），`regime flow list/validate/reload`；
   **整制度设计**（flow+roles+watchdog+handover 合一）：`regime regime design <name> '<regime JSON>'`，
   `regime regime list/inspect`（查看），设计后可经 `--regime-name` 运行。
+- **扩展点（阶段 2）**：`~/.regime/hooks.py` 插件统一注入 hooks/rules/tools；对话框内 `hook list/
+  path/reload` 查看与热重载（reload 为写操作，需权限）。verify 命令已白名单化：只允许
+  `docker exec {container} <pytest|python|node|bash|...>` 形态（消 RCE）。
 - 独立交互：`regime session <id> send "<msg>" --reply --json`、`regime session <id> reply --json`。
 - 校验：`regime validate --json`、`regime gate '<verdict>'`。
 - 清理：`regime sessions --clean` / `--kill <id>`（写操作，谨慎）。

@@ -152,16 +152,43 @@ watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实�
 **阶段 1 全部完成。下一阶段 = 阶段 2：统一扩展点模型**（`~/.regime/hooks.py` + 统一注册表 +
 handover 声明式模板 + verify 白名单化 + 对话框 hook 装配）。
 
-### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）
+### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）—— ✅ 完成（commit `9c7c2f2`，583 passed 零回归）
 
 目标：三类注入 + 明确边界；verify 白名单化；handover 模板/决策可注入。
 
-改动：
-- `~/.regime/hooks.py` 插件加载；统一注册表 register_tool/register_rule/register_hook。
-- hook 点：on_node_enter/done/transition/judge_verdict/stall/handover（全审计）。
-- handover 文档/提示词/协商改声明式模板（config 化）+ 可选 Python 回调。
-- verify 白名单（只允许 `docker exec {container} <白名单命令>` 形态），消除 RCE。
-- 对话框 `hook` 装配命令 + 权限。
+**统一注册表（`extensions.py`）**：
+- `HookRegistry`：`register_hook`/`@reg.hook(point)`（6 类生命周期 hook：node_enter/done、
+  transition、judge_verdict、stall、handover）+ `register_rule`（看门狗规则，并入运行策略）+
+  `register_tool`（委托既有 core.tools）+ `fire(point, **ctx)`（收集返回值、hook 异常经
+  on_error 审计绝不打断治理循环）+ `reload()`/`summary()`。
+- `load_user_hooks`：默认 `~/.regime/hooks.py`（env `REGIME_HOOKS` 覆盖）；缺文件=空注册表；
+  导入失败/缺 `register`=响亮失败（构造期 fail-fast）。
+- 穿透：StatechartDriver/StatechartCluster/WorkflowUnit/WatchdogUnit/Drive/Parallel/CLI 全链路
+  `hooks` 参数；WorkflowUnit 埋 5 点 fire（node_enter/done、transition、judge_verdict、handover），
+  WatchdogUnit 埋 stall（每 watchdog action）。
+
+**handover 声明式化（W-硬编码）**：`ContextHandoverPolicy` 增 `document_template`/`opening_template`
+（`.format` 风格）；优先级 = handover hook 覆盖（返回 `{"document":..,"opening":..}`）> 声明式模板
+> 内置构建器。`_handover_package` 统一 `_rotate_session` 与 `_apply_transition` 的交接构造。
+
+**verify 白名单化（W5，消 RCE）**：`build_verify_argv` 只允许 `docker exec {container} <白名单程序>`
+形态（`VERIFY_ALLOWED_EXECS`=pytest/python/node/bash/sh...）；argv 执行（`shell=False` 绝无宿主
+shell），爆炸半径限定 worker 容器；docker 组过期自动回退 `sg docker -c <shlex.join(校验后 argv)>`
+（宿主 shell 只见再引号化的已校验 argv）；非白名单=响亮失败证据。`ops/flow_v13.json` verify 同步
+改白名单形态。
+
+**对话框 hook 装配（W-自定义）**：`hook list/path/reload`（reload 写、权限门控）+ help/capabilities。
+
+**测试**：test_extensions.py 15 项（注册/装饰器/坏 hook 审计/插件加载响亮失败/真实运行 fire 6 点/
+规则并入策略）；test_verify.py 重写 13 项（白名单解析/拒绝/argv 无 shell/sg 再引号化/timeout）；
+test_workflow_unit verify 测试改 mock。
+
+**工程判断**：
+- ① hooks=策略层观察者（不越确定性门），只 `handover` 一个 hook 按契约返回覆盖——内核不变量
+  I1/I2/I3 不破；② 插件加载 fail-fast（构造期响亮）vs hook 运行异常审计（不杀治理循环），二者
+  分开才是正确语义；③ W5 的 RCE 本质是"宿主任意 shell"，白名单化到 docker-exec+argv 即把爆炸
+  半径从宿主移到 worker 容器——`bash -c` 仍允许（容器内脚本，意图面），但宿主 shell 解释被移除；
+  ④ 交接"可选回调"落点为 handover hook 返回覆盖，声明式模板为 config 化，双通道归一到一个入口。
 
 ### 阶段 3：语义契约下放（根因 C/W3/W4）
 

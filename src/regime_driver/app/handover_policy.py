@@ -41,6 +41,8 @@ class ContextHandoverPolicy:
     min_continue_nodes: int = 2         # consent needs at least this many nodes of budget
     handover_keep_messages: int = 30    # recent messages carried into the handover doc
     report_max_chars: int = 1200        # truncation for the last report in the doc
+    document_template: str | None = None  # 阶段 2 (W-硬编码): custom `.format` doc template
+    opening_template: str | None = None   # 阶段 2 (W-硬编码): custom `.format` opening template
 
     @classmethod
     def from_json(cls, raw: str | None) -> "ContextHandoverPolicy | None":
@@ -68,6 +70,8 @@ class ContextHandoverPolicy:
             min_continue_nodes=max(1, int(data.get("min_continue_nodes", 2))),
             handover_keep_messages=max(1, int(data.get("handover_keep_messages", 30))),
             report_max_chars=max(100, int(data.get("report_max_chars", 1200))),
+            document_template=data.get("document_template"),
+            opening_template=data.get("opening_template"),
         )
 
 
@@ -86,9 +90,23 @@ def build_handover_document(
     last_report: str | None,
     keep: int = 30,
     report_max_chars: int = 1200,
+    template: str | None = None,
 ) -> str:
     """The handover document (交接格式): a structured, self-contained summary
-    a fresh session can act on without reading the old session's memory."""
+    a fresh session can act on without reading the old session's memory.
+
+    `template` (阶段 2, W-硬编码) is an optional `.format`-style declarative
+    template overriding the built-in shape. Available fields:
+    `{role} {node_id} {node_desc} {task_context} {report} {messages}` (the
+    recent-messages block is pre-rendered).
+    """
+    if template:
+        return template.format(
+            role=role, node_id=node_id, node_desc=node_desc,
+            task_context=truncate(task_context, 300),
+            report=truncate(last_report, report_max_chars) if last_report else "",
+            messages=_render_messages(messages, keep),
+        )
     lines = [
         f"# 会话交接文档（{role}）",
         f"- 任务：{truncate(task_context, 300)}",
@@ -107,6 +125,18 @@ def build_handover_document(
     return "\n".join(lines)
 
 
+def _render_messages(messages: list, keep: int) -> str:
+    recent = list(messages or [])[-keep:]
+    if not recent:
+        return ""
+    lines = [f"最近会话记录（最后 {len(recent)} 条）："]
+    for m in recent:
+        who = getattr(m, "role", "?")
+        body = truncate(getattr(m, "text", "") or "", 240)
+        lines.append(f"- [{who}] {body}")
+    return "\n".join(lines)
+
+
 def build_handover_opening(
     *,
     role: str,
@@ -115,11 +145,22 @@ def build_handover_opening(
     task_context: str,
     document: str,
     usage: float,
+    template: str | None = None,
 ) -> str:
-    """The new-session opening message (交接提示词) for a fresh session."""
+    """The new-session opening message (交接提示词) for a fresh session.
+
+    `template` (阶段 2, W-硬编码) is an optional `.format`-style declarative
+    template overriding the built-in shape. Fields:
+    `{role} {node_id} {node_desc} {task_context} {document} {usage}`.
+    """
     usage_note = (
         f"上下文已用 {usage:.0%}" if usage > 0 else "会话上下文预算考量"
     )
+    if template:
+        return template.format(
+            role=role, node_id=node_id, node_desc=node_desc,
+            task_context=task_context, document=document, usage=usage_note,
+        )
     return (
         f"【上下文交接】你是一个新会话，因{usage_note}而接续 {role} 会话，继续推进同一任务。\n"
         f"任务：{task_context}\n"

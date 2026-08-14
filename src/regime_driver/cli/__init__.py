@@ -240,13 +240,16 @@ def _sm_from_flow_or_regime(flow: str | None, regime: Path | None,
 def _driver_from_options(settings: Settings, client: OpenCodeClient,
                          ledger: Ledger | None, reporter,
                          flow: str | None, regime: Path | None,
-                         regime_name: str | None, sm: "StateMachine | None" = None):
+                         regime_name: str | None, sm: "StateMachine | None" = None,
+                         hooks=None):
     """Build the driver from the run options: a named regime uses the whole
     operating rule (flow + roles + watchdog + handover); otherwise the legacy
     flow/regime-file path with settings-JSON policies.
 
     ``sm`` (already resolved by the caller for preflight) is reused for the
     legacy path so `--flow`/`--regime` run exactly the flow that was preflighted.
+    `hooks` (阶段 2 extension registry) feeds user watchdog rules + lifecycle
+    hooks into the driver.
     """
     if regime_name:
         reg = _default_regime_registry()
@@ -254,12 +257,20 @@ def _driver_from_options(settings: Settings, client: OpenCodeClient,
         if r is None:
             _fail(f"unknown regime '{regime_name}' (use `regime regime list`)")
         driver = StatechartDriver.from_regime(
-            r, settings, client, ledger, reporter=reporter)
+            r, settings, client, ledger, reporter=reporter, hooks=hooks)
         return driver, r.flow
     if sm is None:
         sm = _sm_from_flow_or_regime(flow, regime)
-    driver = StatechartDriver(settings, sm, client, ledger, reporter=reporter)
+    driver = StatechartDriver(settings, sm, client, ledger, reporter=reporter,
+                              hooks=hooks)
     return driver, sm
+
+
+def _load_hooks():
+    """Load the user extension registry (~/.regime/hooks.py); empty when absent."""
+    from ..extensions import load_user_hooks
+
+    return load_user_hooks()
 
 
 def _run(settings: Settings, context: str, title: str, json_out: bool = False,
@@ -279,7 +290,7 @@ def _run(settings: Settings, context: str, title: str, json_out: bool = False,
     rep = Reporter(journal_path=reporter) if reporter else None
     driver, sm = _driver_from_options(
         settings, client, ledger, rep, flow=None, regime=settings.regime_path,
-        regime_name=regime_name, sm=sm)
+        regime_name=regime_name, sm=sm, hooks=_load_hooks())
     try:
         _run_impl(driver, ledger, sm, context, title, json_out)
     finally:
@@ -419,14 +430,15 @@ def run_many(
     client = OpenCodeClient(settings.base_url, model=settings.model,
                             timeout=settings.request_timeout)
     rep = Reporter(journal_path=reporter) if reporter else None
+    hooks = _load_hooks()
     if regime_obj is not None:
         from ..core.role import default_roles as _default_roles
         cluster = StatechartCluster.from_regime(
-            regime_obj, settings, client, reporter=rep)
+            regime_obj, settings, client, reporter=rep, hooks=hooks)
         roles = regime_obj.roles or _default_roles()
         handover = regime_obj.handover
     else:
-        cluster = StatechartCluster(client, reporter=rep)
+        cluster = StatechartCluster(client, reporter=rep, hooks=hooks)
         roles = None
         handover = None
     for i, ctx in enumerate(contexts):
@@ -644,6 +656,7 @@ def drive(
         deadline_sec=deadline, regime=_named_regime(regime_name),
         meta_enabled=meta, meta_model=meta_model,
         prune_max_records=prune_max_records, prune_max_age=prune_max_age,
+        hooks=_load_hooks(),
     )
     try:
         # render live progress in the foreground
@@ -800,7 +813,7 @@ def drive_many(
     batch = Parallel(
         settings, sm, rep, deadline_sec=deadline,
         meta_enabled=meta, meta_model=meta_model,
-        regime=regime_obj,
+        regime=regime_obj, hooks=_load_hooks(),
     )
     try:
         _ok(f"parallel batch of {len(tasks)} starting: {', '.join(f'{t.task_id}@{t.workspace}' for t in tasks)}",

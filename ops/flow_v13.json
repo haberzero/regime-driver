@@ -50,7 +50,7 @@
           "role": "reviewer",
           "type": "judge",
           "skill": "code-review",
-          "verify": "sg docker -c \"docker exec {container} bash -c 'cd /root/work/code && python3 -m pytest -q 2>&1 | tail -30'\"" ,
+          "verify": "docker exec {container} bash -c \"cd /root/work/code && python3 -m pytest -q 2>&1 | tail -30\"" ,
           "next": "wrap"
         },
         "wrap": {
