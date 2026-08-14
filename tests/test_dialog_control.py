@@ -222,8 +222,8 @@ def test_capabilities_maps_all_groups():
         assert kw in out, kw
     # representative reachable paths
     for kw in ("regime report", "regime events", "regime status --deep",
-               "regime worker", "regime chaos", "design <flow名>",
-               "flow list"):
+               "regime worker", "regime chaos", "design <名称>",
+               "flow list", "regime list"):
         assert kw in out, kw
     # english alias also routes
     assert "能力地图" in d.command("cap")
@@ -339,6 +339,80 @@ def test_flow_list_lists_designed_and_builtin():
     out = d.command("flow list")
     assert "myflow" in out
     assert "design" in out
+
+
+REGIME_SPEC = (
+    '{"flow": {"entry": "a", "nodes": ['
+    '{"id": "a", "desc": "干", "role": "developer", "type": "agent", "next": null}]},'
+    '"roles": {"developer": {"agent": "developer"}, "reviewer": {"agent": "reviewer"}},'
+    '"watchdog": {"soft_sec": 30, "hard_sec": 600},'
+    '"handover": {"soft_fraction": 0.4, "hard_fraction": 0.8}}'
+)
+
+
+def _dialog_with_regimes():
+    from regime_driver.regime import RegimeRegistry
+    d = DialogControlUnit(allow_write=True, regime_registry=RegimeRegistry())
+    return d
+
+
+def test_design_regime_json_registers_whole_rule():
+    """Phase-1d: `design <name> <regime JSON>` (spec contains a `flow` key)
+    registers a WHOLE operating rule (flow + roles + watchdog + handover) into
+    the regime registry, distinct from plain flow design."""
+    d = _dialog_with_regimes()
+    out = d.command(f"design my-regime {REGIME_SPEC}")
+    assert "已设计并注册制度 'my-regime'" in out
+    assert "watchdog" in out and "handover" in out and "roles" in out
+    r = d.regime_registry.get("my-regime")
+    assert r is not None and r.regime.flow.flow_name == "my-regime"
+    assert r.regime.watchdog is not None
+    assert r.regime.handover is not None
+    # a plain flow design is NOT misrouted into the regime registry
+    d.command(f"design myflow {DESIGN_SPEC}")
+    assert d.regime_registry.get("myflow") is None
+    assert d.flow_registry.sm("myflow") is not None
+
+
+def test_design_regime_invalid_spec_reports_error():
+    d = _dialog_with_regimes()
+    out = d.command('design bad {"flow": {"entry": "a", "nodes": []}}')
+    assert "制度设计失败" in out
+    assert d.regime_registry.get("bad") is None
+
+
+def test_design_full_descriptor_with_regime_fields_not_silently_dropped():
+    """W3: a full-packaged-descriptor spec that ALSO declares regime-only fields
+    (watchdog/roles) must be routed to the regime compiler and fail loudly
+    (a regime requires a top-level `flow` key) — never silently dropped as a
+    plain flow."""
+    d = _dialog_with_regimes()
+    spec = ('{"version": "t", "flows": {"f": {"nodes": {'
+            '"a": {"id": "a", "desc": "d", "role": "developer", "type": "agent", "next": null}}}}, '
+            '"entry": {"flow": "f", "start_node": "a"}, '
+            '"watchdog": {"soft_sec": 30, "hard_sec": 600}}')
+    out = d.command(f"design hybrid {spec}")
+    assert "制度设计失败" in out
+    assert d.regime_registry.get("hybrid") is None
+    assert d.flow_registry.sm("hybrid") is None
+
+
+def test_regime_list_and_inspect():
+    d = _dialog_with_regimes()
+    d.command(f"design my-regime {REGIME_SPEC}")
+    listing = d.command("regime list")
+    assert "my-regime" in listing
+    assert "watchdog" in listing
+    detail = d.command("regime inspect my-regime")
+    assert "my-regime" in detail
+    assert "watchdog" in detail
+    assert "handover" in detail
+    assert "未知制度" in d.command("regime inspect nope")
+
+
+def test_regime_design_is_write_gated():
+    d = DialogControlUnit()  # read-only by default
+    assert "门禁" in d.command(f"design my-regime {REGIME_SPEC}")
 
 
 def test_flow_validate_file(tmp_path):

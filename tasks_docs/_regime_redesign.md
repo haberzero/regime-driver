@@ -99,7 +99,7 @@ Review（general 只读）：1 blocker（drive --meta 失效）+ 4 warning + 4 n
 `_on_escalate` 仅记录日志）；W3 语义契约（Message error 区分）；独立 supervisor 判定统一到
 watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实现，留阶段 1 Regime 收敛时处理）。
 
-### 阶段 1：Regime 一等公民（根因 A）——1a/1b/1c/1d 完成 ✅，剩余 1d-补
+### 阶段 1：Regime 一等公民（根因 A）——1a/1b/1c/1d 全部完成 ✅
 
 目标：flow + watchdog_policy + handover_policy + role policy + verify + hooks 收敛为 `Regime`
 对象，统一生命周期；settings 中 policy 字段并入 regime 声明；`regime design/validate/reload`
@@ -116,7 +116,7 @@ watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实�
 - general 只读 review 两轮：2 blocker（--regime-name 解析不到 store / --flow 跑错流程）+ 4 warning
   （async 转发/load name 穿越/design name 注入/multi-soft roundtrip）+ nits 全处理。
 
-**阶段 1c（判定统一，commit `3f0aa1e`，550 passed 零回归 + general 只读 review）**：
+**阶段 1c（判定统一，commit `4e1f2f7`，551 passed 零回归 + general 只读 review 0 blocker）**：
 独立 `regime supervisor` 的 T2 判定统一到 `watchdog_policy` 规则引擎——
 - 删除自研第二套判定实现 `SessionWatch`/`_verdict_for_stall`。
 - `Ladder` 增 `order` 参数 + `WatchdogPolicy.actions`（动作词汇按 Actor 能力位参数化：
@@ -133,8 +133,24 @@ watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实�
   动作词汇按 Actor 能力位声明（进程外无 pause/resume、有 docker 重启+human）；强行把外部动作
   硬塞进统一词汇会造出语义牵强的映射（restart vs kill vs human 不对齐），留 Action 层后续收敛。
 
-**遗留（1d 补全）**：run-many/drive-many `--regime-name`；对话框制度设计入口（dialog `design`
-升级为整制度）。
+**阶段 1d 补全（commit `fa8d2a1`，560 passed 零回归 + general 只读 review）**：
+- **run-many/drive-many `--regime-name`**：`StatechartCluster.from_regime`（制度 watchdog
+  policy/阈值优先 settings，roles+handover 经 add_workflow 传入各 workflow）；`Parallel` 增
+  `regime` 参数，`_make_drive` 把制度传入每个成员 Drive（drive-many = 并行个 drive
+  --regime-name）；CLI async 转发 + preflight 用制度 flow；插件 `regime_run_many` 增
+  `regime_name` 参数。
+- **对话框制度设计入口**：`design <name> <regime JSON>`（含 `flow` 键 → 整制度）注册进
+  RegimeRegistry（持久 store，与 CLI `regime regime design` 同一真源）；NL 路径识别
+  regime-shaped 回复；新增 `regime list/inspect` 只读命令 + help/capabilities 同步；插件增
+  `regime_regime_design`/`regime_regime_list` 工具。
+- 测试：cluster from_regime（制度 policy/roles/handover 接线 + 真实运行）；parallel 制度转发
+  （Drive 收到 regime）；CLI run-many/drive-many --regime-name（resolve+from_regime+batch
+  收到制度+未知名 fail）；dialog regime design/list/inspect/write-gate。
+- 文档同步：01_cli run-many/drive-many 参数表 + 06_dialog_control design 升级 + 03_parallel
+  制度统一 + dialog-control.md（智能侧说明同步硬约束）；sync_templates 绿。
+
+**阶段 1 全部完成。下一阶段 = 阶段 2：统一扩展点模型**（`~/.regime/hooks.py` + 统一注册表 +
+handover 声明式模板 + verify 白名单化 + 对话框 hook 装配）。
 
 ### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）
 

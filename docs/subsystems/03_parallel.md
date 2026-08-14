@@ -23,6 +23,7 @@ regime_driver.parallel.Parallel
   ├─ _make_drive(client)               —— 构造一个绑到该工作区实例的 Drive（测试可注入）
   └─ run(tasks, worker_count)          —— 并行跑（有界 worker_count），返回 {task_id: DriveResult}
 CLI: regime drive-many <任务...> --workspaces "ws1,ws2,.." [--workers N] [--deadline S] [--reporter J]
+     [--regime-name <命名制度>]  —— 每个成员 Drive 都接收该制度（flow+roles+watchdog+handover）
 ```
 
 - **顺序 ensure 先行**：先在主线程把每个工作区实例建好（避免 `_free_port` 的 TOCTOU 竞态），
@@ -30,6 +31,10 @@ CLI: regime drive-many <任务...> --workspaces "ws1,ws2,.." [--workers N] [--de
 - **共享 Reporter**：多个 Drive 传**同一个** Reporter 实例（单锁串行化 journal 写入），
   归属键用各自 task_id；宏观 `regime report` 一张板看整个并行任务。
 - **有界并发**：`--workers N` 用 ThreadPoolExecutor 限制同时跑的成员数（默认全并行）。
+- **制度统一（阶段 1d）**：`--regime-name` 把命名制度交给 `Parallel`，`_make_drive` 把
+  `regime` 传入每个成员 `Drive`（`drive-many --regime-name` = 并行个 `drive --regime-name`）。
+  `run-many --regime-name` 经 `StatechartCluster.from_regime` 把制度（flow+roles+watchdog+
+  handover）共享给同一 worker 上的全部并发 workflow。
 
 ## 验证（真实 E2E）
 

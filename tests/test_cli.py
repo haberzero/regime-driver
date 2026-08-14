@@ -588,3 +588,101 @@ def test_regime_run_async_forwards_regime_name():
     assert res.exit_code == 0
     assert "--regime-name" in captured["argv"]
     assert "cli-regime" in captured["argv"]
+
+
+def test_run_many_regime_name_builds_cluster_from_regime(monkeypatch):
+    """1d: run-many --regime-name resolves the named regime and builds the
+    cluster via StatechartCluster.from_regime, handing the whole operating rule
+    (flow + roles + watchdog + handover) to every parallel workflow."""
+    import types
+
+    from regime_driver.app.statechart_cluster import StatechartCluster
+    from regime_driver.core.models import Outcome
+
+    r1 = runner.invoke(app, ["regime", "design", "cli-regime",
+                             json.dumps(_REGIME_SPEC, ensure_ascii=False)])
+    assert r1.exit_code == 0
+
+    captured = {}
+    orig_from_regime = StatechartCluster.from_regime
+
+    def spy_from_regime(cls, regime, settings, client, ledger=None,
+                        reporter=None, enforce_invariants=True, **kw):
+        captured["regime"] = regime
+        c = orig_from_regime(regime, settings, client, ledger, reporter,
+                             enforce_invariants, **kw)
+        c.run_all = lambda tasks, timeout_sec=None: {
+            k: (Outcome.COMPLETE, "wrap", None) for k in tasks}
+        orig_add = c.add_workflow
+
+        def spy_add(wid, s, sm, roles=None, context_policy=None):
+            captured["sm"] = sm
+            captured["roles"] = roles
+            captured["handover"] = context_policy
+            return orig_add(wid, s, sm, roles=roles, context_policy=context_policy)
+
+        c.add_workflow = spy_add
+        return c
+
+    monkeypatch.setattr(StatechartCluster, "from_regime",
+                        classmethod(spy_from_regime))
+    res = runner.invoke(app, ["run-many", "taskA", "taskB",
+                              "--regime-name", "cli-regime", "--no-preflight"])
+    assert res.exit_code == 0, res.output
+    assert captured.get("regime") is not None
+    assert captured.get("regime").name == "cli-regime"
+    assert captured.get("sm") is captured.get("regime").flow
+    assert sorted(captured.get("roles").ids()) == ["developer", "reviewer"]
+    assert captured.get("handover") is captured.get("regime").handover
+
+
+def test_run_many_unknown_regime_name_fails():
+    """1d: run-many --regime-name must fail loudly on an unknown name."""
+    res = runner.invoke(app, ["run-many", "taskA", "--regime-name", "nope"])
+    assert res.exit_code == 1
+    assert "unknown regime" in res.output
+
+
+def test_drive_many_regime_name_hands_regime_to_batch(monkeypatch, tmp_path):
+    """1d: drive-many --regime-name resolves the named regime and hands it to
+    the Parallel batch so every member Drive runs the same operating rule."""
+    import regime_driver.parallel as parallel_mod
+    from regime_driver.parallel import Parallel
+
+    r1 = runner.invoke(app, ["regime", "design", "cli-regime",
+                             json.dumps(_REGIME_SPEC, ensure_ascii=False)])
+    assert r1.exit_code == 0
+
+    captured = {}
+    orig_init = Parallel.__init__
+
+    def spy_init(self, settings, sm, reporter=None, **kw):
+        captured["regime"] = kw.get("regime")
+        captured["sm"] = sm
+        # do not let the batch actually launch worker containers / drives
+        self.sm = sm
+        self.settings = settings
+        self.reporter = reporter
+        self.pool = None
+        self.deadline_sec = kw.get("deadline_sec")
+        self.meta_enabled = kw.get("meta_enabled", False)
+        self.meta_model = kw.get("meta_model")
+        self.regime = kw.get("regime")
+
+    monkeypatch.setattr(Parallel, "__init__", spy_init)
+    monkeypatch.setattr(parallel_mod.Parallel, "run",
+                        lambda self, tasks, worker_count=None: {
+                            t.task_id: _complete_result() for t in tasks})
+    res = runner.invoke(app, ["drive-many", "taskA", "--regime-name", "cli-regime",
+                              "--no-preflight", "--workspaces", "ws-a",
+                              "--json"])
+    assert res.exit_code == 0, res.output
+    assert captured.get("regime") is not None
+    assert captured.get("regime").name == "cli-regime"
+    assert captured.get("sm") is captured.get("regime").flow
+
+
+def _complete_result():
+    from regime_driver.drive import DriveResult
+    return DriveResult("complete", end="wrap", supervisor="workflow_done",
+                       elapsed_sec=1.0)

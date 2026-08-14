@@ -30,8 +30,11 @@ its flags, its `--json` output schema, and the recommended operating flow. When 
   `regime sessions --json`（会话）、`regime events --ledger <p> --follow`（事件流）。
 - 运行：`regime run "<任务>" --json --ledger <p>`、`regime run-many "t1" "t2" --json`（阻塞到完成）；
   长任务/想立即返回用 `--async` + `regime job status <id>` / `regime job list`（非阻塞，见手册 §3.3）。
+  并行的 `run-many`/`drive-many` 也支持 `--regime-name <命名制度>`（与 `run/drive --regime-name` 同语义）。
 - **制度设计**：`regime flow design <name> '<spec>'`（inline 规格，无需写文件——这是你设计新工作流的
-  主入口：自然语言/JSON → 编译 → 深检 → 注册持久化），`regime flow list/validate/reload`。
+  主入口：自然语言/JSON → 编译 → 深检 → 注册持久化），`regime flow list/validate/reload`；
+  **整制度设计**（flow+roles+watchdog+handover 合一）：`regime regime design <name> '<regime JSON>'`，
+  `regime regime list/inspect`（查看），设计后可经 `--regime-name` 运行。
 - 独立交互：`regime session <id> send "<msg>" --reply --json`、`regime session <id> reply --json`。
 - 校验：`regime validate --json`、`regime gate '<verdict>'`。
 - 清理：`regime sessions --clean` / `--kill <id>`（写操作，谨慎）。

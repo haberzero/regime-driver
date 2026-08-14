@@ -84,7 +84,10 @@
 
 1. `DialogControlUnit`（ThreadedUnit）：事件驱动、订阅总线、维护实时监控、非阻塞对话。
 2. 命令能力：
-   - `design <flow名> <JSON|自然语言>` — 设计并注册新 workflow（编译为 StateMachine）
+   - `design <名称> <JSON|自然语言>` — 设计并注册新 workflow（编译为 StateMachine）；
+     **JSON 含 `flow` 键 = 整制度（regime：flow+roles+watchdog+handover）**，注册进
+     RegimeRegistry（持久 store，另一进程可经 `--regime-name` 运行）——制度设计入口（阶段 1d）
+   - `regime list` / `regime inspect <名称>` — 查看整制度注册表（只读）
    - `status` / `monitor [字段]` — 实时 workflow 快照（可只查某字段）
    - `watch [n] [watchdog|blackboard|notify]` — 最近事件/按主题
    - `start [flow名] <任务上下文>` — 非阻塞启动 workflow（可用设计流）

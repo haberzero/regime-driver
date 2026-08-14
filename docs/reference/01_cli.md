@@ -67,6 +67,7 @@ regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:
 |------|------|------|
 | `contexts` | 位置参数 | 一个或多个任务上下文 |
 | `--base` / `--config` / `--regime` / `--ledger` / `--deadline` / `--skills-dir` | path/int | 同 `run` |
+| `--regime-name` | str | 运行 RegimeRegistry 中已注册的**命名制度**（完整运行规则：flow+roles+watchdog+handover；并行各 workflow 共享同一制度） |
 | `--no-preflight` | flag | 跳过强制离线预检 |
 | `--reporter` | path | append-only 报告日志路径 |
 | `--async` | flag | 作为后台 job 提交 |
@@ -135,7 +136,12 @@ deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外�
 | `contexts` | 位置参数 | 每任务成员一个任务上下文 |
 | `--workspaces` / `-w` | str | 逗号分隔 workspace，一个任务一个 |
 | `--workers` | int | 最大并发任务成员 |
-| `--deadline` | int | 每成员全局期限（秒） |
+| `--base` / `--config` / `--regime` / `--deadline` / `--skills-dir` | path/int | 同 `drive` |
+| `--regime-name` | str | 运行 RegimeRegistry 中已注册的**命名制度**（完整运行规则；每个成员 Drive 都接收该制度） |
+| `--meta` / `--meta-model` | flag/str | 每成员启用智能元分析 / 元分析模型 |
+| `--reporter` | path | 整批共享的 append-only 报告日志路径（单一真源） |
+| `--no-preflight` | flag | 跳过强制离线预检 |
+| `--json` | flag | 机器可读 JSON 输出 |
 | `--perm` | str | 持有权限等级 |
 
 **输出**：每成员结果与 workspace；任一非 COMPLETE 时退出码 1。

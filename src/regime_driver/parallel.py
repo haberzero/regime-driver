@@ -51,6 +51,7 @@ class Parallel:
         deadline_sec: float | None = None,
         meta_enabled: bool = False,
         meta_model: str | None = None,
+        regime: "Regime | None" = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -59,6 +60,9 @@ class Parallel:
         self.deadline_sec = deadline_sec
         self.meta_enabled = meta_enabled
         self.meta_model = meta_model
+        # phase-1d: a whole named regime is handed to every member Drive so a
+        # parallel batch runs the SAME operating rule as `drive --regime-name`.
+        self.regime = regime
 
     # -- instance provisioning (sequential, avoids port-allocation race) ------
 
@@ -78,6 +82,7 @@ class Parallel:
             self.settings, self.sm, client, self.reporter,
             deadline_sec=self.deadline_sec,
             meta_enabled=self.meta_enabled, meta_model=self.meta_model,
+            regime=self.regime,
         )
 
     def run(self, tasks: list[ParallelTask], worker_count: int | None = None) -> dict:

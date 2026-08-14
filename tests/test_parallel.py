@@ -77,6 +77,51 @@ def test_parallel_run_all_complete(tmp_path):
         assert dr.supervisor == "workflow_done"
 
 
+def test_parallel_forwards_regime_to_member_drive(tmp_path):
+    """Phase-1d: a named regime passed to a Parallel batch is handed to every
+    member Drive, so drive-many --regime-name runs the same operating rule as
+    `drive --regime-name` (flow + roles + watchdog + handover)."""
+    import json
+    from unittest import mock
+
+    from regime_driver.core.models import Outcome
+    from regime_driver.drive import Drive, DriveResult
+    from regime_driver.regime import compile_regime
+
+    spec = {
+        "name": "parallel-regime",
+        "flow": {
+            "entry": "a",
+            "nodes": [
+                {"id": "a", "desc": "干", "role": "developer", "type": "agent",
+                 "next": "b"},
+                {"id": "b", "desc": "审", "role": "reviewer", "type": "judge"},
+            ],
+        },
+        "watchdog": {"soft_sec": 30, "hard_sec": 600},
+    }
+    regime = compile_regime(json.dumps(spec, ensure_ascii=False))
+    captured = {}
+
+    def _fake_run(self, context, title="regime-workflow"):
+        captured["regime"] = self.regime
+        captured["sm"] = self.sm
+        return DriveResult(Outcome.COMPLETE.value, end="wrap",
+                           supervisor="workflow_done", elapsed_sec=1.0)
+
+    rep = Reporter(journal_path=tmp_path / "p.jsonl")
+    batch = Parallel(Settings(monitor_enabled=False), regime.flow, rep,
+                     regime=regime)
+    batch.pool = _FakePool()
+    with mock.patch.object(Drive, "run", _fake_run):
+        tasks = [ParallelTask("w1", "task one", "ws-a")]
+        results = batch.run(tasks)
+    rep.close()
+    assert captured["regime"] is regime
+    assert captured["sm"] is regime.flow
+    assert results["w1"].outcome == Outcome.COMPLETE.value
+
+
 def test_parallel_run_worker_count_bounds(tmp_path):
     batch, rep = _batch(tmp_path)
     tasks = [ParallelTask("w1", "t1", "ws-a"),

@@ -154,10 +154,13 @@ export const DialogControlPlugin = async ({ $ }) => {
       regime_run_many: tool({
         description: "Run several tasks as concurrent workflows (BLOCKING). " +
                      "Returns {elapsed_sec, results:{wid:{outcome,end,detail}}} JSON. " +
+                     "Optionally set regime_name=<name> to run a named regime from the RegimeRegistry " +
+                     "(the whole operating rule: flow + roles + watchdog + handover). " +
                      "Set async=true to submit as a background job and return a handle immediately.",
         args: {
           contexts: tool.schema.array(tool.schema.string()),
           base: tool.schema.string().optional(),
+          regime_name: tool.schema.string().optional(),
           async: tool.schema.boolean().optional(),
           perm: tool.schema.string().optional(),
         },
@@ -165,6 +168,7 @@ export const DialogControlPlugin = async ({ $ }) => {
           const a = A(args)
           const opts = ["run-many", ...(a.contexts || []), "--json", "--base", a.base ?? BASE,
                         "--perm", a.perm ?? "run"]
+          if (a.regime_name) opts.push("--regime-name", a.regime_name)
           if (a.async) opts.push("--async")
           return await run($, opts)
         },
@@ -296,6 +300,35 @@ export const DialogControlPlugin = async ({ $ }) => {
           const a = A(args)
           const opts = ["flow", "design", a.name, a.content, "--json", "--perm", a.perm ?? "run"]
           return await run($, opts)
+        },
+      }),
+
+      regime_regime_design: tool({
+        description: "Design AND register a WHOLE operating rule (regime: flow + roles + watchdog + handover) " +
+                     "from an inline JSON spec (phase-1d). Spec shape: " +
+                     "{\"flow\":{\"entry\":..,\"nodes\":[..]},\"roles\":{..},\"watchdog\":{\"soft_sec\":..,\"hard_sec\":..},\"handover\":{..}} " +
+                     "with optional name/stall_sec/auto_resume_sec. Compiles + deep-validates + registers into the " +
+                     "persistent RegimeRegistry (runnable via --regime-name). Returns {ok, name, version, nodes, has_watchdog, has_handover} JSON.",
+        args: {
+          name: tool.schema.string().describe("regime name to register under"),
+          spec: tool.schema.string().describe("inline regime spec JSON"),
+          preflight: tool.schema.boolean().optional(),
+          perm: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const a = A(args)
+          const opts = ["regime", "design", a.name, a.spec, "--json", "--perm", a.perm ?? "run"]
+          if (a.preflight) opts.push("--preflight")
+          return await run($, opts)
+        },
+      }),
+
+      regime_regime_list: tool({
+        description: "List named regimes in the RegimeRegistry (whole operating rules designed/loaded via " +
+                     "`regime regime design`). Returns {regimes:[{name,version,source,nodes,path,has_watchdog,has_handover,roles}]} JSON.",
+        args: {},
+        async execute() {
+          return await run($, ["regime", "list", "--json"])
         },
       }),
     },

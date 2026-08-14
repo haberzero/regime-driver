@@ -348,6 +348,9 @@ def run_many(
     base: str = typer.Option(None, "--base", help="worker opencode server URL"),
     config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
     regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
+    regime_name: str = typer.Option(
+        None, "--regime-name", help="run a named regime from the RegimeRegistry "
+        "(the whole operating rule: flow + roles + watchdog + handover)"),
     ledger: Optional[Path] = typer.Option(None, "--ledger", help="JSONL ledger path"),
     deadline: int = typer.Option(None, "--deadline", help="per-segment deadline (sec)"),
     skills_dir: Optional[Path] = typer.Option(
@@ -386,6 +389,7 @@ def run_many(
             *(["--base", base] if base else []),
             *(["--config", str(config)] if config else []),
             *(["--regime", str(regime)] if regime else []),
+            *(["--regime-name", regime_name] if regime_name else []),
             *(["--ledger", str(ledger)] if ledger else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--skills-dir", str(skills_dir)] if skills_dir else []),
@@ -394,8 +398,13 @@ def run_many(
         ], ledger=str(ledger) if ledger else None, title=f"run-many×{len(contexts)}",
             json_out=json_out)
         return
+    # a named regime is the whole operating rule (flow + roles + watchdog +
+    # handover) shared by every parallel workflow; otherwise the legacy
+    # regime-file path applies settings-JSON policies.
+    regime_obj = _named_regime(regime_name)
     try:
-        sm = load_regime(settings.regime_path)
+        sm = (regime_obj.flow if regime_obj is not None
+              else load_regime(settings.regime_path))
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
 
@@ -410,9 +419,19 @@ def run_many(
     client = OpenCodeClient(settings.base_url, model=settings.model,
                             timeout=settings.request_timeout)
     rep = Reporter(journal_path=reporter) if reporter else None
-    cluster = StatechartCluster(client, reporter=rep)
+    if regime_obj is not None:
+        from ..core.role import default_roles as _default_roles
+        cluster = StatechartCluster.from_regime(
+            regime_obj, settings, client, reporter=rep)
+        roles = regime_obj.roles or _default_roles()
+        handover = regime_obj.handover
+    else:
+        cluster = StatechartCluster(client, reporter=rep)
+        roles = None
+        handover = None
     for i, ctx in enumerate(contexts):
-        cluster.add_workflow(f"w{i+1}", settings, sm)
+        cluster.add_workflow(f"w{i+1}", settings, sm, roles=roles,
+                             context_policy=handover)
     t0 = time.time()
     # run the cluster in a background thread so we can render live progress
     import threading
@@ -717,6 +736,9 @@ def drive_many(
     base: str = typer.Option(None, "--base", help="ignored when --workspaces used"),
     config: Optional[Path] = typer.Option(None, "--config", help="config file (JSON/TOML)"),
     regime: Optional[Path] = typer.Option(None, "--regime", help="path to regime.json"),
+    regime_name: str = typer.Option(
+        None, "--regime-name", help="run a named regime from the RegimeRegistry "
+        "(the whole operating rule: flow + roles + watchdog + handover)"),
     deadline: int = typer.Option(None, "--deadline", help="global deadline (sec) per parallel member"),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="append-only report journal path (single truth for the batch)"),
@@ -754,8 +776,12 @@ def drive_many(
             "skills_dir": str(skills_dir) if skills_dir else None,
         },
     )
+    # a named regime is the whole operating rule handed to every member Drive
+    # (phase-1d: drive-many --regime-name == parallel `drive --regime-name`).
+    regime_obj = _named_regime(regime_name)
     try:
-        sm = load_regime(regime)
+        sm = (regime_obj.flow if regime_obj is not None
+              else load_regime(regime))
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
     if not no_preflight:
@@ -774,6 +800,7 @@ def drive_many(
     batch = Parallel(
         settings, sm, rep, deadline_sec=deadline,
         meta_enabled=meta, meta_model=meta_model,
+        regime=regime_obj,
     )
     try:
         _ok(f"parallel batch of {len(tasks)} starting: {', '.join(f'{t.task_id}@{t.workspace}' for t in tasks)}",

@@ -108,3 +108,51 @@ def test_one_stall_does_not_kill_the_other():
     assert r1[0] == Outcome.BLOCKED  # workflow-1 stopped by the watchdog
     assert "monitor" in (r1[2] or "")
     assert r2[0] == Outcome.COMPLETE  # workflow-2 unaffected
+
+
+def test_from_regime_wires_regime_watchdog_roles_handover():
+    """Phase-1d: a parallel cluster built from a whole Regime uses the regime's
+    flow, watchdog policy/thresholds, roles and handover policy — the SAME
+    operating rule the single-run `from_regime` path uses."""
+    import json
+
+    from regime_driver.regime import compile_regime
+
+    spec = {
+        "name": "cluster-regime",
+        "flow": {
+            "entry": "a",
+            "nodes": [
+                {"id": "a", "desc": "干", "role": "developer", "type": "agent",
+                 "next": "b"},
+                {"id": "b", "desc": "审", "role": "reviewer", "type": "judge",
+                 "next": "wrap"},
+                {"id": "wrap", "desc": "收尾", "role": "developer", "type": "agent"},
+            ],
+        },
+        "watchdog": {"soft_sec": 30, "hard_sec": 600},
+        "roles": {
+            "developer": {"agent": "developer", "context_threshold_normal": 0.5},
+            "reviewer": {"agent": "reviewer", "transition_mode": "rotate"},
+        },
+        "handover": {"soft_fraction": 0.4, "hard_fraction": 0.8},
+        "stall_sec": 90,
+        "auto_resume_sec": 45,
+    }
+    regime = compile_regime(json.dumps(spec, ensure_ascii=False))
+    c = StatechartCluster.from_regime(
+        regime, Settings(monitor_enabled=False, poll_sec=0.1),
+        client=MultiClient())
+    # the shared watchdog walks the regime's policy with the regime's thresholds
+    assert c.watchdog.stall_sec == 90
+    assert c.watchdog.auto_resume_sec == 45
+    assert c.watchdog.policy is regime.watchdog
+    # a workflow added with the regime's roles + handover runs them
+    wf = c.add_workflow("workflow-1",
+                        Settings(monitor_enabled=False, poll_sec=0.1),
+                        regime.flow, roles=regime.roles,
+                        context_policy=regime.handover)
+    assert wf._context_policy is regime.handover
+    assert wf.roles is regime.roles
+    results = c.run_all({"workflow-1": "任务A"}, timeout_sec=10)
+    assert results["workflow-1"][0] == Outcome.COMPLETE

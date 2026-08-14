@@ -19,6 +19,7 @@ See docs/subsystems/06_dialog_control.md.
 
 from __future__ import annotations
 
+import json
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +27,7 @@ from typing import Callable
 
 from ..core.statechart import Signal, SignalKind
 from ..flow import FlowError, FlowRegistry, compile_spec, validate_sm
+from ..regime import RegimeRegistry, compile_regime
 from .blackboard import WORKFLOW_METRICS, status_line, workflow_status
 from .statechart_runtime import ThreadedUnit
 
@@ -43,6 +45,29 @@ def _topic_label(topic: str) -> str:
     return topic.split(".")[-1]
 
 
+# regime-only fields: their presence marks a spec as regime-shaped even when it
+# uses the full-descriptor `flows` key (so roles/watchdog/handover are never
+# silently dropped — the regime compiler reports loudly instead).
+_REGIME_ONLY_KEYS = ("roles", "watchdog", "handover", "stall_sec", "auto_resume_sec")
+
+
+def _is_regime_spec(data) -> bool:
+    """True when a parsed JSON spec is a WHOLE operating rule (regime).
+
+    A regime spec carries a top-level `flow` key (canonical shape). A full
+    packaged descriptor (`flows` key) that ALSO declares regime-only fields is
+    treated as regime-shaped too, so `_design_regime` (which requires a `flow`
+    key) fails loudly instead of the fields being silently dropped.
+    """
+    if not isinstance(data, dict):
+        return False
+    if "flow" in data:
+        return True
+    if "flows" in data and any(k in data for k in _REGIME_ONLY_KEYS):
+        return True
+    return False
+
+
 class DialogControlUnit(ThreadedUnit):
     """A peer, event-driven state machine that is the one dialog surface."""
 
@@ -56,6 +81,7 @@ class DialogControlUnit(ThreadedUnit):
         settings_render: Callable[[], str] | None = None,
         worker_pool=None,
         flow_registry: FlowRegistry | None = None,
+        regime_registry: RegimeRegistry | None = None,
         max_events: int = 200,
         allow_write: bool = False,
     ) -> None:
@@ -76,6 +102,10 @@ class DialogControlUnit(ThreadedUnit):
         # the named-flow single source of truth (F4): dialog-control designed/loaded flows
         # and the builtin flow all live here. `self.flows` is a read-only view.
         self.flow_registry = flow_registry or FlowRegistry()
+        # phase-1d: the whole-operating-rule registry (flow + roles + watchdog +
+        # handover). `design <name> <regime JSON>` registers here; `regime
+        # list/inspect` views it. Persistent store by default (~/.regime/regimes).
+        self.regime_registry = regime_registry or RegimeRegistry()
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dialog-llm")
@@ -181,6 +211,8 @@ class DialogControlUnit(ThreadedUnit):
             return self.render_events(self._int_in(t, default=10), self._event_topic_in(t))
         if self._is_start_cmd(low):
             return self._write_gate(t) or self._start(t)
+        if self._is_regime_cmd(low):
+            return self._regime(t)
         if self._is_inspect_cmd(low):
             return self._inspect(t)
         if self._is_parallel_cmd(low):
@@ -235,6 +267,10 @@ class DialogControlUnit(ThreadedUnit):
     @staticmethod
     def _is_flow_cmd(low: str) -> bool:
         return low.startswith("flow ") or low.startswith("流程 ")
+
+    @staticmethod
+    def _is_regime_cmd(low: str) -> bool:
+        return low in ("regime", "制度") or low.startswith(("regime ", "制度 "))
 
     @staticmethod
     def _is_doctor_cmd(low: str) -> bool:
@@ -316,15 +352,31 @@ class DialogControlUnit(ThreadedUnit):
             return f"启动失败：{exc}"
 
     def _design(self, text: str) -> str:
-        """`design <flow_name> <spec>` — spec is JSON (deterministic) or natural
-        language (via LLM on a worker thread). Compiles + registers a new flow."""
+        """`design <name> <spec>` — spec is JSON (deterministic) or natural
+        language (via LLM on a worker thread).
+
+        Phase-1d: the entry point designs a WHOLE operating rule (regime: flow +
+        roles + watchdog + handover) when the JSON has a `flow` key, else a plain
+        flow. Both compile through their unified gate and register under the
+        respective named single source of truth.
+        """
         parts = text.split(maxsplit=2)
         if len(parts) < 3:
-            return ("用法：design <flow_name> <JSON 或自然语言描述>。\n"
-                    "JSON 形如 {\"entry\":\"a\",\"nodes\":[{\"id\":\"a\",\"desc\":\"..\","
-                    "\"role\":\"developer\",\"type\":\"agent\",\"next\":\"b\"}]}")
+            return ("用法：design <名称> <JSON 或自然语言描述>。\n"
+                    "flow JSON：{\"entry\":\"a\",\"nodes\":[{\"id\":\"a\",\"desc\":\"..\","
+                    "\"role\":\"developer\",\"type\":\"agent\",\"next\":\"b\"}]}\n"
+                    "整制度 JSON：{\"flow\":{...},\"roles\":{...},"
+                    "\"watchdog\":{\"soft_sec\":30,\"hard_sec\":600},"
+                    "\"handover\":{...}}")
         name, spec = parts[1], parts[2]
         if spec.strip().startswith("{") or spec.strip().startswith("["):
+            try:
+                data = json.loads(spec)
+            except ValueError as exc:
+                return f"设计失败：JSON 解析失败 {exc}"
+            # regime-shaped spec -> whole operating rule (flow+roles+watchdog+handover)
+            if _is_regime_spec(data):
+                return self._design_regime(name, data)
             try:
                 sm = compile_flow(name, spec)
                 entry = self.flow_registry.register(name, sm, validate=True)
@@ -335,7 +387,29 @@ class DialogControlUnit(ThreadedUnit):
         if self.llm is None:
             return "自然语言设计需接入 LLM；当前请提供 JSON 规格。"
         self._executor.submit(self._run_design_nl, name, spec)
-        return f"正在用 LLM 设计 workflow '{name}'，稍后结果出现…"
+        return f"正在用 LLM 设计 '{name}'，稍后结果出现…"
+
+    def _design_regime(self, name: str, data: dict) -> str:
+        """Register a whole operating rule (regime) from its JSON shape."""
+        if not data.get("name"):
+            data["name"] = name
+        try:
+            regime = compile_regime(json.dumps(data, ensure_ascii=False))
+            entry = self.regime_registry.register(regime, source="design",
+                                                  validate=True)
+        except FlowError as exc:
+            return f"制度设计失败：{exc}"
+        extras = []
+        if entry.regime.watchdog is not None:
+            extras.append("watchdog")
+        if entry.regime.handover is not None:
+            extras.append("handover")
+        if entry.regime.roles is not None:
+            extras.append("roles:" + ",".join(entry.regime.roles.ids()))
+        return (f"已设计并注册制度 '{entry.name}'："
+                f"flow={entry.regime.flow.flow_name} · "
+                f"{len(entry.regime.flow.flow.nodes)} 节点"
+                + (f" · {'+'.join(extras)}" if extras else ""))
 
     def _run_design_nl(self, name: str, spec: str) -> None:
         try:
@@ -347,14 +421,74 @@ class DialogControlUnit(ThreadedUnit):
                 f"流程必须有且仅有一个起始节点。\n流程描述：{spec}"
             )
             raw = self.llm(prompt, "")
+            data = json.loads(raw)
+            if _is_regime_spec(data):
+                # regime-shaped reply -> whole operating rule
+                if not data.get("name"):
+                    data["name"] = name
+                regime = compile_regime(json.dumps(data, ensure_ascii=False))
+                entry = self.regime_registry.register(regime, source="design",
+                                                      validate=True)
+                self.replies.append({"text": f"已用 LLM 设计并注册制度 '{entry.name}'："
+                                             f"flow={entry.regime.flow.flow_name} · "
+                                             f"{len(entry.regime.flow.flow.nodes)} 节点",
+                                     "kind": "design", "ts": time.time()})
+                return
             sm = compile_flow(name, raw)
             entry = self.flow_registry.register(name, sm, validate=True)
             self.replies.append({"text": f"已用 LLM 设计并注册 workflow '{name}'："
                                          f"路径={' → '.join(entry.sm.flow_path())}",
                                  "kind": "design", "ts": time.time()})
         except Exception as exc:
-            self.replies.append({"text": f"LLM 设计 workflow '{name}' 失败：{exc}",
+            self.replies.append({"text": f"LLM 设计 '{name}' 失败：{exc}",
                                  "kind": "design", "ts": time.time()})
+
+    def _regime(self, text: str) -> str:
+        """`regime list` / `regime inspect <name>` — view the regime registry
+        (whole operating rules designed/loaded via `design <name> <regime JSON>`).
+        Read-only."""
+        parts = text.split(maxsplit=2)
+        sub = parts[1] if len(parts) > 1 else ""
+        if sub in ("list", "ls", "列表"):
+            lines = ["=== regime 制度注册表 ==="]
+            entries = self.regime_registry.list()
+            if not entries:
+                lines.append("  (无注册制度；用 `design <name> <整制度JSON>` 添加)")
+            for e in entries:
+                extras = []
+                if e.regime.watchdog is not None:
+                    extras.append("watchdog")
+                if e.regime.handover is not None:
+                    extras.append("handover")
+                if e.regime.roles is not None:
+                    extras.append("roles:" + ",".join(e.regime.roles.ids()))
+                lines.append(f"  v{e.version} {e.name} [{e.source}] "
+                             f"({e.regime.flow.flow_name}, {len(e.regime.flow.flow.nodes)} 节点"
+                             + (f", {','.join(extras)}" if extras else "") + ")")
+            lines.append(f"  共 {len(entries)} 个")
+            return "\n".join(lines)
+        if sub in ("inspect", "查看"):
+            if len(parts) < 3:
+                return "用法：regime inspect <name>"
+            entry = self.regime_registry.get(parts[2])
+            if entry is None:
+                return f"未知制度 '{parts[2]}'（用 `regime list`）"
+            try:
+                path = " → ".join(entry.regime.flow.flow_path())
+            except Exception:
+                path = "(cycle)"
+            lines = [f"  {entry.name} v{entry.version} [{entry.source}]",
+                     f"  flow: {entry.regime.flow.flow_name} · {path}"]
+            if entry.regime.roles:
+                lines.append(f"  roles: {', '.join(entry.regime.roles.ids())}")
+            if entry.regime.watchdog is not None:
+                lines.append(f"  watchdog: {entry.regime.watchdog.name} "
+                             f"({len(entry.regime.watchdog.rules)} rules)")
+            if entry.regime.handover is not None:
+                h = entry.regime.handover
+                lines.append(f"  handover: soft={h.soft_fraction} hard={h.hard_fraction}")
+            return "\n".join(lines)
+        return "用法：regime list | regime inspect <name> | design <name> <整制度JSON>"
 
     def _flow(self, text: str) -> str:
         """`flow list` / `flow validate <file>` / `flow reload <name>` (F7/F8).
@@ -641,8 +775,11 @@ class DialogControlUnit(ThreadedUnit):
             "  inspect <wid>             某 workflow 黑板指标\n"
             "\n"
             "── 设计新流程（可自我修改闭环）─────────────────\n"
-            "  design <flow名> <JSON|自然语言>   设计并注册新 workflow\n"
+            "  design <名称> <JSON|自然语言>   设计并注册 workflow 或整制度\n"
+            "                                  （JSON 含 flow 键 = 整制度：flow+roles+\n"
+            "                                    watchdog+handover）\n"
             "  flow list / validate / reload / 重载  热编译与热加载\n"
+            "  regime list / inspect <name>    查看整制度注册表（只读）\n"
             "\n"
             "── 运行任务 ────────────────────────────────\n"
             "  start [flow名] <任务> / 启动 ..      非阻塞启动 workflow\n"
@@ -669,7 +806,9 @@ class DialogControlUnit(ThreadedUnit):
         return (
             "可用命令（中英文皆可）：\n"
             "  capabilities / cap / 能力 / 能力地图 —— 全部能力地图(按场景分组)\n"
-            "  design <flow名> <JSON|自然语言>   —— 设计并注册新 workflow\n"
+            "  design <名称> <JSON|自然语言>   —— 设计并注册 workflow 或整制度(含flow键)\n"
+            "  regime list / 制度 列表         —— 列出整制度注册表\n"
+            "  regime inspect <制度名> / 查看  —— 查看整制度定义\n"
             "  flow list / 流程 列表             —— 列出已注册 flow\n"
             "  flow validate <regime.json> / 校验 —— 热校验一个 flow 文件\n"
             "  flow reload <flow名> / 重载       —— 原子热重载(运行中workflow不受影响)(写)\n"
