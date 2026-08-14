@@ -95,7 +95,7 @@ regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:
 | `--flow` | str | 运行 FlowRegistry 中已设计/加载的命名流程 |
 | `--deadline` | int | 全局期限（秒），执行器与 supervisor 共享 |
 | `--container` | str | worker docker 容器名（T1 失联时 L4 重启对象） |
-| `--stall` | int | 进程外 supervisor 会话停滞检测秒数（T2）；进程内策略看门狗用 `settings.stall_sec`（默认 120） |
+| `--stall` | int | 会话停滞检测秒数（drive 模式为进程内策略看门狗；默认取 config 的 `settings.stall_sec`=120） |
 | `--meta` | flag | 启用智能元分析（真实模型判停滞） |
 | `--meta-model` | str | 元分析模型（默认 deepseek-api/deepseek-v4-flash） |
 | `--reporter` | path | append-only 报告日志路径（单一真源） |
@@ -113,11 +113,14 @@ regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:
 **journal 保留**：传 `--prune-max-records`/`--prune-max-age` 时，drive 结束后对共享 journal 执行
 `Reporter.retain`（best-effort，失败不影响结果），用于长跑脚本控制 journal 无限增长。
 
-**运行时中断恢复**：drive 由进程内可编程策略看门狗（`watchdog_policy_json`）监督，
-运行中可能 PAUSE（中断当前生成、冻结推进）→ 超时自动 RESUME 续接；进程外 supervisor
-另按 `--stall` 做 T2 阶梯。ledger/report 中体现为 `workflow_paused`/`workflow_resumed`/
-`watchdog_fire`/ladder 事件；`supervisor` 字段说明监督结束原因（`workflow_done`/
-`timeout`/`restart`/`unhealthy`）。
+**运行时中断恢复**：drive 的会话级监督归**进程内可编程策略看门狗**（`watchdog_policy_json`，
+`--stall` 即它的停滞阈值）——运行中可能 PAUSE（中断当前生成、冻结推进）→ 超时自动 RESUME
+续接 → fallback → kill 全阶梯；它与工作流共享同一 SSE 活性事实源并跟随当前 `wait_sid`
+（会话旋转不失焦）。进程外 supervisor 只保留其独有能力：T1 worker 健康/L4 docker 重启 + 全局
+deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外部 T2 抢先硬 abort 而绕过进程内
+恢复阶梯）。ledger/report 中体现为 `workflow_paused`/`workflow_resumed`/`watchdog_fire`/ladder
+事件（`watchdog_fire` 现落盘进共享 journal）；`supervisor` 字段说明监督结束原因（`workflow_done`/
+`timeout`/`restart`/`unhealthy`）。独立 `regime supervisor` 命令仍保留完整 T2 阶梯。
 
 ### `drive-many`
 

@@ -85,7 +85,7 @@ def _drive(tmp_path, stall=False):
     # health_poll_sec=0.05: the supervisor loop stops as soon as the workflow
     # yields a result (stop_when), so a small poll makes the tests fast without
     # changing production behavior (default remains 10.0).
-    d = Drive(s, sm, client, rep, deadline_sec=600, stall_sec=60,
+    d = Drive(s, sm, client, rep, deadline_sec=600,
               health_poll_sec=0.05)
     return d, client, rep
 
@@ -122,15 +122,36 @@ def test_drive_writes_shared_reporter_journal(tmp_path):
 
 
 def test_drive_stall_supervisor_escalates(tmp_path):
-    # stall worker: developer never produces [WORK_DONE]; supervisor (T2) should
-    # escalate through the ladder (abort) rather than the workflow running forever.
+    # stall worker: developer never produces [WORK_DONE]. In drive mode session
+    # supervision belongs to the in-process watchdog (settings.stall_sec=2), so
+    # IT fires the recovery ladder; the process-external supervisor only keeps
+    # T1 + deadline. The drive returns promptly instead of running forever.
     d, client, rep = _drive(tmp_path, stall=True)
     dr = d.run("实现反转函数")
     rep.close()
-    # The in-process watchdog also fires; the drive still returns promptly and
-    # the supervisor took a ladder action (recorded to the journal).
     assert dr.outcome in {Outcome.ABORTED.value, Outcome.BLOCKED.value,
                           Outcome.ERROR.value, Outcome.TIMEOUT.value}
+    journal = tmp_path / "journal.jsonl"
+    lines = [json.loads(l) for l in journal.read_text().splitlines() if l.strip()]
+    # the supervisor's OWN T2 ladder must NOT run in drive mode (that is the
+    # in-process watchdog's job); only its T1/deadline events may appear
+    assert not any(r.get("kind") in ("ladder_action", "ladder_restart")
+                   for r in lines), "external T2 ladder must not run in drive mode"
+
+
+def test_drive_stall_watchdog_fire_is_journaled(tmp_path):
+    # W1 observability: the in-process watchdog's fire must be recorded in the
+    # shared report journal (previously watchdog_fire only went to the in-memory
+    # bus, so a stall verdict was invisible to report/forensics).
+    d, client, rep = _drive(tmp_path, stall=True)
+    dr = d.run("实现反转函数")
+    rep.close()
+    journal = tmp_path / "journal.jsonl"
+    lines = [json.loads(l) for l in journal.read_text().splitlines() if l.strip()]
+    fires = [r for r in lines if r.get("kind") == "watchdog_fire"]
+    assert fires, "in-process watchdog fire must land in the shared journal"
+    assert any(r.get("event_type") in ("kill", "auto_resume")
+               for r in fires)
 
 
 def test_drive_prunes_journal_on_teardown(tmp_path):
@@ -139,7 +160,7 @@ def test_drive_prunes_journal_on_teardown(tmp_path):
     sm = load_regime()
     client = FakeClient()
     rep = Reporter(journal_path=tmp_path / "journal.jsonl")
-    d = Drive(s, sm, client, rep, deadline_sec=600, stall_sec=60,
+    d = Drive(s, sm, client, rep, deadline_sec=600,
               prune_max_records=1, health_poll_sec=0.5)
     dr = d.run("实现反转函数")
     assert dr.outcome == Outcome.COMPLETE.value

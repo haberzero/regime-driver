@@ -43,6 +43,7 @@ class StatechartDriver:
         max_global_nodes: int | None = None,
         heartbeat_stale_sec: float | None = None,
         run_id: str | None = None,
+        sse: "SseActivity | None" = None,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -67,6 +68,8 @@ class StatechartDriver:
             heartbeat_stale_sec=heartbeat_stale_sec,
             policy=policy,
             auto_resume_sec=float(settings.auto_resume_sec),
+            reporter=reporter,
+            run_id=self.run_id,
         )
         if self.watchdog.bus is None:
             # a custom watchdog created without a bus: give it the runtime's
@@ -76,6 +79,7 @@ class StatechartDriver:
             settings, state_machine, client, ledger,
             reporter=reporter, roles=self.roles,
             unit_id="workflow", run_id=self.run_id, bus=self.runtime.bus,
+            sse=sse,
         )
         self.runtime.register(self.watchdog)
         self.runtime.register(self.workflow)

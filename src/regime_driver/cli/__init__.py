@@ -446,7 +446,9 @@ def drive(
     deadline: int = typer.Option(None, "--deadline", help="global deadline (sec) for the whole drive"),
     container: str = typer.Option(
         None, "--container", help="worker docker container name (for L4 restart on T1)"),
-    stall: int = typer.Option(60, "--stall", help="session-stall detection seconds (T2)"),
+    stall: Optional[int] = typer.Option(
+        None, "--stall", help="session-stall detection seconds (in-process watchdog; "
+        "config default 120)"),
     meta: bool = typer.Option(
         False, "--meta", help="enable intelligent meta-analysis (real model judges a stall)"),
     meta_model: str = typer.Option(
@@ -481,11 +483,13 @@ def drive(
     """Bring up the whole self-driving stack with one command.
 
     Runs the workflow executor AND the process-external supervisor (independent
-    clock: T1 health/L4 restart, T2 session stall, deadline, correction ladder)
-    sharing ONE reporter journal, registered as a supervised task. Preflight is
-    mandatory (offline trial) unless --no-preflight. Pass --async to run it as a
-    tracked background task (`regime task list/status`). Pass --workspace <ws> to
-    run in a dedicated per-workspace worker instance (physical isolation).
+    clock: T1 health/L4 docker restart + global deadline; session-level stall
+    supervision is the in-process watchdog's job, sharing one SSE liveness fact
+    source), all recording to ONE reporter journal, registered as a supervised
+    task. Preflight is mandatory (offline trial) unless --no-preflight. Pass
+    --async to run it as a tracked background task (`regime task list/status`).
+    Pass --workspace <ws> to run in a dedicated per-workspace worker instance
+    (physical isolation).
     """
     _gate(perm, ["drive", context])
     from ..task import TaskRegistry
@@ -497,6 +501,10 @@ def drive(
             "base_url": base,
             "regime_path": str(regime) if regime else None,
             "default_deadline_sec": deadline,
+            # drive mode: session supervision belongs to the in-process watchdog,
+            # so --stall drives ITS stall_sec (settings.stall_sec), not the
+            # process-external supervisor's T2 (which is disabled in drive).
+            "stall_sec": stall,
             "worker_container": container,
             "ledger_path": str(ledger) if ledger else None,
             "skills_dir": str(skills_dir) if skills_dir else None,
@@ -511,7 +519,9 @@ def drive(
             *(["--flow", flow] if flow else []),
             *(["--deadline", str(deadline)] if deadline is not None else []),
             *(["--container", container] if container else []),
-            *(["--stall", str(stall)] if stall != 60 else []),
+            *(["--stall", str(stall)] if stall is not None else []),
+            *(["--meta"] if meta else []),
+            *(["--meta-model", meta_model] if meta_model != Settings().model else []),
             *(["--reporter", str(reporter)] if reporter else []),
             *(["--ledger", str(ledger)] if ledger else []),
             *(["--tasks-dir", str(tasks_dir)] if tasks_dir else []),
@@ -566,7 +576,7 @@ def drive(
                             task_id=os.environ.get("REGIME_TASK_ID"))
     drv = Drive(
         settings, sm, client, rep, container=container,
-        deadline_sec=deadline, stall_sec=stall,
+        deadline_sec=deadline,
         meta_enabled=meta, meta_model=meta_model,
         prune_max_records=prune_max_records, prune_max_age=prune_max_age,
     )

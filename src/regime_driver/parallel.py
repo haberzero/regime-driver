@@ -49,7 +49,6 @@ class Parallel:
         *,
         pool: WorkerPool | None = None,
         deadline_sec: float | None = None,
-        stall_sec: float = 60.0,
         meta_enabled: bool = False,
         meta_model: str | None = None,
     ) -> None:
@@ -58,7 +57,6 @@ class Parallel:
         self.reporter = reporter
         self.pool = pool or WorkerPool()
         self.deadline_sec = deadline_sec
-        self.stall_sec = stall_sec
         self.meta_enabled = meta_enabled
         self.meta_model = meta_model
 
@@ -78,7 +76,7 @@ class Parallel:
         """Construct a Drive bound to the given worker client (overridable in tests)."""
         return Drive(
             self.settings, self.sm, client, self.reporter,
-            deadline_sec=self.deadline_sec, stall_sec=self.stall_sec,
+            deadline_sec=self.deadline_sec,
             meta_enabled=self.meta_enabled, meta_model=self.meta_model,
         )
 

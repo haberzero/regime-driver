@@ -79,6 +79,8 @@ class WatchdogUnit(ThreadedUnit):
         heartbeat_stale_sec: float | None = None,
         policy: WatchdogPolicy | None = None,
         auto_resume_sec: float = 30.0,
+        reporter: "Reporter | None" = None,
+        run_id: str | None = None,
     ) -> None:
         super().__init__(unit_id, bus, role="watchdog")
         self.stall_sec = stall_sec
@@ -88,6 +90,13 @@ class WatchdogUnit(ThreadedUnit):
         self.max_global_nodes = max_global_nodes
         self.heartbeat_stale_sec = heartbeat_stale_sec
         self.policy = policy or default_policy(stall_sec)
+        # W1 observability: a watchdog fire must land in the same report journal
+        # as the workflow events, otherwise a stall verdict is invisible to
+        # report/forensics (the classic "journal showed no watchdog_fire" blind
+        # spot that confounded the drive-mode investigation). The reporter is the
+        # single event truth; `run_id` attributes the fire to the workflow run.
+        self.reporter = reporter
+        self.run_id = run_id
         # WORK_PLAN11 auto-recover: a paused session that stays silent for
         # `auto_resume_sec` is automatically resumed; if it still has no liveness
         # afterwards, the normal policy rules take over (eventual kill).
@@ -210,6 +219,7 @@ class WatchdogUnit(ThreadedUnit):
         else:
             self.send(target, kind, dict(payload))
         self.emit("watchdog_fire", kind=real, session=ev.session_id, detail=detail)
+        self._record_fire(real, ev.session_id, detail)
 
     def _emit_control(self, kind: SignalKind, event: str, detail: str,
                       payload: dict, dst: str | None = None) -> None:
@@ -222,6 +232,25 @@ class WatchdogUnit(ThreadedUnit):
                                      "watchdog": True})
         self.emit("watchdog_fire", kind=event,
                   session=payload.get("session_id"), detail=detail)
+        self._record_fire(event, payload.get("session_id"), detail)
+
+    def _record_fire(self, kind: str, session: str | None, detail: str) -> None:
+        """Persist a watchdog fire into the report journal (never raises)."""
+        if self.reporter is not None:
+            try:
+                self.reporter.ingest(
+                    kind="watchdog_fire", wf_id=self.run_id,
+                    session_id=session,
+                    event_type=kind,
+                    detail={"reason": detail},
+                )
+            except Exception:
+                # a journal failure must never kill the watchdog loop, but it must
+                # be visible (a silently-dropped fire recreates the exact W1 blind
+                # spot this record exists to close)
+                import logging
+                logging.getLogger(__name__).warning(
+                    "watchdog_fire journal record failed", exc_info=True)
 
     def _on_blackboard_change(self, payload: dict) -> None:
         """A blackboard metric changed -> re-run the global scan."""

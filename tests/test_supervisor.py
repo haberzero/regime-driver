@@ -421,3 +421,114 @@ def test_supervisor_t2_fires_on_genuine_stall_not_on_handshake():
             break
     assert fired, "T2 must fire on a genuinely frozen-busy session"
     assert sup_bad.watch.consecutive_stalls >= 1
+
+
+class _StallFrozenClient:
+    """Frozen-busy worker: alive, never progresses, records aborts."""
+
+    def __init__(self):
+        self.aborts = 0
+
+    def health(self):
+        return True
+
+    def event_stream(self, reconnect=False, max_retries=1):
+        yield {"event": "server.connected", "data": {}}
+
+    def session_status(self, sid):
+        return "busy"
+
+    def session_tokens(self, sid):
+        return 0, 0
+
+    def abort_session(self, sid):
+        self.aborts += 1
+
+
+def test_supervise_sessions_false_disables_t2():
+    """drive-mode convergence: with supervise_sessions=False the external
+    supervisor must NOT run the T2 session-stall ladder (the in-process watchdog
+    owns session recovery); a frozen-busy session is left alone."""
+    from regime_driver.supervisor import SessionWatch, Supervisor
+
+    c = _StallFrozenClient()
+    sup = Supervisor(c, session_id="s1", stall_sec=0.01, health_poll_sec=0.01)
+    # prime the watch so the stall window is already expired (would fire if T2 ran)
+    sup.watch = SessionWatch(last_message_ts=time.time() - 100.0)
+    out = sup.run(once=True, supervise_sessions=False)
+    assert c.aborts == 0
+    assert out == "complete"
+
+
+def test_supervise_sessions_true_still_fires_t2():
+    """The independent `regime supervisor` path keeps the full T2 ladder: a
+    frozen-busy session escalates (abort) even when no in-process watchdog is
+    present."""
+    from regime_driver.supervisor import SessionWatch, Supervisor
+
+    c = _StallFrozenClient()
+    sup = Supervisor(c, session_id="s1", stall_sec=0.01, health_poll_sec=0.01,
+                     deadline_sec=0.05)
+    sup.watch = SessionWatch(last_message_ts=time.time() - 100.0)
+    out = sup.run(once=True, supervise_sessions=True)
+    # the frozen session climbs the full T2 ladder (abort -> ... -> human), so
+    # the loop only exits at L5 human; aborts were really executed.
+    assert c.aborts >= 1
+    assert out == "human"
+
+
+def test_supervise_sessions_false_still_enforces_deadline():
+    """drive-mode convergence keeps the process-external capabilities that are
+    unique to it: with supervise_sessions=False the global deadline still ends
+    the loop, while the session is left alone (no T2 aborts)."""
+    from regime_driver.supervisor import Supervisor
+
+    c = _StallFrozenClient()
+    sup = Supervisor(c, session_id="s1", stall_sec=0.01, health_poll_sec=0.01,
+                     deadline_sec=0.05)
+    out = sup.run(once=False, supervise_sessions=False)
+    assert out == "timeout"
+    assert c.aborts == 0
+
+
+def test_meta_review_fires_reviews_journal_fires():
+    """drive-mode --meta must stay alive: the external supervisor reviews each
+    watchdog_fire the in-process watchdog journaled, with an independent model
+    (second opinion recorded, deterministic action not overruled)."""
+    from regime_driver.supervisor import Supervisor
+    from regime_driver.app.reporter import Reporter
+
+    import tempfile
+    from pathlib import Path
+    client = _MetaClient(
+        reply='{"verdict":"looping","confidence":0.8,'
+              '"recommended_action":"abort","reason":"looping"}')
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="drive")
+        sup = Supervisor(client, rep, session_id="s1",
+                         meta_enabled=True, meta_model="m")
+        # plant a watchdog_fire as the in-process watchdog would record
+        rep.ingest(kind="watchdog_fire", session_id="s1", event_type="kill",
+                   detail={"reason": "hard backstop"})
+        sup._meta_review_fires()
+        assert client.calls >= 1, "meta must review the journaled fire"
+        assert client.reads, "meta evidence must read the fire's session messages"
+
+
+def test_meta_review_fires_skips_non_fire_events():
+    """The meta channel only reviews watchdog fires, not every journal record."""
+    from regime_driver.supervisor import Supervisor
+    from regime_driver.app.reporter import Reporter
+
+    import tempfile
+    from pathlib import Path
+    client = _MetaClient(reply='{"verdict":"normal","confidence":0.0,'
+                               '"recommended_action":"none","reason":"ok"}')
+    with tempfile.TemporaryDirectory() as td:
+        rep = Reporter(journal_path=Path(td) / "j.jsonl", project_id="drive")
+        sup = Supervisor(client, rep, session_id="s1",
+                         meta_enabled=True, meta_model="m")
+        rep.ingest(kind="node_done", node="implement")   # not a fire
+        rep.ingest(kind="worker", event_type="session.idle")  # not a fire
+        sup._meta_review_fires()
+        assert client.calls == 0

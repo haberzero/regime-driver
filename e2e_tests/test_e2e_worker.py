@@ -94,7 +94,7 @@ def test_real_drive_supervisor_no_false_stall(tmp_path):
     sm = load_regime()
     client = OpenCodeClient(BASE, model=settings.model, timeout=settings.request_timeout)
     rep = Reporter(journal_path=journal, project_id="drive")
-    drv = Drive(settings, sm, client, rep, deadline_sec=600, stall_sec=180,
+    drv = Drive(settings, sm, client, rep, deadline_sec=600,
                 meta_enabled=False)
     try:
         dr = drv.run("写一个Python函数 g(x)=x*4 保存到 e2e_quad.py 并运行确认")

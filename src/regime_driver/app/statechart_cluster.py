@@ -40,7 +40,7 @@ class StatechartCluster:
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
         self.watchdog = watchdog or WatchdogUnit(
             unit_id="watchdog", control_dst="*", bus=self.runtime.bus,
-            **watchdog_kwargs,
+            reporter=reporter, **watchdog_kwargs,
         )
         if self.watchdog.bus is None:
             self.watchdog.bus = self.runtime.bus

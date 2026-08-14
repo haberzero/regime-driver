@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .app.reporter import Reporter
+from .app.sse_activity import SseActivity
 from .app.statechart_driver import StatechartDriver
 from .core.models import Outcome
 from .infra.ledger import Ledger
@@ -81,7 +82,6 @@ class Drive:
         *,
         container: str | None = None,
         deadline_sec: float | None = None,
-        stall_sec: float = 60.0,
         health_poll_sec: float = 10.0,
         session_discovery_timeout: float = 60.0,
         meta_enabled: bool = False,
@@ -95,7 +95,6 @@ class Drive:
         self.reporter = reporter
         self.container = container
         self.deadline_sec = deadline_sec
-        self.stall_sec = stall_sec
         self.health_poll_sec = health_poll_sec
         self.session_discovery_timeout = session_discovery_timeout
         self.meta_enabled = meta_enabled
@@ -139,10 +138,18 @@ class Drive:
         Returns a DriveResult. The supervisor loop ends when the workflow yields
         a result (stop_when) or the deadline / L5 escalation fires.
         """
+        # ONE liveness fact source for session-level supervision: the shared
+        # SseActivity feeds the in-process watchdog (via the workflow REPORT's
+        # activity_ts). The external supervisor's own per-poll ingest_events
+        # only records worker events into the journal; its T2 session judgment
+        # is disabled in drive mode, so no two independent session-liveness
+        # baselines exist.
+        self._sse = SseActivity(self.client)
         self.driver = StatechartDriver(
             self.settings, self.sm, self.client, reporter=self.reporter,
             ledger=_ledger_for(self.settings),
             global_deadline_sec=self.deadline_sec,
+            sse=self._sse,
         )
         t0 = time.time()
 
@@ -159,20 +166,31 @@ class Drive:
         self._session_id = session_id
         sup = Supervisor(
             self.client, self.reporter, container=self.container,
-            stall_sec=self.stall_sec, health_poll_sec=self.health_poll_sec,
+            stall_sec=float(self.settings.stall_sec),
+            health_poll_sec=self.health_poll_sec,
             deadline_sec=self.deadline_sec, session_id=session_id, goal=context,
             meta_enabled=self.meta_enabled, meta_model=self.meta_model,
         )
-        # stop_when: end supervision once the workflow yields ANY result. The
-        # in-process watchdog now uses the SSE-activity liveness chain (WORK_PLAN10)
-        # so a BLOCKED outcome is a genuine stall (already aborted via
-        # `_abort_waiting_session`), not a token-blind false kill — the external
-        # supervisor's T1 (docker restart) and deadline still guard the run, and
-        # its T2 ladder remains fully usable via `regime supervisor`.
-        sup_outcome = sup.run(stop_when=lambda: "res" in self._result)
-        t.join(timeout=5)
-        if self.driver.ledger is not None:
-            self.driver.ledger.close()
+        # stop_when: end supervision once the workflow yields ANY result. Session
+        # supervision in drive mode belongs to the in-process watchdog (its
+        # pause->resume->fallback->kill recovery ladder follows the workflow's
+        # current wait_sid via REPORTs; its fire is journaled for forensics). The
+        # process-external loop keeps only what it alone can do: T1 worker
+        # health/docker restart + the global deadline (+ the intelligent meta
+        # second-opinion on journaled fires). Its own T2 stays fully usable via
+        # the independent `regime supervisor`. This removes the dual-watchdog race
+        # where an external T2 at a different stall_sec hard-aborts a session
+        # before the in-process recovery ladder can run.
+        try:
+            sup_outcome = sup.run(stop_when=lambda: "res" in self._result,
+                                  supervise_sessions=False)
+        finally:
+            # always reap the executor + shared SSE subscription + ledger so an
+            # exception on the supervision path never leaks threads/connections
+            t.join(timeout=5)
+            self._sse.stop()
+            if self.driver.ledger is not None:
+                self.driver.ledger.close()
         if "res" not in self._result:
             outcome, end, detail = (Outcome.ERROR, None, "drive did not complete")
         else:

@@ -281,6 +281,9 @@ class Supervisor:
         self._last_activity_ts: float = 0.0
         self._events_no_type = 0          # events whose type could not be resolved
         self._last_liveness_log = 0.0     # throttle liveness warnings
+        # drive-mode meta channel: only review watchdog fires recorded AFTER this
+        # supervisor started (avoids replaying the whole pre-existing journal).
+        self._last_meta_fire_ts: float = self._start
 
     # -- SSE event ingress (wired: called by the run loop) -------------------
 
@@ -341,10 +344,12 @@ class Supervisor:
 
     # -- intelligent meta-analysis (real model judges the verdict) ------------
 
-    def _session_context(self, max_msgs: int) -> str:
-        """Render recent messages of the supervised session as analysis evidence."""
+    def _session_context(self, max_msgs: int,
+                         session_id: str | None = None) -> str:
+        """Render recent messages of a supervised session as analysis evidence."""
+        target = session_id or self.session_id
         try:
-            msgs = self.client.read_messages(self.session_id)
+            msgs = self.client.read_messages(target)
         except Exception as exc:
             self._record("meta_error", err=str(exc))
             return "(could not read session messages)"
@@ -356,15 +361,19 @@ class Supervisor:
                 lines.append(f"[{role}] {text[:400]}")
         return "\n".join(lines[-max_msgs:]) or "(no messages)"
 
-    def meta_analyze(self) -> tuple[str, str, float] | None:
+    def meta_analyze(self, session_id: str | None = None) -> tuple[str, str, float] | None:
         """Ask an independent model to judge the stall; return a gated verdict.
 
-        Returns ``(verdict, action, confidence)`` only if the model reply parses
-        to strict JSON AND passes the deterministic gate; otherwise records the
-        failure and returns None (the caller falls back to the deterministic
-        ladder). This is the real-model rung kept honest by ``gate_meta``.
+        `session_id` overrides the supervised session (drive mode: reviews the
+        session a watchdog fire was attributed to, which may have rotated away
+        from the anchor). Returns ``(verdict, action, confidence)`` only if the
+        model reply parses to strict JSON AND passes the deterministic gate;
+        otherwise records the failure and returns None (the caller falls back to
+        the deterministic ladder). This is the real-model rung kept honest by
+        ``gate_meta``.
         """
-        if self.session_id is None or not self.meta_enabled:
+        target = session_id or self.session_id
+        if target is None or not self.meta_enabled:
             return None
         if self._meta_sid is None:
             try:
@@ -372,12 +381,12 @@ class Supervisor:
             except Exception as exc:
                 self._record("meta_error", err=f"create session: {exc}")
                 return None
-        context = self._session_context(self.meta_max_context_msgs)
+        context = self._session_context(self.meta_max_context_msgs, target)
         prompt = (
             f"{_META_SYSTEM}\n\n"
             f"GOAL: {self.goal or '(not provided)'}\n"
             f"DEADLINE_SEC: {self.deadline_sec}\n"
-            f"SESSION: {self.session_id}\n"
+            f"SESSION: {target}\n"
             f"RECENT MESSAGES:\n{context}\n\n"
             "Verdict JSON:"
         )
@@ -401,12 +410,44 @@ class Supervisor:
             self._record("meta_gate_reject", reason=str(exc))
             return None
         self._record("meta_verdict", verdict=verdict, action=action,
-                     confidence=confidence, session=self.session_id)
+                     confidence=confidence, session=target)
         return verdict, action, confidence
+
+    def _meta_review_fires(self) -> None:
+        """drive-mode meta channel: independent second opinion on in-process
+        watchdog fires recorded in the shared journal.
+
+        In drive mode session supervision is the in-process watchdog's job, so
+        the process-external loop cannot run its own T2 here. But `--meta`
+        (intelligent review) must not become dead config: when enabled, this
+        reviews each `watchdog_fire` the in-process watchdog journaled, with an
+        independent model. The deterministic action was already taken by the
+        watchdog; the model's verdict is RECORDED as audit/self-improvement data
+        and never overrides the executed deterministic decision (intelligence
+        advises, it does not overrule the deterministic gate).
+        """
+        if not self.meta_enabled or self.reporter is None:
+            return
+        if not getattr(self.reporter, "journal_path", None):
+            return
+        try:
+            recs = self.reporter.journal_slice(since=self._last_meta_fire_ts)
+        except Exception as exc:
+            self._record("meta_error", err=f"journal read: {exc}")
+            return
+        for r in recs:
+            if r.get("kind") != "watchdog_fire":
+                continue
+            ts = r.get("ts") or 0.0
+            if ts > self._last_meta_fire_ts:
+                self._last_meta_fire_ts = ts
+            self.meta_analyze(session_id=r.get("session_id"))
 
     # -- run loop (fully wired: ingest + T1 + T2 + deadline + ladder) --------
 
-    def run(self, *, once: bool = False, stop_when: "Callable[[], bool] | None" = None) -> str:
+    def run(self, *, once: bool = False,
+            stop_when: "Callable[[], bool] | None" = None,
+            supervise_sessions: bool = True) -> str:
         """Run the watchdog loop with its own clock.
 
         Each pass: ingest SSE events, check T1 health (restart if down), check T2
@@ -415,41 +456,57 @@ class Supervisor:
         otherwise it loops until the deadline, an L5 human escalation, or
         `stop_when()` (a caller-supplied completion check, e.g. the supervised
         workflow finished) returns True — in which case it returns `"workflow_done"`.
+
+        `supervise_sessions=False` disables the T2 session-stall ladder: used in
+        drive mode where the in-process watchdog (same SSE liveness fact source,
+        same stall_sec) is the authoritative session supervisor with its richer
+        recovery ladder (pause->resume->fallback->kill). The process-external
+        loop then keeps only what it alone can do: T1 worker-health / docker
+        restart and the global deadline. This is what structurally removes the
+        dual-watchdog race (an external T2 firing at a different stall_sec than
+        the in-process watchdog and hard-aborting the session before its recovery
+        ladder can run).
         """
         while True:
             if stop_when is not None and stop_when():
                 return "workflow_done"
             self.ingest_events()
-            if self.session_id is not None and self.client.health():
-                # T2: session stall — liveness is the SSE-activity timestamp
-                # (WORK_PLAN10). opencode's session_tokens are step-granular
-                # (persisted only at step-finish by an async projector) so they
-                # stay 0 during a long single-step generation; only the SSE
-                # /event stream is an immediate liveness signal. We deliberately
-                # do NOT read session_tokens here.
-                status = self.client.session_status(self.session_id)
-                busy = status == "busy"
-                stalled = self.watch.is_stalled(
-                    time.time(), self.stall_sec, busy,
-                    activity_ts=self._last_activity_ts)
-                if stalled:
-                    if self.meta_enabled:
-                        meta = self.meta_analyze()
-                    else:
-                        meta = None
-                    if meta is not None:
-                        verdict, action, confidence = meta
-                    else:
-                        # deterministic fallback (or no meta model available)
-                        verdict, action, confidence = _verdict_for_stall(
-                            self.watch.consecutive_stalls)
-                    action = choose_action(verdict, action, confidence, self.ladder)
-                    self._execute(action, verdict)
-                    if action == L5_HUMAN:
-                        return L5_HUMAN
-                    # restart gives the worker a fresh start; abort/failed are retried
-                    time.sleep(self.health_poll_sec * 2)
-                    continue
+            if supervise_sessions:
+                if self.session_id is not None and self.client.health():
+                    # T2: session stall — liveness is the SSE-activity timestamp
+                    # (WORK_PLAN10). opencode's session_tokens are step-granular
+                    # (persisted only at step-finish by an async projector) so they
+                    # stay 0 during a long single-step generation; only the SSE
+                    # /event stream is an immediate liveness signal. We deliberately
+                    # do NOT read session_tokens here.
+                    status = self.client.session_status(self.session_id)
+                    busy = status == "busy"
+                    stalled = self.watch.is_stalled(
+                        time.time(), self.stall_sec, busy,
+                        activity_ts=self._last_activity_ts)
+                    if stalled:
+                        if self.meta_enabled:
+                            meta = self.meta_analyze()
+                        else:
+                            meta = None
+                        if meta is not None:
+                            verdict, action, confidence = meta
+                        else:
+                            # deterministic fallback (or no meta model available)
+                            verdict, action, confidence = _verdict_for_stall(
+                                self.watch.consecutive_stalls)
+                        action = choose_action(verdict, action, confidence, self.ladder)
+                        self._execute(action, verdict)
+                        if action == L5_HUMAN:
+                            return L5_HUMAN
+                        # restart gives the worker a fresh start; abort/failed are retried
+                        time.sleep(self.health_poll_sec * 2)
+                        continue
+            else:
+                # drive mode: the in-process watchdog owns session recovery; the
+                # external loop only offers the intelligent second-opinion on the
+                # fires it journaled (never overruling the deterministic action).
+                self._meta_review_fires()
             # T1: worker health -> restart if down
             if not self.client.health():
                 self._record("unhealthy", session=self.session_id)

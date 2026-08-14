@@ -83,6 +83,7 @@ class WorkflowUnit(ThreadedUnit):
         run_id: str | None = None,
         bus=None,
         poll_sec: float | None = None,
+        sse: SseActivity | None = None,
     ) -> None:
         super().__init__(unit_id, bus)
         # run_id distinguishes THIS run in the report bus from prior runs, so a
@@ -132,7 +133,11 @@ class WorkflowUnit(ThreadedUnit):
         # step-finish by an async projector) so they stay 0 during a long single
         # step; the SSE /event stream (message.part.delta ...) is immediate.
         # The watchdog's stall detection reads activity_ts from our REPORTs.
-        self._sse = SseActivity(client)
+        # A shared `sse` (e.g. from Drive) is the single liveness fact source so
+        # in-process and out-of-process supervision observe the same stream; the
+        # workflow only owns its own instance when none is injected.
+        self._sse = sse or SseActivity(client)
+        self._owns_sse = sse is None
 
         # run state
         self._state = _ST_IDLE
@@ -174,7 +179,8 @@ class WorkflowUnit(ThreadedUnit):
     # -- lifecycle (ThreadedUnit override) -----------------------------------
 
     def stop(self, timeout: float = 2.0) -> None:
-        self._sse.stop()
+        if self._owns_sse:
+            self._sse.stop()
         super().stop(timeout)
         self._executor.shutdown(wait=False, cancel_futures=True)
 
