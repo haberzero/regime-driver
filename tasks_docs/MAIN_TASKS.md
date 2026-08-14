@@ -55,18 +55,26 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ### 下一步（下一 session 主线）
 
-**主线 = WORK_PLAN14（W1 遗留，见 HANDOVER 遗留问题清单）：in-process watchdog 与外部
-supervisor 职责收编 + 恢复路径实证。**
+**主线 = 体系化重构（蓝图 `tasks_docs/_regime_redesign.md`，用户授权破坏性重构）：**
 
-1. **探针定位**：复查暴露 in-process watchdog 在真实 drive 下从未先于外部 supervisor 触发
-   （journal 无 watchdog_fire）；根因待确认（REPORT→watchdog 路由 / 默认策略评估 / SseActivity
-   活动信号），用隔离复现 + 日志探针定位。
-2. **职责收编**：drive 模式双看门狗统一（in-process 为准，外部 supervisor T2 退为 T1/deadline
-   兜底，或与 workflow 协调 abort 目标跟随当前 wait_sid）。
-3. **恢复路径实证**：真实驱动 PAUSE→RESUME→fallback→kill 全阶梯，验证 recover 语义。
-4. **W3**：区分 MessageAbortedError vs 瞬时错误归因。
-5. **可选扩展**：`--meta` 元分析 / chaos 故障注入接入复查套件，把异常保障能力从"代码写好未逼过"
-   变成实证。
+> **阶段 0 已完成（2026-08-14，commit `989dac6`，512 passed 零回归）**：监督统一抽象收敛
+> （W1/W2 根治）——drive 模式会话级监督归 in-process watchdog 全权（pause/resume/fallback/kill
+> 全阶梯 + 跟随 wait_sid）；进程外 supervisor 退为 T1/docker 重启 + 全局 deadline + meta 智能复盘
+> 通道（supervise_sessions=False）；watchdog_fire 落共享 journal（修 W1 诊断盲区）；SseActivity
+> 共享单一活性源；`--stall` 语义归一。general 只读 review 全处理；真实 worker drive 冒烟 complete。
+
+1. **阶段 1：Regime 一等公民（根因 A，最大块）**——flow + watchdog_policy + handover_policy +
+   role policy + verify + hooks 收敛为 `Regime` 单对象，统一生命周期
+   （compile→deep_validate→preflight→hot-reload→version→permission→audit）；
+   `regime design/validate/reload` 从 flow 升级为整个制度；StatechartDriver/WorkflowUnit/Drive
+   构造收敛传 Regime；settings 中 policy 字段并入 regime 声明；独立 supervisor 判定统一到
+   watchdog_policy 规则引擎（删 SessionWatch/_verdict_for_stall 自研实现）。
+2. **阶段 2：统一扩展点模型**——`~/.regime/hooks.py` 插件 + register_tool/rule/hook 统一注册表；
+   hook 点 on_node_enter/done/transition/judge_verdict/stall/handover（全审计）；handover 文档/
+   提示词/协商改声明式模板+可选回调（去硬编码）；verify 白名单化（消 RCE，W5）；对话框 hook 装配。
+3. **阶段 3：语义契约下放**——Message.error 区分 abort vs transient（W3）；reviewer 契约容错层
+   （W4）。
+4. **阶段 4：对话框意图级制度操作面**——`design` 意图级；gate 扩展 ask_human 确认点。
 
 **顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
 
@@ -77,6 +85,15 @@ supervisor 职责收编 + 恢复路径实证。**
 
 ## 重大决策记录（并入，不设独立决策文档）
 
+- **体系化重构决策（2026-08-14，用户授权破坏性重构，蓝图 `_regime_redesign.md`）**：
+  已知问题（W1–W5 + 交接硬编码 + 自定义缺失）收敛到 3 个体系化根因：
+  ①运行制度（Regime）不是一等公民（6 个载体碎片化）；②监督职责从未体系化（5 个重叠实现 +
+  两套 ladder 词汇 + 三份 SSE 消费）；③核心语义未在底层定义（活性/消息/判定契约各消费方自猜）。
+  目标架构：内核/策略/动作/智能/交互五层 + Regime 一等公民 + 监督单一抽象
+  （Observer→Judge→Actor）+ 统一扩展点模型。**阶段 0 落地定案**：drive 模式会话级监督只属于
+  in-process watchdog（进程内可跟随 wait_sid + 有完整恢复阶梯）；进程外只保留它独有的
+  T1/deadline/meta；meta 在 drive 模式退为"对 journaled fire 的智能第二意见"（智能建议，
+  不推翻已执行的确定性动作——智能不越确定性门）；禁止同一运行里双头 T2。
 - **WORK_PLAN13 架构结论（2026-08-14）**：见上方主线。关键决策：①语义门只做最小语义规则
   （advance 不允许携带 blocking issue），深度审查仍交给 reviewer（reason/issues 自由文本）
   ——不把 gate 变成"规则引擎"；②verify 默认 opt-in（宿主任意 shell 执行面，deep_validate 限
@@ -112,5 +129,6 @@ supervisor 职责收编 + 恢复路径实证。**
   WORK_PLAN9（套件/留档/清理重构）、WORK_PLAN10（T2 停滞判定 SSE 活性化）、
   WORK_PLAN11（可编程看门狗策略引擎）、WORK_PLAN12（智能侧说明同步+防断裂守卫）、
   **夜间整合重跑（2026-08-14 ✅）**、**WORK_PLAN13（语义门+能力边界+运行时验证+
-  上下文交接，2026-08-14 ✅）**
+  上下文交接，2026-08-14 ✅）**、**体系化重构阶段 0（监督统一抽象，W1/W2 根治，
+  2026-08-14 ✅）**
   见 `WORKLOG.md` 与 `HANDOVER.md`。
