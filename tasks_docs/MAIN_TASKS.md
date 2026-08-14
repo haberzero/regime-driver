@@ -74,14 +74,18 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 >   run-many/drive-many `--regime-name`（StatechartCluster.from_regime + Parallel.regime 传每成员
 >   Drive）；对话框制度设计入口（`design <name> <regime JSON>` 进 RegimeRegistry + `regime list/inspect`
 >   + 插件 regime_regime_design/list 工具）。
+>
+> **阶段 2 全部完成（commit `d1fe9f4`，593 passed 零回归 + 真实 hooks 冒烟 6 节点 fire）**：
+> 统一扩展点模型——`extensions.py`（HookRegistry：register_hook/@reg.hook 6 类生命周期 hook +
+> register_rule 看门狗规则 + register_tool 委托 + fire 审计式收集 + reload 原子）+ `~/.regime/hooks.py`
+> 插件（env REGIME_HOOKS 覆盖）；hooks 穿透全链（driver/cluster/workflow/watchdog/drive/parallel/CLI/
+> dialog）；handover 声明式化（document_template/opening_template，优先级 hook>模板>内置）；verify
+> 白名单化消 RCE（docker exec {container} <白名单程序>，argv 无宿主 shell，sg 回退再引号化）；对话框
+> hook list/path/reload。
 
-1. **阶段 2：统一扩展点模型**——`~/.regime/hooks.py` 插件 + register_tool/rule/hook 统一注册表；
-   hook 点 on_node_enter/done/transition/judge_verdict/stall/handover（全审计）；handover 文档/
-   提示词/协商改声明式模板+可选回调（去硬编码，W-硬编码）；verify 白名单化（消 RCE，W5）；
-   对话框 hook 装配（W-自定义）。
-2. **阶段 3：语义契约下放**——Message.error 区分 abort vs transient（W3）；reviewer 契约容错层
-   （W4）。
-3. **阶段 4：对话框意图级制度操作面**——`design` 意图级；gate 扩展 ask_human 确认点。
+1. **阶段 3：语义契约下放**——Message.error 区分 abort vs transient（W3）；reviewer 契约容错层
+   （W4）；verify 阻塞混合循环记录 KNOWN_LIMITS。
+2. **阶段 4：对话框意图级制度操作面**——`design` 意图级；gate 扩展 ask_human 确认点。
 
 **顺延候选**：V-2 PyPI（待用户 token）→ P-005 覆盖率优化 → 限并发耐久二次验证 → GitHub Pages（待用户）。
 

@@ -152,7 +152,7 @@ watchdog_policy 规则引擎（SessionWatch/_verdict_for_stall 仍为自研实�
 **阶段 1 全部完成。下一阶段 = 阶段 2：统一扩展点模型**（`~/.regime/hooks.py` + 统一注册表 +
 handover 声明式模板 + verify 白名单化 + 对话框 hook 装配）。
 
-### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）—— ✅ 完成（commit `9c7c2f2`，583 passed 零回归）
+### 阶段 2：统一扩展点模型（根因 A/W-硬编码/W-自定义/W5）—— ✅ 完成（commit `d1fe9f4`，583 passed 零回归）
 
 目标：三类注入 + 明确边界；verify 白名单化；handover 模板/决策可注入。
 
