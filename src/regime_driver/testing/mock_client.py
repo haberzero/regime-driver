@@ -36,7 +36,10 @@ from typing import Any, Callable
 
 from ..infra.opencode import Message
 
-_NODE_RE = re.compile(r"当前节点[:：]\s*(\w+)")
+# node ids may contain hyphens/underscores (e.g. "test-core", "impl_api"):
+# \w+ alone would truncate "test-core" to "test" and break rule matching /
+# verdict routing for any non-template flow id scheme.
+_NODE_RE = re.compile(r"当前节点[:：]\s*([A-Za-z0-9_\-]+)")
 
 
 @dataclass

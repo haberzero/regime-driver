@@ -202,7 +202,7 @@ def run(
     if not no_preflight:
         from ..app.preflight import preflight
 
-        res = preflight(sm, timeout_sec=30.0)
+        res = preflight(sm)
         if json_out:
             _emit_json({"preflight": res, "started": False})
         if not res["ok"]:
@@ -433,7 +433,7 @@ def run_many(
     if not no_preflight:
         from ..app.preflight import preflight
 
-        res = preflight(sm, timeout_sec=30.0)
+        res = preflight(sm)
         if not res["ok"]:
             _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
         _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
@@ -637,7 +637,7 @@ def drive(
     if not no_preflight:
         from ..app.preflight import preflight
 
-        res = preflight(sm, timeout_sec=30.0)
+        res = preflight(sm)
         if not res["ok"]:
             _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
         _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
@@ -809,7 +809,7 @@ def drive_many(
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
     if not no_preflight:
-        res = preflight(sm, timeout_sec=30.0)
+        res = preflight(sm)
         if not res["ok"]:
             _fail(f"preflight FAILED: outcome={res['outcome']} detail={res['detail']}")
         _ok(f"preflight PASSED (offline outcome={res['outcome']})", markup=False)
@@ -1165,7 +1165,7 @@ def preflight_cmd(
         sm = load_regime(regime)
     except (StateMachineError, FileNotFoundError) as exc:
         _fail(f"error loading regime: {exc}")
-    res = preflight(sm, fault=fault, timeout_sec=30.0, stall_sec=stall_sec)
+    res = preflight(sm, fault=fault, stall_sec=stall_sec)
     if json_out:
         _emit_json(res)
         if not res["ok"]:
@@ -2105,7 +2105,7 @@ def flow_design(
         sm = compile_spec(name, spec)
         if preflight:
             from ..app.preflight import preflight as _preflight
-            res = _preflight(sm, timeout_sec=30.0, fault=preflight_fault,
+            res = _preflight(sm, fault=preflight_fault,
                              stall_sec=preflight_stall_sec)
             if not res["ok"]:
                 raise FlowError(f"preflight FAILED: outcome={res['outcome']} "

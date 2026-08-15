@@ -93,3 +93,50 @@ def test_preflight_delay_long_generation_not_false_stalled():
     outcome, end, detail = driver.run("长思考任务", timeout_sec=20.0)
     assert outcome == Outcome.COMPLETE, f"slow streaming must not stall: {detail}"
     assert end == "wrap"
+
+
+def test_scale_timeout_grows_with_node_count():
+    """Long flows (10+ nodes) need a bigger offline-trial budget than 30s."""
+    from regime_driver.app.preflight import _scale_timeout
+    assert _scale_timeout(1) == 30.0      # floor for tiny flows
+    assert _scale_timeout(3) == 30.0      # floor still applies below 8s/node
+    assert _scale_timeout(6) == 48.0      # 6-node default flow: 8s/node
+    assert _scale_timeout(11) == 88.0     # 11-node night flow
+    assert _scale_timeout(20) == 160.0
+
+
+def test_preflight_default_timeout_scales_with_flow_size():
+    """preflight() with the default (None) timeout must survive a long flow."""
+    nodes = {f"n{i}": _node(f"n{i}", next=f"n{i+1}" if i < 10 else None)
+             for i in range(11)}
+    sm = _sm(json.dumps({
+        "version": "t",
+        "flows": {"f": {"nodes": nodes}},
+        "entry": {"flow": "f", "start_node": "n0"},
+    }))
+    res = preflight(sm)  # no explicit timeout -> node-count-scaled budget
+    assert res["ok"] is True, res
+    assert res["outcome"] == "complete"
+
+
+def test_hyphenated_node_ids_complete_preflight():
+    """Node ids with hyphens (test-core, impl-api) must not break the offline
+    trial: MockClient's node-id parser used to truncate at '-' (\w+), turning
+    'test-core' into 'test' and failing any non-template flow id scheme."""
+    nodes = {
+        "understand": _node("understand", next="design"),
+        "design": _node("design", role="reviewer", type="judge", next="impl-core"),
+        "impl-core": _node("impl-core", next="test-core"),
+        "test-core": _node("test-core", role="reviewer", type="judge", next="impl-api"),
+        "impl-api": _node("impl-api", next="test-api"),
+        "test-api": _node("test-api", role="reviewer", type="judge", next="wrap"),
+        "wrap": _node("wrap"),
+    }
+    sm = _sm(json.dumps({
+        "version": "t",
+        "flows": {"f": {"nodes": nodes}},
+        "entry": {"flow": "f", "start_node": "understand"},
+    }))
+    res = preflight(sm, timeout_sec=60)
+    assert res["ok"] is True, res
+    assert res["outcome"] == "complete"

@@ -27,11 +27,21 @@ def _reviewer_gate_node(sm) -> str:
     return sm.start
 
 
+def _scale_timeout(node_count: int) -> float:
+    """Offline trial duration scales with flow size.
+
+    MockClient trial costs ~8s per node (polling + per-node turns); a fixed
+    30s cap silently fails long flows (10+ nodes), so the default timeout
+    grows with the node count while keeping a 30s floor for small flows.
+    """
+    return max(30.0, 8.0 * node_count)
+
+
 def preflight(
     sm=None,
     *,
     fault: str | None = None,
-    timeout_sec: float = 30.0,
+    timeout_sec: float | None = None,
     stall_sec: float = 5.0,
 ) -> dict:
     """Offline trial run; returns a machine-readable preflight result dict.
@@ -39,8 +49,13 @@ def preflight(
     ``stall_sec`` controls how long a stall-fault run must be frozen before the
     watchdog escalates; the production default is 5s (fast enough for a trial),
     tests may pass a smaller value to speed up fault-path verification.
+
+    ``timeout_sec`` defaults to a node-count-scaled budget (``_scale_timeout``)
+    so arbitrarily long flows still get a full offline trial.
     """
     sm = sm if sm is not None else load_regime()
+    if timeout_sec is None:
+        timeout_sec = _scale_timeout(len(sm.flow.nodes))
     client = MockClient(sm=sm)
     start_node = getattr(sm, "start", None)
     if fault == "stall" and start_node:
