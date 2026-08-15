@@ -415,7 +415,7 @@ def test_uninstall_skips_tampered_manifest_outside_target(tmp_path):
 def test_precheck_workspace_empty_dir(tmp_path):
     """Fresh workspace: .opencode does not exist -> ok, no collisions."""
     from regime_driver.scaffold import precheck_workspace
-    pc = precheck_workspace(tmp_path)
+    pc = precheck_workspace(tmp_path / ".opencode")
     assert pc["ok"] is True
     assert pc["exists"] is False
     assert pc["user_files"] == []
@@ -428,7 +428,7 @@ def test_precheck_workspace_after_regime_deploy(tmp_path):
     (no user files flagged)."""
     from regime_driver.scaffold import precheck_workspace, scaffold
     scaffold(tmp_path / ".opencode", workspace=True)
-    pc = precheck_workspace(tmp_path)
+    pc = precheck_workspace(tmp_path / ".opencode")
     assert pc["ok"] is True
     assert pc["exists"] is True
     assert pc["regime_owned"] is True
@@ -449,11 +449,27 @@ def test_precheck_workspace_detects_user_files_and_collision(tmp_path):
     # user's own unrelated file -> user_file but not a collision
     (oc / "agent" / "my-agent.md").write_text("user agent\n", encoding="utf-8")
 
-    pc = precheck_workspace(tmp_path)
+    pc = precheck_workspace(oc)
     assert pc["ok"] is False
     assert "plugins/regime-dialog-control.js" in pc["collisions"]
     assert "agent/my-agent.md" in pc["user_files"]
     assert any("冲突" in n for n in pc["notes"])
+
+
+def test_precheck_workspace_accepts_dir_named_opencode(tmp_path):
+    """W1: when the deploy target IS the .opencode dir itself (user passed a dir
+    already named .opencode), precheck must inspect it directly — not compose
+    .opencode/.opencode."""
+    from regime_driver.scaffold import precheck_workspace
+    oc = tmp_path / ".opencode"
+    (oc / "plugins").mkdir(parents=True)
+    (oc / "plugins" / "regime-dialog-control.js").write_text(
+        "// user's own plugin\n", encoding="utf-8")
+
+    pc = precheck_workspace(oc)  # the resolved target, as the CLI passes it
+    assert pc["ok"] is False
+    assert "plugins/regime-dialog-control.js" in pc["collisions"]
+    assert pc["opencode_dir"] == str(oc)
 
 
 def test_precheck_workspace_git_advice(tmp_path):
@@ -461,12 +477,12 @@ def test_precheck_workspace_git_advice(tmp_path):
     no note."""
     from regime_driver.scaffold import precheck_workspace
     (tmp_path / ".git").mkdir()
-    pc = precheck_workspace(tmp_path)
+    pc = precheck_workspace(tmp_path / ".opencode")
     assert pc["is_git"] is True
     assert pc["gitignored"] is False
     assert any(".gitignore" in n for n in pc["notes"])
 
     (tmp_path / ".gitignore").write_text(".opencode/\n", encoding="utf-8")
-    pc2 = precheck_workspace(tmp_path)
+    pc2 = precheck_workspace(tmp_path / ".opencode")
     assert pc2["gitignored"] is True
     assert not any(".gitignore" in n for n in pc2["notes"])

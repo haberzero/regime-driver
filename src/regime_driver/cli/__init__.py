@@ -2794,7 +2794,7 @@ def scaffold_cmd(
 
     # capture the PRE-deploy inspection once (post-deploy the manifest exists and
     # would make the workspace look regime-owned, hiding user-file collisions)
-    _pc = precheck_workspace(workspace) if mode == "workspace" else None
+    _pc = precheck_workspace(dest) if mode == "workspace" else None
     if _pc is not None and not json_out:
         if _pc["notes"]:
             console.print("[bold]工作区预检[/bold]")
@@ -2895,7 +2895,7 @@ def setup_cmd(
 
     # capture the PRE-deploy inspection once (post-deploy the manifest exists and
     # would make the workspace look regime-owned, hiding user-file collisions)
-    _pc = precheck_workspace(workspace) if mode == "workspace" else None
+    _pc = precheck_workspace(dest) if mode == "workspace" else None
     if _pc is not None and not json_out:
         if _pc["notes"]:
             console.print("[bold]工作区预检[/bold]")

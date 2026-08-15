@@ -174,16 +174,17 @@
 
 ### 当前状态速览（2026-08-15）
 
-> **发布就绪主线已完成（2026-08-15，commit 4eb1f1f + 2efabfd，650 passed 零回归 + general review APPROVE）**：
-> ①插件补 opencode v1 `export default { id, server }`（静默跳过根治）+ `check_plugin`/doctor 加载形状检查；
-> ②**工作区模式推荐路径**——`regime scaffold/setup/uninstall --workspace <dir>` → `<dir>/.opencode/`
-> （`agent/` 单数 + skills + plugins + package.json + agent-handbook.md 随装；不写 opencode.json/
-> config.example.toml；卸载精确移除 + manifest 越界防御），`doctor --workspace` 检查项目级部署，
-> 全局模式保留但不推荐；③**DriveClient 适配器协议**（`infra/drive_client.py` typing.Protocol 13 方法面，
-> 内核纯接口化、构造点仍 OpenCodeClient、MockClient 补 4 方法符合——运行时零行为变化）；
-> ④版本契约对齐（`@opencode-ai/plugin ^1.18.11` ↔ SUPPORTED_OPCODE=1.18.11）；⑤版本 0.3.0 +
-> wheel 重建（dist/regime_driver-0.3.0，隔离安装验证通过）。**下一步 = V-2 PyPI 发布**
-> （用户 token 就绪即可 build+twine upload）。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
+> **发布就绪第二阶段（2026-08-15，commit aa9bf31 + 78f5c26，656 passed 零回归）**：
+> ①**全局模式标注不推荐**——scaffold/setup 输出缺点说明（opencode 无按 agent 隔离工具机制，源码核验
+> Agent.Info 无 tools 字段、permission 只认全量 `*` deny、插件工具全局注册），JSON 输出
+> `global_not_recommended: true`；②**工作区预检** `precheck_workspace()`——`.opencode/` 已有用户文件
+> （不覆盖）、路径冲突（建议先整理工作区）、git `.gitignore` 建议、opencode 运行中（装完需重启），
+> 取部署前状态（不被 manifest 掩盖），`pgrep -x opencode` 精确匹配；③**真实分发验证 ✅**——真实
+> opencode 1.18.15 隔离工作区实测：`.opencode/` 被自动发现（`/config` 含 file:// 插件）、dialog-control/
+> reviewer agent 出现、tools ids 含全部 regime_* 工具、内置 agents 共存、卸载零残留（沙箱内 ServeError
+> 为隔离 XDG+npm 伪环境限制，真实容器环境验证通过）；④文档同步（05_setup/04_blueprint/README/01_cli/
+> capabilities/agent-handbook）。**下一步 = general review 收口 → V-2 PyPI 发布**。详见
+> `tasks_docs/MAIN_TASKS.md` 当前主线。
 
 > **术语已整体改名（2026-08-12，用户拍板，全仓无遗漏）**：上帝对话框→**控制对话框**
 > （GodDialogUnit→DialogControlUnit、god_dialog.py→dialog_control.py、opencode-god→

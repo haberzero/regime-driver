@@ -29,6 +29,28 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ## 🔴 当前主线
 
+### 主线：发布就绪 + 助手脚本易用性增强 + 分发验证（2026-08-15 第二阶段）
+
+**状态**：🔄 进行中（commit `aa9bf31` + `78f5c26`，656 passed 零回归；general review 进行中）。
+
+**用户新要求**（2026-08-15 第二轮）：①全局装不推荐（明确缺点）；②工作区预检（用户自有文件/冲突/git/
+重启提示，"先整理好工作区再装"）；③覆盖用户各种环境情况；④真实环境验证分发设计。
+
+**交付**（前两轮已完成，见下方"历史"）：
+1. **全局模式标注不推荐**：scaffold/setup 全局分支输出缺点说明（opencode 无按 agent 隔离工具机制——
+   源码核验 Agent.Info 无 tools 字段、permission 只认全量 `*` deny、插件工具全局注册）；
+   JSON 输出 `global_not_recommended: true`。
+2. **工作区预检** `precheck_workspace()`：`.opencode/` 已有文件（用户自有配置不覆盖）、路径冲突
+   （建议先整理工作区）、git 仓库 `.gitignore` 建议、opencode 运行中（装完需重启）；**取部署前状态**
+   （不被部署后 manifest 掩盖）；`pgrep -x opencode` 精确匹配防误报。
+3. **真实分发验证（✅ 2026-08-15）**：真实 opencode 1.18.15 隔离工作区实测——scaffold --workspace 部署的
+   `.opencode/` 被自动发现（`/config` 含 file:// 插件路径）、dialog-control/reviewer agent 出现在
+   `/agent`、`/experimental/tool/ids` 含全部 regime_* 工具、内置 agents 共存；uninstall 零残留。
+   注：沙箱内 ServeError 为隔离 XDG+npm 伪环境限制，真实容器环境（4098 端口 serve）验证通过。
+4. 文档同步：05_setup / 04_blueprint / README / 01_cli / capabilities / agent-handbook。
+
+**下一步**：general review 收口 → V-2 PyPI 发布（用户 token 就绪即可 `python -m build && twine upload dist/*`）。
+
 ### 主线：发布就绪 + 工作区模式装配 + DriveClient 适配器抽取（2026-08-15 起）
 
 **状态**：✅ 完成（2026-08-15，commit `4eb1f1f` + `2efabfd`，650 passed 零回归 + general 只读 review

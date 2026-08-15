@@ -447,31 +447,40 @@ def check_plugin(plugins_dir: str | Path | None = None) -> dict:
             "path": str(plugin)}
 
 
-def precheck_workspace(workspace: str | Path, *, config_root: str | Path | None = None) -> dict:
-    """Pre-install inspection of a project dir before workspace-mode deploy.
+def precheck_workspace(oc_dir: str | Path) -> dict:
+    """Pre-install inspection of a workspace-mode deploy target.
+
+    ``oc_dir`` is the RESOLVED deploy target — the project-local ``.opencode``
+    directory itself (the CLI passes ``_workspace_target(workspace)`` so the
+    inspection always matches where deploy actually happens, whether the user
+    passed the project dir or a dir already named ``.opencode``).
 
     Answers the user-facing questions that decide whether workspace install is
     safe and what the helper should tell the user:
 
-    - Does ``<dir>/.opencode`` already exist? (opencode may have created it, or
-      a previous regime install may be present.)
+    - Does the deploy target exist? (opencode may have created it, or a
+      previous regime install may be present.)
     - Does it contain files the USER owns (their own plugins/agents/skills, or
       a previous regime deployment)? regime never overwrites existing files
       unless ``--force``, but a name collision (e.g. the user already has a
       ``plugins/regime-dialog-control.js``) would silently keep the user's file
       and break the A-route plugin — the user should tidy the workspace first.
-    - Is ``<dir>`` inside a git repo, and is ``.opencode`` ignored? (advise
+    - Is the project inside a git repo, and is ``.opencode`` ignored? (advise
       ``.gitignore`` so the deployed files are not committed by accident.)
     - Is an opencode process running? (advise restart after install so the new
       plugin/agent/skills are loaded.)
 
     Pure inspection — never writes, never mutates. Returns
     ``{ok, opencode_dir, exists, regime_owned, user_files, collisions, is_git,
-    gitignored, opencode_running, notes}`` where ``ok`` is False only when a
-    blocking collision exists (a user file at a path regime would write).
+    gitignored, opencode_running, notes}`` where ``ok`` is False when a
+    collision exists (a user file at a path regime would write). Deploy still
+    proceeds without ``--force`` (regime never overwrites user files; a
+    collision means the regime file is skipped and may not load) — the helper
+    advises tidying the workspace first; ``--force`` overwrites user files
+    explicitly.
     """
-    workspace = Path(workspace)
-    oc_dir = workspace / ".opencode"
+    oc_dir = Path(oc_dir)
+    project = oc_dir.parent if oc_dir.name == ".opencode" else oc_dir
     manifest = load_manifest(oc_dir)
 
     # files inside .opencode that regime does NOT own (no manifest, or not in it)
@@ -495,18 +504,22 @@ def precheck_workspace(workspace: str | Path, *, config_root: str | Path | None 
                 collisions.append(rel)
             elif p.name == "package.json":
                 collisions.append(rel)
+            elif p.parent.name == "skills" and p.name == "SKILL.md":
+                # a user skill at a path regime would also write (regime ships
+                # the same skill names) — silent partial skill deploy otherwise
+                collisions.append(rel)
 
-    # git repo + .gitignore advice
+    # git repo + .gitignore advice (project = parent of the .opencode dir)
     is_git = False
     gitignored = False
-    d = workspace
+    d = project
     while d != d.parent:
         if (d / ".git").is_dir():
             is_git = True
             break
         d = d.parent
     if is_git:
-        gi = workspace / ".gitignore"
+        gi = project / ".gitignore"
         gitignored = gi.is_file() and ".opencode" in gi.read_text(encoding="utf-8", errors="replace")
 
     # opencode process detection (best-effort; POSIX only). Match the opencode
@@ -536,8 +549,9 @@ def precheck_workspace(workspace: str | Path, *, config_root: str | Path | None 
         notes.append(f"`.opencode/` 含 {len(user_files)} 个非 regime 文件（你的自有配置）——"
                      "regime 不会覆盖它们；但建议先整理工作区，避免混淆")
     if collisions:
-        notes.append("⚠ 检测到路径冲突：你已有同名文件，regime 将保留你的文件（不覆盖）——"
-                     "但 A 路插件/对话框 agent 可能不会按预期加载。建议先整理工作区（移走或改名冲突文件）再装")
+        notes.append("⚠ 检测到路径冲突：你已有同名文件（插件/agent/skills/package.json），"
+                     "regime 将保留你的文件（不覆盖）——但对应能力可能不会按预期加载。"
+                     "建议先整理工作区（移走或改名冲突文件）再装；确需覆盖用 `--force`")
     if is_git and not gitignored:
         notes.append("目录在 git 仓库内且 `.opencode` 未忽略——建议在 `.gitignore` 加一行 `.opencode/`")
     if opencode_running:
