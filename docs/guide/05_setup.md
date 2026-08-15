@@ -39,11 +39,11 @@ worker 需要连到一个可用模型。
 ```bash
 # 推荐：工作区模式——只影响当前项目的 opencode 会话，不污染其它对话环境
 regime setup --workspace <你的项目目录>        # 或 regime scaffold --workspace <dir>
-# 可选：全局模式（影响机器上所有 opencode 会话，不推荐）
+# 全局模式（不推荐）：影响机器上所有 opencode 会话，见下方"为什么不推荐"
 regime scaffold [--assistants]
 ```
 
-**工作区模式**把模板装进 `<项目>/.opencode/`：
+**工作区模式**把模板装进 `<项目>/.opencode/`（`setup`/`scaffold` 会自动创建该目录，**无需先启动 opencode 初始化**）：
 - `plugins/regime-dialog-control.js` —— A 路插件（`regime_*` 工具，opencode 启动自动加载）
 - `agent/dialog-control.md` + `agent/reviewer.md` —— 主控对话框 agent + 只读审查 subagent
 - `skills/` —— 项目级 skills（opencode 从 `.opencode/skills/` 自动发现）
@@ -51,12 +51,20 @@ regime scaffold [--assistants]
   监控/运行/设计/扩展，无需人工介入
 - `package.json` —— 插件 SDK 依赖（opencode 自动 `bun install`）
 
-预期结果：`<项目>/.opencode/` 下生成上述模板；`regime doctor` 会校验模板与插件可加载形状。
+**工作区预检**：`setup --workspace` / `scaffold --workspace` 在部署前会检查该工作区：
+- `.opencode/` 是否已存在、含哪些非 regime 文件（你的自有插件/agent/skills）——**不会覆盖**，但会提示；
+- 是否有**路径冲突**（例如你已有一个 `plugins/regime-dialog-control.js`）——此时建议**先整理工作区**（移走/改名冲突文件）再装；
+- 目录是否在 git 仓库内且 `.opencode` 未被 `.gitignore` 忽略——提示加一行 `.opencode/`；
+- opencode 是否正在运行——装完后**需要重启 opencode** 才能加载新插件/agent/skills。
+
+预期结果：`<项目>/.opencode/` 下生成上述模板；`regime doctor --workspace <目录>` 会校验模板与插件可加载形状。
 卸载：`regime uninstall --workspace <项目目录>`（只移除该工作区部署，不碰用户自己的文件）。
 
-> **为什么推荐工作区模式**：全局模式（`~/.config/opencode/`）会让机器上**所有** opencode 会话
-> 都带上 regime 工具面（插件工具 + dialog-control agent + skills），可能干扰用户其它项目的对话。
-> 工作区模式把 regime 的影响限定在用户主动选择的项目里，卸载也干净。
+> **为什么不推荐全局模式**：`regime scaffold`（默认装到 `~/.config/opencode/`）会让机器上**所有**项目的
+> **所有** agent 都看到 `regime_*` 工具——opencode 没有"按 agent 隔离工具"的机制（源码核验：工具全局注册、
+> 无 per-agent 白名单），因此无法做到"只有选中主控 agent 才激活"。后果：① 其它项目的对话模型提示里
+> 会出现 regime 工具（浪费上下文、可能误调用）；② dialog-control agent 出现在每个项目的 agent 列表；
+> ③ 卸载是整机级。**工作区模式是唯一能做到"regime 完全不存在于其它项目"的方式。**
 
 ### 2. 配置模型密钥
 

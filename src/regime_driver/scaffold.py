@@ -445,3 +445,113 @@ def check_plugin(plugins_dir: str | Path | None = None) -> dict:
     return {"ok": True,
             "detail": f"plugin loadable shape OK: {plugin}",
             "path": str(plugin)}
+
+
+def precheck_workspace(workspace: str | Path, *, config_root: str | Path | None = None) -> dict:
+    """Pre-install inspection of a project dir before workspace-mode deploy.
+
+    Answers the user-facing questions that decide whether workspace install is
+    safe and what the helper should tell the user:
+
+    - Does ``<dir>/.opencode`` already exist? (opencode may have created it, or
+      a previous regime install may be present.)
+    - Does it contain files the USER owns (their own plugins/agents/skills, or
+      a previous regime deployment)? regime never overwrites existing files
+      unless ``--force``, but a name collision (e.g. the user already has a
+      ``plugins/regime-dialog-control.js``) would silently keep the user's file
+      and break the A-route plugin — the user should tidy the workspace first.
+    - Is ``<dir>`` inside a git repo, and is ``.opencode`` ignored? (advise
+      ``.gitignore`` so the deployed files are not committed by accident.)
+    - Is an opencode process running? (advise restart after install so the new
+      plugin/agent/skills are loaded.)
+
+    Pure inspection — never writes, never mutates. Returns
+    ``{ok, opencode_dir, exists, regime_owned, user_files, collisions, is_git,
+    gitignored, opencode_running, notes}`` where ``ok`` is False only when a
+    blocking collision exists (a user file at a path regime would write).
+    """
+    workspace = Path(workspace)
+    oc_dir = workspace / ".opencode"
+    manifest = load_manifest(oc_dir)
+
+    # files inside .opencode that regime does NOT own (no manifest, or not in it)
+    regime_paths: set[str] = set()
+    if manifest:
+        regime_paths = {str(Path(e["path"]).resolve()) for e in manifest.get("files", [])}
+    user_files: list[str] = []
+    collisions: list[str] = []
+    if oc_dir.is_dir():
+        for p in sorted(oc_dir.rglob("*")):
+            if not p.is_file() or p.name == MANIFEST_NAME:
+                continue
+            rel = str(p.relative_to(oc_dir))
+            if str(p.resolve()) in regime_paths:
+                continue
+            user_files.append(rel)
+            # a user file at exactly a path regime would write = collision
+            if p.name == "regime-dialog-control.js" and p.parent.name == "plugins":
+                collisions.append(rel)
+            elif p.name == "dialog-control.md" and p.parent.name in ("agent", "agents"):
+                collisions.append(rel)
+            elif p.name == "package.json":
+                collisions.append(rel)
+
+    # git repo + .gitignore advice
+    is_git = False
+    gitignored = False
+    d = workspace
+    while d != d.parent:
+        if (d / ".git").is_dir():
+            is_git = True
+            break
+        d = d.parent
+    if is_git:
+        gi = workspace / ".gitignore"
+        gitignored = gi.is_file() and ".opencode" in gi.read_text(encoding="utf-8", errors="replace")
+
+    # opencode process detection (best-effort; POSIX only). Match the opencode
+    # binary itself (exact process name) or its serve/tui invocations — NOT any
+    # process whose command line merely contains "opencode" in a path (e.g.
+    # `regime events --ledger /tmp/opencode/...` would be a false positive).
+    opencode_running = False
+    try:
+        import shutil
+        import subprocess
+        if shutil.which("pgrep"):
+            proc = subprocess.run(
+                ["pgrep", "-x", "opencode"], capture_output=True, text=True,
+                timeout=5)
+            opencode_running = proc.returncode == 0 and bool(proc.stdout.strip())
+    except Exception:
+        opencode_running = False
+
+    notes: list[str] = []
+    if oc_dir.is_dir() and manifest:
+        notes.append("已检测到 regime 先前部署（manifest 存在）——重跑幂等，`--force` 可覆盖")
+    if not oc_dir.is_dir():
+        notes.append("`.opencode/` 尚不存在——regime 将创建它；opencode 下次启动自动扫描加载")
+    if oc_dir.is_dir() and not manifest and not user_files:
+        notes.append("`.opencode/` 已存在但为空（opencode 可能已初始化）——regime 部署不会与其冲突")
+    if user_files and not collisions:
+        notes.append(f"`.opencode/` 含 {len(user_files)} 个非 regime 文件（你的自有配置）——"
+                     "regime 不会覆盖它们；但建议先整理工作区，避免混淆")
+    if collisions:
+        notes.append("⚠ 检测到路径冲突：你已有同名文件，regime 将保留你的文件（不覆盖）——"
+                     "但 A 路插件/对话框 agent 可能不会按预期加载。建议先整理工作区（移走或改名冲突文件）再装")
+    if is_git and not gitignored:
+        notes.append("目录在 git 仓库内且 `.opencode` 未忽略——建议在 `.gitignore` 加一行 `.opencode/`")
+    if opencode_running:
+        notes.append("检测到 opencode 正在运行——装完后需要重启 opencode 才能加载新插件/agent/skills")
+
+    return {
+        "ok": not collisions,
+        "opencode_dir": str(oc_dir),
+        "exists": oc_dir.is_dir(),
+        "regime_owned": manifest is not None,
+        "user_files": user_files,
+        "collisions": collisions,
+        "is_git": is_git,
+        "gitignored": gitignored,
+        "opencode_running": opencode_running,
+        "notes": notes,
+    }

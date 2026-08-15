@@ -127,12 +127,23 @@ clone 仓库 → ops/up.sh all（构建 worker + dialog-control 容器）
 ```
 - 对话框与执行分离，职责清晰；`~/.regime/` 状态归属各端，`--base` 明确 worker 地址。
 
-### 全局模式（可选，不推荐）
+### 全局模式（**不推荐**）
 ```
 pip install regime-driver  →  regime scaffold [--assistants]  →  ~/.config/opencode/
 ```
-- 影响机器上所有 opencode 会话（A 路插件 + dialog-control agent + skills 全局可见）。
-  适合个人单机专用场景；多项目用户应优先工作区模式。
+**为什么不推荐（源码核验）**：opencode 没有"按 agent 隔离工具"的机制——插件工具全局注册进
+`ToolRegistry`，所有 agent（build/plan/用户自定义）都会看到 `regime_*` 工具；`Agent.Info` 无 tools
+白名单字段；permission 只能全量 `*` deny（不能按工具名隐藏）。后果：
+1. `regime_*` 工具出现在机器上**所有项目、所有 agent** 的模型提示里（浪费上下文、可能误调用）；
+2. dialog-control agent 出现在每个项目的 agent 列表；
+3. 卸载是整机级（`regime uninstall` 影响所有项目）。
+仅当用户是"单机专用、只跑 regime 相关任务"时才可接受；**多项目用户必须用工作区模式**。
+
+> **验证（2026-08-15）**：真实 opencode 1.18.15 隔离工作区实测——`scaffold --workspace` 部署的
+> `.opencode/` 被 opencode 自动发现（`/config` 含 `file://.../.opencode/plugins/regime-dialog-control.js`），
+> `dialog-control`/`reviewer` agent 出现在 `/agent` 列表，`/experimental/tool/ids` 含全部 `regime_*`
+> 工具；内置 agents（build/plan/general/explore）正常共存不受干扰；`uninstall --workspace` 精确移除
+> 零残留。分发设计端到端正确。
 
 ---
 

@@ -62,7 +62,8 @@ conda run -n regime-driver pip install -e ".[dev]"
 regime setup --workspace <你的项目目录>      # 或 regime scaffold --workspace <dir>
 # 需要控制对话框助手 subagent（analyst/advisor/reviewer）时
 regime setup --workspace <dir> --assistants
-# 可选：全局模式（影响机器上所有 opencode 会话，不推荐）
+# 全局模式（不推荐）：影响机器上所有 opencode 会话——opencode 无按 agent 隔离工具机制，
+# regime_* 工具会对所有项目所有 agent 可见；仅单机专用场景可接受
 regime scaffold [--assistants]
 # 自检：worker 健康 / 模型密钥 / 模板就绪 / 插件可加载形状
 regime doctor

@@ -291,6 +291,27 @@ def test_cli_scaffold_workspace_json(tmp_path):
     assert (tmp_path / ".opencode" / "plugins" / "regime-dialog-control.js").is_file()
     # no global pollution
     assert not (tmp_path / "opencode.json").exists()
+    # precheck is included in the JSON output for workspace mode
+    assert data.get("precheck", {}).get("ok") is True, data
+
+
+def test_cli_scaffold_global_marks_not_recommended(tmp_path, monkeypatch):
+    """Global scaffold (default, no --workspace) must flag global mode as NOT
+    recommended in its JSON output."""
+    import pathlib
+    from typer.testing import CliRunner
+
+    from regime_driver.cli import app
+
+    # isolate HOME so the global deploy target is a temp dir
+    monkeypatch.setattr(pathlib.Path, "home", lambda: tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(app, ["scaffold", "--json"])
+    assert result.exit_code == 0, result.output
+    import json
+    data = json.loads(result.output)
+    assert data.get("mode") == "global"
+    assert data.get("global_not_recommended") is True
 
 
 def test_cli_scaffold_target_workspace_mutually_exclusive(tmp_path):
@@ -361,3 +382,67 @@ def test_uninstall_skips_tampered_manifest_outside_target(tmp_path):
     assert str(outside) in u["kept_modified"], "outside path must be flagged as kept"
     # regime's own files inside target are still removed
     assert not (target / "plugins" / "regime-dialog-control.js").exists()
+
+
+# ---------------------------------------------------------------------------
+# workspace precheck (pre-install inspection)
+# ---------------------------------------------------------------------------
+
+def test_precheck_workspace_empty_dir(tmp_path):
+    """Fresh workspace: .opencode does not exist -> ok, no collisions."""
+    from regime_driver.scaffold import precheck_workspace
+    pc = precheck_workspace(tmp_path)
+    assert pc["ok"] is True
+    assert pc["exists"] is False
+    assert pc["user_files"] == []
+    assert pc["collisions"] == []
+    assert any(".opencode/" in n and "创建" in n for n in pc["notes"])
+
+
+def test_precheck_workspace_after_regime_deploy(tmp_path):
+    """After a regime workspace deploy: .opencode exists and is regime-owned
+    (no user files flagged)."""
+    from regime_driver.scaffold import precheck_workspace, scaffold
+    scaffold(tmp_path / ".opencode", workspace=True)
+    pc = precheck_workspace(tmp_path)
+    assert pc["ok"] is True
+    assert pc["exists"] is True
+    assert pc["regime_owned"] is True
+    assert pc["user_files"] == [], pc["user_files"]
+    assert pc["collisions"] == []
+
+
+def test_precheck_workspace_detects_user_files_and_collision(tmp_path):
+    """A user's own file in .opencode (no manifest) is flagged; a file at a
+    regime path (plugins/regime-dialog-control.js) is a blocking collision."""
+    from regime_driver.scaffold import precheck_workspace
+    oc = tmp_path / ".opencode"
+    (oc / "plugins").mkdir(parents=True)
+    (oc / "agent").mkdir(parents=True)
+    # user's own plugin at the exact regime path -> collision
+    (oc / "plugins" / "regime-dialog-control.js").write_text(
+        "// user's own plugin\n", encoding="utf-8")
+    # user's own unrelated file -> user_file but not a collision
+    (oc / "agent" / "my-agent.md").write_text("user agent\n", encoding="utf-8")
+
+    pc = precheck_workspace(tmp_path)
+    assert pc["ok"] is False
+    assert "plugins/regime-dialog-control.js" in pc["collisions"]
+    assert "agent/my-agent.md" in pc["user_files"]
+    assert any("冲突" in n for n in pc["notes"])
+
+
+def test_precheck_workspace_git_advice(tmp_path):
+    """Inside a git repo without .gitignore entry -> advice note; with entry ->
+    no note."""
+    from regime_driver.scaffold import precheck_workspace
+    (tmp_path / ".git").mkdir()
+    pc = precheck_workspace(tmp_path)
+    assert pc["is_git"] is True
+    assert pc["gitignored"] is False
+    assert any(".gitignore" in n for n in pc["notes"])
+
+    (tmp_path / ".gitignore").write_text(".opencode/\n", encoding="utf-8")
+    pc2 = precheck_workspace(tmp_path)
+    assert pc2["gitignored"] is True
+    assert not any(".gitignore" in n for n in pc2["notes"])

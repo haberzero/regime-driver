@@ -329,8 +329,11 @@ regime run "实现 add(x,y) 并写 pytest" --base http://127.0.0.1:4097
 > 对话不受影响；卸载用 `regime uninstall --workspace <dir>` 精确移除，不碰用户自己的文件。
 > **自助配置**：工作区里的 `agent-handbook.md` 即本手册——用户在 opencode 中打开该工作区、
 > 让任何 agent 读这份手册，即可按 §1–§9 自助完成监控/运行/设计/扩展，无需人工介入。
-> 全局模式（`regime scaffold` → `~/.config/opencode/`）保留但**不推荐**：它会让机器上所有
-> opencode 会话都带上 regime 工具面（A 路插件 + dialog-control agent + skills）。
+> **工作区预检**：部署前自动检查 `.opencode/` 是否已有用户自己的插件/agent/skills（不覆盖但提示）、
+> 是否有路径冲突（建议先整理工作区）、是否在 git 仓库内（建议 `.gitignore` 加 `.opencode/`）、
+> 以及 opencode 是否在运行（装完需重启加载）。
+> 全局模式（`regime scaffold` → `~/.config/opencode/`）**不推荐**：opencode 无按 agent 隔离工具机制，
+> `regime_*` 工具会对机器上所有项目的所有 agent 可见（源码核验）；仅单机专用场景可接受。
 >
 > 分发：wheel 自带全部模板（`regime scaffold`/`setup` 一键装配）；Docker 资产在
 > GitHub 仓库（不进 wheel）。详见 `docs/architecture/04_distribution_blueprint.md`。

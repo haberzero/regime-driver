@@ -2765,9 +2765,18 @@ def scaffold_cmd(
       the plugin / dialog-control agent / skills / agent handbook into
       ``<dir>/.opencode/`` — only that workspace's opencode sessions see the
       regime tooling, and nothing outside the project is touched. Uninstall with
-      ``regime uninstall --workspace <dir>``.
-    - **global (optional, not recommended)**: ``regime scaffold`` (default) deploys
-      into ``~/.config/opencode`` and affects every opencode session on the machine.
+      ``regime uninstall --workspace <dir>``. A pre-install inspection of the
+      workspace runs first (existing user files / collisions / git / opencode
+      running), and its notes are printed.
+
+    - **global (NOT recommended)**: ``regime scaffold`` (default) deploys into
+      ``~/.config/opencode`` and affects **every** opencode session on the
+      machine. Disadvantages: (1) the ``regime_*`` plugin tools become visible
+      to ALL agents in ALL projects (opencode has no per-agent tool gating —
+      verified in source); (2) the dialog-control agent and skills appear in
+      every project's agent list; (3) uninstall is machine-wide, not per
+      project; (4) opencode will ``bun install`` the plugin SDK globally.
+      Prefer ``--workspace`` unless you run a single dedicated machine.
     """
     from pathlib import Path as _Path
 
@@ -2781,13 +2790,29 @@ def scaffold_cmd(
         dest = target or _Path.home() / ".config" / "opencode"
         mode = "global"
 
-    from ..scaffold import scaffold as _scaffold
+    from ..scaffold import precheck_workspace, scaffold as _scaffold
+
+    if mode == "workspace" and not json_out:
+        _pc = precheck_workspace(workspace)
+        if _pc["notes"]:
+            console.print("[bold]工作区预检[/bold]")
+            for n in _pc["notes"]:
+                console.print(f"  · {n}")
+            if not _pc["ok"]:
+                console.print("  [bold yellow]→ 检测到冲突：建议先整理工作区再装（见上方说明）[/bold yellow]")
+            console.print()
 
     result = _scaffold(dest, assistants=assistants, dry_run=dry_run, force=force,
                        workspace=(mode == "workspace"))
 
     if json_out:
-        _emit_json(result.to_dict())
+        out = result.to_dict()
+        if mode == "workspace":
+            out["precheck"] = precheck_workspace(workspace)
+        else:
+            out["mode"] = "global"
+            out["global_not_recommended"] = True
+        _emit_json(out)
         return
 
     label = "would write" if dry_run else "written"
@@ -2811,8 +2836,11 @@ def scaffold_cmd(
             console.print("  · 让 opencode 读 `.opencode/agent-handbook.md` 自助配置工作区")
             console.print("  · 卸载：`regime uninstall --workspace <dir>`（只移除本工作区部署）")
         else:
+            console.print("[bold red]全局模式（不推荐）[/bold red]")
+            console.print("  · regime_* 工具会对机器上所有项目的所有 agent 可见（opencode 无按 agent 隔离机制）")
+            console.print("  · 卸载是整机级：`regime uninstall`（影响所有项目）")
+            console.print("  · 推荐改用：`regime scaffold --workspace <项目目录>`（只影响该项目）")
             console.print("  · 起栈：`ops/up.sh all`（构建+拉起 worker/控制对话框容器）")
-            console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
             console.print("  · 配模型密钥：`regime doctor`（设 DEEPSEEK_API_KEY 或 ~/.regime/keys/deepseek.key）")
 
 
@@ -2841,8 +2869,12 @@ def setup_cmd(
     out of the box; docker / remote worker are optional (see the blueprint).
 
     **Workspace mode is the recommended path** (``--workspace <dir>``): only that
-    project's opencode sessions are affected; global install (``--target`` /
-    default ``~/.config/opencode``) is available but not recommended.
+    project's opencode sessions are affected, and a pre-install inspection of
+    the workspace runs first (existing user files / collisions / git / opencode
+    running). Global install (``--target`` / default ``~/.config/opencode``) is
+    **NOT recommended** — it makes the ``regime_*`` tools visible to all agents
+    in all projects (opencode has no per-agent tool gating), and uninstall is
+    machine-wide.
     """
     from pathlib import Path as _Path
 
@@ -2857,7 +2889,18 @@ def setup_cmd(
         dest = target or _Path.home() / ".config" / "opencode"
         mode = "global"
 
-    from ..scaffold import scaffold as _scaffold
+    from ..scaffold import precheck_workspace, scaffold as _scaffold
+
+    if mode == "workspace" and not json_out:
+        _pc = precheck_workspace(workspace)
+        if _pc["notes"]:
+            console.print("[bold]工作区预检[/bold]")
+            for n in _pc["notes"]:
+                console.print(f"  · {n}")
+            if not _pc["ok"]:
+                console.print("  [bold yellow]→ 检测到冲突：建议先整理工作区再装（见上方说明）[/bold yellow]")
+            console.print()
+
     result = _scaffold(dest, assistants=assistants, workspace=(mode == "workspace"))
 
     env = {c["check"]: c.get("ok") for c in _env_readiness()}
@@ -2877,6 +2920,10 @@ def setup_cmd(
         "host_mode_ready": bool(has_opencode),
         "container_mode_ready": bool(has_docker),
     }
+    if mode == "workspace":
+        summary["precheck"] = precheck_workspace(workspace)
+    else:
+        summary["global_not_recommended"] = True
     if json_out:
         _emit_json(summary)
         return
@@ -2884,6 +2931,12 @@ def setup_cmd(
     console.print("[bold]regime setup[/bold] — 引导装配完成")
     console.print(f"  模板已写入 {dest}（copied={len(result.copied)} kept={len(result.skipped)}）")
     console.print(f"  模式：{'工作区（项目级，推荐）' if mode == 'workspace' else '全局（影响所有会话，不推荐）'}")
+    if mode == "global":
+        console.print("  [bold red]全局模式不推荐：[/bold red]")
+        console.print("    · regime_* 工具会对机器上所有项目的所有 agent 可见（opencode 无按 agent 隔离机制）")
+        console.print("    · dialog-control agent / skills 出现在每个项目的 agent 列表")
+        console.print("    · 卸载是整机级（`regime uninstall` 影响所有项目）")
+        console.print("    · 推荐改用：`regime setup --workspace <项目目录>`")
     console.print(f"  环境检测：docker={has_docker} opencode={has_opencode} 密钥={has_key}")
     console.print("\n[bold]接下来怎么做[/bold]")
     if not has_key:
@@ -2893,7 +2946,7 @@ def setup_cmd(
         console.print("  · [cyan]2. 在该工作区启动 opencode（主对话框 + worker）[/cyan]：")
         console.print("      opencode serve --port 4097     # 或直接 `opencode` 在该目录")
         if mode == "workspace":
-            console.print("  · [cyan]3. 自检[/cyan]：`regime doctor`")
+            console.print("  · [cyan]3. 自检[/cyan]：`regime doctor --workspace <目录>`")
             console.print("  · [cyan]4. 使用[/cyan]：新会话选 `dialog-control` agent 作主控；")
             console.print("      或让 opencode 读 `.opencode/agent-handbook.md` 自助配置")
             console.print("  · 卸载：`regime uninstall --workspace <当前目录>`（只移除本工作区）")

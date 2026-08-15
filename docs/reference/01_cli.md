@@ -326,9 +326,12 @@ opencode 配置根目录，无需 clone 源码仓库。部署后写 `.regime-dep
 - **工作区模式（推荐）**：`--workspace <dir>` 部署到 `<dir>/.opencode/`（项目级：`agent/` 单数目录、
   插件、skills、agent-handbook）。**只影响该工作区的 opencode 会话**，机器上其它项目的对话不受污染；
   卸载用 `regime uninstall --workspace <dir>`。不写 `opencode.json` / `config.example.toml`（不覆盖
-  项目配置、不污染项目根）。
-- **全局模式（可选，不推荐）**：默认（或 `--target`）部署到 `~/.config/opencode/`（`agents/` 复数目录
-  + opencode.json + config.example.toml）。影响机器上所有 opencode 会话。
+  项目配置、不污染项目根）。**部署前自动预检**：`.opencode/` 已有文件（用户自有配置，不覆盖）、
+  路径冲突（建议先整理工作区）、git 仓库 `.gitignore` 建议、opencode 运行中（装完需重启）。
+- **全局模式（不推荐）**：默认（或 `--target`）部署到 `~/.config/opencode/`（`agents/` 复数目录
+  + opencode.json + config.example.toml）。影响机器上所有 opencode 会话——opencode 无按 agent 隔离
+  工具机制，`regime_*` 工具对所有项目所有 agent 可见；仅单机专用场景可接受。JSON 输出带
+  `global_not_recommended: true` 标记。
 
 **参数**：
 

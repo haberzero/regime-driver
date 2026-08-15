@@ -34,8 +34,8 @@
 | sessions | `regime sessions` | 值守/运维 | harness 每任务 `--clean` | 01_cli.md |
 | dialog | `regime dialog` | **值守** | — | 05_dialog_control_contract.md |
 | web | `regime web` | 值守/观察窗 | **只读观察窗**（HTML 面板 + JSON API，聚合态势/事件/会话/报告，不暴露写操作） | 01_cli.md |
-| scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/插件/说明书（**工作区模式 `--workspace` 推荐**：只影响该项目；全局模式可选） | 06_release.md |
-| setup | `regime setup` | 一次性/运维 | 引导安装：环境检测 + 装配 + 分步指引（工作区模式推荐） | 04_distribution_blueprint.md |
+| scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/插件/说明书（**工作区模式 `--workspace` 推荐**：只影响该项目 + 部署前预检；全局模式不推荐——工具对全 agent 可见） | 06_release.md |
+| setup | `regime setup` | 一次性/运维 | 引导安装：环境检测 + 装配 + 分步指引（工作区模式推荐 + 预检；全局模式标注不推荐） | 04_distribution_blueprint.md |
 | uninstall | `regime uninstall` | 一次性/运维 | 按部署清单安全移除 regime 文件（保留用户改动）；`--workspace` 移除项目级部署 | 04_distribution_blueprint.md |
 | events | `regime events` | 值守 | — | 01_cli.md |
 | session | `regime session` | 值守 | — | 01_cli.md |
