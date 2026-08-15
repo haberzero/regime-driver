@@ -1,5 +1,5 @@
 {
-  "version": "0.3",
+  "version": "0.1",
   "description": "Compiled institutional process (code-workflow). Nodes declare a role (which user-registered session owns it) and a type (agent=work, judge=judgement). Roles developer/reviewer are user-specialized instances; the kernel is role-agnostic.",
   "meta": {
     "source": [

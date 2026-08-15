@@ -1,7 +1,7 @@
 # regime-driver
 
-> **⚠️ Experimental · In Development — NOT yet released.**
-> No stable API/CLI contract, no `v1.0`. Interfaces and behaviour may change
+> **⚠️ Experimental · In Development — currently v0.1.**
+> No stable API/CLI contract. Interfaces and behaviour may change
 > without notice. Long-running durability (2h+ no-leak/recovery) is being
 > systematically validated; real-model E2E is available locally only;
 > some machine/model/path/port defaults are project-specific. **Use at your own

@@ -1,5 +1,5 @@
 {
-  "version": "0.3",
+  "version": "0.1",
   "description": "code_workflow_v13 —— WORK_PLAN13 官方模板演进：understand/read_code 只读（强制先设计后实现），design 门审未实现方案，test 门携带宿主 verify 运行时证据（真实 pytest 结果）。其余节点与默认 code_workflow 一致。",
   "meta": {
     "source": [

@@ -1,5 +1,5 @@
 {
-  "version": "0.3",
+  "version": "0.1",
   "description": "示例流程：带确定性工具与条件分支（tool/route）的审查流程。与内置 code_workflow 互补——演示 tool 节点把'是否满足条件'变成确定性判定（have_report），route 节点据此分支（有报告→review，无→rework），judge 节点做最终门禁。替换 have_report 为 report_mentions/context_mentions（含 words）即可演示按内容条件分支。",
   "meta": {
     "source": [

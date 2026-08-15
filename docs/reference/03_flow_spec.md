@@ -12,7 +12,7 @@
 
 ```json
 {
-  "version": "0.3",
+  "version": "0.1",
   "meta": { "source": [], "session_turn_check": 5, "work_done_marker": "[WORK_DONE]" },
   "flows": { "<name>": { "nodes": { ... } } },
   "entry": { "flow": "<name>", "start_node": "<id>" }
@@ -23,7 +23,7 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `version` | str | 描述符版本 |
+| `version` | str | 描述符 schema 版本（当前 `0.1`，与 regime-driver 包版本 v0.1 对齐） |
 | `description` | str\|null | 可选描述 |
 | `meta` | object | 运行时旋钮：`source`、`work_done_marker`；`session_turn_check` 为废弃死字段（保留兼容，无消费点） |
 | `flows` | object | 命名流程字典，每项一个 `{nodes}` |
