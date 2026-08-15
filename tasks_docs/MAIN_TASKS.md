@@ -31,21 +31,24 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ### 主线：发布就绪 + 工作区模式装配 + DriveClient 适配器抽取（2026-08-15 起）
 
-**状态**：🔄 进行中（蓝图 `tasks_docs/_release_workspace.md`，用户授权最大自主推进）。
+**状态**：✅ 完成（2026-08-15，commit `4eb1f1f` + `2efabfd`，650 passed 零回归 + general 只读 review
+APPROVE 0 blocker）。蓝图 `tasks_docs/_release_workspace.md` 已总结并入 WORKLOG 并删除。
 
 **用户要求**：以远期收益/长期健康/可维护性/用户易用性（卸载体验 + 不污染其它对话环境）为主；
 工作区（项目级 `.opencode/`）装配为推荐路径、全局安装仅可选；用户可通过 opencode 读随包说明书
 自助配置工作区；内核行为不改；先抽 adaptor 层。
 
-**分项**：
-1. 插件导出形状修复（补 `export default`，对齐 opencode 可靠加载）+ 插件加载冒烟验证
-   （node --check + 导出形状测试 + doctor 插件检查项）。
-2. scaffold 工作区模式（`--workspace <dir>` → `<dir>/.opencode/`，manifest/uninstall 支持）；
-   全局路径保留但不推荐。
-3. 版本契约对齐（opencode-package.json 与 SUPPORTED_OPCODE 统一 + 支持矩阵说明）。
-4. setup/agent-handbook/dialog-control 更新：工作区自助配置说明。
-5. DriveClient 协议抽取（纯接口抽取，运行时零变化）。
-6. 重建 wheel + 文档同步 + 全量测试零回归 + general 只读 review。
+**交付**：
+1. 插件导出形状修复（补 `export default { id, server }` 对齐 opencode v1 可靠加载）+ 插件加载冒烟验证
+   （test_plugin_load + check_plugin + doctor 检查项）。
+2. scaffold/setup/uninstall `--workspace` 工作区模式（`<dir>/.opencode/`，agent/ 单数 + handbook 随装，
+   不污染项目根）；manifest/uninstall 支持 + 越界路径防御；`doctor --workspace` 检查项目级部署。
+3. 版本契约对齐（`@opencode-ai/plugin ^1.18.11` 与 SUPPORTED_OPCODE 一致 + 守卫测试）。
+4. DriveClient 协议抽取（纯接口抽取，运行时零变化；OpenCodeClient/MockClient 双实现符合）。
+5. 版本 0.3.0 + wheel 重建（隔离安装验证通过）+ 文档同步（01_cli/05_setup/00/04_blueprint/capabilities/
+   README/howto/agent-handbook）。
+
+**下一步**（发布候选）：V-2 PyPI 发布（用户 token 就绪即可 `python -m build && twine upload dist/*`）。
 
 ### 主线：WORK_PLAN13（2026-08-14）—— 语义门 + 节点能力边界 + 运行时验证 + 上下文交接
 

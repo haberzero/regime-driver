@@ -167,11 +167,23 @@
 
 ## 8. 下一步（下一 session 主线任务）
 
-> **当前主线（唯一指针，2026-08-08）**：完成技术债治理（G1–G14 全清）+ 测试架构闭环
-> （E2E / 控制对话框容器 / A 路打通）后，**下一 session 主攻"运行可信度 + 易用性"**：
-> 见下方"下一 session 主线任务（优先级表）"。
+> **当前主线（唯一指针，2026-08-15）**：发布就绪主线已完成（工作区模式 + DriveClient 协议 +
+> 插件加载验证 + 版本 0.3.0 + wheel 重建，650 passed 零回归 + general review APPROVE）。
+> **下一 session 主攻：V-2 PyPI 发布**（用户 token 就绪即可 `python -m build && twine upload dist/*`；
+> `dist/regime_driver-0.3.0-py3-none-any.whl` 已重建并通过隔离安装验证），随后按优先级表推进。
 
-### 当前状态速览（2026-08-12）
+### 当前状态速览（2026-08-15）
+
+> **发布就绪主线已完成（2026-08-15，commit 4eb1f1f + 2efabfd，650 passed 零回归 + general review APPROVE）**：
+> ①插件补 opencode v1 `export default { id, server }`（静默跳过根治）+ `check_plugin`/doctor 加载形状检查；
+> ②**工作区模式推荐路径**——`regime scaffold/setup/uninstall --workspace <dir>` → `<dir>/.opencode/`
+> （`agent/` 单数 + skills + plugins + package.json + agent-handbook.md 随装；不写 opencode.json/
+> config.example.toml；卸载精确移除 + manifest 越界防御），`doctor --workspace` 检查项目级部署，
+> 全局模式保留但不推荐；③**DriveClient 适配器协议**（`infra/drive_client.py` typing.Protocol 13 方法面，
+> 内核纯接口化、构造点仍 OpenCodeClient、MockClient 补 4 方法符合——运行时零行为变化）；
+> ④版本契约对齐（`@opencode-ai/plugin ^1.18.11` ↔ SUPPORTED_OPCODE=1.18.11）；⑤版本 0.3.0 +
+> wheel 重建（dist/regime_driver-0.3.0，隔离安装验证通过）。**下一步 = V-2 PyPI 发布**
+> （用户 token 就绪即可 build+twine upload）。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
 
 > **术语已整体改名（2026-08-12，用户拍板，全仓无遗漏）**：上帝对话框→**控制对话框**
 > （GodDialogUnit→DialogControlUnit、god_dialog.py→dialog_control.py、opencode-god→
