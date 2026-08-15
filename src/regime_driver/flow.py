@@ -21,6 +21,7 @@ The Dialog Control's former ad-hoc `self.flows` dict is merged into this registr
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +30,8 @@ from typing import Callable
 from .core.state_machine import StateMachine, StateMachineError
 from .core.validate import DeepCheckResult, deep_validate
 from .infra.regime_loader import load_regime
+
+log = logging.getLogger(__name__)
 
 
 class FlowError(Exception):
@@ -192,6 +195,10 @@ class FlowRegistry:
                 spec = payload.get("spec")
                 if not isinstance(spec, dict):
                     continue
+                # StateMachine._validate rejects a store-residual verify command
+                # outside the docker-exec whitelist (the single construction
+                # point every flow source passes through) — the residue is
+                # isolated here at load time, never discovered mid-run.
                 sm = StateMachine.from_dict(json.dumps(spec))
                 entry = FlowEntry(
                     name=payload.get("name") or sm.flow_name, sm=sm,
@@ -199,8 +206,9 @@ class FlowRegistry:
                     file=Path(payload["file"]) if payload.get("file") else None,
                 )
                 self._flows[entry.name] = entry
-            except Exception:
-                continue  # skip a corrupt entry rather than break the registry
+            except Exception as exc:
+                # skip a corrupt/unsafe entry rather than break the registry
+                log.warning("skipping flow store entry %s: %s", p.name, exc)
 
     # -- query ---------------------------------------------------------------
 

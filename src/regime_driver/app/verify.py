@@ -29,12 +29,9 @@ import subprocess
 import time
 from dataclasses import dataclass
 
-_TAIL = 1500
+from ..core.verify_spec import VERIFY_ALLOWED_EXECS, build_verify_argv
 
-#: Verify commands may only exec these programs INSIDE the worker container.
-VERIFY_ALLOWED_EXECS = {
-    "pytest", "python", "python3", "py", "node", "npm", "npx", "bash", "sh",
-}
+_TAIL = 1500
 
 
 @dataclass
@@ -84,26 +81,10 @@ def render_verify_prompt_block(result: VerifyResult, cmd: str) -> str:
     return f"命令：`{cmd}`\n{result.render()}{note}"
 
 
-def build_verify_argv(cmd: str, container: str) -> list[str]:
-    """Parse + validate a verify command into a whitelisted docker-exec argv.
-
-    Allowed shape: `docker exec {container} <allowed-exec> <args...>` where the
-    exec program is in `VERIFY_ALLOWED_EXECS`. Anything else raises `ValueError`
-    (fail-fast: a non-whitelisted verify command is a config error, not a
-    degraded silent run).
-    """
-    tokens = shlex.split(cmd)
-    if len(tokens) < 4 or tokens[0] != "docker" or tokens[1] != "exec":
-        raise ValueError(
-            f"verify command must be 'docker exec {{container}} <whitelisted-exec> ...': {cmd!r}")
-    ctr = tokens[2]
-    if ctr == "{container}":
-        ctr = container
-    prog = tokens[3]
-    if prog not in VERIFY_ALLOWED_EXECS:
-        raise ValueError(
-            f"verify exec '{prog}' not in whitelist {sorted(VERIFY_ALLOWED_EXECS)}")
-    return ["docker", "exec", ctr, *tokens[3:]]
+# build_verify_argv lives in core/verify_spec.py (shared with the static
+# validator); re-export for callers that imported it from here.
+__all__ = ["VerifyResult", "run_verify", "render_verify_prompt_block",
+           "VERIFY_ALLOWED_EXECS", "build_verify_argv"]
 
 
 #: docker invocation that works in this process (direct, or `sg docker -c`

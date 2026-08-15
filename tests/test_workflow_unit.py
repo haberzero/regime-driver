@@ -16,7 +16,7 @@ SUCC = {"design": "implement", "test": "wrap"}
 
 
 class Message:
-    def __init__(self, role, text="", error=None, completed=None, reply=None,
+    def __init__(self, role, text="", error=None, completed="now", reply=None,
                  finish="stop"):
         self.role = role
         self.text = text
@@ -381,6 +381,91 @@ def test_judge_waits_for_new_reply_not_stale():
     assert client.reviewer_prompts == 2, f"judge re-prompted {client.reviewer_prompts}x"
 
 
+def test_judge_waits_for_completed_not_partial():
+    """The judge must NOT parse a verdict from a streaming PARTIAL reply —
+    it waits for the turn's `completed` marker. The 2026-08-15 nightly:
+    payment_ledger died with "reviewer gate exhausted" because a partial reply
+    (no `completed`) was judged, extract_json returned None, the dedup key
+    consumed the partial, and the COMPLETE reply (parseable) was never judged."""
+    class PartialThenCompleteClient(FakeClient):
+        def __init__(self):
+            super().__init__()
+            self.partial_judged = False
+            self.reviewer_prompts = 0
+
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                self.reviewer_prompts += 1
+                verdict = {"node": "judge", "verdict": "advance",
+                           "action": "advance", "next_state": "end",
+                           "confidence": 0.9, "reason": "ok"}
+                # stream a PARTIAL (not completed) reply first, then the complete one
+                self.msgs[sid] = [
+                    Message("assistant", json.dumps(verdict)[:20], completed=None),
+                    Message("assistant", json.dumps(verdict), completed="done"),
+                ]
+            else:
+                self.msgs[sid] = [Message("assistant", "work done\n[WORK_DONE]")]
+
+    from regime_driver.core.models import Node, NodeType
+    produce = Node(id="produce", desc="produce", type=NodeType.AGENT, next="judge")
+    judge = Node(id="judge", desc="judge", type=NodeType.JUDGE,
+                 role="reviewer", next="end")
+    end = Node(id="end", desc="end", type=NodeType.AGENT, next=None)
+    s = Settings(monitor_enabled=False, poll_sec=0.1, max_reviewer_retries=2)
+    sm = _sm([produce, judge, end])
+    client = PartialThenCompleteClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    unit.start()
+    unit.submit("task")
+    outcome, end_node, detail = _wait_result(unit, timeout=10)
+    unit.stop()
+    # the partial (no completed) reply is skipped; the complete reply is judged
+    assert outcome == Outcome.COMPLETE, f"got {outcome}: {detail}"
+    assert end_node == "end"
+    # no re-prompt storms on the partial — the judge waits for completion
+    assert client.reviewer_prompts == 1, f"judge re-prompted {client.reviewer_prompts}x"
+
+
+def test_judge_skips_abort_draft_with_no_finish():
+    """A completed-but-no-finish message is an ABORT draft (truncated text) and
+    must never be judged — the pause-abort residue in a judge turn (review
+    warning: `_latest_assistant` scanning past a partial could otherwise return
+    the abort draft as a verdict candidate)."""
+    class AbortDraftClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            if agent == "reviewer":
+                verdict = {"node": "judge", "verdict": "advance",
+                           "action": "advance", "next_state": "end",
+                           "confidence": 0.9, "reason": "ok"}
+                self.msgs[sid] = [
+                    # abort draft: completed ts but no finish sentinel
+                    Message("assistant", json.dumps(verdict), completed="done",
+                            finish=None),
+                    # then the real complete reply
+                    Message("assistant", json.dumps(verdict), completed="done",
+                            finish="stop"),
+                ]
+            else:
+                self.msgs[sid] = [Message("assistant", "work done\n[WORK_DONE]")]
+
+    from regime_driver.core.models import Node, NodeType
+    produce = Node(id="produce", desc="produce", type=NodeType.AGENT, next="judge")
+    judge = Node(id="judge", desc="judge", type=NodeType.JUDGE,
+                 role="reviewer", next="end")
+    end = Node(id="end", desc="end", type=NodeType.AGENT, next=None)
+    s = Settings(monitor_enabled=False, poll_sec=0.1, max_reviewer_retries=2)
+    sm = _sm([produce, judge, end])
+    unit = WorkflowUnit(s, sm, AbortDraftClient(), poll_sec=0.1)
+    unit.start()
+    unit.submit("task")
+    outcome, end_node, detail = _wait_result(unit, timeout=10)
+    unit.stop()
+    # the abort draft is skipped; the finished reply is judged -> COMPLETE
+    assert outcome == Outcome.COMPLETE, f"got {outcome}: {detail}"
+    assert end_node == "end"
+
+
 def test_dispatch_records_failures_for_diagnostics():
     """A send that keeps failing is recorded so the error/timeout detail surfaces it."""
     class FailClient(FakeClient):
@@ -718,7 +803,7 @@ def test_verify_skipped_when_disabled():
     unit, client = _wu(
         [Node(id="a", desc="understand", type=NodeType.AGENT, next="t"),
          Node(id="t", desc="test", role="reviewer", type=NodeType.JUDGE,
-              skill="code-review", verify="echo 42 passed", next=None)],
+              skill="code-review", verify="docker exec {container} pytest -q", next=None)],
         {}, {"verify_enabled": False})
     unit.sessions.ensure("developer", "t")
     unit._context = "ctx"

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 
 from .models import Flow, Node, NodeType, Regime
+from .verify_spec import verify_command_error
 
 
 class StateMachineError(Exception):
@@ -46,6 +47,19 @@ class StateMachine:
                 if branch.goto not in self.flow.nodes:
                     raise StateMachineError(
                         f"node '{node_id}' branch '{branch.goto}' not in flow '{self.flow_name}'"
+                    )
+            # W5 verify-shape guard at the SINGLE construction point: any flow
+            # loaded from a store / file / registry / design must carry a verify
+            # command inside the docker-exec whitelist, or it is rejected HERE —
+            # never discovered mid-run when a judge node tries to run it (the
+            # 2026-08-14 nightly: a store-residual `sg docker -c` wrapper around
+            # docker-exec passed construction, then stalled a long task in its
+            # test gate before failing loudly).
+            if node.verify:
+                err = verify_command_error(node.verify)
+                if err is not None:
+                    raise StateMachineError(
+                        f"node '{node_id}' verify command is outside the whitelist: {err}"
                     )
             # semantic checks for deterministic node types (fail fast on config errors)
             if node.type == NodeType.TOOL and not node.tool:

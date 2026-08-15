@@ -1129,18 +1129,36 @@ class WorkflowUnit(ThreadedUnit):
         return latest
 
     def _latest_assistant(self, messages):
-        """Return the newest assistant message carrying a non-empty reply and NO
-        error, else None.
+        """Return the newest COMPLETED assistant message carrying a non-empty
+        reply and NO error, else None.
 
-        Phase-3 (W3): an error-carrying message is never a verdict candidate —
-        symmetric with the agent path (`_latest_agent_done`), so a transient
-        error is not mis-parsed as a reviewer verdict; the judge keeps polling
-        (bounded by the node deadline)."""
+        The judge only parses a verdict from a message whose generation has
+        FINISHED (`completed` ts set) — symmetric with the agent path
+        (`_latest_agent_done`). Without this, a streaming PARTIAL reply (still
+        generating) is judged on truncated text: `extract_json` returns None,
+        the gate reports "no JSON object", the workflow re-prompts, and each
+        re-prompt is again judged on the next partial — exhausting
+        `max_reviewer_retries` on a verdict that never had a chance (the
+        2026-08-15 nightly: payment_ledger error@design "reviewer gate
+        exhausted", where the last complete reply was parseable but never
+        judged because the dedup key had already consumed the partial).
+
+        Phase-3 (W3): an error-carrying message is never a verdict candidate,
+        so a transient error is not mis-parsed as a verdict; the judge keeps
+        polling (bounded by the node deadline). A completed message with
+        `finish` None is an ABORT draft (truncated text, never a deliverable —
+        same shape the agent path treats as not-done); it is skipped so a
+        pause-abort residue is never judged. External aborts are already
+        consumed by `_latest_abort` before this is called."""
         for m in reversed(messages):
             if getattr(m, "role", None) != "assistant":
                 continue
             if getattr(m, "error", None):
                 continue
+            if not getattr(m, "completed", None):
+                continue  # streaming partial: wait for the turn to finish
+            if getattr(m, "finish", "stop") is None:
+                continue  # abort draft (completed ts, no finish): never a verdict
             if (getattr(m, "reply", "") or getattr(m, "text", "") or "").strip():
                 return m
         return None

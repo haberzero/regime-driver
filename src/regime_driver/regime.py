@@ -25,6 +25,7 @@ both — the regime for how to run, the settings for where/how much.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -38,6 +39,8 @@ from .core.role import Role, RoleRegistry
 from .core.state_machine import StateMachine, StateMachineError
 from .core.validate import DeepCheckResult, deep_validate
 from .flow import FlowError, compile_spec
+
+log = logging.getLogger(__name__)
 
 # regime names key persistent store files — restrict the charset (no path escape)
 _SAFE_NAME_RE = re.compile(r"[A-Za-z0-9._-]+")
@@ -432,8 +435,11 @@ class RegimeRegistry:
                     file=Path(payload["file"]) if payload.get("file") else None,
                 )
                 self._regimes[entry.name] = entry
-            except Exception:
-                continue  # skip a corrupt entry rather than break the registry
+            except Exception as exc:
+                # skip a corrupt/unsafe entry rather than break the registry;
+                # log the reason (e.g. a store-residual non-whitelisted verify)
+                # so a skipped regime is diagnosable, not silently missing.
+                log.warning("skipping regime store entry %s: %s", p.name, exc)
 
     # -- query ---------------------------------------------------------------
 

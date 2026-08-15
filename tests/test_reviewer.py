@@ -86,6 +86,36 @@ def test_extract_json_stray_closing_brace_in_prose():
     assert extract_json(text) == {"a": 1}
 
 
+def test_extract_json_unbalanced_quote_in_prose():
+    # the 2026-08-15 nightly: the reviewer's reply prose opened a quote that was
+    # never closed before the JSON object; the old single-walk parser let that
+    # poison the in-string flag and swallowed the object's braces.
+    text = 'The gate rejected saying "unfinished quote then {\"node\":\"design\",\"verdict\":\"advance\",\"confidence\":0.9}'
+    obj = extract_json(text)
+    assert obj is not None and obj["node"] == "design"
+
+
+def test_extract_json_stray_brace_in_prose():
+    # prose with a literal `{` before the real object must not start tracking
+    # at the wrong depth.
+    text = 'some { literal brace in prose then {"node":"design","verdict":"issue_pending"}'
+    obj = extract_json(text)
+    assert obj is not None and obj["node"] == "design"
+
+
+def test_extract_json_prose_quote_and_curly_combined():
+    # the actual payment_ledger failure text shape: analysis prose containing
+    # both quotes and parentheses, then a strict JSON verdict object.
+    text = ('The gate rejected again with "no JSON object in reviewer reply". '
+            'I will re-emit the JSON (with only blocking/warning severities).'
+            '{"node":"design","verdict":"issue_pending","action":"ask_developer",'
+            '"message_to_developer":"请补交方案设计定稿文档（含 1) 金额选型 (int 分 vs Decimal)）",'
+            '"next_state":null,"confidence":0.75,"issues":[{"severity":"warning","summary":"x"}]}')
+    obj = extract_json(text)
+    assert obj is not None and obj["verdict"] == "issue_pending"
+    assert obj["issues"][0]["severity"] == "warning"
+
+
 def test_extract_json_trailing_comma_quirk():
     """W4 contract tolerance: a model trailing-comma quirk is repaired."""
     assert extract_json('{"a": 1, "b": 2,}') == {"a": 1, "b": 2}

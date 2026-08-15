@@ -245,6 +245,26 @@ def test_regime_registry_reload_failure_preserves_current(tmp_path):
     assert cur.version == entry1.version
 
 
+def test_regime_store_residual_verify_whitelist_rejected_at_load(tmp_path):
+    """A regime-store entry whose flow's verify command is outside the
+    docker-exec whitelist (e.g. a stale `sg docker -c` wrapper — the 2026-08-14
+    nightly residue) is isolated at STORE-LOAD time: the StateMachine
+    construction point rejects it, so it can never reach a run."""
+    store = tmp_path / "store"
+    store.mkdir()
+    spec = json.loads(_full_spec())
+    nodes = spec["flow"]["nodes"]
+    # make the judge node carry a non-whitelisted verify command
+    for n in nodes:
+        if n.get("type") == "judge":
+            n["verify"] = "sg docker -c \"docker exec {container} bash -c 'pytest -q'\""
+    (store / "my-regime.json").write_text(
+        json.dumps({"name": "my-regime", "spec": spec}), encoding="utf-8")
+    reg = RegimeRegistry(store_dir=store)
+    assert reg.regime("my-regime") is None, \
+        "residual non-whitelisted verify must be rejected at regime store load"
+
+
 def test_regime_registry_load_with_name_override_roundtrips(tmp_path):
     """W6: loading a regime file under an explicit override name must keep the
     serialized flow keyed consistently (to_dict -> from_dict stays valid)."""

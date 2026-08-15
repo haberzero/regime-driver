@@ -204,6 +204,22 @@ def test_persistence_skips_builtin(tmp_path: Path) -> None:
     assert not (store / "code_workflow.json").exists()
 
 
+def test_store_residual_verify_whitelist_rejected_at_load(tmp_path: Path) -> None:
+    """A store entry whose verify command is outside the docker-exec whitelist
+    (e.g. a stale `sg docker -c` wrapper — the 2026-08-14 nightly residue) is
+    isolated at STORE-LOAD time, so a `--flow` run cannot hit it mid-run."""
+    store = tmp_path / "store"
+    store.mkdir()
+    spec = json.loads(_regime_json("bf"))
+    spec["flows"]["bf"]["nodes"]["b"]["verify"] = (
+        "sg docker -c \"docker exec {container} bash -c 'pytest -q'\"")
+    bad = {"name": "bf", "source": "/tmp/bad.json", "file": "/tmp/bad.json",
+           "spec": spec}
+    (store / "bf.json").write_text(json.dumps(bad), encoding="utf-8")
+    reg = FlowRegistry(store_dir=store)
+    assert reg.sm("bf") is None, "residual non-whitelisted verify must be rejected at store load"
+
+
 def test_reload_designed_flow_revalidates() -> None:
     reg = FlowRegistry()
     sm = compile_spec("f", COMPACT)

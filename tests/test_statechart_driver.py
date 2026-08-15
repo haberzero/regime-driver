@@ -13,11 +13,16 @@ SUCC = {"design": "implement", "test": "wrap"}
 
 
 class Message:
-    def __init__(self, role, text="", error=None, sid=None):
+    def __init__(self, role, text="", error=None, sid=None, completed="now",
+                 finish="stop"):
         self.role = role
         self.text = text
         self.error = error
         self.id = sid or f"m-{role}"
+        # completed="now" = a finished turn by default in tests; abort scenarios
+        # pass finish=None or error=... explicitly (judge waits for `completed`)
+        self.completed = completed
+        self.finish = finish
 
 
 class FakeClient:
@@ -42,7 +47,9 @@ class FakeClient:
             self.msgs[sid] = [Message("assistant", json.dumps(v), sid=sid)]
         else:
             if self.stall:
-                self.msgs[sid] = [Message("assistant", "thinking endlessly...", sid=sid)]
+                # stall = still streaming, never completes
+                self.msgs[sid] = [Message("assistant", "thinking endlessly...",
+                                          sid=sid, completed=None)]
             else:
                 self.msgs[sid] = [Message("assistant", "done\n[WORK_DONE]", sid=sid)]
 

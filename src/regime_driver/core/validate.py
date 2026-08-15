@@ -23,6 +23,7 @@ from .models import NodeType
 from .role import RoleRegistry, default_roles
 from .state_machine import StateMachine, StateMachineError
 from .tools import TOOLS
+from .verify_spec import verify_command_error
 
 
 @dataclass
@@ -86,6 +87,18 @@ def _check_capability_boundaries(sm: StateMachine, out: DeepCheckResult) -> None
                 f"(verify runs only when entering a judge node; on '{node.type}' "
                 f"it would be dead config)"
             )
+        if node.verify:
+            # W5 whitelist pre-check (defensive fallback): the primary guard is
+            # StateMachine._validate at the single construction point — a verify
+            # command outside the docker-exec shape is rejected there for every
+            # store/file/registry/design source. This block is a redundancy for
+            # StateMachines constructed directly (tests, in-memory builders), so
+            # a non-whitelisted verify never slips past deep_validate either.
+            err = verify_command_error(node.verify)
+            if err is not None:
+                out.errors.append(
+                    f"node '{node_id}' verify command is outside the whitelist: {err}"
+                )
         if node.readonly and node.type == NodeType.JUDGE:
             out.errors.append(
                 f"node '{node_id}' declares `readonly` on a judge node "
