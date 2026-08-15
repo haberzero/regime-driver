@@ -23,6 +23,7 @@
 | `human_confirm_timeout_sec` | int | 300 | **ask_human 人工确认等待超时（秒）** |
 | `human_default_on_timeout` | str | `block` | ask_human 超时默认动作：`block`（安全兜底）\| `advance`（放行）\| `rework`（回开发者重做） |
 | `poll_sec` | float | 5.0 | session 轮询间隔（秒） |
+| `dialog_talk_timeout_sec` | float | 120.0 | dialog `talk` 命令等待回复上限（秒）；长生成为主，默认宽裕，可配 |
 | `ledger_path` | str\|null | null | JSONL 事件账本路径 |
 | `regime_path` | str\|null | null | regime.json 路径（默认打包版） |
 | `session_turn_check` | int | 5 | [deprecated] 死配置，无消费点 |

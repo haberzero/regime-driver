@@ -34,6 +34,10 @@ class Settings(BaseModel):
                     "an explicit kill switch."
     )
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")
+    dialog_talk_timeout_sec: float = Field(
+        default=120.0, ge=10.0,
+        description="dialog `talk` command max wait (s) for a reply; generous for long generations"
+    )
     human_confirm_timeout_sec: int = Field(
         default=300, ge=1,
         description="ask_human: how long the workflow waits for a dialog decision before the timeout default")

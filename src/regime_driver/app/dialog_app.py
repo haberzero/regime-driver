@@ -82,7 +82,8 @@ def run_dialog(
         # regime designed here is runnable from another process (`--regime-name`).
         regime_registry=RegimeRegistry(store_dir=default_regime_store_dir()),
         hook_registry=hooks,
-        settings_render=lambda: settings.model_dump().__str__(), allow_write=allow_write))
+        settings_render=lambda: settings.model_dump().__str__(), allow_write=allow_write,
+        talk_timeout_sec=settings.dialog_talk_timeout_sec))
 
     def launcher(ctx, title, flow_sm=None):
         wid = f"dialog-{len(cluster.workflows) + 1}"

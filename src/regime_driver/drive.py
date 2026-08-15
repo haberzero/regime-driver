@@ -22,6 +22,7 @@ See docs/subsystems/01_drive.md.
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 from dataclasses import dataclass, field
@@ -54,6 +55,7 @@ class DriveResult:
     supervisor: str | None = None
     elapsed_sec: float = 0.0
     session_id: str | None = None
+    notable: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -63,6 +65,7 @@ class DriveResult:
             "supervisor": self.supervisor,
             "elapsed_sec": self.elapsed_sec,
             "session_id": self.session_id,
+            "notable": self.notable,
         }
 
 
@@ -90,6 +93,8 @@ class Drive:
         prune_max_age: float | None = None,
         regime: "Regime | None" = None,
         hooks: "HookRegistry | None" = None,
+        monitor_path: str | None = None,
+        monitor_interval: float = 60.0,
     ) -> None:
         self.settings = settings
         self.sm = state_machine
@@ -110,6 +115,10 @@ class Drive:
         # optional; enabled only when the caller passes at least one).
         self.prune_max_records = prune_max_records
         self.prune_max_age = prune_max_age
+        # periodic monitor snapshot (JSONL): a tail-able progress trail for
+        # long runs, independent of the operator polling the server
+        self.monitor_path = monitor_path
+        self.monitor_interval = max(5.0, monitor_interval)
         self.driver: StatechartDriver | None = None
         self._session_id: str | None = None
         self._result: dict = {}
@@ -176,6 +185,51 @@ class Drive:
 
         t = threading.Thread(target=_go, daemon=True)
         t.start()
+
+        def _monitor() -> None:
+            """Periodic one-line snapshot: node/phase/session/uptime. JSONL,
+            tail-able; never raises (monitoring must not break the run). The
+            first line is written unconditionally so a fast run still leaves
+            a snapshot trail."""
+            try:
+                mfh = open(self.monitor_path, "a", encoding="utf-8", buffering=1)
+            except Exception:
+                return
+            try:
+                while True:
+                    try:
+                        wf = getattr(self.driver, "workflow", None) if self.driver else None
+                        node = getattr(wf, "_node", None) if wf else None
+                        phase = getattr(wf, "_phase", None) if wf else None
+                        sessions = getattr(wf, "sessions", None) if wf else None
+                        sids = sessions.all_session_ids() if sessions else []
+                        busy = 0
+                        try:
+                            smap = self.client.session_status_map()
+                            busy = sum(1 for v in smap.values() if v == "busy")
+                        except Exception:
+                            pass
+                        mfh.write(json.dumps({
+                            "ts": time.time(),
+                            "uptime_sec": round(time.time() - t0, 1),
+                            "node": node, "phase": phase,
+                            "sessions": len(sids), "busy": busy,
+                        }, ensure_ascii=False) + "\n")
+                    except Exception:
+                        pass
+                    if "res" in self._result:
+                        break
+                    time.sleep(self.monitor_interval)
+            finally:
+                try:
+                    mfh.close()
+                except Exception:
+                    pass
+
+        _mon_thread: threading.Thread | None = None
+        if self.monitor_path:
+            _mon_thread = threading.Thread(target=_monitor, daemon=True)
+            _mon_thread.start()
         session_id = self._discover_session()
         self._session_id = session_id
         sup = Supervisor(
@@ -222,8 +276,30 @@ class Drive:
                 import logging
                 logging.getLogger(__name__).warning(
                     "journal prune skipped: %s", exc)
+        # notable-event summary (observability): count recovery/error signals
+        # from the ledger so the operator sees at a glance whether the run had
+        # retries, deadline graces, transport hiccups, or watchdog fires.
+        notable: dict = {}
+        ledger_path = self.driver.ledger.path if self.driver and self.driver.ledger else None
+        if ledger_path:
+            try:
+                import collections
+                counts: dict = collections.Counter()
+                with open(ledger_path, encoding="utf-8") as lf:
+                    for line in lf:
+                        try:
+                            ev = json.loads(line).get("event")
+                        except Exception:
+                            continue
+                        if ev in ("dispatch_error", "context_handover_error",
+                                  "deadline_grace", "watchdog_fire",
+                                  "monitor_abort", "workflow_nudged"):
+                            counts[ev] += 1
+                notable = dict(counts)
+            except Exception:
+                notable = {}
         return DriveResult(
             outcome=outcome.value, end=end, detail=detail,
             supervisor=sup_outcome, elapsed_sec=round(time.time() - t0, 1),
-            session_id=session_id,
+            session_id=session_id, notable=notable,
         )

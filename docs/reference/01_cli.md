@@ -100,7 +100,7 @@ regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:
 | `--regime-name` | str | 运行 RegimeRegistry 中已注册的**命名制度**（完整运行规则：flow+roles+watchdog+handover） |
 | `--deadline` | int | 全局期限（秒），执行器与 supervisor 共享 |
 | `--container` | str | worker docker 容器名（T1 失联时 L4 重启对象） |
-| `--stall` | int | 会话停滞检测秒数（drive 模式为进程内策略看门狗；默认取 config 的 `settings.stall_sec`=120） |
+| `--stall` | int | 会话停滞检测秒数（drive 模式为进程内策略看门狗；默认取 config 的 `settings.stall_sec`=180） |
 | `--meta` | flag | 启用智能元分析（真实模型判停滞） |
 | `--meta-model` | str | 元分析模型（默认 deepseek-api/deepseek-v4-flash） |
 | `--reporter` | path | append-only 报告日志路径（单一真源） |
@@ -112,8 +112,14 @@ regime run "实现登录模块" --flow my_designed_flow --base http://127.0.0.1:
 | `--perm` | str | 持有权限等级 |
 | `--prune-max-records` | int | 收尾时 journal 仅保留尾部 N 条（资源治理保留策略） |
 | `--prune-max-age` | float | 收尾时丢弃超过该秒数的 journal 记录（资源治理保留策略） |
+| `--monitor` | path | 周期监控快照路径（JSONL，可 tail）——长跑进度轨迹，无需外部轮询 |
+| `--monitor-interval` | float | 监控快照间隔秒数（默认 60，最小 5） |
+| `--resume` | path | **崩溃续跑**：从上次 drive 的 reporter journal 恢复——定位第一个"已进入未完成"的节点并从它继续（先前节点跳过；会话全新、磁盘上的工作产物保留）。journal 为空或已 complete 时拒绝启动 |
 
-**输出**：结果含 `{outcome,end,elapsed_sec,supervisor,session_id}`。非 COMPLETE 时退出码 1。
+**输出**：结果含 `{outcome,end,elapsed_sec,supervisor,session_id,notable}`。`notable` 为
+账本中恢复/异常事件计数（`dispatch_error`/`context_handover_error`/`deadline_grace`/
+`watchdog_fire`/`monitor_abort`/`workflow_nudged`），一眼看出运行是否有重试/传输抖动/看门狗动作。
+非 COMPLETE 时退出码 1。
 **权限**：`run`。
 **journal 保留**：传 `--prune-max-records`/`--prune-max-age` 时，drive 结束后对共享 journal 执行
 `Reporter.retain`（best-effort，失败不影响结果），用于长跑脚本控制 journal 无限增长。
@@ -379,7 +385,9 @@ key_present,host_mode_ready,container_mode_ready}`。
 **输出**：`{model,provider,ok,checks}`。检查项含 worker health、key for provider、opencode auth.json、
 环境检测（docker/opencode/conda/平台，advisory）、部署完整性（`.regime-deployed.json` 与磁盘一致性）、
 dialog-control plugin loadable（已部署时检查实际部署文件、否则检查打包副本；插件缺 v1 default export
-会被标红——opencode 自动扫描路径会静默跳过它）。
+会被标红——opencode 自动扫描路径会静默跳过它）、**role agents 完整性**（部署目录含
+developer.md/reviewer.md + worker `/agent` 列表含 developer/reviewer——缺失会在任何 flow 派发时失败，
+`regime scaffold` 补装即可）。
 不全通过时退出码 1。
 
 ### `status`

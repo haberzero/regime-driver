@@ -566,6 +566,16 @@ def drive(
     prune_max_age: Optional[float] = typer.Option(
         None, "--prune-max-age",
         help="after the drive, drop journal records older than this many seconds (retention)"),
+    monitor: Optional[Path] = typer.Option(
+        None, "--monitor",
+        help="periodic monitor snapshot path (JSONL, tail-able; default: off)"),
+    monitor_interval: float = typer.Option(
+        60.0, "--monitor-interval",
+        help="seconds between monitor snapshots (min 5)"),
+    resume: Optional[Path] = typer.Option(
+        None, "--resume",
+        help="resume from a crashed run's reporter journal: start at the first "
+             "incomplete node, skip completed ones (work files persist on disk)"),
 ) -> None:
     """Bring up the whole self-driving stack with one command.
 
@@ -618,6 +628,7 @@ def drive(
             *(["--no-preflight"] if no_preflight else []),
             *(["--prune-max-records", str(prune_max_records)] if prune_max_records is not None else []),
             *(["--prune-max-age", str(prune_max_age)] if prune_max_age is not None else []),
+            *(["--resume", str(resume)] if resume else []),
         ]
         registry = TaskRegistry(tasks_dir or TaskRegistry().dir)
         rec = registry.submit(
@@ -634,6 +645,17 @@ def drive(
 
     # mandatory preflight (offline trial) before touching a real worker/session
     sm = _sm_from_flow_or_regime(flow, regime, regime_name)
+    if resume is not None:
+        from ..app.resume import resume_context, resume_node
+
+        rnode = resume_node(resume)
+        if rnode is None:
+            _fail(f"nothing to resume from {resume} (journal empty or run complete)")
+        sm.node(rnode)  # fail fast when the flow no longer has the node
+        sm.start = rnode
+        context = resume_context(context, rnode)
+        console.print(f"  resume: starting at node {rnode} "
+                      f"(skipping completed nodes; sessions are fresh, files persist)")
     if not no_preflight:
         from ..app.preflight import preflight
 
@@ -668,6 +690,8 @@ def drive(
         meta_enabled=meta, meta_model=meta_model,
         prune_max_records=prune_max_records, prune_max_age=prune_max_age,
         hooks=_load_hooks(),
+        monitor_path=str(monitor) if monitor else None,
+        monitor_interval=monitor_interval,
     )
     try:
         # render live progress in the foreground
@@ -715,6 +739,10 @@ def drive(
         console.print(f"  {mark} outcome: {dr.outcome} @ {dr.end or '?'} "
                       f"({dr.elapsed_sec}s)")
         console.print(f"  supervisor: {dr.supervisor}  session: {dr.session_id or '-'}")
+        if dr.notable:
+            _n = " ".join(f"{k}×{v}" for k, v in sorted(dr.notable.items()) if v)
+            if _n:
+                console.print(f"  notable: {_n}")
         if dr.outcome == Outcome.COMPLETE.value:
             _ok(f"drive task {rec['id']} completed", markup=False)
         else:
@@ -1005,6 +1033,38 @@ def doctor(
                 " — `regime uninstall` 可安全移除" if _dep["ok"] else
                 " — `regime doctor`/`regime uninstall --dry-run` 查看"),
         })
+
+    # role agents completeness: the flow roles need their opencode agents to
+    # exist, or every run fails at dispatch. Check BOTH the deployment files
+    # (offline, deterministic) and the live worker's /agent list (online).
+    _agent_dir = (deploy_root / "agent" if workspace is not None
+                  else deploy_root / "agents")
+    _missing_agents = [f"{a}.md" for a in ("developer", "reviewer")
+                       if not (_agent_dir / f"{a}.md").is_file()]
+    if workspace is not None or _dep.get("deployed"):
+        checks.append({
+            "check": "deployed role agents (developer/reviewer)",
+            "ok": not _missing_agents,
+            **({"missing": _missing_agents} if _missing_agents else {}),
+            "detail": (f"deployment at {_agent_dir}" +
+                       ("" if not _missing_agents else
+                        " — flow roles need these agents, add them or re-run scaffold")),
+        })
+    if healthy:
+        try:
+            _agents = OpenCodeClient(probe_base, timeout=5)._request(
+                "GET", "/agent", timeout=5.0)
+            _names = {a.get("name") for a in _agents} if isinstance(_agents, list) else set()
+            _missing_live = [a for a in ("developer", "reviewer") if a not in _names]
+            checks.append({
+                "check": "worker role agents (developer/reviewer)",
+                "ok": not _missing_live,
+                **({"missing": _missing_live} if _missing_live else {}),
+                "detail": (f"agents on {probe_base}: {sorted(_names)}" if _names else
+                           "no agents reported")})
+        except Exception:
+            checks.append({"check": "worker role agents (developer/reviewer)",
+                           "ok": True, "detail": "agent list unavailable (skipped)"})
 
     # host-environment readiness (deployment UX): docker / conda /
     # opencode / registry-mirror presence. ADVISORY — these don't gate the run

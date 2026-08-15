@@ -86,6 +86,7 @@ class DialogControlUnit(ThreadedUnit):
         hook_registry: "HookRegistry | None" = None,
         max_events: int = 200,
         allow_write: bool = False,
+        talk_timeout_sec: float = 120.0,
     ) -> None:
         super().__init__(unit_id, bus, role="human")
         self.llm = llm
@@ -100,7 +101,9 @@ class DialogControlUnit(ThreadedUnit):
         # trigger a side effect; the human opts in via allow_write.
         self.allow_write = allow_write
         self.talk_agent = "developer"     # agent used for `talk <sid> <msg>`
-        self.talk_timeout = 120.0         # max seconds to wait for the reply
+        # max seconds to wait for a `talk` reply; settings-driven
+        # (dialog_talk_timeout_sec), generous for long generations
+        self.talk_timeout = talk_timeout_sec
         # the named-flow single source of truth: dialog-control designed/loaded flows
         # and the builtin flow all live here. `self.flows` is a read-only view.
         self.flow_registry = flow_registry or FlowRegistry()
