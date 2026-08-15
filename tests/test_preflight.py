@@ -140,3 +140,31 @@ def test_hyphenated_node_ids_complete_preflight():
     res = preflight(sm, timeout_sec=60)
     assert res["ok"] is True, res
     assert res["outcome"] == "complete"
+
+
+def test_preflight_timeout_retried_once_with_doubled_budget():
+    """A trial wall-clock expiry is retried once with 2x budget (best-effort
+    recovery) before giving up; a second expiry still fails honestly."""
+    import regime_driver.app.preflight as pf
+
+    calls = []
+
+    class FlakyDriver:
+        def __init__(self, *a, **kw):
+            pass
+        def run(self, context, timeout_sec=None):
+            calls.append(timeout_sec)
+            if len(calls) == 1:
+                from regime_driver.core.models import Outcome
+                return (Outcome.ERROR, "impl-core", "run timed out")
+            from regime_driver.core.models import Outcome
+            return (Outcome.COMPLETE, "wrap", None)
+
+    orig = pf.StatechartDriver
+    pf.StatechartDriver = FlakyDriver
+    try:
+        res = pf.preflight(_flow({"a": _node("a")}), timeout_sec=30.0)
+    finally:
+        pf.StatechartDriver = orig
+    assert res["ok"] is True, res
+    assert calls == [30.0, 60.0], f"expected one retry with doubled budget, got {calls}"

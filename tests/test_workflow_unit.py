@@ -545,6 +545,28 @@ def test_per_node_wait_timeout():
     assert client.aborted, "node timeout must abort the in-flight session"
 
 
+def test_per_node_deadline_grace_for_busy_session():
+    """A wall-clock deadline must NOT kill a session that is still busy
+    server-side: the expiry extends (deadline_grace) and defers true-stall
+    detection to the SSE-liveness watchdog."""
+    class BusyClient(FakeClient):
+        def send_message(self, sid, text, agent):
+            pass  # never produce a reply, but stays busy server-side
+        def session_status(self, sid):
+            return "busy"
+    s = Settings(monitor_enabled=False, poll_sec=0.1, default_deadline_sec=1)
+    sm = load_regime()
+    client = BusyClient()
+    unit = WorkflowUnit(s, sm, client, poll_sec=0.1)
+    unit.start()
+    unit.submit("任务")
+    # 3+ grace windows: a kill-on-wall-clock behavior would have fired at ~1s
+    outcome = _wait_result(unit, timeout=3.2)
+    unit.stop()
+    assert outcome is None, f"busy session must survive wall-clock expiry, got {outcome}"
+    assert client.aborted == []
+
+
 def test_heartbeat_updates_per_step():
     """The workflow's blackboard heartbeat reflects liveness (refreshes each step)."""
     from regime_driver.core.statechart import Bus

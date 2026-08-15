@@ -13,6 +13,9 @@ def test_scaffold_plan_has_agents_and_skills(tmp_path):
     plan = scaffold_plan(tmp_path, assistants=False)
     dests = [str(c.dest.relative_to(tmp_path)) for c in plan]
     assert any(d.startswith("agents/reviewer.md") for d in dests)
+    # the execution worker template ships too (workspace/global mode both need
+    # a developer agent; regression: workspace deploys used to lack it)
+    assert any(d.startswith("agents/developer.md") for d in dests)
     assert any(d.startswith("skills/design-philosophy/SKILL.md") for d in dests)
     assert all(not str(d).startswith("dialog-control-assistants") for d in dests)
 

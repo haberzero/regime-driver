@@ -52,7 +52,7 @@ session_turn_check = 5                       # [deprecated] 死配置，无消�
 # （session_tokens 是 step 粒度记账，单步长思考期间恒 0，不能判活性）。
 monitor_enabled = true                       # [deprecated] 纯兼容保留，无消费点；看门狗由根不变量 I1 强制常在线
 monitor_poll_sec = 3.0                       # [deprecated] 原无消费点
-stall_sec = 120                              # busy 且无 SSE 活性超过此秒 -> 判卡死（同时是策略看门狗默认 kill 阈值）
+stall_sec = 180                              # busy 且无 SSE 活性超过此秒 -> 判卡死（180s 为长思考/突发流式留裕量；同时是策略看门狗默认 kill 阈值）
 on_stall = "abort"                           # [deprecated] 原死配置，看门狗动作由 watchdog_policy_json 决定
 # 可编程看门狗策略：空=默认策略（stall_sec -> kill）
 # soft_sec 超时 -> soft_action（默认 interrupt=PAUSE 中断当前生成+冻结推进，等待自动恢复）

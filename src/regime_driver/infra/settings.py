@@ -87,7 +87,7 @@ class Settings(BaseModel):
         default=None,
         description="JSON session-cleanup policy (see docstring); None = disabled"
     )
-    stall_sec: int = Field(default=120, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (liveness = SSE, not token counts; also the default policy kill threshold)")
+    stall_sec: int = Field(default=180, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (liveness = SSE, not token counts; also the default policy kill threshold). 180s gives long-reasoning margin for providers that buffer output in bursts")
     on_stall: Literal["abort", "report_user", "none"] = Field(
         default="abort", description="[deprecated] dead config, no consumer; watchdog actions come from watchdog_policy_json"
     )

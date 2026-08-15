@@ -338,6 +338,20 @@ class WorkflowUnit(ThreadedUnit):
         except Exception as exc:
             self._log("monitor_abort_error", session=self._wait_sid, err=str(exc))
 
+    def _session_still_busy(self) -> bool:
+        """True when the waited-on session is still busy server-side.
+
+        Used by the deadline-grace recovery: a wall-clock expiry must not kill
+        a session that is demonstrably still working; only an idle (stuck)
+        session is aborted. Unknown status counts as idle (conservative).
+        """
+        if self._wait_sid is None:
+            return False
+        try:
+            return self.client.session_status(self._wait_sid) == "busy"
+        except Exception:
+            return False
+
     # -- public start ---------------------------------------------------------
 
     def submit(self, context: str, title: str = "regime-workflow") -> None:
@@ -436,6 +450,15 @@ class WorkflowUnit(ThreadedUnit):
             if (self._phase_started
                     and self.settings.default_deadline_sec is not None
                     and time.time() - self._phase_started > self.settings.default_deadline_sec):
+                if self._session_still_busy():
+                    # deadline grace (best-effort recovery): the session is
+                    # demonstrably still working server-side, so a wall-clock
+                    # expiry must not kill it — extend one more window and let
+                    # the SSE-liveness watchdog own true-stall detection
+                    self._log("deadline_grace", node=self._node,
+                              session=self._wait_sid)
+                    self._phase_started = time.time()
+                    return
                 self._abort_waiting_session(
                     reason=f"node timeout after {self.settings.default_deadline_sec}s")
                 self._state = _ST_ERROR

@@ -37,7 +37,7 @@
 | `monitor_poll_sec` | float | 3.0 | [deprecated] 同 `monitor_enabled`，无消费点 |
 | `session_hygiene_threshold` | int | 100 | doctor 对累积 worker session 数的警告阈值 |
 | `session_cleanup_policy` | str\|null | null | session 自动清理策略（JSON 字符串，见 `session_cleanup` 命令；null=关闭） |
-| `stall_sec` | int | 120 | busy 且无 SSE 事件流活性超过此秒 → 判卡死（活性信号为 SSE 事件流，非 token 计数）；同时是进程内策略看门狗的默认 kill 阈值 |
+| `stall_sec` | int | 180 | busy 且无 SSE 事件流活性超过此秒 → 判卡死（活性信号为 SSE 事件流，非 token 计数）；同时是进程内策略看门狗的默认 kill 阈值 |
 | `on_stall` | enum | `abort` | [deprecated] 死配置，运行时无消费。看门狗动作由 `watchdog_policy_json` 决定 |
 | `watchdog_policy_json` | str\|null | null | **可编程看门狗策略**（JSON）：`{"soft_sec":30,"soft_action":"interrupt","meta_gate_soft":true,"hard_sec":600}`。空=默认策略（busy 无 SSE 活性 > `stall_sec` → kill） |
 | `auto_resume_sec` | float | 30 | paused 会话（被中断等待恢复）超此秒自动 RESUME（注入"继续"续接）；仍无活性才兜底 kill |
@@ -152,9 +152,14 @@ regime-driver 用两类机制防止任务失控，**默认只有"活性"机制�
 | **节点总数上限**（`max_total_nodes`=50） | 开（可配） | 单跑执行节点数超上限（反失控） | 低：正常流程远低于 50 |
 | **审查门重试/对话轮次**（`max_reviewer_retries`=3、`max_dialogue_rounds`=5） | 开（可配） | 判定/质询轮次耗尽 | 低：作用于审查闭环，非工作节点 |
 
+**超时后的尽力恢复**：
+- **message POST 超时**（`request_timeout`）：发送失败自动重试（退避 2s×attempt），且回复靠轮询 `read_messages` 兜底——POST 超时不会丢回复，服务端继续生成也会被后续轮询取到。
+- **每阶段墙钟到期**（仅显式启用时）：先查会话状态——仍 **busy**（服务端还在产出）则宽限续期（`deadline_grace` 事件）不杀任务，只有 **idle**（真卡死）才 abort；真停滞仍由 SSE 活性看门狗兜底。
+- **preflight 试跑超时**：离线试跑墙钟到期后自动以 **2× 预算重试一次**，仍失败才诚实失败（试跑廉价，超时多为长流程轮询边界假象）。
+
 **原则（对齐 DSH 的成熟做法）**：
 1. **阻塞操作有界、后台工作无超时**：message POST 有流式超时（`request_timeout`=600，可配），但任务运行本身只在"真停滞"或"显式 deadline"下终止。
-2. **默认值 fail-safe**：任何按墙钟杀任务的开关默认关闭；要强约束请显式传 `--deadline`（drive/run 均支持）。
+2. **默认值 fail-safe**：任何按墙钟杀任务的开关默认关闭；要强约束请显式传 `--deadline`（drive/run 均支持）。`stall_sec` 默认 180s（长思考/突发流式裕量）。
 3. **单一真源**：传输/重试默认值与 `settings` 默认一致（`OpenCodeClient.timeout`、`Reviewer.max_retries`），由 `tests/test_no_silent_kill.py` 守卫。
 
 ## 环境变量覆盖

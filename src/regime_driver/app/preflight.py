@@ -73,6 +73,14 @@ def preflight(
     driver = StatechartDriver(settings, sm, client, enforce_invariants=True)
     try:
         outcome, end, detail = driver.run("preflight trial", timeout_sec=timeout_sec)
+        # best-effort recovery: a wall-clock expiry of the trial (not a flow
+        # failure) is retried once with a doubled budget before giving up —
+        # the trial is offline/cheap, and a genuine timeout is often just a
+        # poll-boundary artifact on a long flow.
+        if (outcome == Outcome.ERROR and (detail or "").startswith("run timed out")
+                and not fault):
+            outcome, end, detail = driver.run(
+                "preflight trial (retry)", timeout_sec=timeout_sec * 2)
     except Exception as exc:  # noqa: BLE001 - surface any driver error as a failed trial
         return {"ok": False, "outcome": "error", "end": None, "detail": str(exc)}
     ok = outcome == Outcome.COMPLETE
