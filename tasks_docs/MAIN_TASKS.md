@@ -31,7 +31,8 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ### 主线：发布就绪 + 助手脚本易用性增强 + 分发验证（2026-08-15 第二阶段）
 
-**状态**：🔄 进行中（commit `aa9bf31` + `78f5c26`，656 passed 零回归；general review 进行中）。
+**状态**：✅ 完成（2026-08-15，commit `aa9bf31` + `78f5c26` + `c1c34c6`，657 passed 零回归 +
+general 只读 review APPROVE 0 blocker）。
 
 **用户新要求**（2026-08-15 第二轮）：①全局装不推荐（明确缺点）；②工作区预检（用户自有文件/冲突/git/
 重启提示，"先整理好工作区再装"）；③覆盖用户各种环境情况；④真实环境验证分发设计。
@@ -49,7 +50,8 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
    注：沙箱内 ServeError 为隔离 XDG+npm 伪环境限制，真实容器环境（4098 端口 serve）验证通过。
 4. 文档同步：05_setup / 04_blueprint / README / 01_cli / capabilities / agent-handbook。
 
-**下一步**：general review 收口 → V-2 PyPI 发布（用户 token 就绪即可 `python -m build && twine upload dist/*`）。
+**下一步**：V-2 PyPI 发布（用户 token 就绪即可 `python -m build && twine upload dist/*`；wheel 已重建
+并通过隔离安装验证 + 真实 opencode 加载验证）。
 
 ### 主线：发布就绪 + 工作区模式装配 + DriveClient 适配器抽取（2026-08-15 起）
 
