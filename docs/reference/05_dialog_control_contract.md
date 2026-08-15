@@ -161,7 +161,7 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 
 - 配置文件见 `config.example.toml`（全部字段+注释）；用法 `--config config.toml`。
 - 优先级：默认 < 配置文件 < `REGIME_<字段>` 环境变量 < CLI 参数。
-- 模型密钥经 opencode `auth.json` 注入，**不经 REGIME_**；零入库。
+- 模型密钥经 opencode 的 `auth.json` 或 `DEEPSEEK_API_KEY` 环境变量注入（不经 `REGIME_*` 前缀变量）；零入库。
 
 ## 6. 红线 / 须知
 

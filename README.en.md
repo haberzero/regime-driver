@@ -43,13 +43,16 @@ invariants) supervising agentic workflow units. See
 
 ## Status / highlights
 
-- **Tests**: full `python -m pytest` green (71%+ coverage); real-worker E2E
-  available locally via `REGIME_E2E=1` (archived from CI).
+- **Tests**: full `python -m pytest` green (coverage per current run); real-worker
+  E2E available locally via `REGIME_E2E=1`.
 - **CI is green**: unit tests pass on Python 3.11 & 3.12 (offline, no key needed).
 - Core features implemented & verified: hot flow compile/reload
   (`FlowRegistry` + `regime flow`), one-command self-driving stack (`regime drive`),
   per-workspace isolated worker batch (`regime worker` / `drive-many`),
-  fault-injection/recovery (`regime chaos`), Dialog Control (A/B dual surface).
+  fault-injection/recovery (`regime chaos`), web console (`regime web`),
+  supervised task registry (`regime task` / `regime job logs`), Dialog Control
+  (A/B dual surface), workspace-mode install (`scaffold/setup/uninstall
+  --workspace`, `doctor --workspace`).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
   source of truth / release docs) and long-run durability (2h+ real run) are
   complete.
@@ -70,11 +73,14 @@ conda run -n regime-driver pip install -e ".[dev]"
 ### 1. Fetch official templates (once)
 
 ```bash
-# generate ~/.config/opencode/{agents,skills} from the packaged templates
-# (idempotent; --dry-run previews without writing)
-regime scaffold
-# also deploy the dialog-control assistant subagents (analyst/advisor/reviewer)
-regime scaffold --assistants
+# recommended: workspace mode — deploy into <dir>/.opencode/ (agent, skills,
+# plugin, agent-handbook); does not pollute other projects (idempotent;
+# --dry-run previews without writing)
+regime setup --workspace <your-project-dir>
+regime setup --workspace <dir> --assistants   # also deploy analyst/advisor/reviewer
+# global mode (NOT recommended: tools become visible to every opencode project;
+# see docs/architecture/04_distribution_blueprint.md)
+regime scaffold [--assistants]
 # self-check: worker health / model key / templates ready
 regime doctor
 ```
@@ -157,7 +163,7 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_work
   Guide** (architecture/subsystems/how-to-develop).
 - In-repo navigation: `docs/README.md`. Known limits: `docs/KNOWN_LIMITS.md`.
   Writing standards: `docs/WRITING_GUIDE.md`.
-- Work plans (historical): `tasks_docs/WORK_PLAN*.md`.
+- Task-control docs (historical): `tasks_docs/` (WORKLOG / MAIN_TASKS / PENDING_TASKS).
 - Note: `docs-ref/` is a reference copy of another project's docs — it is **not
   committed** (gitignored), kept only as writing guidance. Agent-only internals
   (skills / dialog-control assistants / workflow-regime templates) stay machine-specific

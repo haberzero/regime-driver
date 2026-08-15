@@ -30,7 +30,7 @@
 
 - **DELETE /session/{id} 真正删除**：opencode 1.18.11 的 `DELETE /session/{id}` **真正删除**
   session 记录（从 `GET /session` 列表与 `/session/status` map 都移除，含 idle 与 busy 会话）。
-  `regime sessions --clean` 可真正清理累积 session。自动清理策略配置 `session_cleanup_*`
+  `regime sessions --clean` 可真正清理累积 session。自动清理策略配置 `session_cleanup_policy`
   （可自定义，参考模型非强制）。归属：`infra/opencode.py` + `cli`。
 - **session 状态不一致（message 404 + status busy）**：容器重启后，旧 session 的 `/session/{id}/message`
   可能 404，但 `/session/status` 仍报 busy（状态 map 残留）。受影响的 workflow 会在该会话上卡住

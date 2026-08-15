@@ -7,7 +7,8 @@
 > 配置文件格式为 TOML 或 JSON，经 `--config <path>` 传入。
 > 配置字段以 `config.example.toml`（含全部字段与注释）为**唯一真源**；下表为字段摘要。
 > **获取方式**：`regime scaffold` 会把它部署到 `~/.config/opencode/config.example.toml`
-> （wheel 自带，无需 clone 仓库）；仓库内真源在根目录 `config.example.toml`。
+> （全局模式；wheel 自带，无需 clone 仓库）。工作区模式 `--workspace <dir>` 不写该项目文件，
+> 详见 `docs/guide/05_setup.md`。仓库内真源在根目录 `config.example.toml`。
 
 ## 配置字段总表
 

@@ -26,7 +26,8 @@
    - 扩展点：`hook list/path/reload`（`~/.regime/hooks.py`）
    - 人工确认：`decide <workflow> <yes|no> [评论]`（应答 ask_human 检查点）
 3. 写操作走统一权限门禁；dialog-control 默认持 `clean`，可降权只读。
-4. 相关文件（随 wheel 分发，`regime scaffold` / `regime setup` 部署到 `~/.config/opencode/`）：
+4. 相关文件（随 wheel 分发，`regime scaffold` / `regime setup` 部署；推荐 `--workspace <dir>`
+   工作区模式，全局模式不推荐）：
    `agents/dialog-control.md`（agent 定义）、`agent-handbook.md`（操作手册，agent 视角）、
    `plugins/regime-dialog-control.js`（**可选**的 `regime_*` 工具引导——主路径是自由 CLI 直连，
    见 `agent-handbook.md` §4）。

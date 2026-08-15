@@ -45,8 +45,9 @@ regime run "任务" --perm clean   # 有效等级被截断为 run
 | `status` / `events` / `validate` / `gate` / `preflight` / `report` / `web` / `job list/status` / `session reply` | read |
 | `session send` | interact |
 | `run` / `run-many` / `drive` / `drive-many` / `dialog` / `flow load/reload/rm` / `scaffold` / `setup` | run |
-| `task submit` | run |
+| `task list` / `status` / `logs` | read |
 | `task stop` / `clean` | clean |
+| `task submit`（drive 内部隐含，非 CLI 动词） | run |
 | `sessions --clean` / `--kill` | clean |
 | `chaos` | clean |
 | `supervisor` | clean |
