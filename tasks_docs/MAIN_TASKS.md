@@ -31,7 +31,7 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ### 主线：adaptor 层收尾 + 夜间长跑验证（2026-08-15 晚，进行中）
 
-**状态**：🔄 进行中（Phase A 完成：commit 074d60c + b0713bb，663 passed；Phase B 夜间长跑运行中）。
+**状态**：✅ 完成（Phase A：commit 074d60c + b0713bb，663 passed；Phase B 夜间长跑 **complete @ wrap 2191.2s**，产物 87 用例宿主独立全过，零异常）。
 
 **用户要求**：完成 DriveClient adaptor 层抽象全部收尾 → 开启"尽可能长且复杂"的夜间长跑：
 独立 opencode 实例担任主控窗口（从安装 regime-driver 到启动任务全流程），本会话不直接担任
@@ -49,8 +49,14 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 scaffold --workspace → 独立 opencode serve（4297，隔离 XDG）→ 主控窗口
 （dialog-control agent 已就绪）→ drive 11 节点流程（dqueue 四模块渐进构建 + 4 道审查门）。
 
-**下一步**：长跑完成 → 流程/日志分析（journal/ledger/verdicts）→ 代码质量分析（产物
-pytest + 结构评审）→ 确认 adaptor 完成后功能正常 → 收尾记录。
+**分析结论**（已完成）：流程分析——11 节点全时序 + 6 判定门（design 0.85/test-core 0.9/
+test-pool issue_pending→issue_resolved 0.9/test-store 0.88/test-api 0.88）+ 1 次 blocking 返工环
+（退避溢出崩溃缺陷被审查抓到并实质修复）+ 3 次上下文协商（未阻塞）+ 零异常；代码质量分析——
+dqueue 产物 2303 行（4 模块 + 1400 行测试），宿主独立全量 87 passed + compileall 全绿 + README
+完整；adaptor 验证——36.5min 真实运行全程经 DriveClient seam 驱动（13 方法面全走通），
+OpenCodeClient 仅构造点。
+
+**下一步**：V-2 PyPI 发布（待用户 token）或新一轮长跑。
 
 
 ### 主线：技术文档全方位同步 + 版本号统一 v0.1（2026-08-15 第三阶段）
