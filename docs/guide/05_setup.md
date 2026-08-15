@@ -85,7 +85,7 @@ regime scaffold
 ```
 
 预期结果：`~/.config/opencode/` 下生成：
-- `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 17 个
+- `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 22 个
   opencode 工具，opencode 启动自动加载）
 - `agents/dialog-control.md` + `reviewer.md` —— 对话控制主 agent + 只读审查 subagent
 - `skills/`、`opencode.json`（provider 占位）、`package.json`（插件 SDK 依赖，opencode

@@ -484,6 +484,28 @@ key_present,host_mode_ready,container_mode_ready}`。
 **参数**：`--json`。
 **输出**：job 公共记录，含 `result`。
 
+### `job logs <job_id>`
+
+打印后台 job 捕获的 stdout/stderr（`run/run-many --async` 的输出事后查看，见
+`docs/guide/00_dialog_control.md`"非阻塞后台运行与事后查看"）。
+
+**参数**：`--tail <n>`（最大行数，0=全部，默认 200）、`--json`。
+**输出**：捕获的日志行。
+
+---
+
+## 观察窗
+
+### `web`
+
+启动只读观察窗（web 面板 + JSON API），聚合态势/事件流/会话/报告一次看全。**纯消费者，
+不暴露任何写操作**——只复用 `status --deep` / `report` 的只读命令。
+
+**参数**：`--base`（worker URL）、`--journal <path>`（report journal）、`--ledger <path>`（事件账本）、
+`--tasks-dir <path>`、`--port`（默认 8721）、`--host`（默认 127.0.0.1）。
+**端点**：`/`（HTML 面板）、`/api/status`、`/api/report`、`/api/ledger`、`/api/journal`、`/api/snapshot`。
+**用途**：人类浏览器盯面板；agent/脚本读 JSON API；**事后查看**长任务的聚合态势与事件流。
+
 ---
 
 ## 工作区实例

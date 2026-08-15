@@ -16,7 +16,7 @@
 
 ---
 
-## 一、CLI 命令（17 顶层 + 6 子面：session/task/flow/worker/chaos/job）
+## 一、CLI 命令（18 顶层 + 6 子面：session/task/flow/worker/chaos/job）
 
 | 能力 | 入口 | 场景 | 验证任务（covers） | 文档 |
 |---|---|---|---|---|
@@ -33,6 +33,7 @@
 | status | `regime status` | 值守 | — | 01_cli.md |
 | sessions | `regime sessions` | 值守/运维 | harness 每任务 `--clean` | 01_cli.md |
 | dialog | `regime dialog` | **值守** | — | 05_dialog_control_contract.md |
+| web | `regime web` | 值守/观察窗 | **只读观察窗**（HTML 面板 + JSON API，聚合态势/事件/会话/报告，不暴露写操作） | 01_cli.md |
 | scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/插件/opencode.json/config.example.toml | 06_release.md |
 | setup | `regime setup` | 一次性/运维 | 引导安装：环境检测 + 装配 + 分步指引 | 04_distribution_blueprint.md |
 | uninstall | `regime uninstall` | 一次性/运维 | 按部署清单安全移除 regime 文件（保留用户改动） | 04_distribution_blueprint.md |
@@ -43,7 +44,7 @@
 | regime | `regime regime` | 值守/流程期 | **命名运行制度设计/加载/热重载**（flow+roles+watchdog+handover 合一，体系化重构阶段1） | 01_cli.md |
 | worker | `regime worker` | 一次性/并发 | — | 01_cli.md |
 | chaos | `regime chaos` | 一次性/演练 | — | 01_cli.md |
-| job | `regime job` | 值守 | — | 01_cli.md |
+| job | `regime job` | 值守 | `job status/logs`（非阻塞后台运行事后查看） | 01_cli.md |
 
 ## 二、对话框内能力（Dialog> 命令）
 

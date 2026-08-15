@@ -25,6 +25,13 @@ regime-driver 把一条**流程**（一组有顺序、有角色的步骤：理�
 - **进程外监督**：独立时钟盯着卡死/停滞/超时，按阶梯自动纠正；
 - **全程可复盘**：每次运行都写入事件账本与报告日志。
 
+**运行制度是一等公民**：把"怎么跑一个任务"（流程 + 角色策略 + 监督看门狗 + 上下文交接）
+合成一个可命名、可注册、可热重载的**制度（Regime）**——`regime regime design <名> '<JSON>'`
+一句注册，`regime run/drive --regime-name <名>` 按整制度运行。配套：
+`~/.regime/hooks.py` 统一扩展点（生命周期 hooks + 看门狗规则 + 自定义工具）、
+审查者可请求 **人工确认点**（对话框 `decide <workflow> <yes|no>` 裁决）、
+judge 节点可声明 `verify` 在审查前跑真实测试（白名单化，消 RCE）。
+
 **核心架构**：对等多状态机网络（看门狗 = 无智能状态机 + 信号协议 + 根不变量运行时强制）。
 详见 `docs/architecture/02_statechart_network.md`。
 
@@ -127,6 +134,8 @@ conda run -n regime-driver pytest
 当前主线见 `tasks_docs/MAIN_TASKS.md`。
 > 注：`docs-ref/` 是另一项目文档的参考副本，**不入库**（gitignore），仅作写作参考。
 > 供 agent 执行的内部配置（skills / 控制对话框助手 / workflow-regime 模板）是机器专用内容，不进文档站。
+> 试用 regime-driver 的**智能体**请读随 wheel 分发的 `agent-handbook.md`
+> （agent 视角完整操作手册，真源 `.opencode/agent-handbook.md`）。
 
 ## 配置与密钥
 

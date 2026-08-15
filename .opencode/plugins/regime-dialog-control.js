@@ -1,6 +1,8 @@
 // regime-dialog-control plugin: expose the regime-driver CLI contract as native opencode tools.
-// The Dialog Control (opencode `dialog-control` agent) calls these instead of raw bash for reliability.
-// Each tool shells out to the regime CLI (conda env) and returns its --json output.
+// OPTIONAL convenience layer — NOT the primary path. The Dialog Control operates the
+// regime CLI directly (bash, full command surface); these tools are a lightweight schema
+// guide for agents unfamiliar with the CLI (each is a thin wrapper over `regime <cmd> --json`,
+// so bash is equivalent). See agent-handbook.md §4.
 import { tool } from "@opencode-ai/plugin"
 
 // Invoke the regime CLI entry point DIRECTLY (no `conda run` wrapper): conda run's
@@ -131,12 +133,15 @@ export const DialogControlPlugin = async ({ $ }) => {
         description: "Run ONE task through the regime flow to completion (BLOCKING, can take minutes). " +
                      "Returns {outcome,end,detail,elapsed_sec} JSON. Provide a clear, self-contained task context. " +
                      "Set async=true to submit as a background job and return a handle immediately. " +
-                     "Optionally set flow=<name> to run a Dialog-Control-designed registry flow instead of the builtin.",
+                     "Optionally set flow=<name> to run a Dialog-Control-designed registry flow instead of the builtin, " +
+                     "or regime_name=<name> to run a whole operating rule (regime: flow + roles + watchdog + handover). " +
+                     "If both are given, regime_name takes precedence.",
         args: {
           context: tool.schema.string(),
           base: tool.schema.string().optional(),
           ledger: tool.schema.string().optional(),
           flow: tool.schema.string().optional(),
+          regime_name: tool.schema.string().optional(),
           async: tool.schema.boolean().optional(),
           perm: tool.schema.string().optional(),
         },
@@ -144,7 +149,8 @@ export const DialogControlPlugin = async ({ $ }) => {
           const a = A(args)
           const opts = ["run", a.context, "--json", "--base", a.base ?? BASE,
                         "--perm", a.perm ?? "run"]
-          if (a.flow) opts.push("--flow", a.flow)
+          if (a.regime_name) opts.push("--regime-name", a.regime_name)
+          else if (a.flow) opts.push("--flow", a.flow)
           if (a.ledger) opts.push("--ledger", a.ledger)
           if (a.async) opts.push("--async")
           return await run($, opts)
@@ -325,10 +331,41 @@ export const DialogControlPlugin = async ({ $ }) => {
 
       regime_regime_list: tool({
         description: "List named regimes in the RegimeRegistry (whole operating rules designed/loaded via " +
-                     "`regime regime design`). Returns {regimes:[{name,version,source,nodes,path,has_watchdog,has_handover,roles}]} JSON.",
+                     "`regime regime design`). Returns {regimes:[{name,version,source,file,nodes,path,has_watchdog,has_handover,roles}]} JSON.",
         args: {},
         async execute() {
           return await run($, ["regime", "list", "--json"])
+        },
+      }),
+
+      regime_regime_inspect: tool({
+        description: "Inspect a named regime definition (whole operating rule). " +
+                     "Returns {name,version,source,file,nodes,path,has_watchdog,has_handover,roles} JSON.",
+        args: { name: tool.schema.string() },
+        async execute(args) {
+          const a = A(args)
+          return await run($, ["regime", "inspect", a.name, "--json"])
+        },
+      }),
+
+      regime_regime_reload: tool({
+        description: "Atomically hot-reload a named regime (deep-validated before swap; " +
+                     "running workflows keep their old Regime snapshot; a failed reload keeps the current version). " +
+                     "Returns {ok, name, version, nodes, source} JSON.",
+        args: { name: tool.schema.string(), perm: tool.schema.string().optional() },
+        async execute(args) {
+          const a = A(args)
+          return await run($, ["regime", "reload", a.name, "--json", "--perm", a.perm ?? "run"])
+        },
+      }),
+
+      regime_regime_rm: tool({
+        description: "Remove a named regime from the RegimeRegistry (running workflows keep theirs). " +
+                     "Returns {removed} JSON.",
+        args: { name: tool.schema.string(), perm: tool.schema.string().optional() },
+        async execute(args) {
+          const a = A(args)
+          return await run($, ["regime", "rm", a.name, "--json", "--perm", a.perm ?? "run"])
         },
       }),
     },

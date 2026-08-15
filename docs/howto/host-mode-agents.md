@@ -19,7 +19,7 @@ regime scaffold
 
 | 路径 | 内容 |
 |---|---|
-| `plugins/regime-dialog-control.js` | **A 路插件**：把 `regime_*` 命令包装成 17 个 opencode 工具（opencode 启动自动加载本地插件） |
+| `plugins/regime-dialog-control.js` | **A 路插件**：把 `regime_*` 命令包装成 22 个 opencode 工具（opencode 启动自动加载本地插件） |
 | `agents/dialog-control.md` | **对话控制 agent**：主操作对话框（primary，`Tab` 切换） |
 | `agents/reviewer.md` | 只读审查 subagent |
 | `skills/` | 运行时 skills（design-philosophy / code-review / developer-quality 等） |
@@ -64,3 +64,7 @@ regime dialog --live --perm run        # B 路纯 Python 对话框
 官方 agent/插件模板是**机器专用配置**（含提示词与权限），由 `regime scaffold` 从打包模板部署。
 `docker/worker-config/` 与 `docker/dialog-control-config/` 是镜像内副本（同源，漂移守卫保证一致）。
 `reviewer` 保持只读（`edit/write/apply_patch: deny`，`bash` 只读白名单），与仓库 `AGENTS.md` 一致。
+
+**用户扩展点（阶段 2）**：主机模式下，你可以在 `~/.regime/hooks.py` 写一个 Python 插件统一注入
+hooks（生命周期观察者）/ 看门狗规则 / 自定义工具；对话框内 `hook list/path/reload` 管理与热重载。
+`REGIME_HOOKS` 环境变量可覆盖插件路径（默认 `~/.regime/hooks.py`）。

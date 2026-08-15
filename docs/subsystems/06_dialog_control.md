@@ -88,7 +88,7 @@
      **JSON 含 `flow` 键 = 整制度（regime：flow+roles+watchdog+handover）**，注册进
      RegimeRegistry（持久 store，另一进程可经 `--regime-name` 运行）——制度设计入口（阶段 1d）；
      **自然语言意图级设计（阶段 4）**：LLM 按需求生成 flow JSON 或整制度 JSON（需求提到监督/
-     验证/交接 → 整制度；提到"审查前必须验证测试" → judge 节点自动带 `verify`）
+     看门狗/人工确认 → 整制度；提到"审查前必须跑测试" → judge 节点自动带 `verify`）
    - `regime list` / `regime inspect <名称>` — 查看整制度注册表（只读）
    - `hook list` / `hook path` / `hook reload` — 统一扩展点注册表查看 / 插件热重载（阶段 2；reload 写）
    - `decide <wid> <yes|no> [评论]` / `裁决` — **应答 ask_human 人工确认点**（阶段 4；`decide` 列出待决，写）

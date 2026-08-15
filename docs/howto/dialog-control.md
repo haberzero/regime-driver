@@ -15,14 +15,21 @@
 ## A 路：opencode dialog-control agent（推荐）
 
 1. 以 `dialog-control` agent 会话（`opencode` 提示中选 dialog-control，或配置为默认 primary）进入。
-2. 它会先读 `../reference/05_dialog_control_contract.md` 与 `KNOWN_LIMITS.md`，然后照手册操作：
+2. 它会先读 `agent-handbook.md`（操作手册）与 `docs/KNOWN_LIMITS.md`，然后照手册操作：
    - 监控：`regime status/sessions/events --json`
-   - 运行：`regime run/run-many --json`（阻塞）或 `--async`（非阻塞作业）
+   - 运行：`regime run/run-many --json`（阻塞）或 `--async`（非阻塞作业，**默认推荐**）
+   - 事后查看：`regime job status/logs`（后台作业输出）、`regime task status/logs`（drive 任务）、
+     `regime web`（只读观察窗，HTML 面板 + JSON API）
    - 交互：`regime session <id> send/reply`
    - 校验：`regime validate/gate`
+   - 制度：`regime regime design/list/inspect`（整制度）+ `run/drive --regime-name <名>`
+   - 扩展点：`hook list/path/reload`（`~/.regime/hooks.py`）
+   - 人工确认：`decide <workflow> <yes|no> [评论]`（应答 ask_human 检查点）
 3. 写操作走统一权限门禁；dialog-control 默认持 `clean`，可降权只读。
 4. 相关文件（随 wheel 分发，`regime scaffold` / `regime setup` 部署到 `~/.config/opencode/`）：
-   `agents/dialog-control.md`（agent 定义）、`plugins/regime-dialog-control.js`（CLI 原生工具）。
+   `agents/dialog-control.md`（agent 定义）、`agent-handbook.md`（操作手册，agent 视角）、
+   `plugins/regime-dialog-control.js`（**可选**的 `regime_*` 工具引导——主路径是自由 CLI 直连，
+   见 `agent-handbook.md` §4）。
 
 ## B 路：regime dialog REPL
 
@@ -34,7 +41,13 @@ regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker +
 在 `Dialog>` 提示符下输入命令（中英文皆可）：
 - `status` / `monitor node` — 实时快照 / 只查某字段
 - `watch 10 watchdog` — 最近事件按主题
-- `design myflow <JSON 或自然语言>` — 设计新 workflow
+- `design myflow <JSON 或自然语言>` — 设计新 workflow；`design myregime <整制度JSON>`
+  设计完整运行制度（flow+roles+watchdog+handover，`--regime-name` 按名运行）；自然语言
+  描述提出监督/人工确认要求时自动生成整制度（意图级设计）；提到"审查前必须跑测试"则
+  在审查节点加 `verify`（先跑真实测试再判定）
+- `regime list` / `regime inspect <名>` — 查看已注册制度
+- `hook list` / `hook path` / `hook reload` — 查看/热重载 `~/.regime/hooks.py` 扩展点
+- `decide <workflow> <yes|no> [评论]` / `裁决` — 应答 ask_human 人工确认点（裸 `decide` 列待决）
 - `start myflow 做任务` — 非阻塞启动（可用设计流）
 - `inspect dialog-1` — 查看某 workflow 黑板指标
 - `flow list` — 列出已注册流程（`flow design` 同 `design`）

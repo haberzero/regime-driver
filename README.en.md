@@ -26,6 +26,16 @@ role-aware steps: understand → design → implement → review → wrap) into 
 - **Everything is replayable**: every run is written to an event ledger and a
   report journal.
 
+**An operating rule (Regime) is a first-class object**: bundle *how a task runs*
+(flow + role policies + supervision watchdog + context handover) into one
+named, registerable, hot-reloadable **Regime** —
+`regime regime design <name> '<JSON>'` registers it, `regime run/drive --regime-name <name>`
+runs the whole rule. Companions: `~/.regime/hooks.py` unified extension points
+(lifecycle hooks + watchdog rules + custom tools), reviewer-requested **human
+confirmation points** (`decide <workflow> <yes|no>` in the dialog), and judge
+nodes can declare `verify` to run real tests before judging (whitelisted,
+RCE-free).
+
 **Core architecture**: a peer state-machine network — a "watchdog"
 (intelligent-free state machines + a signal protocol + runtime-enforced root
 invariants) supervising agentic workflow units. See

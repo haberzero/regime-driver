@@ -149,6 +149,11 @@ def test_packaged_templates_match_true_sources():
         REPO / ".opencode" / "agent" / "dialog-control.md", shallow=False)
     assert (PKG / "data" / "opencode-package.json").is_file()
 
+    # agent handbook ships in the wheel (machine-oriented operator manual) and
+    # stays byte-identical to its true source in .opencode/.
+    assert filecmp.cmp(PKG / "data" / "agent-handbook.md",
+                       REPO / ".opencode" / "agent-handbook.md", shallow=False)
+
 
 def _dirs_equal(a: Path, b: Path) -> bool:
     import filecmp

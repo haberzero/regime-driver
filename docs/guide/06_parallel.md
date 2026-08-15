@@ -94,6 +94,10 @@ conda run -n regime-driver regime drive-many "实现 add(x,y)" "实现 mul(x,y)"
 `wsA` 与 `wsB` 各跑一个任务，互不污染。
 `--workers N` 可限制同时跑的成员数。
 
+> **命名制度同样适用**：`drive-many ... --regime-name <名称>`（以及 `run-many --regime-name`）
+> 让每个成员 Drive 都按同一套整制度运行（flow+roles+watchdog+handover），与
+> `run/drive --regime-name` 语义一致。
+
 ### 5. 查看并行任务汇报
 
 并行任务共享一个 reporter journal。

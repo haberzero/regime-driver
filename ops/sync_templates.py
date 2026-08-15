@@ -47,6 +47,11 @@ FILES = [
     # data/dialog-control-agent/ (keeps data/agents byte-identical to its true
     # source); scaffold merges it into the target agents/ directory.
     ("dialog-control-agent/dialog-control.md", REPO / ".opencode" / "agent" / "dialog-control.md"),
+    # agent handbook — the operator manual for agents that will drive regime-driver
+    # (machine-oriented, companion to docs/guide/). Ships in the wheel; scaffold
+    # does NOT deploy it into ~/.config/opencode (it is reference material, not
+    # an opencode agent definition).
+    ("agent-handbook.md", REPO / ".opencode" / "agent-handbook.md"),
     # opencode.json assembly template — a user-facing config (model providers),
     # sourced from the worker image config. Docker build assets themselves are
     # NOT shipped via pip (they live in the GitHub repo); only this template is.

@@ -12,7 +12,10 @@ pip 安装的 wheel 必须自带用户运行所需的官方模板（agents/skill
 `tasks_docs/release_readiness_audit.md`。
 
 **当前状态**：模板已随 wheel 打包（`src/regime_driver/data/`），`regime scaffold` / `regime setup`
-一键装配（含 A 路插件 + dialog-control agent + opencode.json），单一真源 + CI 漂移守卫已就位。
+一键装配（含 A 路插件 + dialog-control agent + opencode.json）。**智能体说明书
+（`data/agent-handbook.md`，agent 视角完整手册）随 wheel 分发**，不部署进
+`~/.config/opencode`（是参考材料，不是 agent 定义）；其真源在 `.opencode/agent-handbook.md`，
+由 `sync_templates` 派生（漂移守卫覆盖）。单一真源 + CI 漂移守卫已就位。
 **Docker 资产（Dockerfile/镜像配置）不进 pip wheel**（属容器化辅助，GitHub 仓库提供），
 符合"pip 只和 pip 有关"的分发原则。完整渠道/内容归属见
 [分发与部署蓝图](../architecture/04_distribution_blueprint.md)。

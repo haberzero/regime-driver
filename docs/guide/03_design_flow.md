@@ -17,13 +17,45 @@ Dialog> design my_flow 设计一个先实现、再审查、再测试的流程
 Dialog> start my_flow 实现某个功能
 ```
 
-## 查看已注册流程
+> **意图级设计（阶段 4）**：`design <名称> <自然语言描述>` 由对话框背后的模型把需求翻译成
+> 流程 JSON。若需求**明确提到监督/看门狗/人工确认**，它会自动生成一份**完整运行制度**
+> （flow + watchdog 等）；若需求只提到"审查前必须跑测试"，则会在对应审查节点加
+> `verify`（先跑真实测试再判定），不强制切换整制度形态——你不需要手写这些配置，说出来即可。
 
-```text
-Dialog> flow list
+## 设计完整运行制度（整制度，推荐进阶）
+
+"怎么跑一个任务"不只包括流程节点，还包括**角色策略、监督看门狗、上下文交接**。
+把它们合成一个可命名、可注册、可热重载、可分享的对象，就叫**制度（Regime）**——
+制度是一等公民：CLI 用 `regime regime design <名称> '<整制度 JSON>'` 一句注册
+（对话框里则是 `design <名称> <整制度 JSON>`），之后 `regime run --regime-name <名称>`
+按名运行。JSON 形状：
+
+```json
+{
+  "flow": {"entry": "a", "nodes": [{"id":"a","desc":"干","role":"developer","type":"agent"}]},
+  "roles": {"developer": {"context_threshold_normal": 0.4}},
+  "watchdog": {"soft_sec": 30, "soft_action": "interrupt", "hard_sec": 600},
+  "handover": {"soft_fraction": 0.5, "hard_fraction": 0.7},
+  "stall_sec": 120,
+  "auto_resume_sec": 30
+}
 ```
 
-列出所有可运行流程（内置 `code_workflow` + 你自己设计的）。
+- 全部组件经同一个编译 + 深度校验门；CLI `regime regime list/inspect/load/reload/rm`
+  管理已注册制度（对话框 `regime list/inspect` 查看）。
+- 每个可选组件都可以不写（`null`）→ 回退到运行时默认；`--regime-name` 与 `--flow` 二选一，
+  `--regime-name` 优先（它自带 flow）。
+- 并行入口 `run-many`/`drive-many` 也支持 `--regime-name`，每个成员共享同一套制度。
+
+> 什么时候用整制度：你的规则里含**监督策略**（自动中断/续跑）、**上下文交接**或**角色策略**时，
+> 把它们和流程捆成一份可分享的声明，比单独散落配置更自洽。纯流程用 `design` 就够。
+
+## 查看已注册流程与制度
+
+```text
+Dialog> flow list        # 已注册流程（内置 code_workflow + 你自己设计的）
+Dialog> regime list      # 已注册完整制度（flow+roles+watchdog+handover 合一）
+```
 
 ## 什么时候需要手写流程 JSON
 
@@ -54,6 +86,13 @@ Dialog> flow list
 官方示例流程 `verify_then_report` 就是"tool 检查 → route 分支 → 再回环"的结构，
 加载方式见 [流程规格：示例流程](../reference/03_flow_spec.md)。
 
+### judge 节点可带 `verify`：审查前跑真实测试
+
+审查判定不一定只靠模型读代码。给 judge 节点声明 `"verify": "docker exec {container} pytest -q"`，
+体系会在判定前在 worker 容器里执行该命令，把真实运行结果（通过/失败）作为**独立运行时证据**
+一并交给审查者。命令经白名单约束：只允许 `docker exec {container} <pytest|python|node|bash|...>`
+形态，argv 不经宿主 shell，从源头消掉任意命令执行面（默认关闭，`verify_enabled: true` 才生效）。
+
 ## 一个设计好的流程长什么样
 
 当你对对话框说"设计一个**先实现、再审查、再测试**的流程"，它编译出的成品大致长这样：
@@ -73,11 +112,40 @@ flowchart LR
 
 ## 热重载
 
-流程定义变更后可以热重载到运行中的系统（运行中的任务保持旧快照，不受影响）。
-细节见查询参考。
+流程/制度定义变更后可以热重载到运行中的系统（运行中的任务保持旧快照，不受影响）。
+`regime flow reload <name>` 与 `regime regime reload <name>` 都是原子替换：新版本先编译 + 深度校验，
+通过才切换；失败保留当前版本。细节见查询参考。
+
+## 扩展你的体系：用户扩展点
+
+除 JSON 声明外，你可以在 `~/.regime/hooks.py` 写一个 Python 插件，统一注入三类行为
+（统一扩展点模型，hooks/rules/tools 三通道合一）：
+
+```python
+# ~/.regime/hooks.py
+from regime_driver.core.tools import ToolResult
+
+def register(reg):
+    @reg.hook("node_done")               # 生命周期观察者（不覆盖确定性判定）
+    def on_done(ctx): ...
+    def never_busy(ev): return False
+    reg.register_rule("never-busy", never_busy, "nudge")   # 看门狗规则
+    reg.register_tool("ping", lambda c, r, a: ToolResult(True, "pong"))  # 自定义工具
+```
+
+对话框内 `hook list`（查看）/ `hook path`（路径）/ `hook reload`（原子热重载）管理与验证。
+详细契约见 [统一扩展点](../reference/02_configuration.md) 与 `docs/subsystems/10_extension_points.md`。
+
+## 人工确认点（ask_human）
+
+审查者需要你拍板时，可返回 `ask_human` 检查点：workflow 冻结推进并等待裁决。
+对话框用 `decide <workflow> <yes|no> [评论]`（或 `裁决`）应答——`yes` 放行到下一节点，
+`no` 带评论回开发者重做后重审；`decide` 单独调用列出所有待决检查点。
+无人值守时按 `human_confirm_timeout_sec` 超时 + `human_default_on_timeout` 默认兜底。
 
 ## 深入指引
 
 - 流程 JSON 结构与字段：`../reference/03_flow_spec.md`
-- 流程生命周期命令：`../reference/01_cli.md`
+- 完整运行制度（Regime）设计：`../reference/01_cli.md`（`regime regime` 命令组）
+- 对话框命令与人工确认点：`../reference/05_dialog_control_contract.md`
 - 流程设计概念：`../guide/00_dialog_control.md`

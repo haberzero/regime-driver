@@ -28,8 +28,8 @@
 4. **常驻对话框受 session 上下文限制**：需 compaction，超长会话有保真损失。
 5. **opencode 不提供系统机制本身**：仍要建 regime-driver 后端。
 6. **CLI 契约已补齐**：全命令支持 `--json`、`events --follow`、`session send`、
-   `flow design/list/reload` 等——A 路工具与 B 路程序化面共用这一契约（见
-   `reference/01_cli.md` 与 `reference/05_dialog_control_contract.md`）。
+   `flow design/list/reload`、`regime design/list/inspect`（整制度）等——A 路工具与 B 路程序化面共用
+   这一契约（见 `reference/01_cli.md` 与 `reference/05_dialog_control_contract.md`）。
 
 ## 4. 双路方案（最终架构）
 
