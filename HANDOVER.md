@@ -167,7 +167,13 @@
 
 ## 8. 下一步（下一 session 主线任务）
 
-> **当前主线（唯一指针，2026-08-15）**：技术文档全方位同步 + 版本号统一 v0.1 已完成
+> **当前主线（唯一指针，2026-08-16）**：adaptor 层收尾 + 夜间长跑完成——DriveClient seam 完全化
+> （commit 074d60c + b0713bb，663 passed）；dqueue 11 节点长跑 **complete @ wrap 2191s**：
+> 独立 opencode 主控实例（4297，隔离 XDG）+ 主控窗口（dialog-control agent）全程待命；
+> 6 判定门含 1 次 blocking 返工环（审查抓到退避溢出崩溃缺陷并实质修复）；产物 2303 行 +
+> 87 用例宿主独立全过；零异常。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
+
+> **历史主线（2026-08-15）**：技术文档全方位同步 + 版本号统一 v0.1 已完成
 > （commit `9dd10d3` + `db99aaa` + `1bed87f` + `d9d9b97`，658 passed 零回归 + general review
 > **APPROVE 0 blocker** + 审计二轮清尾）。
 > **下一 session 主攻：V-2 PyPI 发布**（用户 token 就绪即可 `python -m build && twine upload dist/*`；
