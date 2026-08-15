@@ -29,6 +29,30 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ## 🔴 当前主线
 
+### 主线：adaptor 层收尾 + 夜间长跑验证（2026-08-15 晚，进行中）
+
+**状态**：🔄 进行中（Phase A 完成：commit 074d60c + b0713bb，663 passed；Phase B 夜间长跑运行中）。
+
+**用户要求**：完成 DriveClient adaptor 层抽象全部收尾 → 开启"尽可能长且复杂"的夜间长跑：
+独立 opencode 实例担任主控窗口（从安装 regime-driver 到启动任务全流程），本会话不直接担任
+主控；定时检查；出问题以人类程序员思路操作主控；跑完做流程/日志/代码质量分析。
+
+**Phase A 交付（adaptor 收尾）**：
+1. DriveClient seam 完全化：infra/drive_client.py 补再导出 OpenCodeError + is_abort_error，
+   内核（self_assess/workflow_unit）不再直连 infra/opencode 传输细节。
+2. 边界守卫 tests/test_adaptor_seam.py：内核模块禁直连 infra/opencode（构造点白名单
+   dialog_app/parallel）+ 再导出面断言；docs/subsystems/01_drive.md 补 seam 章节。
+3. 长流程修复（夜间前置暴露）：preflight 超时按节点数缩放（_scale_timeout）+ MockClient
+   节点 id 解析支持连字符（'test-core' 不再截成 'test'）。
+
+**Phase B（夜间长跑，运行中）**：night-run-20260816/ —— 全新 venv 装 wheel 0.1.0 →
+scaffold --workspace → 独立 opencode serve（4297，隔离 XDG）→ 主控窗口
+（dialog-control agent 已就绪）→ drive 11 节点流程（dqueue 四模块渐进构建 + 4 道审查门）。
+
+**下一步**：长跑完成 → 流程/日志分析（journal/ledger/verdicts）→ 代码质量分析（产物
+pytest + 结构评审）→ 确认 adaptor 完成后功能正常 → 收尾记录。
+
+
 ### 主线：技术文档全方位同步 + 版本号统一 v0.1（2026-08-15 第三阶段）
 
 **状态**：✅ 完成（commit `9dd10d3` + `db99aaa` + `1bed87f` + 收尾 commit，658 passed 零回归 +
