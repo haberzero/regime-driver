@@ -1,8 +1,8 @@
 # Mock 机制
 
 > 本文描述 MockClient（`src/regime_driver/testing/mock_client.py`）：实现 `DriveClient` 协议
-> （`infra/drive_client.py`）的 drop-in 模拟器，与 `OpenCodeClient` 同接口，用于无网络/无 LLM 的
-> 确定性调试与故障注入。面向调试状态机/并发/超时的开发者。
+> （`infra/drive_client.py`）的 drop-in 模拟器，与生产实现 `OpenCodeClient` 同为 `DriveClient`
+> 协议实现，用于无网络/无 LLM 的确定性调试与故障注入。面向调试状态机/并发/超时的开发者。
 
 ## 1. 为什么
 

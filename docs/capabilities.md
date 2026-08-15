@@ -16,7 +16,7 @@
 
 ---
 
-## 一、CLI 命令（18 顶层 + 7 子面：session/task/flow/regime/worker/chaos/job）
+## 一、CLI 命令（25 顶层：session/task/flow/regime/worker/chaos/job 等）
 
 | 能力 | 入口 | 场景 | 验证任务（covers） | 文档 |
 |---|---|---|---|---|

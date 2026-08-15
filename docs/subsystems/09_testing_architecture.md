@@ -83,14 +83,14 @@ regime run <flow>  ──HTTP──▶  worker 容器(:4097)  真正干任务
 
 ---
 
-## 5. 任务分解（待实施，按序）
+## 5. 任务分解
 
 | # | 任务 | 状态 |
 |---|---|---|
-| T-A | **E2E 系统化**：把真实 worker HTTP 驱动整理成可回归的 E2E 测试 | ✅ `e2e_tests/test_e2e_worker.py`（REGIME_E2E 门控，真实 worker COMPLETE） |
-| T-B | **对话面配置进容器**：建 `Dockerfile.dialog-control` + `docker/dialog-control-config/`，装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 --pure，端口 4098 | ✅ `opencode-dialog-control` 容器运行（--network host） |
-| T-C | **控制对话框 A 路 HTTP 驱动 E2E**：HTTP 建 控制对话框会话，dialog-control 调用插件工具真实控制 | ✅ 打通（regime_status 返回真实 worker 健康，dialog-control 结构化报告） |
-| T-D | **regime-driver 容器化（可选，你的思路）** | ⏳ 可选；当前宿主驱动已够 |
+| T-A | **E2E 系统化**：把真实 worker HTTP 驱动整理成可回归的 E2E 测试 | 已实现：`e2e_tests/test_e2e_worker.py`（REGIME_E2E 门控，真实 worker COMPLETE） |
+| T-B | **对话面配置进容器**：建 `Dockerfile.dialog-control` + `docker/dialog-control-config/`，装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 --pure，端口 4098 | 已实现：`opencode-dialog-control` 容器运行（--network host） |
+| T-C | **控制对话框 A 路 HTTP 驱动 E2E**：HTTP 建 控制对话框会话，dialog-control 调用插件工具真实控制 | 已实现：打通（regime_status 返回真实 worker 健康，dialog-control 结构化报告） |
+| T-D | **regime-driver 容器化（可选）** | 可选；当前宿主驱动已够 |
 | T-E | **文档/交接收口**：更新 HANDOVER/TECH_DEBT 标记 T1/T2/E2E 缺口已补 | 本文件 + HANDOVER |
 
 > 注：T-C 打通过程暴露并修复 regime-dialog-control.js 三个真 bug（null-args 崩溃、conda run 输出丢失、

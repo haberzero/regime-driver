@@ -6,7 +6,7 @@
 
 ## 步骤
 
-1. 用 `MockClient` 替换 `OpenCodeClient`（同接口 drop-in）：
+1. 用 `MockClient` 替换 `OpenCodeClient`（同为 `DriveClient` 协议实现，drop-in）：
 
    ```python
    from regime_driver.testing import MockClient
