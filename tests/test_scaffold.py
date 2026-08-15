@@ -314,6 +314,30 @@ def test_cli_scaffold_global_marks_not_recommended(tmp_path, monkeypatch):
     assert data.get("global_not_recommended") is True
 
 
+def test_cli_scaffold_workspace_json_precheck_is_predeploy(tmp_path):
+    """The precheck in JSON output must reflect the PRE-deploy state: a user's
+    own colliding plugin file must be reported, even though deploy then writes
+    the manifest (which would otherwise make the workspace look regime-owned)."""
+    import json
+    from typer.testing import CliRunner
+
+    from regime_driver.cli import app
+
+    oc = tmp_path / ".opencode"
+    (oc / "plugins").mkdir(parents=True)
+    (oc / "plugins" / "regime-dialog-control.js").write_text("// user's own\n", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["scaffold", "--workspace", str(tmp_path), "--json"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    pc = data["precheck"]
+    assert pc["ok"] is False, pc
+    assert "plugins/regime-dialog-control.js" in pc["collisions"], pc
+    # the user's file is preserved (scaffold never overwrites existing files)
+    assert (oc / "plugins" / "regime-dialog-control.js").read_text(encoding="utf-8") == "// user's own\n"
+
+
 def test_cli_scaffold_target_workspace_mutually_exclusive(tmp_path):
     from typer.testing import CliRunner
 

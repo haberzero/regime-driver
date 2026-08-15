@@ -2792,8 +2792,10 @@ def scaffold_cmd(
 
     from ..scaffold import precheck_workspace, scaffold as _scaffold
 
-    if mode == "workspace" and not json_out:
-        _pc = precheck_workspace(workspace)
+    # capture the PRE-deploy inspection once (post-deploy the manifest exists and
+    # would make the workspace look regime-owned, hiding user-file collisions)
+    _pc = precheck_workspace(workspace) if mode == "workspace" else None
+    if _pc is not None and not json_out:
         if _pc["notes"]:
             console.print("[bold]工作区预检[/bold]")
             for n in _pc["notes"]:
@@ -2808,7 +2810,7 @@ def scaffold_cmd(
     if json_out:
         out = result.to_dict()
         if mode == "workspace":
-            out["precheck"] = precheck_workspace(workspace)
+            out["precheck"] = _pc
         else:
             out["mode"] = "global"
             out["global_not_recommended"] = True
@@ -2891,8 +2893,10 @@ def setup_cmd(
 
     from ..scaffold import precheck_workspace, scaffold as _scaffold
 
-    if mode == "workspace" and not json_out:
-        _pc = precheck_workspace(workspace)
+    # capture the PRE-deploy inspection once (post-deploy the manifest exists and
+    # would make the workspace look regime-owned, hiding user-file collisions)
+    _pc = precheck_workspace(workspace) if mode == "workspace" else None
+    if _pc is not None and not json_out:
         if _pc["notes"]:
             console.print("[bold]工作区预检[/bold]")
             for n in _pc["notes"]:
@@ -2921,7 +2925,7 @@ def setup_cmd(
         "container_mode_ready": bool(has_docker),
     }
     if mode == "workspace":
-        summary["precheck"] = precheck_workspace(workspace)
+        summary["precheck"] = _pc
     else:
         summary["global_not_recommended"] = True
     if json_out:
