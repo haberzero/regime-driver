@@ -1,4 +1,4 @@
-"""Context-budget handover policy (WORK_PLAN13) — the official template for
+"""Context-budget handover policy — the official template for
 session-context-length management.
 
 A session is a "tiring person": its context window fills up and quality
@@ -41,8 +41,8 @@ class ContextHandoverPolicy:
     min_continue_nodes: int = 2         # consent needs at least this many nodes of budget
     handover_keep_messages: int = 30    # recent messages carried into the handover doc
     report_max_chars: int = 1200        # truncation for the last report in the doc
-    document_template: str | None = None  # 阶段 2 (W-硬编码): custom `.format` doc template
-    opening_template: str | None = None   # 阶段 2 (W-硬编码): custom `.format` opening template
+    document_template: str | None = None  # custom `.format` doc template
+    opening_template: str | None = None   # custom `.format` opening template
 
     @classmethod
     def from_json(cls, raw: str | None) -> "ContextHandoverPolicy | None":
@@ -95,7 +95,7 @@ def build_handover_document(
     """The handover document (交接格式): a structured, self-contained summary
     a fresh session can act on without reading the old session's memory.
 
-    `template` (阶段 2, W-硬编码) is an optional `.format`-style declarative
+    `template` is an optional `.format`-style declarative
     template overriding the built-in shape. Available fields:
     `{role} {node_id} {node_desc} {task_context} {report} {messages}` (the
     recent-messages block is pre-rendered).
@@ -149,7 +149,7 @@ def build_handover_opening(
 ) -> str:
     """The new-session opening message (交接提示词) for a fresh session.
 
-    `template` (阶段 2, W-硬编码) is an optional `.format`-style declarative
+    `template` is an optional `.format`-style declarative
     template overriding the built-in shape. Fields:
     `{role} {node_id} {node_desc} {task_context} {document} {usage}`.
     """

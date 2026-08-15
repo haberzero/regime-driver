@@ -1,7 +1,7 @@
 """Session lifecycle (app layer): policy-driven brain-capacity management.
 
-Roles are independent individuals with a PRIVATE session memory. Per v3/v4, the
-robot asks the session to self-assess and combines that with the role's policy.
+Roles are independent individuals with a PRIVATE session memory. The lifecycle
+asks the session to self-assess and combines that with the role's policy.
 The kernel works by role id; each role's policy comes from the RoleRegistry.
 """
 
@@ -93,7 +93,7 @@ class SessionRotator:
     ) -> SessionState:
         kind_str = "brain_urgent" if handoff_kind == "urgent" else "brain_normal"
         handoff = Handoff.brain_handoff(kind_str, summary, constraints, pending, role=role_id)
-        # WORK_PLAN13: `summary` is the composed opening message for the fresh
+        # `summary` is the composed opening message for the fresh
         # session (handover document + instruction), so inject it as the session's
         # first message instead of a raw machine JSON blob. The Handoff remains
         # the auditable record for the ledger.

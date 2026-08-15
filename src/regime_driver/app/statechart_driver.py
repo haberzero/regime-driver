@@ -1,7 +1,6 @@
-"""Statechart-network orchestration (app layer, final refactor).
+"""Statechart-network orchestration (app layer).
 
-This is the top-level entry that replaces the old `RegimeDriver`'s inline
-monitor integration. It assembles a Runtime with:
+This is the top-level entry. It assembles a Runtime with:
 
   * a WorkflowUnit (governed) that drives the regime flow via a single-threaded
     mixed loop, reporting its alive session state to the watchdog;
@@ -56,7 +55,7 @@ class StatechartDriver:
         settings defaults. The legacy positional form (state_machine/roles from
         settings JSON) remains for direct low-level construction.
 
-        `hooks` (阶段 2 unified extension registry) supplies user watchdog rules
+        `hooks` (unified extension registry) supplies user watchdog rules
         (merged into the policy) and lifecycle hooks (fired by the workflow /
         watchdog units).
         """
@@ -85,12 +84,12 @@ class StatechartDriver:
             auto_resume = float(settings.auto_resume_sec)
             policy = policy_from_json(settings.watchdog_policy_json)
             handover = None
-        # 阶段 2: user watchdog rules from the extension registry merge into the
+        # user watchdog rules from the extension registry merge into the
         # policy so one declared rule set drives supervision.
         if self.hooks is not None and self.hooks.rules:
             policy = policy.with_rules(self.hooks.rules) if policy is not None \
                 else WatchdogPolicy(rules=list(self.hooks.rules))
-        # WORK_PLAN11: the watchdog is a programmable policy engine; build the
+        # the watchdog is a programmable policy engine; build the
         # policy from the regime (or settings JSON), else the default.
         self.watchdog = watchdog or WatchdogUnit(
             unit_id="watchdog",
@@ -168,7 +167,7 @@ class StatechartDriver:
             deadline = time.time() + (timeout_sec or self.settings.max_driver_wait_sec)
             while self.workflow.result() is None:
                 if time.time() > deadline:
-                    # Timeout must be recorded like any other outcome (D1): the
+                    # Timeout must be recorded like any other outcome: the
                     # workflow thread never reached a terminal state, so no
                     # outcome event would otherwise be written to ledger/reporter
                     # and the run would vanish from the report bus.

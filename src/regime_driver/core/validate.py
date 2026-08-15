@@ -78,8 +78,8 @@ def _check_tools(sm: StateMachine, out: DeepCheckResult) -> None:
 
 
 def _check_capability_boundaries(sm: StateMachine, out: DeepCheckResult) -> None:
-    """WORK_PLAN13 dead-config guards: `verify`/`readonly` on the wrong node
-    type are silently ignored — fail loudly instead."""
+    """Dead-config guards: `verify`/`readonly` on the wrong node type are
+    silently ignored — fail loudly instead."""
     for node_id, node in sm.flow.nodes.items():
         if node.verify and node.type != NodeType.JUDGE:
             out.errors.append(
@@ -88,7 +88,7 @@ def _check_capability_boundaries(sm: StateMachine, out: DeepCheckResult) -> None
                 f"it would be dead config)"
             )
         if node.verify:
-            # W5 whitelist pre-check (defensive fallback): the primary guard is
+            # whitelist pre-check (defensive fallback): the primary guard is
             # StateMachine._validate at the single construction point — a verify
             # command outside the docker-exec shape is rejected there for every
             # store/file/registry/design source. This block is a redundancy for

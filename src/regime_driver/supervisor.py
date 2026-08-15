@@ -1,9 +1,8 @@
 """Process-external supervisor (first-class regime-driver component).
 
-Absorbs the old M0 `ops/supervisor.py` + `ops/oc-task.py` supervision into the
-package (see docs/DESIGN-supervision.md), so supervision is ONE system with the
-worker, sharing the Reporter as the single event truth source — not a parallel
-M0 system.
+Supervision is ONE system with the worker, sharing the Reporter as the single
+event truth source — not a parallel system (see
+docs/subsystems/04_supervisor.md).
 
 Why process-external: stall detection (absence of events), deadline enforcement
 and container restart need an independent clock + docker control that the
@@ -14,9 +13,7 @@ The watchdog loop is fully wired (no dead ladder): each poll it
   ingest_events   consumes the worker SSE /event stream into the Reporter
   T1              polls worker health -> L4 docker restart if down
   T2              detects session stall through the SHARED watchdog_policy rule
-                  engine (phase-1c: the old hand-rolled SessionWatch /
-                  _verdict_for_stall second judgment implementation is gone) ->
-                  escalates through the external action ladder
+                  engine, then escalates through the external action ladder
                   (abort -> fallback_model -> restart -> human), executing real
                   actions and recording each to the Reporter
   deadline        aborts once the budget is exhausted
@@ -43,8 +40,8 @@ L3_FALLBACK = "fallback_model"
 L4_RESTART = "restart"
 L5_HUMAN = "human"
 
-# process-external action vocabulary (phase-1c): the external supervisor walks
-# its OWN ladder order through the shared watchdog_policy engine — the judgment
+# process-external action vocabulary: the external supervisor walks its OWN
+# ladder order through the shared watchdog_policy engine — the judgment
 # (evidence -> rules -> ladder -> fired-guard -> recovery-reset) is the single
 # unified engine; only the action set differs because its capability set does
 # (docker restart + human escalation, no in-process pause/resume).
@@ -53,7 +50,7 @@ EXTERNAL_ACTION_INDEX = {a: i for i, a in enumerate(EXTERNAL_ACTIONS)}
 
 ALLOWED_VERDICTS = {"normal", "stalled", "looping", "blocked", "error", "escalate"}
 ALLOWED_ACTIONS = {"none", L1_NUDGE, L2_ABORT, L3_FALLBACK, L4_RESTART, L5_HUMAN}
-# deterministic verdict->allowed-actions gate (mirrors old supervisor._gate)
+# deterministic verdict->allowed-actions gate
 VERDICT_ACTIONS = {
     "normal": {"none"},
     "stalled": {L1_NUDGE, L2_ABORT, L3_FALLBACK, L4_RESTART},
@@ -137,13 +134,11 @@ def external_policy(stall_sec: float) -> WatchdogPolicy:
 
     A frozen-busy session escalates by TOTAL silence duration: abort at
     ``stall_sec``, fallback model at ``2*stall_sec``, restart at ``3*stall_sec``,
-    human at ``4*stall_sec``. This is the behavioral redesign of the old
-    per-window ladder (SessionWatch/_verdict_for_stall — the second, hand-rolled
-    judgment implementation — is gone): escalation timing is equivalent, but the
-    decision now runs through the SHARED `watchdog_policy` rule engine used by
-    the in-process watchdog. Rules fire once per rung (ladder fired-guard); a
-    recovery (SSE activity resumed / session idle) resets the ladder so a later
-    separate stall episode starts fresh from abort.
+    human at ``4*stall_sec``. The decision runs through the SHARED
+    `watchdog_policy` rule engine used by the in-process watchdog. Rules fire
+    once per rung (ladder fired-guard); a recovery (SSE activity resumed /
+    session idle) resets the ladder so a later separate stall episode starts
+    fresh from abort.
     """
     return WatchdogPolicy(
         name="external",
@@ -239,12 +234,11 @@ class Supervisor:
         self.meta_model = meta_model
         self.agent_reviewer = agent_reviewer
         self.meta_max_context_msgs = meta_max_context_msgs
-        # phase-1c: the process-external T2 judgment runs through the SAME
-        # watchdog_policy rule engine as the in-process watchdog (Observer ->
-        # Judge -> Actor): `external_policy` walks the external action ladder
+        # the process-external T2 judgment runs through the SAME watchdog_policy
+        # rule engine as the in-process watchdog (Observer -> Judge -> Actor):
+        # `external_policy` walks the external action ladder
         # (abort/fallback/restart/human) with absolute-duration multi-level
-        # rules. The old hand-rolled SessionWatch/_verdict_for_stall second
-        # implementation is gone.
+        # rules.
         self.policy = policy or external_policy(stall_sec)
         # meta bounder (the deterministic gate on intelligence): each ladder
         # type is used at most once per supervision run.
@@ -453,16 +447,16 @@ class Supervisor:
             self.ingest_events()
             if supervise_sessions:
                 if self.session_id is not None and self.client.health():
-                    # T2: session stall — liveness is the SSE-activity timestamp
-                    # (WORK_PLAN10). opencode's session_tokens are step-granular
+                    # T2: session stall — liveness is the SSE-activity timestamp.
+                    # opencode's session_tokens are step-granular
                     # (persisted only at step-finish by an async projector) so they
                     # stay 0 during a long single-step generation; only the SSE
                     # /event stream is an immediate liveness signal. We deliberately
                     # do NOT read session_tokens here.
                     #
-                    # phase-1c: judgment runs through the shared watchdog_policy
-                    # rule engine (evidence -> rules -> ladder). The external
-                    # policy escalates by absolute silence duration; a recovery
+                    # judgment runs through the shared watchdog_policy rule
+                    # engine (evidence -> rules -> ladder). The external policy
+                    # escalates by absolute silence duration; a recovery
                     # (fresh SSE activity / idle) resets the per-session ladder.
                     status = self.client.session_status(self.session_id)
                     ev, recovered = self._evidence(status)
@@ -542,7 +536,7 @@ class Supervisor:
         ESCALATE the deterministic action — e.g. straight to human for a clearly
         dead session — but never reduces it. The deterministic policy is the
         safety floor; intelligence advises within the gate and does not overrule
-        it (phase-0 decision).
+        it.
         """
         if not self.meta_enabled:
             return action

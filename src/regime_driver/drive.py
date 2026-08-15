@@ -1,4 +1,4 @@
-"""One-command self-driving stack: run + supervisor + reporter composed (P0#1).
+"""One-command self-driving stack: run + supervisor + reporter composed.
 
 `regime drive <task>` brings up the entire self-driving stack with a single
 command, instead of separately invoking `regime run`, `regime supervisor` and a
@@ -17,7 +17,7 @@ The supervisor loop terminates as soon as the workflow produces a result (via
 ``Supervisor.run(stop_when=...)``), so the drive returns promptly on COMPLETE /
 BLOCKED / ERROR rather than running to the deadline.
 
-See docs/DESIGN-drive.md.
+See docs/subsystems/01_drive.md.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ class Drive:
         # a whole operating rule (flow + roles + watchdog + handover): when given,
         # the driver is assembled from it via StatechartDriver.from_regime
         self.regime = regime
-        # 阶段 2 unified extension registry (hooks + user watchdog rules).
+        # unified extension registry (hooks + user watchdog rules).
         self.hooks = hooks
         # journal retention: bound the shared journal at drive teardown (both params
         # optional; enabled only when the caller passes at least one).

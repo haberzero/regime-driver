@@ -62,10 +62,10 @@ class Parallel:
         self.deadline_sec = deadline_sec
         self.meta_enabled = meta_enabled
         self.meta_model = meta_model
-        # phase-1d: a whole named regime is handed to every member Drive so a
-        # parallel batch runs the SAME operating rule as `drive --regime-name`.
+        # a whole named regime is handed to every member Drive so a parallel
+        # batch runs the SAME operating rule as `drive --regime-name`.
         self.regime = regime
-        # 阶段 2 extension registry handed to every member Drive.
+        # extension registry handed to every member Drive.
         self.hooks = hooks
 
     # -- instance provisioning (sequential, avoids port-allocation race) ------

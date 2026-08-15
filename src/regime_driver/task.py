@@ -1,10 +1,9 @@
-"""Task registry (first-class regime-driver component) — absorbs old oc-task.
+"""Task registry (first-class regime-driver component).
 
-Replaces `ops/oc-task.py` as the supervised-task registry with a single derive
-implementation (killing the oc-task.derive vs oc_tasks._derive dual truth). Each
-task = one independent supervisor process; records live in a JSON dir. The
-report bus reads this registry directly (`regime report --tasks-dir`), so there
-is exactly one task-view.
+The supervised-task registry uses a single derive implementation. Each task is
+one independent supervisor process; records live in a JSON dir. The report bus
+reads this registry directly (`regime report --tasks-dir`), so there is exactly
+one task-view.
 
 The registry is a directory of `<id>.json` records + optional `<id>.summary.json`.
 """

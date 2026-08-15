@@ -37,7 +37,7 @@ class Message:
 #: opencode worker surfaces an abort as `MessageAbortedError`. Deliberately
 #: NARROW: bare "abort"/"aborted" is NOT enough — network errors like
 #: `ConnectionAbortedError` ("connection aborted by peer") are transient and
-#: must stay recoverable (W3). The completed-but-no-finish shape is the second,
+#: must stay recoverable. The completed-but-no-finish shape is the second,
 #: independent abort indicator.
 _ABORT_MARKERS = (
     "messageaborted",       # the real opencode worker abort exception
@@ -49,9 +49,9 @@ _ABORT_MARKERS = (
 def is_abort_error(error: str | None) -> bool:
     """True when a message `error` is a deliberate ABORT sentinel.
 
-    Phase-3 (W3): message errors are no longer all treated as dead-session
-    aborts. A transient failure (model HTTP error, rate limit, network) must not
-    classify a session as externally dead — it may recover; only a genuine abort
+    Message errors are not all treated as dead-session aborts. A transient
+    failure (model HTTP error, rate limit, network) must not classify a session
+    as externally dead — it may recover; only a genuine abort
     (MessageAbortedError and friends) is a terminal sentinel.
     """
     if not error:
@@ -236,7 +236,7 @@ class OpenCodeClient:
 
         Each yielded item is ``{"event": <type>, "data": <parsed-json-or-str>}``.
         The first event is ``server.connected``. This is the push-based event
-        chain a dialog/reporter can consume (WORK_PLAN4 II).
+        chain a dialog/reporter can consume.
 
         With ``reconnect=True`` a dropped/mid-stream stream is retried with
         linear backoff (``backoff_sec``) until ``max_retries`` is reached

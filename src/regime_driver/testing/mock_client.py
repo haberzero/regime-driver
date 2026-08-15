@@ -22,7 +22,7 @@ Behavior is deterministic + scriptable:
 
 The mock appends to ``self.msgs`` keyed by session id, so message history
 *accumulates* like the real client (important: it does NOT replace, so the
-stale-text judge bug the probe fixed is exercised faithfully).
+stale-text judge behavior is exercised faithfully).
 """
 
 from __future__ import annotations
@@ -210,7 +210,7 @@ class MockClient:
 
     def event_stream(self, reconnect: bool = True, max_retries: int | None = None,
                      backoff_sec: float = 2.0):
-        """Simulate the SSE /event stream (WORK_PLAN10 parity with the real client).
+        """Simulate the SSE /event stream, matching the real client's shape.
 
         Emits ``server.connected`` once, then a ``message.part.delta`` progress
         event for every session whose latest assistant message is NOT a stall.

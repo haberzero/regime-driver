@@ -32,7 +32,7 @@ from ..regime import RegimeRegistry, compile_regime
 from .blackboard import WORKFLOW_METRICS, status_line, workflow_status
 from .statechart_runtime import ThreadedUnit
 
-# backward-compat alias: the unified compile entry now lives in flow.py (F1).
+# backward-compat alias: the unified compile entry lives in flow.py.
 compile_flow = compile_spec
 
 # event topics this dialog observes
@@ -101,14 +101,14 @@ class DialogControlUnit(ThreadedUnit):
         self.allow_write = allow_write
         self.talk_agent = "developer"     # agent used for `talk <sid> <msg>`
         self.talk_timeout = 120.0         # max seconds to wait for the reply
-        # the named-flow single source of truth (F4): dialog-control designed/loaded flows
+        # the named-flow single source of truth: dialog-control designed/loaded flows
         # and the builtin flow all live here. `self.flows` is a read-only view.
         self.flow_registry = flow_registry or FlowRegistry()
-        # phase-1d: the whole-operating-rule registry (flow + roles + watchdog +
-        # handover). `design <name> <regime JSON>` registers here; `regime
-        # list/inspect` views it. Persistent store by default (~/.regime/regimes).
+        # the whole-operating-rule registry (flow + roles + watchdog + handover).
+        # `design <name> <regime JSON>` registers here; `regime list/inspect` views
+        # it. Persistent store by default (~/.regime/regimes).
         self.regime_registry = regime_registry or RegimeRegistry()
-        # 阶段 2: the live unified extension registry (`hook list/reload/path`).
+        # the live unified extension registry (`hook list/reload/path`).
         self.hook_registry = hook_registry
         self.events: deque = deque(maxlen=max_events)   # (topic, ts, payload)
         self.replies: deque[dict] = deque()             # user-facing async replies
@@ -375,10 +375,10 @@ class DialogControlUnit(ThreadedUnit):
         """`design <name> <spec>` — spec is JSON (deterministic) or natural
         language (via LLM on a worker thread).
 
-        Phase-1d: the entry point designs a WHOLE operating rule (regime: flow +
-        roles + watchdog + handover) when the JSON has a `flow` key, else a plain
-        flow. Both compile through their unified gate and register under the
-        respective named single source of truth.
+        The entry point designs a WHOLE operating rule (regime: flow + roles +
+        watchdog + handover) when the JSON has a `flow` key, else a plain flow.
+        Both compile through their unified gate and register under the respective
+        named single source of truth.
         """
         parts = text.split(maxsplit=2)
         if len(parts) < 3:
@@ -433,9 +433,9 @@ class DialogControlUnit(ThreadedUnit):
 
     def _run_design_nl(self, name: str, spec: str) -> None:
         try:
-            # 阶段 4 intent-level design: the LLM turns a natural-language
-            # regime/flow request into a flow JSON, or a WHOLE regime JSON when
-            # the intent mentions supervision/verification/handover concerns.
+            # intent-level design: the LLM turns a natural-language regime/flow
+            # request into a flow JSON, or a WHOLE regime JSON when the intent
+            # mentions supervision/verification/handover concerns.
             prompt = (
                 "请把下面的制度/流程需求转成一个 JSON（只输出 JSON，不要其它文字）。\n"
                 "简单流程输出：{\"entry\":\"<起始node id>\",\"nodes\":["
@@ -520,7 +520,7 @@ class DialogControlUnit(ThreadedUnit):
         return "用法：regime list | regime inspect <name> | design <name> <整制度JSON>"
 
     def _flow(self, text: str) -> str:
-        """`flow list` / `flow validate <file>` / `flow reload <name>` (F7/F8).
+        """`flow list` / `flow validate <file>` / `flow reload <name>`.
 
         list/validate are read-only; reload is a write op (re-compiles + gates
         before swap), so it honours the write gate. Operates on the shared
@@ -568,7 +568,7 @@ class DialogControlUnit(ThreadedUnit):
         return "用法：flow list | flow validate <file> | flow reload <name>"
 
     def _hook(self, text: str) -> str:
-        """`hook list` / `hook reload` / `hook path` — 阶段 2 extension registry.
+        """`hook list` / `hook reload` / `hook path` — extension registry.
 
         list/path are read-only; reload (re-imports ~/.regime/hooks.py into a
         fresh registry snapshot) is a write op honouring the write gate. Running
@@ -783,8 +783,8 @@ class DialogControlUnit(ThreadedUnit):
         return f"已回收 session {sid}（abort + delete）。"
 
     def _decide(self, text: str) -> str:
-        """`decide <workflow> <yes|no> [评论]` — answer an ask_human checkpoint
-        (阶段 4). `decide` alone lists pending checkpoints.
+        """`decide <workflow> <yes|no> [评论]` — answer an ask_human checkpoint.
+        `decide` alone lists pending checkpoints.
 
         Writes `{wid}.human_decision` to the blackboard; the workflow consumes it
         (YES -> advance, NO -> developer rework with the comment). Write-gated.
@@ -867,8 +867,8 @@ class DialogControlUnit(ThreadedUnit):
 
     def _capabilities(self) -> str:
         """Full capability map: what regime-driver can do and how to reach it
-        from the dialog (WORK_PLAN8 stage-3). Groups by usage scenario so a
-        duty operator sees at a glance what is available and how to trigger it.
+        from the dialog. Groups by usage scenario so a duty operator sees at a
+        glance what is available and how to trigger it.
         """
         return (
             "能力地图（regime-driver 全部能力 → 对话框内触发路径）\n"

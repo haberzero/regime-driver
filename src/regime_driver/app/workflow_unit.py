@@ -1,13 +1,13 @@
-"""Workflow as a peer state machine unit (app layer, full refactor).
+"""Workflow as a peer state machine unit (app layer).
 
-The final architecture makes the workflow itself a *governed* statechart unit
-that runs in the same Runtime as the watchdog (watchdog) unit. It drives the
-regime flow node by node from a **single-threaded mixed loop**: in one thread it
-(a) drains inbound signals (STOP from the watchdog, etc.), (b) polls the
-session it dispatched work to, and (c) steps the node machine. Because the work
-is dispatched to remote sessions (which generate asynchronously), the loop stays
-free between polls to react to control signals — this is the "single-thread
-mixed loop" principle from ARCHITECTURE-statechart-network §5.2.1.
+The workflow itself is a *governed* statechart unit that runs in the same
+Runtime as the watchdog (watchdog) unit. It drives the regime flow node by node
+from a **single-threaded mixed loop**: in one thread it (a) drains inbound
+signals (STOP from the watchdog, etc.), (b) polls the session it dispatched work
+to, and (c) steps the node machine. Because the work is dispatched to remote
+sessions (which generate asynchronously), the loop stays free between polls to
+react to control signals — this is the "single-thread mixed loop" principle from
+docs/architecture/02_statechart_network.md §5.2.1.
 
 The unit reports its alive session state to the watchdog via REPORT signals,
 and the watchdog can interrupt it with a STOP signal (abort).
@@ -100,7 +100,7 @@ class WorkflowUnit(ThreadedUnit):
         self.ledger = ledger
         self.reporter = reporter
         self.roles = roles or default_roles()
-        # 阶段 2 unified extension registry: lifecycle hooks (node_enter/done,
+        # unified extension registry: lifecycle hooks (node_enter/done,
         # transition, judge_verdict, handover) fire through it.
         self.hooks = hooks
         self.poll_sec = poll_sec or settings.poll_sec
@@ -114,7 +114,7 @@ class WorkflowUnit(ThreadedUnit):
         )
         self.session_lifecycle = SessionLifecycle(settings, client, self.roles)
         self.session_rotator = SessionRotator(client, self.sessions)
-        # WORK_PLAN13 context-budget handover policy (optional). When set,
+        # Context-budget handover policy (optional). When set,
         # threshold negotiation + real handover documents apply; otherwise the
         # per-role RolePolicy thresholds (legacy) drive it. A regime-declared
         # policy (injected) takes precedence over the settings JSON.
@@ -127,11 +127,11 @@ class WorkflowUnit(ThreadedUnit):
                 self._log("context_policy_error", err=str(exc))
         self._verify_evidence: str | None = None
         self._verify_failed: bool = False
-        # WORK_PLAN11 pause-abort bookkeeping: an abort sentinel we caused
+        # Pause-abort bookkeeping: an abort sentinel we caused
         # ourselves (pause) must not be treated as an external dead session
         # while the session is recovering (see _latest_abort / _on_pause).
         self._own_abort: bool = False
-        # phase-3 (W3): last logged transient message error, for throttled audit
+        # last logged transient message error, for throttled audit
         self._last_transient_logged = None
         # phase-4: pending ask_human checkpoint question (None when not waiting)
         self._human_question = None
@@ -141,7 +141,7 @@ class WorkflowUnit(ThreadedUnit):
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dispatch")
         self._active_dispatch = None  # future of the in-flight dispatch POST
         self._dispatch_errors: list[str] = []  # last dispatch failures (for diagnostics)
-        # SSE liveness tracker (WORK_PLAN10): the ONLY reliable streaming-liveness
+        # SSE liveness tracker: the ONLY reliable streaming-liveness
         # signal. opencode's session_tokens are step-granular (persisted only at
         # step-finish by an async projector) so they stay 0 during a long single
         # step; the SSE /event stream (message.part.delta ...) is immediate.
@@ -176,7 +176,7 @@ class WorkflowUnit(ThreadedUnit):
         self._last_judged_key: tuple | None = None  # identity of the judge reply already processed
         self._start_time: float | None = None
         self._phase_started: float | None = None  # when the current wait phase began
-        # WORK_PLAN11 interrupt/recover: `_paused` freezes node advancement while
+        # Interrupt/recover: `_paused` freezes node advancement while
         # the session is aborted-but-kept for a natural "continue" recovery.
         self._paused: bool = False
         self._pause_reason: str | None = None
@@ -214,7 +214,7 @@ class WorkflowUnit(ThreadedUnit):
                         self._result = (Outcome.ERROR, self._node, f"workflow step error: {exc}")
                         break
             elif self._paused:
-                # WORK_PLAN11: a paused workflow keeps reporting to the watchdog
+                # A paused workflow keeps reporting to the watchdog
                 # (the loop stays alive) so the watchdog can still auto-resume or
                 # escalate a stuck pause — it must NOT go silent and hang.
                 self._report_to_watchdog()
@@ -246,7 +246,7 @@ class WorkflowUnit(ThreadedUnit):
         self._cancel_running()
 
     def _on_pause(self, signal: Signal) -> None:
-        """WORK_PLAN11 interrupt: abort the current generation but KEEP the
+        """Abort the current generation but KEEP the
         session, and freeze node advancement so a later RESUME can naturally
         continue the conversation instead of restarting from scratch.
 
@@ -260,7 +260,7 @@ class WorkflowUnit(ThreadedUnit):
         self._log("workflow_paused", node=self._node, reason=self._pause_reason)
 
     def _on_resume(self, signal: Signal) -> None:
-        """WORK_PLAN11 resume: unfreeze node advancement and resume the paused
+        """Resume: unfreeze node advancement and resume the paused
         work within the same conversation.
 
         * agent phase: inject a "continue" prompt so the developer resumes its
@@ -290,7 +290,7 @@ class WorkflowUnit(ThreadedUnit):
             self._result = (Outcome.ERROR, self._node, f"resume failed: {exc}")
 
     def _on_nudge(self, signal: Signal) -> None:
-        """WORK_PLAN11 nudge: a light poke (does NOT abort). A short prompt is
+        """Nudge: a light poke (does NOT abort). A short prompt is
         sent so the session has a fresh instruction without losing its state."""
         if self._wait_sid is None:
             return
@@ -307,7 +307,7 @@ class WorkflowUnit(ThreadedUnit):
                 "并给出简短结构化汇报：改动文件 / 测试命令与结果 / 技术债 / 待决点。）")
 
     def _on_escalate(self, signal: Signal) -> None:
-        """WORK_PLAN11 meta-gated action: the watchdog requests an independent
+        """Meta-gated action: the watchdog requests an independent
         confirmation before acting. We do NOT act directly (a meta-gated rule
         must be approved by the intelligent reviewer); we record the request so
         it is visible in the journal, and let the external supervisor's
@@ -509,11 +509,11 @@ class WorkflowUnit(ThreadedUnit):
         self._judge_attempts = 0
         self._retry_feedback = None
         self._last_judged_key = None
-        # WORK_PLAN13 runtime verification evidence: if the judge node declares a
+        # Runtime verification evidence: if the judge node declares a
         # `verify` command, run it on the HOST now and feed the result to the
         # judge so its verdict rests on objective runtime state, not just static
         # reading. Skipped when verify is disabled (preflight/offline) or unset.
-        # B3: a failure sets _verify_failed -> the gate deterministically blocks
+        # A failure sets _verify_failed -> the gate deterministically blocks
         # advance (via an injected blocking issue in _step_judge).
         self._verify_evidence = None
         self._verify_failed = False
@@ -577,7 +577,7 @@ class WorkflowUnit(ThreadedUnit):
             else:
                 self._advance()
         elif not self._paused and self._latest_abort(messages):
-            # WORK_PLAN13-fix: the waiting session was aborted by an EXTERNAL
+            # the waiting session was aborted by an EXTERNAL
             # authority (e.g. the drive's process-external supervisor T2) with no
             # pause/recovery flow. Polling a dead session forever is a deadlock;
             # terminate honestly as BLOCKED instead (the in-process watchdog's
@@ -636,7 +636,7 @@ class WorkflowUnit(ThreadedUnit):
         real-worker abort shape). Used to detect an externally-aborted (dead)
         session.
 
-        Phase-3 (W3): a TRANSIENT message error (model HTTP error / rate limit /
+        A TRANSIENT message error (model HTTP error / rate limit /
         network) is NOT an abort — the session may recover, so the workflow keeps
         polling (bounded by the per-node deadline) instead of blocking the run.
         Only a genuine abort (MessageAbortedError and friends) is a dead-session
@@ -663,7 +663,7 @@ class WorkflowUnit(ThreadedUnit):
     def _latest_transient_error(self, messages) -> str | None:
         """The error text of the newest assistant message carrying a TRANSIENT
         (non-abort) error, else None. Used to audit recoverable failures without
-        treating them as a dead session (W3)."""
+        treating them as a dead session."""
         for m in reversed(messages):
             if getattr(m, "role", None) != "assistant":
                 continue
@@ -723,7 +723,7 @@ class WorkflowUnit(ThreadedUnit):
         self._last_judged_key = key
         text = (getattr(latest, "reply", "") or "") or (getattr(latest, "text", "") or "")
         reviewer = self._get_reviewer(self._wait_role)
-        # B3: a failed runtime verify is OBJECTIVE evidence — inject a blocking
+        # a failed runtime verify is OBJECTIVE evidence — inject a blocking
         # issue programmatically so the gate deterministically refuses advance
         # (the reviewer may still route via ask_developer/request_context/report).
         extra_issues = None
@@ -880,7 +880,7 @@ class WorkflowUnit(ThreadedUnit):
         comment = str(decision.get("comment", ""))
         self._log("human_decision", node=self._node, answer=answer,
                   comment=comment[:200], session=self._wait_sid)
-        self._clear_human_checkpoint()  # consume ALL checkpoint keys (B3)
+        self._clear_human_checkpoint()  # consume ALL checkpoint keys
         self._phase = _PH_NONE
         self._phase_started = None
         if answer in ("yes", "y", "是", "确认", "通过", "approve"):
@@ -1003,7 +1003,7 @@ class WorkflowUnit(ThreadedUnit):
         (that would blind the watchdog into a false stall/loop verdict). Failures
         are recorded as auditable events and surfaced in the REPORT payload.
 
-        Liveness is the SSE-activity timestamp (WORK_PLAN10): token counts are
+        Liveness is the SSE-activity timestamp: token counts are
         step-granular in opencode and stale during long generations, so they are
         NOT used for stall detection.
         """
@@ -1072,7 +1072,7 @@ class WorkflowUnit(ThreadedUnit):
             ws_hint,
         ]
         if node.readonly:
-            # WORK_PLAN13 node capability boundary: a readonly node must not
+            # node capability boundary: a readonly node must not
             # mutate the workspace — planning/reading only. File changes belong
             # to the writable nodes downstream (e.g. implement). This is what
             # keeps the design gate judging an UNBUILT plan instead of reviewing
@@ -1139,12 +1139,11 @@ class WorkflowUnit(ThreadedUnit):
         generating) is judged on truncated text: `extract_json` returns None,
         the gate reports "no JSON object", the workflow re-prompts, and each
         re-prompt is again judged on the next partial — exhausting
-        `max_reviewer_retries` on a verdict that never had a chance (the
-        2026-08-15 nightly: payment_ledger error@design "reviewer gate
-        exhausted", where the last complete reply was parseable but never
-        judged because the dedup key had already consumed the partial).
+        `max_reviewer_retries` on a verdict that never had a chance: the last
+        complete reply may be parseable but is never judged because the dedup
+        key has already consumed the partial.
 
-        Phase-3 (W3): an error-carrying message is never a verdict candidate,
+        An error-carrying message is never a verdict candidate,
         so a transient error is not mis-parsed as a verdict; the judge keeps
         polling (bounded by the node deadline). A completed message with
         `finish` None is an ABORT draft (truncated text, never a deliverable —
@@ -1189,13 +1188,13 @@ class WorkflowUnit(ThreadedUnit):
                     state, node_id=_nd, usage=0.0, kind="normal", forced=False)
                 self.session_rotator.rotate_with_handover(
                     prev_role, summary=opening, handoff_kind="normal")
-                self.reviewers.pop(prev_role, None)  # B1: drop stale reviewer cache
+                self.reviewers.pop(prev_role, None)  # drop stale reviewer cache
             except Exception as exc:
                 self._log("transition_rotate_error", from_node=prev_node,
                           to_node=next_node, err=str(exc))
 
     def _check_session_capacity(self, node_id) -> None:
-        """WORK_PLAN13: context-budget negotiation + real handover.
+        """Context-budget negotiation + real handover.
 
         Runs at node boundaries (after a node completes, before dispatching the
         next) — the only moment token counts are fresh (opencode persists tokens
@@ -1249,7 +1248,7 @@ class WorkflowUnit(ThreadedUnit):
         try:
             reasoning, output = self.client.session_tokens(state.session_id or "")
         except Exception as exc:
-            # W1: never silently fail-open — the decision to NOT hand over on a
+            # never silently fail-open — the decision to NOT hand over on a
             # token-read failure is itself a decision worth auditing.
             self._log("context_token_read_error", session=state.session_id,
                       role=state.role, err=str(exc))
@@ -1286,7 +1285,7 @@ class WorkflowUnit(ThreadedUnit):
     def _rotate_session(self, state, node_id: str, usage: float, *, kind: str,
                         forced: bool = False, reason: str = "",
                         assessment_summary: str = "") -> None:
-        """Rotate a session with a REAL handover document (WORK_PLAN13)."""
+        """Rotate a session with a REAL handover document."""
         doc, opening = self._handover_package(
             state, node_id=node_id, usage=usage, kind=kind, forced=forced)
         if assessment_summary:
@@ -1298,7 +1297,7 @@ class WorkflowUnit(ThreadedUnit):
         except Exception as exc:
             self._log("context_handover_error", node=node_id, err=str(exc))
             return
-        # B1: the cached Reviewer holds the OLD (now full) session id; drop it so
+        # the cached Reviewer holds the OLD (now full) session id; drop it so
         # `_get_reviewer` rebuilds against the fresh session (the role's judge
         # session lives in the same registry entry we just rotated).
         self.reviewers.pop(state.role, None)
@@ -1311,7 +1310,7 @@ class WorkflowUnit(ThreadedUnit):
                           kind: str, forced: bool) -> tuple[str, str]:
         """Build (document, opening) for a session rotation.
 
-        Honors, in order of precedence (阶段 2, W-硬编码):
+        Honors, in order of precedence:
           1. a `handover` hook override registered in the extension registry
              (returns {"document": ..., "opening": ...}),
           2. declarative custom templates on the handover policy
@@ -1362,7 +1361,7 @@ class WorkflowUnit(ThreadedUnit):
             )
 
     def _fire_hooks(self, point: str, **ctx) -> list:
-        """Fire a lifecycle hook through the extension registry (阶段 2).
+        """Fire a lifecycle hook through the extension registry.
 
         A hook error is audited as `hook_error` and never breaks the loop — the
         same contract as a broken watchdog rule. Returns hook returns (the
@@ -1377,7 +1376,7 @@ class WorkflowUnit(ThreadedUnit):
 
     def record_outcome(self, outcome: str, *, node: str | None = None,
                        detail: str = "") -> None:
-        """Publicly record a run outcome to ledger/reporter (D1).
+        """Publicly record a run outcome to ledger/reporter.
 
         Used by the driver when the run is externally cut short (e.g. driver
         timeout) — the workflow thread never reached a terminal state, so it

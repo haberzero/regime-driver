@@ -1,4 +1,4 @@
-"""SSE activity tracker (WORK_PLAN10) — the single reliable liveness signal.
+"""SSE activity tracker — the single reliable liveness signal.
 
 opencode's `session_tokens` are STEP-granular (the server persists them only at
 `step-finish`, via an async projector; session.ts/processor.ts). During a long

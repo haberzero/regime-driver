@@ -1,4 +1,4 @@
-"""Offline preflight trial run (WORK_PLAN4 I2).
+"""Offline preflight trial run.
 
 Runs the exact same StatechartDriver / WorkflowUnit code against a MockClient
 to answer: **does this flow actually terminate cleanly offline?** This is the

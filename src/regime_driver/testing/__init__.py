@@ -2,7 +2,7 @@
 
 The mock layer lets state-machine / concurrency / timeout / watchdog logic
 run fast and deterministically with NO network and NO LLM, so a debug run never
-depends on provider latency or model randomness. See docs/DESIGN-mock.md.
+depends on provider latency or model randomness. See docs/subsystems/08_mock.md.
 """
 
 from .mock_client import MockClient, MockRule

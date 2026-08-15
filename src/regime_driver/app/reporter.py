@@ -1,4 +1,4 @@
-"""Report bus: rules-based, append-only journal + incremental rollups (WORK_PLAN4 III).
+"""Report bus: rules-based, append-only journal + incremental rollups.
 
 The dialog control / a macro project manager needs *always-available, traceable,
 differentiable* global information — without re-polling the CLI or being unable

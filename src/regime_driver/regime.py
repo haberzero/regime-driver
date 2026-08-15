@@ -1,11 +1,8 @@
-"""Regime — the operating rule as a first-class object (WORK_PLAN14 阶段 1).
+"""Regime — the operating rule as a first-class object.
 
-Root-cause A: how a task runs was fragmented across six uncoordinated carriers
-(flow JSON / watchdog_policy_json / context_handover_policy_json / role policy
-dataclasses / node behaviour verify+hooks / settings fields). `flow` already had
-a complete lifecycle (compile -> deep_validate -> preflight -> hot-reload ->
-version -> permission); the other dimensions did not. A `Regime` bundles the WHOLE
-operating rule into one object with that same lifecycle:
+A `Regime` bundles the WHOLE operating rule into one object with a complete
+lifecycle (compile -> deep_validate -> preflight -> hot-reload -> version ->
+permission):
 
   * flow       — the state machine (existing `StateMachine`),
   * roles      — per-role lifecycle policies (`RoleRegistry`),
@@ -482,7 +479,7 @@ class RegimeRegistry:
     def load(self, path: str | Path, *, name: str | None = None,
              skills_dir: str | Path | None = None,
              preflight: bool = False) -> RegimeEntry:
-        """Load + validate + register a regime from a spec file (F9 gate)."""
+        """Load + validate + register a regime from a spec file."""
         p = Path(path)
         if not p.exists():
             raise FlowError(f"regime file not found: {p}")

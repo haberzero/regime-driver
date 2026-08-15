@@ -148,8 +148,8 @@ class ReviewerVerdict(BaseModel):
     human_question: str | None = None   # ask_human: the question posed to the dialog
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
-    # structured findings (WORK_PLAN13): the reviewer's substantive review —
-    # blocking issues force a non-advance action through the deterministic gate.
+    # structured findings: the reviewer's substantive review — blocking issues
+    # force a non-advance action through the deterministic gate.
     issues: list["ReviewerIssue"] | None = Field(default_factory=list)
 
     @field_validator("issues", mode="before")

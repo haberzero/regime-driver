@@ -26,7 +26,7 @@ class StatechartCluster:
     """A Runtime hosting one watchdog + many concurrent workflows.
 
     Can be built either from a raw state machine (settings-JSON policies) or
-    from a whole `Regime` (phase-1d: `from_regime` wires the regime's flow,
+    from a whole `Regime` (`from_regime` wires the regime's flow,
     roles, watchdog policy and handover policy into the shared watchdog and each
     workflow, so `run-many --regime-name` runs the SAME operating rule the
     single-run entry points do).
@@ -49,7 +49,7 @@ class StatechartCluster:
         self.runtime = Runtime(enforce_invariants=enforce_invariants)
         if watchdog is None:
             from .watchdog_unit import default_policy
-            # 阶段 2: merge user watchdog rules from the extension registry into
+            # merge user watchdog rules from the extension registry into
             # the shared policy (same as StatechartDriver), so run-many/dialog
             # get the SAME supervision rule set as run/drive.
             policy = watchdog_kwargs.pop("policy", None)
@@ -84,7 +84,7 @@ class StatechartCluster:
         hooks: "HookRegistry | None" = None,
         **watchdog_kwargs,
     ) -> "StatechartCluster":
-        """Build the cluster from a whole `Regime` (phase-1d).
+        """Build the cluster from a whole `Regime`.
 
         The regime supplies the flow (the shared StateMachine), the watchdog
         policy and its thresholds (taking precedence over the settings

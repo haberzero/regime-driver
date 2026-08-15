@@ -1,18 +1,18 @@
 """FlowRegistry — the named-flow single source of truth + hot compile/reload.
 
-WORK_PLAN5 (F4-F6, F9-F11): the flow-definition lifecycle. Any flow — builtin
-(packaged regime.json), user-designed (dialog control), or file-loaded — is a named
-entry in one registry. This lets a running system:
+The flow-definition lifecycle: any flow — builtin (packaged regime.json),
+user-designed (dialog control), or file-loaded — is a named entry in one
+registry. This lets a running system:
 
   * hot-compile any spec (file / compact JSON / full regime dict) through one
-    `compile_spec` entry (F1), which routes every source through the same
+    `compile_spec` entry, which routes every source through the same
     StateMachine validation;
-  * hot-reload a named flow atomically (F5/F10): the new version is compiled +
+  * hot-reload a named flow atomically: the new version is compiled +
     deep-validated BEFORE it replaces the current entry; a running workflow
     already holds a reference to the old StateMachine object, which we never
     mutate, so it keeps its old snapshot mid-flight;
-  * gate every load/reload on deep validation (F9) and rely on deep_validate's
-    cycle detection + runtime max_total_nodes for anti-loop safety (F11).
+  * gate every load/reload on deep validation and rely on deep_validate's cycle
+    detection + runtime max_total_nodes for anti-loop safety.
 
 The Dialog Control's former ad-hoc `self.flows` dict is merged into this registry
 (app/dialog_control.py) so there is a single source of truth for named flows.
@@ -128,7 +128,7 @@ def compile_spec(flow_name: str, spec_text: str) -> StateMachine:
 
 def validate_sm(sm: StateMachine, *, skills_dir: str | Path | None = None,
                 load_skill: Callable[[str], str] | None = None) -> DeepCheckResult:
-    """Run the semantic deep checks over a StateMachine (F9 gate).
+    """Run the semantic deep checks over a StateMachine.
 
     `skills_dir` enables the skill-loadability check; when absent (e.g. a
     deployed container without the repo tree) we skip that check rather than
@@ -228,12 +228,13 @@ class FlowRegistry:
                  source: str = "design", file: Path | None = None,
                  validate: bool = False,
                  skills_dir: str | Path | None = None) -> FlowEntry:
-        """Register a StateMachine under a name (F4).
+        """Register a StateMachine under a name.
 
         By default this is the low-level API that trusts the caller has already
-        validated (builtin seeding). Pass `validate=True` to run the F9 deep gate
-        here and reject invalid flows at the registry boundary (raises FlowError);
-        `skills_dir` enables the skill-loadability check within that gate.
+        validated (builtin seeding). Pass `validate=True` to run the deep
+        validation gate here and reject invalid flows at the registry boundary
+        (raises FlowError); `skills_dir` enables the skill-loadability check
+        within that gate.
         """
         if validate:
             self._check(sm, preflight=False, target=name, skills_dir=skills_dir)
@@ -260,10 +261,10 @@ class FlowRegistry:
     def load(self, path: str | Path, *, name: str | None = None,
              skills_dir: str | Path | None = None,
              preflight: bool = False) -> FlowEntry:
-        """Load + validate + register a flow from a regime file (F4).
+        """Load + validate + register a flow from a regime file.
 
         `name` overrides the flow to register; default is the file's entry flow.
-        Mandatory deep validation (F9); optional offline preflight. Raises
+        Mandatory deep validation; optional offline preflight. Raises
         FlowError (with no registry mutation) if any gate fails.
         """
         p = Path(path)
@@ -279,7 +280,7 @@ class FlowRegistry:
 
     def reload(self, name: str, *, skills_dir: str | Path | None = None,
                preflight: bool = False) -> FlowEntry:
-        """Atomically reload a named flow (F5/F10).
+        """Atomically reload a named flow.
 
         Re-reads the authoritative source — the backing file if file-backed,
         otherwise the persisted spec — compiles + deep-validates the new

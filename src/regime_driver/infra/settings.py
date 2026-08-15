@@ -59,9 +59,9 @@ class Settings(BaseModel):
     permission_ceiling: str = Field(
         default="clean", description="hard cap on write permission (read<interact<run<clean)"
     )
-    # DEPRECATED (WORK_PLAN11): the old monitor thread is gone; the watchdog is
-    # a runtime root invariant (I1) always on. No consumer anywhere (preflight
-    # passes False but nothing reads it) — pure compatibility retention.
+    # DEPRECATED: the watchdog is a runtime root invariant (I1), always on. No
+    # consumer anywhere (preflight passes False but nothing reads it) — pure
+    # compatibility retention.
     monitor_enabled: bool = Field(default=True, description="[deprecated] dead config, no consumer; watchdog is always on (I1)")
     monitor_poll_sec: float = Field(default=3.0, ge=0.1, description="[deprecated] no consumer; kept for compatibility")
     session_hygiene_threshold: int = Field(
@@ -79,12 +79,12 @@ class Settings(BaseModel):
         default=None,
         description="JSON session-cleanup policy (see docstring); None = disabled"
     )
-    stall_sec: int = Field(default=120, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (WORK_PLAN10: liveness = SSE, not token counts; also the default policy kill threshold)")
+    stall_sec: int = Field(default=120, ge=1, description="busy but no SSE-event-stream activity beyond this -> stall (liveness = SSE, not token counts; also the default policy kill threshold)")
     on_stall: Literal["abort", "report_user", "none"] = Field(
         default="abort", description="[deprecated] dead config, no consumer; watchdog actions come from watchdog_policy_json"
     )
-    # WORK_PLAN11 programmable watchdog policy (optional). A JSON describing
-    # detection rules + action ladder, e.g.:
+    # Programmable watchdog policy (optional). A JSON describing detection rules
+    # + action ladder, e.g.:
     #   {"soft_sec": 30, "hard_sec": 600, "soft_action": "interrupt",
     #    "meta_gate_soft": true, "auto_resume_sec": 60}
     # Empty/None = the default policy (busy + no SSE activity > stall_sec -> kill).
@@ -94,7 +94,7 @@ class Settings(BaseModel):
     )
     auto_resume_sec: float = Field(
         default=30.0, ge=1.0,
-        description="WORK_PLAN11: paused session auto-resumes after this many seconds",
+        description="paused session auto-resumes after this many seconds",
     )
     # meta-analysis (independent intelligent review of stalls, D1)
     meta_analyze_enabled: bool = Field(
@@ -109,8 +109,8 @@ class Settings(BaseModel):
         default=120_000, ge=1000,
         description="session token ceiling; used to compute context usage fraction"
     )
-    # WORK_PLAN13 context-budget handover policy (optional). A JSON describing
-    # when to negotiate/hand a session over when its context window fills:
+    # context-budget handover policy (optional). A JSON describing when to
+    # negotiate/hand a session over when its context window fills:
     #   {"enabled": true, "soft_fraction": 0.5, "hard_fraction": 0.7,
     #    "min_continue_nodes": 2, "handover_keep_messages": 30}
     # None = disabled (per-role RolePolicy thresholds apply instead).
@@ -118,9 +118,9 @@ class Settings(BaseModel):
         default=None,
         description="JSON context-handover policy (soft/hard fractions, budget); None = disabled",
     )
-    # runtime verification evidence (WORK_PLAN13): a judge node's `verify` shell
-    # command runs on the HOST and its output is fed to the judge as independent
-    # runtime evidence (e.g. pytest). Disabled in preflight/offline runs.
+    # runtime verification evidence: a judge node's `verify` shell command runs
+    # on the HOST and its output is fed to the judge as independent runtime
+    # evidence (e.g. pytest). Disabled in preflight/offline runs.
     worker_container: str = Field(
         default="opencode-worker", description="worker docker container name (used by verify/chaos/L4)")
     verify_enabled: bool = Field(

@@ -1,4 +1,4 @@
-"""Programmable watchdog policy (WORK_PLAN11) — the config layer.
+"""Programmable watchdog policy — the config layer.
 
 The watchdog is no longer a hardcoded "busy-without-progress > stall_sec ->
 STOP". It is a small policy engine: a `WatchdogPolicy` declares which signals
@@ -56,9 +56,8 @@ class Ladder:
 
     ``order`` is the action vocabulary this ladder walks. Defaults to the
     unified in-process vocabulary; a process-external Actor with a different
-    capability set (docker restart / human escalation) declares its own order
-    (phase-1c: the judgment engine is shared, the action set is per-Actor
-    capability).
+    capability set (docker restart / human escalation) declares its own order —
+    the judgment engine is shared, the action set is per-Actor capability.
     """
 
     index: int = 0

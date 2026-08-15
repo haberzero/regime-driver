@@ -102,9 +102,9 @@ def gate_reviewer_verdict(
             reason=f"verdict '{v_action}' inconsistent with action '{action}'",
         )
 
-    # 5. semantic gate (WORK_PLAN13): a reviewer that documents a blocking issue
-    #    must not also wave the work through. The gate is a FORMAT gate plus this
-    #    minimal SEMANTIC rule — "advance with unresolved blocking findings" is a
+    # 5. semantic gate: a reviewer that documents a blocking issue must not also
+    #    wave the work through. The gate is a FORMAT gate plus this minimal
+    #    SEMANTIC rule — "advance with unresolved blocking findings" is a
     #    contradiction and is rejected, forcing the reviewer to resolve it or
     #    route back to the developer.
     blocking = [i.summary for i in (verdict.issues or []) if i.severity == "blocking"]

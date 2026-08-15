@@ -1,4 +1,4 @@
-"""Runtime verification runner (WORK_PLAN13 + 阶段 2 W5 whitelist).
+"""Runtime verification runner (whitelisted command surface).
 
 A judge node (e.g. `test`) may declare a `verify` command. When the driver
 enters that judge node, it runs the command and feeds the output to the
@@ -6,7 +6,7 @@ reviewer as independent runtime evidence — closing the gap where the reviewer
 (read-only, cannot execute) could only statically count tests instead of
 knowing whether they actually pass.
 
-W5 (阶段 2): the verify surface is WHITELISTED, not arbitrary host shell. A
+The verify surface is WHITELISTED, not arbitrary host shell. A
 command must be the docker-exec shape
 
     docker exec {container} <allowed-exec> <args...>

@@ -3,7 +3,7 @@
 The watchdog layer is a *peer* state machine that coordinates with working
 state machines via signals, instead of a special-cased hardcoded guard. This
 unit is a `StatechartUnit` (no intelligence) that receives REPORT signals from
-working units and runs a **programmable policy** (WORK_PLAN11) to decide the
+working units and runs a **programmable policy** to decide the
 response, then emits the corresponding control signal back over the bus.
 
 It is deliberately I/O-free: probe data is fed *in* via signals, and the policy
@@ -91,17 +91,16 @@ class WatchdogUnit(ThreadedUnit):
         self.max_global_nodes = max_global_nodes
         self.heartbeat_stale_sec = heartbeat_stale_sec
         self.policy = policy or default_policy(stall_sec)
-        # 阶段 2 unified extension registry: the `stall` hook fires on every
+        # unified extension registry: the `stall` hook fires on every
         # watchdog action (observe side-effect; never overrides the decision).
         self.hooks = hooks
-        # W1 observability: a watchdog fire must land in the same report journal
-        # as the workflow events, otherwise a stall verdict is invisible to
-        # report/forensics (the classic "journal showed no watchdog_fire" blind
-        # spot that confounded the drive-mode investigation). The reporter is the
-        # single event truth; `run_id` attributes the fire to the workflow run.
+        # A watchdog fire must land in the same report journal as the workflow
+        # events, otherwise a stall verdict is invisible to report/forensics.
+        # The reporter is the single event truth; `run_id` attributes the fire
+        # to the workflow run.
         self.reporter = reporter
         self.run_id = run_id
-        # WORK_PLAN11 auto-recover: a paused session that stays silent for
+        # Auto-recover: a paused session that stays silent for
         # `auto_resume_sec` is automatically resumed; if it still has no liveness
         # afterwards, the normal policy rules take over (eventual kill).
         self.auto_resume_sec = auto_resume_sec
@@ -139,7 +138,7 @@ class WatchdogUnit(ThreadedUnit):
         ev = self._evidence_from(p)
         sid = ev.session_id
 
-        # WORK_PLAN11 auto-recover: a paused session must not hang forever. After
+        # A paused session must not hang forever. After
         # `auto_resume_sec` of silence we RESUME once (the governed unit injects
         # "continue"); if it STILL has no liveness afterwards, the normal policy
         # rules run and may eventually kill it.
@@ -242,7 +241,7 @@ class WatchdogUnit(ThreadedUnit):
 
     def _fire_stall_hook(self, action: str, session: str | None,
                          detail: str) -> None:
-        """Fire the `stall` lifecycle hook (阶段 2). Observer only: the
+        """Fire the `stall` lifecycle hook. Observer only: the
         deterministic watchdog action is already executed/journaled."""
         if self.hooks is None:
             return
@@ -266,7 +265,7 @@ class WatchdogUnit(ThreadedUnit):
                 )
             except Exception:
                 # a journal failure must never kill the watchdog loop, but it must
-                # be visible (a silently-dropped fire recreates the exact W1 blind
+                # be visible (a silently-dropped fire recreates the exact blind
                 # spot this record exists to close)
                 import logging
                 logging.getLogger(__name__).warning(
@@ -332,7 +331,7 @@ class WatchdogUnit(ThreadedUnit):
             self._last_activity.pop(sid, None)
             self._first_busy.pop(sid, None)
             self._pause_since.pop(sid, None)
-            self.policy._ladders.pop(sid, None)  # WORK_PLAN11 bound per-session ladders
+            self.policy._ladders.pop(sid, None)  # bound per-session ladders
 
 
 def default_policy(stall_sec: float) -> WatchdogPolicy:

@@ -259,7 +259,7 @@ def _driver_from_options(settings: Settings, client: DriveClient,
 
     ``sm`` (already resolved by the caller for preflight) is reused for the
     legacy path so `--flow`/`--regime` run exactly the flow that was preflighted.
-    `hooks` (阶段 2 extension registry) feeds user watchdog rules + lifecycle
+    `hooks` (extension registry) feeds user watchdog rules + lifecycle
     hooks into the driver.
     """
     if regime_name:
@@ -801,7 +801,7 @@ def drive_many(
         },
     )
     # a named regime is the whole operating rule handed to every member Drive
-    # (phase-1d: drive-many --regime-name == parallel `drive --regime-name`).
+    # (drive-many --regime-name == parallel `drive --regime-name`).
     regime_obj = _named_regime(regime_name)
     try:
         sm = (regime_obj.flow if regime_obj is not None
@@ -975,7 +975,7 @@ def doctor(
         pass
     checks.append({"check": "opencode auth.json has key", "ok": auth_has_go})
 
-    # packaged templates ready for scaffold (WORK_PLAN7 II-2)
+    # packaged templates ready for scaffold
     from ..scaffold import templates_ready
     _tpl = templates_ready()
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
@@ -1006,7 +1006,7 @@ def doctor(
                 " — `regime doctor`/`regime uninstall --dry-run` 查看"),
         })
 
-    # host-environment readiness (WORK_PLAN8 / deployment UX): docker / conda /
+    # host-environment readiness (deployment UX): docker / conda /
     # opencode / registry-mirror presence. ADVISORY — these don't gate the run
     # (host mode works without docker; docker path works without conda), but the
     # user must KNOW which path is available on their machine.
@@ -1063,7 +1063,7 @@ def doctor(
             console.print("  · 设 DEEPSEEK_API_KEY 或写 ~/.regime/keys/deepseek.key")
         raise typer.Exit(1)
     console.print("\n✓ 配置就绪：可用 `regime run/drive`（默认模型 deepseek-api）")
-    # deployment-path guidance based on the advisory env facts (WORK_PLAN8 UX):
+    # deployment-path guidance based on the advisory env facts (deployment UX):
     # tell the user which run path their machine supports, not just that config
     # is OK.
     env = {c["check"]: c.get("ok") for c in env_checks}
@@ -1104,7 +1104,7 @@ def web(
 
     # reuse this CLI's own read commands (single source of truth): the panel
     # shows exactly what `status --deep` / `report --journal` report. Best-effort:
-    # a hung worker must never crash the observation request (W1).
+    # a hung worker must never crash the observation request.
     def _status_json() -> str:
         try:
             p = _sp.run(
@@ -1209,7 +1209,7 @@ def report_cmd(
     Reads a journal written by `regime run ... --reporter <path>`. Rollups are
     O(1) counters; history is the bounded append-only slice. Templates produce
     rule-based formatted reports (milestone/blocker/period/activity). This is the
-    macro project-management surface for the Dialog Control (WORK_PLAN4 III).
+    macro project-management surface for the Dialog Control.
     """
     from ..app.reporter import Reporter
 
@@ -1303,7 +1303,7 @@ def _report_trace(rep, focus, limit=None, json_out=False) -> None:
 
 def _report_template(rep, rollups, template, *, since=None, wf_id=None,
                      limit=None, json_out=False) -> None:
-    """Rule-based formatted report templates (WORK_PLAN4 R-C)."""
+    """Rule-based formatted report templates."""
     recs = rep.journal_slice(wf_id=wf_id, since=since, limit=limit)
     if template == "activity":
         out = [{"ts": r["ts"], "kind": r["kind"], "wf": r["wf_id"],
@@ -1393,9 +1393,9 @@ def supervisor_cmd(
     consumes the worker SSE event_stream into the Reporter and enforces the
     correction ladder (abort/restart/fallback/human). Runs continuously until
     the deadline, a container restart, or an L5 human escalation (use --once for
-    a single pass). This is the first-class replacement for the old M0 supervisor
-    (DESIGN-supervision.md). Pass --meta to let a real model judge a stall
+    a single pass). Pass --meta to let a real model judge a stall
     (deterministically gated); otherwise the ladder is fully deterministic.
+    See docs/subsystems/04_supervisor.md.
     """
     from ..app.reporter import Reporter
     from ..supervisor import Supervisor
@@ -1850,7 +1850,7 @@ app.add_typer(_session_app, name="session")
 # ---------------------------------------------------------------------------
 # task (subcommands: submit / list / status / stop / logs / clean)
 # ---------------------------------------------------------------------------
-_task_app = typer.Typer(help="Supervised-task registry (replaces ops/oc-task.py).")
+_task_app = typer.Typer(help="Supervised-task registry.")
 
 
 @_task_app.command("list")
@@ -1939,7 +1939,7 @@ app.add_typer(_task_app, name="task")
 
 # ---------------------------------------------------------------------------
 # flow (subcommands: list / validate / load / reload / rm / inspect)
-#   hot flow-definition lifecycle (WORK_PLAN5 F1-F11)
+#   hot flow-definition lifecycle
 # ---------------------------------------------------------------------------
 _flow_app = typer.Typer(
     help="FlowRegistry: hot compile/validate/load/reload of named flows.")
@@ -2000,7 +2000,7 @@ def flow_validate(
         False, "--watch", help="re-validate on file change (edit-while-validate)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
-    """Hot-validate a flow file (F2): compile + structural + deep checks.
+    """Hot-validate a flow file: compile + structural + deep checks.
 
     `--watch` polls the file and re-runs validation on every change, printing
     ok/err — the "edit-while-validate" loop. No registry mutation.
@@ -2093,7 +2093,7 @@ def flow_design(
     """Design + register a new flow from an inline spec (no file needed).
 
     Compiles the spec (full regime JSON or compact flow spec) via the unified
-    ``compile_spec`` entry, runs the F9 deep gate, and registers it into the
+    ``compile_spec`` entry, runs the deep-validation gate, and registers it into the
     persistent FlowRegistry — the same design path the dialog control B-route uses,
     exposed for the A-route dialog-control / CLI without requiring file-system write access.
     """
@@ -2138,7 +2138,7 @@ def flow_load(
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     perm: str = typer.Option("run", "--perm", help="held permission level"),
 ) -> None:
-    """Load + deep-validate + register a flow file into the registry (F4/F9)."""
+    """Load + deep-validate + register a flow file into the registry."""
     _gate(perm, ["flow", "load"])
     from ..flow import FlowRegistry, FlowError
 
@@ -2168,7 +2168,7 @@ def flow_reload(
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     perm: str = typer.Option("run", "--perm", help="held permission level"),
 ) -> None:
-    """Atomically hot-reload a file-backed flow (F5/F10). Running workflows keep
+    """Atomically hot-reload a file-backed flow. Running workflows keep
     their old StateMachine snapshot; the registry swaps to the new version."""
     _gate(perm, ["flow", "reload"])
     from ..flow import FlowError
@@ -2371,7 +2371,7 @@ def regime_load(
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     perm: str = typer.Option("run", "--perm", help="held permission level"),
 ) -> None:
-    """Load + deep-validate + register a regime file (F9 gate)."""
+    """Load + deep-validate + register a regime file."""
     _gate(perm, ["regime", "load"])
     from ..flow import FlowError
 

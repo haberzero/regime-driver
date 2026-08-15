@@ -68,7 +68,7 @@ def run_dialog(
         client = MockClient(sm=sm)
         llm = None
 
-    # 阶段 2 unified extension registry: the dialog owns the live registry so
+    # unified extension registry: the dialog owns the live registry so
     # `hook list/reload` can inspect / hot-reload the user plugin. Passed to the
     # cluster at CONSTRUCTION so the watchdog (built inside) gets the hooks too.
     hooks = load_user_hooks()

@@ -1,7 +1,7 @@
-"""Unified extension-point model (阶段 2) — the one place users inject behavior.
+"""Unified extension-point model — the one place users inject behavior.
 
-Regime-driver used to let operators specialize the system in three unrelated
-places: a hardcoded handover prompt (W-硬编码), a global tool registry
+Regime-driver lets operators specialize the system through three channels: a
+hardcoded handover prompt, a global tool registry
 (`core.tools.register_tool`), and a JSON-only watchdog policy. This module is
 the single user-facing registry that all three channels flow through:
 
