@@ -98,19 +98,92 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 **体系化重构（阶段 0–4）全部完成。** 蓝图 `_regime_redesign.md` 已总结并入 WORKLOG 并删除。
 
-### 下一步（下一 session 主线 = 文档体系 + 自说明体系全方位同步）
+### 主线完成：文档体系 + 自说明体系全方位同步（2026-08-14 夜）
 
-用户指示：技术文档必须更新到最新状态避免误导；试用 regime-driver 的智能体必须获得完善且合理的
-说明书；相关插件可能需更新。交接前 grep 实测审计（详见 `HANDOVER.md` §8"审计结论"）：
-- **最需更新**：`docs/guide/*`（8 篇）+ `docs/howto/*`（7 篇）+ `README/README.en`——**零提及**
-  五阶段新特性（hooks.py/ask_human/decide/regime-name/整制度设计/意图级 design/verify 白名单）。
-- **复核**：01_cli `regime regime` 组完整性；architecture 01/03/04；subsystems 01/02/05/07/08/09。
-- **自说明体系**：插件补 regime_regime_inspect/reload/rm + 核验 run/drive --regime-name 转发；
-  **智能体说明书**（agent 视角完整手册，用户明确要求，随 wheel 分发）。
-- **运维**：mkdocs build 本地挂起（网络/CDN），需解决本地验证路径（CI docs.yml 可构建）。
+**状态**：✅ 完成（全量 610 passed 零回归 + general 只读 review 两轮收口 0 blocker）。
 
-每项：以实跑为准（命令真跑验证）+ 智能侧说明同步硬约束 + 全量测试零回归 + general 只读 review。
-顺延候选不变：V-2 PyPI（待用户 token）→ P-005 覆盖率 → 限并发耐久 → GitHub Pages（待用户）。
+**交付**：
+1. **读者层全面同步**：`docs/guide/*` 8 篇 + `docs/howto/*` 7 篇 + `README`/`README.en` 补全五阶段
+   新特性——制度一等公民（`regime regime design`/`--regime-name`）、整制度设计（flow+roles+watchdog+
+   handover 合一）、意图级 design、`~/.regime/hooks.py` 扩展点、ask_human+decide 人工确认点、
+   verify 白名单。以实跑为准（`regime regime design` 真实冒烟 + 28.5s `--regime-name` complete）。
+2. **参考/架构/子系统复核**：01_cli `regime regime` 组完整性确认（list/inspect/design/load/reload/rm 全入册）；
+   architecture/01 补阶段0 监督统一抽象修正、architecture/02 已覆盖阶段 2/3/4、03/04 无误导；
+   subsystems/01_drive 修正阶段0 监督归属（进程外退 T1/deadline/meta）、06 意图级表述修正、
+   07 补 regime 契约、02/05/08/09 复核无误导。
+3. **自说明体系**：插件 `.opencode/plugins/regime-dialog-control.js` 补 `regime_regime_inspect/reload/rm`
+   三工具 + `regime_run` 转发 `--regime-name`（flow/regime_name 二选一、regime_name 优先）；
+   19→22 工具；dialog-control.md 补全整制度管理命令与 run 参数说明；模板漂移守卫绿。
+4. **智能体说明书**（用户明确要求交付）：`.opencode/agent-handbook.md`（agent 视角完整手册：
+   能力总览/命令面/插件工具表/制度与扩展点/ask_human 交互/踩坑/真实起栈）随 wheel 分发
+   （sync_templates FILES 登记 → `data/agent-handbook.md`，test_package 漂移守卫覆盖，wheel 实测含该文件）。
+5. **验证门**：守卫测试（test_package/test_config_doc_guard/test_cli_doc_guard/test_capabilities_map）
+   全绿；sync_templates --check 绿；check_capabilities 绿；全量 610 passed 零回归；mkdocs build 本地可构建
+   （2-3s，仅 1 已知 README↔index warning，CI 已注明弃 strict）。
+6. **mkdocs 本地挂起（运维项）**：交接记载的本地 build 挂起当前**不复现**（2.3s 完成，mermaid2 只注入
+   script 标签不下载，build 离线），本地验证路径可用。
+
+### 主线完成：夜间长跑 + verify 白名单配置漂移真实 bug 根治（2026-08-15 凌晨）
+
+**状态**：✅ 完成（全量 612 passed 零回归 + general 只读 review 0 blocker + W1 闭环）。
+
+**夜间长跑**（WORK_PLAN14 后首轮全套件，`ops/quality_run.py` 全 5 任务，REGIME_VERIFY_ENABLED=true +
+上下文交接策略）：shop_inventory/kv_cluster/payment_ledger/etl_pipeline **complete**（宿主 pytest 33/36/39p 全 0f），
+distributed_scheduler **blocked@test**（watchdog kill）。能力覆盖 17/17。归档
+`tasks_docs/nightly_run_archive/20260814-222131/`，报告 `tasks_docs/quality_report.md` §8。
+
+**真实 bug（已根治）**：FlowRegistry 持久 store 残留旧 `sg docker -c` 包装的 verify 命令（真源是纯
+docker exec）→ 运行时白名单拒绝（rc=None）→ judge 无 pytest 证据 → 质询重跑 + dispatch 瞬时超时 →
+watchdog kill。修复：①`core/verify_spec.py` 白名单+build_verify_argv 上移 core（单点真理）；
+②`core/validate.py` deep_validate 增加 verify 白名单静态预检（注册/校验期拒绝）；
+③`FlowRegistry._load_store` 装载期校验 verify 形状（store 残留装载期隔离，W1 闭环）；
+④store reload 修复。测试 +2（test_verify_whitelist_shape_enforced / test_store_residual_verify_whitelist_rejected_at_load）。
+**验证中**：distributed_scheduler 单任务重跑（verify 修复后应拿到真实 pytest 证据并 complete）。
+
+**重跑验证（✅ 2026-08-15 凌晨）**：distributed_scheduler 单任务重跑 **complete**（1504.9s）+ 宿主外部
+pytest 26p/0f + verify_result rc=0（test 门拿到真实 pytest 证据）——对比首轮 blocked@test（verify 白名单
+拒绝）→ **bug 修复闭环实证成功**。归档 `tasks_docs/nightly_run_archive/recheck-verify-20260815-002235/`，
+报告 §8.5。全量 612 passed 零回归。
+
+**第二轮夜间长跑（✅ 2026-08-15 清晨，verify 根除验证）**：全套件 5 任务——shop_inventory(566.8s 37p)/
+kv_cluster(698.5s 45p)/etl_pipeline(549.6s 22p)/**distributed_scheduler(complete 1355s, 三次 verify_result
+全 rc=0)** complete + payment_ledger(error@design 真实失败)。**verify 根除实证成功**（distributed_scheduler
+完整跑通，test 门三次拿到真实 pytest 证据）。归档 `tasks_docs/nightly_run_archive/nightly2-20260815-020027/`。
+
+**两个新真实 bug（已根治 + 闭环实证）**：
+1. **extract_json 鲁棒性**：reviewer "散文+JSON" 混合回复被散文未闭合引号/字面花括号污染单次扫描 → 提取
+   失败 → gate "no JSON object" → 重试耗尽。修复：每个 `{` 候选独立跟踪字符串状态。测试 +3。
+2. **judge 在流式 partial 上判定（review 实证真实根因）**：`_latest_assistant` 不检查 `completed`（对比
+   agent 路径），judge 判 partial → extract_json None → gate 报错 → 重试耗尽；id 去重使完整回复永不重判。
+   修复：`_latest_assistant` 等待 `completed` + 跳过 abort draft（finish None）。测试 +2。
+
+**修复闭环实证**：payment_ledger 重跑 complete（396.5s，宿主 pytest 30p/0f，2 verdicts 0 gate_exhausted——
+对比首轮 error@design 180.9s gate exhausted）。归档 `tasks_docs/nightly_run_archive/recheck-pl-20260815-040327/`，
+报告 §8.6。全量 618 passed 零回归。
+
+### 主线完成：主控对话框使用模式变革（2026-08-15 下午）
+
+**状态**：✅ 完成（全量 624 passed 零回归 + general 只读 review 两轮 0 blocker + 真实冒烟）。
+
+**背景（元层评估定案）**：本 session 实际承担了主控对话框职责（操作员+分析师+决策者），直接 bash 直连
+CLI 比 22 个包装工具更高效。结论：**CLI 包装不是不合理，但分发后正确方向 = 说明书 + 自由 CLI**，而非
+更多包装工具。原始设计意图：主控对话框**绝不因某次工具使用被阻塞**。
+
+**交付**：
+1. **提示词重写**（`.opencode/agent/dialog-control.md`）：从"经 22 插件工具"改为**自由 bash 直连 regime
+   CLI** + agent-handbook 必读；新增"诊断流程"章节（时间线→判定→会话原文→journal 下钻）；运行默认
+   `--async` 非阻塞。
+2. **说明书强化**（`.opencode/agent-handbook.md`）：§4 自由 CLI 直连主路径（插件降级可选引导）；
+   **新增 §5 非阻塞后台运行与事后查看**（阻塞 vs 非阻塞 / status+logs+web 三途径 / 诊断组合命令）。
+3. **CLI 诊断层扩展**：新增 **`regime web`** 只读观察窗（`app/observe.py` stdlib，HTML 面板 + 7 个 GET
+   JSON API 端点，纯消费者零写操作）+ **`regime job logs <id>`**（读 `--async` 捕获输出事后查看）。
+4. **插件降级**：注释改为"可选便利层非主路径"；dialog-control.md 零 `regime_` 依赖。
+5. **文档同步**：01_cli / capabilities（18 顶层）/ guide 00 / howto / HANDOVER。
+6. **验证门**：624 passed（+6：observe 4 + job logs 1 + XSS 1）；守卫全绿；真实冒烟（web 观察窗 JSON API
+   + HTML + ledger/journal 读取；run --async + job status/logs）；review 两轮 0 blocker（B1 XSS 已修 +
+   W1 best-effort 违约 + W2 编号 + N1-N6）。
+
+**遗留顺延**（不变）：V-2 PyPI（待用户 token）→ P-005 覆盖率 → 限并发耐久 → GitHub Pages（待用户）。
 
 **硬约束（防断裂）**：任何新增/修改功能、CLI、配置、信号/事件、行为语义的里程碑，
 落地时**必须同步智能侧说明**（settings→config+02_configuration；CLI→01_cli+插件；

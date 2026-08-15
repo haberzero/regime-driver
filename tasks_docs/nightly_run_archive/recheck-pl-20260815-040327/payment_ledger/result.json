@@ -1,0 +1,42 @@
+{
+  "id": "payment_ledger",
+  "task_id": "task-20260815-040418-978f",
+  "elapsed_sec": 396.5,
+  "outcome": "complete",
+  "detail": null,
+  "host_pytest": {
+    "verifiable": true,
+    "rc": 0,
+    "passed": 30,
+    "failed": 0,
+    "errors": 0,
+    "snippet": "..............................                                           [100%]\n30 passed in 0.25s\n"
+  },
+  "reviewer": {
+    "verdicts": 2,
+    "advances": 2,
+    "gate_exhausted": 0,
+    "reworks": 0,
+    "inquiries": 0
+  },
+  "covers": [
+    "bug-fixing",
+    "root-cause",
+    "read-existing-code",
+    "error-handling",
+    "edge-cases",
+    "thread-safety",
+    "concurrency-testing",
+    "design-node"
+  ],
+  "flow": null,
+  "archive": "/tmp/recheck-pl-20260815-040327/archive/payment_ledger",
+  "sessions_snapshotted": [
+    "ses_ffe1fe515ffeN71jxYoHvM3j9e",
+    "ses_ffe1e952fffe0PS1ppISv9FXx8"
+  ],
+  "slices": {
+    "journal": 98,
+    "events": 20
+  }
+}

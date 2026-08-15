@@ -1,0 +1,303 @@
+{
+  "elapsed_sec": 4137.8,
+  "tasks_attempted": 5,
+  "results": [
+    {
+      "id": "shop_inventory",
+      "task_id": "task-20260814-222142-17c3",
+      "elapsed_sec": 467.9,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 2,
+        "passed": 0,
+        "failed": 0,
+        "errors": 2,
+        "snippet": "'\n=========================== short test summary info ============================\nERROR ../../../tmp/nightly-20260814-222131/archive/shop_inventory/test_inventory.py\nERROR ../../../tmp/nightly-20260814-222131/archive/shop_inventory/test_orders.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!\n2 errors in 0.04s\nERROR conda.cli.main_run:execute(148): `conda run python -m pytest -q /tmp/nightly-20260814-222131/archive/shop_inventory` failed. (See above for error)\n"
+      },
+      "reviewer": {
+        "verdicts": 4,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0,
+        "inquiries": 2
+      },
+      "covers": [
+        "refactoring",
+        "code-odor",
+        "read-existing-code",
+        "design-node",
+        "api-design",
+        "error-isolation",
+        "multi-module",
+        "integration",
+        "edge-cases",
+        "wrap-hygiene"
+      ],
+      "flow": null,
+      "archive": "/tmp/nightly-20260814-222131/archive/shop_inventory",
+      "sessions_snapshotted": [
+        "ses_fff598e7fffeEoiVRp4um5n3hR",
+        "ses_fff59189effeCj2xq8h3ibm9a2"
+      ],
+      "slices": {
+        "journal": 107,
+        "events": 26
+      }
+    },
+    {
+      "id": "kv_cluster",
+      "task_id": "task-20260814-222932-3194",
+      "elapsed_sec": 1045.3,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 33,
+        "failed": 0,
+        "errors": 0,
+        "snippet": " warnings.warn(\n\n../.local/lib/python3.12/site-packages/_pytest/pathlib.py:95\n  /home/haber/.local/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-3ebf40c3-a478-4271-ac80-712a7e12e3b3\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-3ebf40c3-a478-4271-ac80-712a7e12e3b3'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n33 passed, 12 warnings in 0.39s\n"
+      },
+      "reviewer": {
+        "verdicts": 3,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0,
+        "inquiries": 1
+      },
+      "covers": [
+        "multi-module",
+        "cross-module-contract",
+        "concurrency-testing",
+        "thread-safety",
+        "error-isolation",
+        "design-node",
+        "api-design",
+        "tradeoff-documentation",
+        "integration",
+        "edge-cases"
+      ],
+      "flow": null,
+      "archive": "/tmp/nightly-20260814-222131/archive/kv_cluster",
+      "sessions_snapshotted": [
+        "ses_fff525f8cffe9sUv0JGcPx0amo",
+        "ses_fff50af53ffeeJ6RS21Y2kVL39"
+      ],
+      "slices": {
+        "journal": 185,
+        "events": 24
+      }
+    },
+    {
+      "id": "payment_ledger",
+      "task_id": "task-20260814-224701-6acb",
+      "elapsed_sec": 383.9,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 36,
+        "failed": 0,
+        "errors": 0,
+        "snippet": "....................................                                     [100%]\n36 passed in 0.04s\n"
+      },
+      "reviewer": {
+        "verdicts": 2,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0,
+        "inquiries": 0
+      },
+      "covers": [
+        "bug-fixing",
+        "root-cause",
+        "read-existing-code",
+        "error-handling",
+        "edge-cases",
+        "thread-safety",
+        "concurrency-testing",
+        "design-node"
+      ],
+      "flow": null,
+      "archive": "/tmp/nightly-20260814-222131/archive/payment_ledger",
+      "sessions_snapshotted": [
+        "ses_fff425eb3ffew0iOBsGsGLF5JJ",
+        "ses_fff411069ffeIIqYIaDDKsD5VG"
+      ],
+      "slices": {
+        "journal": 73,
+        "events": 20
+      }
+    },
+    {
+      "id": "etl_pipeline",
+      "task_id": "task-20260814-225328-106b",
+      "elapsed_sec": 848.5,
+      "outcome": "complete",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 39,
+        "failed": 0,
+        "errors": 0,
+        "snippet": ".......................................                                  [100%]\n39 passed in 0.02s\n"
+      },
+      "reviewer": {
+        "verdicts": 5,
+        "advances": 2,
+        "gate_exhausted": 0,
+        "reworks": 0,
+        "inquiries": 3
+      },
+      "covers": [
+        "multi-module",
+        "design-node",
+        "api-design",
+        "error-isolation",
+        "concurrency-testing",
+        "edge-cases",
+        "integration",
+        "tradeoff-documentation",
+        "wrap-hygiene"
+      ],
+      "flow": null,
+      "archive": "/tmp/nightly-20260814-222131/archive/etl_pipeline",
+      "sessions_snapshotted": [
+        "ses_fff3c7715ffewX2Is44VvzDTMn",
+        "ses_fff3ada88ffeaaan0Qp5lBTNmD"
+      ],
+      "slices": {
+        "journal": 146,
+        "events": 30
+      }
+    },
+    {
+      "id": "distributed_scheduler",
+      "task_id": "task-20260814-230740-dbb0",
+      "elapsed_sec": 1375.3,
+      "outcome": "blocked",
+      "detail": null,
+      "host_pytest": {
+        "verifiable": true,
+        "rc": 0,
+        "passed": 27,
+        "failed": 0,
+        "errors": 0,
+        "snippet": " warnings.warn(\n\n../.local/lib/python3.12/site-packages/_pytest/pathlib.py:95\n  /home/haber/.local/lib/python3.12/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-haber/garbage-4fb1a264-03bd-4384-bfd7-7390bccac9fc\n  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-haber/garbage-4fb1a264-03bd-4384-bfd7-7390bccac9fc'\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n27 passed, 12 warnings in 2.68s\n"
+      },
+      "reviewer": {
+        "verdicts": 4,
+        "advances": 1,
+        "gate_exhausted": 0,
+        "reworks": 0,
+        "inquiries": 3
+      },
+      "covers": [
+        "multi-module",
+        "cross-module-contract",
+        "concurrency-testing",
+        "thread-safety",
+        "design-node",
+        "api-design",
+        "error-isolation",
+        "integration",
+        "edge-cases",
+        "tradeoff-documentation",
+        "read-existing-code",
+        "wrap-hygiene"
+      ],
+      "flow": "code_workflow_v13",
+      "archive": "/tmp/nightly-20260814-222131/archive/distributed_scheduler",
+      "sessions_snapshotted": [
+        "ses_fff2f7810ffe2oU9WBu0mmaS2e",
+        "ses_fff2d8bd5ffeCCFHfo4HdGXwJE"
+      ],
+      "slices": {
+        "journal": 189,
+        "events": 26
+      }
+    }
+  ],
+  "capability_coverage": {
+    "covered": {
+      "api-design": [
+        "shop_inventory",
+        "kv_cluster",
+        "etl_pipeline"
+      ],
+      "bug-fixing": [
+        "payment_ledger"
+      ],
+      "code-odor": [
+        "shop_inventory"
+      ],
+      "concurrency-testing": [
+        "kv_cluster",
+        "payment_ledger",
+        "etl_pipeline"
+      ],
+      "cross-module-contract": [
+        "kv_cluster"
+      ],
+      "design-node": [
+        "shop_inventory",
+        "kv_cluster",
+        "payment_ledger",
+        "etl_pipeline"
+      ],
+      "edge-cases": [
+        "shop_inventory",
+        "kv_cluster",
+        "payment_ledger",
+        "etl_pipeline"
+      ],
+      "error-handling": [
+        "payment_ledger"
+      ],
+      "error-isolation": [
+        "shop_inventory",
+        "kv_cluster",
+        "etl_pipeline"
+      ],
+      "integration": [
+        "shop_inventory",
+        "kv_cluster",
+        "etl_pipeline"
+      ],
+      "multi-module": [
+        "shop_inventory",
+        "kv_cluster",
+        "etl_pipeline"
+      ],
+      "read-existing-code": [
+        "shop_inventory",
+        "payment_ledger"
+      ],
+      "refactoring": [
+        "shop_inventory"
+      ],
+      "root-cause": [
+        "payment_ledger"
+      ],
+      "thread-safety": [
+        "kv_cluster",
+        "payment_ledger"
+      ],
+      "tradeoff-documentation": [
+        "kv_cluster",
+        "etl_pipeline"
+      ],
+      "wrap-hygiene": [
+        "shop_inventory",
+        "etl_pipeline"
+      ]
+    },
+    "uncovered": [],
+    "declared_total": 17,
+    "covered_total": 17
+  }
+}

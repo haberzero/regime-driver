@@ -1,0 +1,43 @@
+{
+  "id": "etl_pipeline",
+  "task_id": "task-20260815-022457-934c",
+  "elapsed_sec": 549.6,
+  "outcome": "complete",
+  "detail": null,
+  "host_pytest": {
+    "verifiable": true,
+    "rc": 0,
+    "passed": 22,
+    "failed": 0,
+    "errors": 0,
+    "snippet": "......................                                                   [100%]\n22 passed in 0.02s\n"
+  },
+  "reviewer": {
+    "verdicts": 6,
+    "advances": 2,
+    "gate_exhausted": 0,
+    "reworks": 0,
+    "inquiries": 4
+  },
+  "covers": [
+    "multi-module",
+    "design-node",
+    "api-design",
+    "error-isolation",
+    "concurrency-testing",
+    "edge-cases",
+    "integration",
+    "tradeoff-documentation",
+    "wrap-hygiene"
+  ],
+  "flow": null,
+  "archive": "/tmp/nightly2-20260815-020027/archive/etl_pipeline",
+  "sessions_snapshotted": [
+    "ses_ffe7ada26ffeVfxB0NaRHdYl23",
+    "ses_ffe784d00ffec1n2Dr4wFnCJAQ"
+  ],
+  "slices": {
+    "journal": 92,
+    "events": 32
+  }
+}

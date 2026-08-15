@@ -1,0 +1,8 @@
+{"event": "node_enter", "ts": "2026-08-15T02:21:50", "source": "regime-driver", "node": "understand", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-15T02:23:21", "source": "regime-driver", "node": "understand", "outcome": "complete", "report_len": 2480}
+{"event": "transition", "ts": "2026-08-15T02:23:21", "source": "regime-driver", "from_node": "understand", "to_node": "read_code", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-15T02:23:21", "source": "regime-driver", "node": "read_code", "type": "agent", "role": "developer"}
+{"event": "node_done", "ts": "2026-08-15T02:23:36", "source": "regime-driver", "node": "read_code", "outcome": "complete", "report_len": 1696}
+{"event": "transition", "ts": "2026-08-15T02:23:36", "source": "regime-driver", "from_node": "read_code", "to_node": "design", "role": "developer", "decision": "reuse"}
+{"event": "node_enter", "ts": "2026-08-15T02:23:36", "source": "regime-driver", "node": "design", "type": "judge", "role": "reviewer"}
+{"event": "outcome", "ts": "2026-08-15T02:24:42", "source": "regime-driver", "node": "design", "outcome": "error", "detail": "reviewer gate exhausted"}

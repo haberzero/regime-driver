@@ -276,7 +276,51 @@
 
 ### 下一 session 主线任务（唯一指针，2026-08-14 深夜）
 
-> **本 session 已完成：体系化重构 全部五阶段（0/1/2/3/4）**（用户授权破坏性重构，蓝图
+> **本 session 已完成：文档体系 + 自说明体系全方位同步**（主线交付，用户指示：技术文档必须更新到
+> 最新状态避免误导；试用 regime-driver 的智能体必须获得完善且合理的说明书；相关插件可能需更新）。
+> 交接前 grep 实测审计的缺口已全部补齐并复核。
+>
+> **已完成交付**（详情见 `tasks_docs/WORKLOG.md` 最新 DONE 条目 + `MAIN_TASKS.md`）：
+> ① **读者层**：`docs/guide/*` 8 篇 + `docs/howto/*` 7 篇 + `README`/`README.en` 补全五阶段新特性
+> （制度一等公民 / 整制度设计 / 意图级 design / hooks.py 扩展点 / ask_human+decide / verify 白名单）；
+> ② **参考/架构/子系统复核**：01_cli `regime regime` 组完整性确认；architecture/01 补阶段0监督统一修正；
+> subsystems/01_drive 修正监督归属、06 意图级表述、07 补 regime 契约；
+> ③ **自说明体系**：插件补 `regime_regime_inspect/reload/rm` + `regime_run --regime-name` 转发（19→22 工具）；
+> ④ **智能体说明书**（用户明确要求）：`.opencode/agent-handbook.md` 随 wheel 分发；
+> ⑤ **验证门**：610 passed 零回归 + 守卫/sync_templates/check_capabilities 全绿 + general review 两轮 0 blocker；
+> ⑥ **mkdocs 本地挂起**：当前不复现（本地 2-3s 可构建），验证路径可用。
+> **测试基线 610 passed 零回归**；sync_templates / check_capabilities / 守卫全绿。
+
+> **本 session 后续：夜间长跑 + verify 白名单配置漂移真实 bug 根治**（2026-08-15 凌晨）：
+> 全 5 任务长跑（`tasks_docs/nightly_run_archive/20260814-222131/`）——4 complete + distributed_scheduler
+> blocked@test（watchdog kill）。**根因**：FlowRegistry 持久 store 残留旧 `sg docker -c` 包装 verify 命令
+> → 运行时白名单拒绝（rc=None）→ judge 无 pytest 证据 → 质询重跑 + dispatch 瞬时超时 → watchdog kill。
+> **修复**：`core/verify_spec.py`（白名单上移 core，单点真理）+ `core/validate.py` deep_validate 白名单预检
+> + `FlowRegistry._load_store` 装载期 verify 形状校验（W1 闭环，review 抓出）+ store reload。
+> **测试基线 612 passed 零回归**；报告 `tasks_docs/quality_report.md` §8。
+> **重跑验证（✅）**：distributed_scheduler 单任务重跑 complete（1504.9s）+ 宿主 pytest 26p/0f +
+> verify rc=0（test 门拿到真实证据）——bug 修复闭环实证成功。归档
+> `tasks_docs/nightly_run_archive/recheck-verify-20260815-002235/`。
+
+> **本 session 后续（2026-08-15 下午）：主控对话框使用模式变革**（元层评估定案——本 session 实际承担了
+> 主控对话框职责，直接 bash 直连 CLI 比包装工具高效；原始设计意图=对话框永不因工具使用被阻塞）：
+> ① dialog-control.md 重写为**自由 bash 直连 regime CLI** + agent-handbook 必读 + 诊断流程章节；
+> ② agent-handbook 新增 §5 非阻塞后台运行与事后查看（--async + job status/logs + web 观察窗）；
+> ③ **新增 `regime web`** 只读观察窗（`app/observe.py`，stdlib，HTML 面板 + JSON API，纯消费者零写操作）；
+> ④ **新增 `regime job logs <id>`**（--async 捕获输出事后查看）；⑤ 插件降级为可选引导（非主路径）；
+> ⑥ 文档同步（01_cli/capabilities 18 顶层/guide/howto）。**测试基线 624 passed 零回归**；general review
+> 两轮 0 blocker（XSS 修复 + best-effort 违约 + 编号等 11 项全收口）。
+
+> **本 session 后续（第二轮夜间长跑 + 两个新真实 bug 根治，2026-08-15 清晨）**：
+> verify 彻底修复后全套件重跑——4 complete + payment_ledger(error@design 真实失败)；**verify 根除实证成功**
+> （distributed_scheduler 三次 verify rc=0）。深挖 payment_ledger 失败暴露两个新 bug：
+> ①**extract_json 鲁棒性**（散文未闭合引号/字面花括号污染单次扫描）→ 每个 `{` 候选独立跟踪字符串状态；
+> ②**judge 在流式 partial 上判定**（review 实证真实根因：`_latest_assistant` 不检查 completed，对比 agent
+> 路径）→ judge 等待 `completed` + 跳过 abort draft。payment_ledger 重跑 complete（30p/0f）闭环实证。
+> 归档 `tasks_docs/nightly_run_archive/nightly2-20260815-020027/` + `recheck-pl-20260815-040327/`；
+> 报告 `tasks_docs/quality_report.md` §8.6。**测试基线 618 passed 零回归**。
+
+> **上一 session 已完成：体系化重构 全部五阶段（0/1/2/3/4）**（用户授权破坏性重构，蓝图
 > `tasks_docs/_regime_redesign.md` 已总结入 WORKLOG 并删除）。宏观根因（3 个体系化根因：
 > Regime 非一等公民 / 监督职责分裂 / 核心语义未在底层定义）已全部落地解决。
 >
@@ -304,12 +348,12 @@
 
 ---
 
-> **下一 session 主线 = 文档体系 + 自说明体系全方位同步**（用户指示：技术文档必须更新到最新状态，
-> 避免误导读者；试用 regime-driver 的智能体必须获得完善且合理的说明书；相关插件可能需更新）。
-> 五阶段重构的**代码/参考/架构/subsystems** 已在各阶段同步，但**读者层与部分自说明体系未同步**——
-> 本次交接前已做 grep 实测审计，下方"审计结论"是经过验证的事实，可直接开工。
+> **下一 session 主线（唯一指针）**：文档体系 + 自说明体系全方位同步**已全部完成**（2026-08-14 夜）。
+> 下方"审计结论"（grep 实测）是上一 session 交接时的缺口清单——本次已全部补齐并复核，历史保留供追溯。
+> **下一 session 顺延候选**（不变）：**V-2 PyPI**（待用户 token，dist/ 已构建）→ **P-005 测试套件优化** →
+> 限并发耐久二次验证 → **GitHub Pages 启用**（Settings→Pages→GitHub Actions）。
 
-### 审计结论（2026-08-14 深夜，grep 实测）
+### 审计结论（2026-08-14 深夜，grep 实测；本次已全部补齐）
 
 **已同步（各阶段中做过）**：
 - `docs/reference/01_cli.md`：`--regime-name` 已列 run/drive/run-many/drive-many 四表；`regime regime`
@@ -697,7 +741,7 @@ conda run -n regime-driver regime gate '<verdict-json>'
 conda run -n regime-driver regime run "<任务>" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl [--no-preflight]
 conda run -n regime-driver regime run-many "t1" "t2" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl
 conda run -n regime-driver regime run "<任务>" --async --reporter /tmp/rep.jsonl   # 非阻塞
-conda run -n regime-driver regime job list|status <id> --json
+conda run -n regime-driver regime job list|status <id>|logs <id> --json
 
 # 命名运行制度（Regime 一等公民，阶段1；持久 store 默认 ~/.regime/regimes）
 conda run -n regime-driver regime regime design <name> '<spec>' [--json]   # 内联设计并注册整制度(flow+roles+watchdog+handover)

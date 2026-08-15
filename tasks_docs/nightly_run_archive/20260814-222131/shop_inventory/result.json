@@ -1,0 +1,44 @@
+{
+  "id": "shop_inventory",
+  "task_id": "task-20260814-222142-17c3",
+  "elapsed_sec": 467.9,
+  "outcome": "complete",
+  "detail": null,
+  "host_pytest": {
+    "verifiable": true,
+    "rc": 2,
+    "passed": 0,
+    "failed": 0,
+    "errors": 2,
+    "snippet": "'\n=========================== short test summary info ============================\nERROR ../../../tmp/nightly-20260814-222131/archive/shop_inventory/test_inventory.py\nERROR ../../../tmp/nightly-20260814-222131/archive/shop_inventory/test_orders.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!\n2 errors in 0.04s\nERROR conda.cli.main_run:execute(148): `conda run python -m pytest -q /tmp/nightly-20260814-222131/archive/shop_inventory` failed. (See above for error)\n"
+  },
+  "reviewer": {
+    "verdicts": 4,
+    "advances": 2,
+    "gate_exhausted": 0,
+    "reworks": 0,
+    "inquiries": 2
+  },
+  "covers": [
+    "refactoring",
+    "code-odor",
+    "read-existing-code",
+    "design-node",
+    "api-design",
+    "error-isolation",
+    "multi-module",
+    "integration",
+    "edge-cases",
+    "wrap-hygiene"
+  ],
+  "flow": null,
+  "archive": "/tmp/nightly-20260814-222131/archive/shop_inventory",
+  "sessions_snapshotted": [
+    "ses_fff598e7fffeEoiVRp4um5n3hR",
+    "ses_fff59189effeCj2xq8h3ibm9a2"
+  ],
+  "slices": {
+    "journal": 107,
+    "events": 26
+  }
+}

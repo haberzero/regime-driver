@@ -120,3 +120,142 @@ tradeoff-documentation、wrap-hygiene。
 2. **能力覆盖引擎达标**：17/17 声明能力被真实触发，每任务 2–3 次 reviewer 实质判定，gate 无拦截。
 3. **产物可独立复验**：宿主外部 pytest 全 0 failed（140 断言累计），worker 内自跑与宿主复验一致。
 4. **建议**：夜间整合重跑可作发布前的标准回归门（`ops/run_nightly.sh`，~30min 单轮）。
+
+## 8. 夜间长跑报告（2026-08-14 深夜，WORK_PLAN14 之后首轮全套件）
+
+> 运行：`ops/quality_run.py` 全 5 任务各一圈，`REGIME_VERIFY_ENABLED=true` +
+> `REGIME_CONTEXT_HANDOVER_POLICY_JSON`（WORK_PLAN13 复查同配置），`--stall 300 --deadline 3600`。
+> 归档：`tasks_docs/nightly_run_archive/20260814-222131/`。
+
+### 8.1 任务结果
+
+| 任务 | flow | outcome | 耗时 | 宿主 pytest | reviewer verdicts | 设计门质询 |
+|---|---|---|---|---|---|---|
+| shop_inventory | code_workflow | complete | 468s | 0p/0f（collection 瞬时错误，复验 29p） | 4 | 2 |
+| kv_cluster | code_workflow | complete | 1045s | 33p/0f | 3 | 2 |
+| payment_ledger | code_workflow | complete | 384s | 36p/0f | 2 | 0 |
+| etl_pipeline | code_workflow | complete | 849s | 39p/0f | 5 | 2 |
+| **distributed_scheduler** | code_workflow_v13 | **blocked** | 1375s | 27p/0f | 4 | 2 |
+
+能力覆盖：声明 17 / 覆盖 17（0 uncovered）。
+
+### 8.2 关键发现：verify 白名单配置漂移真实 bug（已根治）
+
+**现象**：distributed_scheduler 在 test 门 `blocked (watchdog kill)`，耗时 1375s。
+**根因链**（journal 时序实证）：
+1. `verify_result rc=None`（23:22:11）——verify 命令被白名单拒绝（`verify whitelist`）。
+   运行时从 FlowRegistry 持久 store（`~/.regime/flows/code_workflow_v13.json`）读到的是
+   **带 `sg docker -c` 包装**的 verify 命令（`sg docker -c "docker exec {container} ..."`），
+   而真源 `ops/flow_v13.json` 是纯 `docker exec {container} ...` 形态——**store 残留旧配置**，
+   `build_verify_argv` 因 `tokens[0] != "docker"` 拒绝（白名单拒绝是正确行为，但配置漂移导致）。
+2. `reviewer_inquiry`（23:24:57）——reviewer 正确质询"verify 被白名单拒绝、需按白名单格式重跑"。
+3. `dispatch_error transport timed out`（23:22:24）——developer 重跑验证时 POST 超时（模型侧瞬时错误）。
+4. `monitor_abort`（23:30:09）——会话 300s 无 SSE 活性，默认策略（无 soft 动作）直接 kill。
+
+**结论**：verify 命令未在**注册/校验时**做白名单预检——配置漂移到非白名单形态只会在运行中
+（进入 test 门）才失败，且因白名单拒绝是"正确行为"（不执行），judge 拿不到 pytest 证据 →
+语义门注入 blocking issue → 质询重跑 → 叠加 dispatch 超时 → 看门狗最终 kill。
+
+**根治（本 session 已落地）**：
+1. **`core/verify_spec.py`（新）**：`VERIFY_ALLOWED_EXECS` + `build_verify_argv` 从 app 层上移到
+   core（纯函数、无 I/O），app/verify.py 复用（保持对外 API）。
+2. **`core/validate.py`**：`_check_capability_boundaries` 增加 **verify 白名单静态预检**——
+   非 `docker exec {container} <白名单程序>` 形态的命令在 `deep_validate` 时即拒绝，
+   **注册/校验期失败，而非运行中**。测试 `test_verify_whitelist_shape_enforced` +1。
+3. **`FlowRegistry._load_store`（W1 闭环）**：review 指出 store 装载路径不经过 deep_validate——
+   残留非白名单 verify 落在 store 时仍会在运行中才失败（事故同构）。现装载时对每节点 verify
+   做形状校验，残留命令在装载期被响亮拒绝+跳过（WARNING 记录）。测试
+   `test_store_residual_verify_whitelist_rejected_at_load` +1。
+4. **store 修复**：`regime flow reload code_workflow_v13` 使持久 store 与真源一致（纯 docker exec）。
+5. 全量 **612 passed**（+2），死代码守卫/漂移守卫/sync_templates/check_capabilities 全绿。
+
+### 8.3 其余观测
+
+- **shop_inventory host_pytest 0p/0f**：`result.json` 记录 rc=2（collection errors），但同路径复验
+  29 passed——运行当时为**归档后立即跑 host_pytest 的瞬时 collection 竞态**（worker 仍持有文件句柄/
+  __pycache__ 残留），非系统缺陷；复验确认产物真实可测。
+- **4/5 complete 零 ladder 零误杀**：普通复杂任务在最新架构下稳定完成，SSE 活性 + 语义门 +
+  确定性 gate 全链路无回归（对比旧架构 payment_ledger 曾 7 次截断→human）。
+- **设计门真实质询**：distributed_scheduler 设计门 2 次质询（issue_pending→ask_developer，
+  confidence 0.9）——readonly understand 让设计门审的是未实现方案（WORK_PLAN13 语义门生效）。
+
+### 8.4 建议
+
+1. **verify 白名单预检已并入 deep_validate**：新 flow/regime 注册前 `regime validate --deep` 即拦截
+   非白名单 verify，杜绝 store 残留类配置漂移再伤运行。
+2. **可考虑 flow reload 时主动校验 verify 形态**（当前 reload 会 deep_validate，已覆盖）。
+3. 超长任务（≥45min）建议配 soft 策略（`watchdog_policy_json` soft_sec/interrupt），让看门狗
+   先中断续跑而非直接 kill，避免单次 dispatch 瞬时错误升级为整个任务失败。
+
+### 8.5 修复验证：distributed_scheduler 单任务重跑（2026-08-15 凌晨）
+
+> verify 白名单修复 + store 清理后，单任务重跑同一超长任务（`--tasks distributed_scheduler`，
+> REGIME_VERIFY_ENABLED=true + 上下文交接策略 + --stall 300）。
+> 归档：`tasks_docs/nightly_run_archive/recheck-verify-20260815-002235/`。
+
+| 指标 | 首轮（修复前） | 重跑（修复后） |
+|---|---|---|
+| outcome | **blocked@test**（watchdog kill，1375s） | **complete**（1504.9s） |
+| verify_result | rc=None（白名单拒绝 sg 包装） | **rc=0（拿到 pytest 证据）** |
+| 宿主外部 pytest | 27p/0f | **26p/0f**（独立复验全绿） |
+| reviewer verdicts | 4 | 3 |
+| 设计门质询 | 2 次 | 0 次（方案一次通过） |
+
+**结论**：同一超长任务在 verify 修复后由 blocked 转为 complete，且宿主外部复验 26p/0f——
+证明 verify 白名单配置漂移是首轮失败的**直接根因**，修复（白名单静态预检 + store 装载期校验 + store 清理）
+已闭环；verify 在 test 门真正提供运行时证据，语义门 + 确定性 gate 全链路恢复正常。
+
+### 8.6 第二轮夜间长跑（verify 根除验证 + 两个新真实 bug）
+
+> verify 彻底修复（StateMachine._validate 单点校验 + store 装载隔离 + store 清理）后，全套件 5 任务重跑
+> （`REGIME_VERIFY_ENABLED=true` + 上下文交接策略 + --stall 300）。归档
+> `tasks_docs/nightly_run_archive/nightly2-20260815-020027/`。
+
+| 任务 | outcome | 耗时 | 宿主 pytest | 说明 |
+|---|---|---|---|---|
+| shop_inventory | complete | 566.8s | 37p/0f | 首轮 0p/0f collection 竞态消失 |
+| kv_cluster | complete | 698.5s | 45p/0f | |
+| etl_pipeline | complete | 549.6s | 22p/0f | |
+| **distributed_scheduler** | **complete** | 1355s | 22p/0f | **三次 verify_result 全 rc=0**（verify 根除实证） |
+| payment_ledger | **error@design** | 180.9s | — | reviewer gate exhausted（真实失败） |
+
+**verify 根除验证成功**：distributed_scheduler 完整跑通，test 门三次 verify 全部拿到真实 pytest 证据
+（rc=0）——对比首轮 verify rc=None → blocked@test。StateMachine._validate 单点校验 + store 装载期隔离
++ store 清理彻底生效，残留 sg 包装 verify 不可能再进入运行期。
+
+#### 8.6.1 新 bug 1：extract_json 鲁棒性（reviewer 混合回复解析失败）
+
+**现象**：payment_ledger error@design，`reviewer gate exhausted`。reviewer 每次输出"散文 + strict JSON"
+混合回复，gate 反复报 `no JSON object in reviewer reply`。
+
+**根因（第一层）**：旧 `extract_json` 单次扫描从第一个 `{` 开始维护全局字符串状态——散文里的**未闭合
+引号**使 in_str 永久 True（吞掉 JSON 的 `{`/`}`），或散文里的**字面 `{`** 使起始位置错乱 → 提取失败。
+
+**修复**：`extract_json` 改为遍历每个 `{` 作为候选 start，`_try_from` 独立跟踪括号/字符串状态（散文
+引号不污染后续候选），第一个可解析 dict 返回。测试 +3（unbalanced quote / stray brace / 真实文本复现）。
+
+#### 8.6.2 新 bug 2：judge 在流式 partial 回复上判定（真实根因，review 实证）
+
+**review 关键指正**：extract_json 重写正确但**非根因**——存档时间线证明 gate 耗尽判定发生在最后一条
+消息 `completed` 前 1.5s，即**判定落在流式未完成的 partial 回复上**；完整回复从未被判定。
+
+**根因（真实）**：`workflow_unit._latest_assistant`（judge 路径）只要求 reply 非空、**不检查
+`completed`**——对比 agent 路径 `_latest_agent_done` 明确等待 completed+finish。judge 在 partial 上判定
+→ extract_json 对 partial 返回 None → gate 报错 → 重试 → 每次 re-prompt 又判 partial → 4 次耗尽；
+id 去重使消息完成后**永不重判**。
+
+**修复**：`_latest_assistant` 增加 `completed` 检查（judge 只判定已完成的 assistant 消息），与 agent
+路径对称。测试 mock Message 默认 completed="now"（已完成语义），stall 场景显式 None；
+新增 `test_judge_waits_for_completed_not_partial`。
+
+#### 8.6.3 修复闭环实证（payment_ledger 重跑）
+
+| 指标 | 首轮（修复前） | 重跑（修复后） |
+|---|---|---|
+| outcome | error@design（180.9s gate exhausted） | **complete**（396.5s） |
+| design 判定 | partial 误判 → 重试耗尽 | 1 次通过（04:05:45→04:06:56） |
+| 宿主外部 pytest | — | **30p/0f** |
+| verdicts / gate_exhausted | 0 / 1 | 2 / 0 |
+
+**结论**：两个修复（extract_json 鲁棒性 + judge 等待 completed）闭环。归档
+`tasks_docs/nightly_run_archive/recheck-pl-20260815-040327/`。
