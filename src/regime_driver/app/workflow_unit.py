@@ -428,8 +428,13 @@ class WorkflowUnit(ThreadedUnit):
             self._step_human()
             return
         if self._phase != _PH_NONE:
-            # per-node wait timeout: never hang forever on a stuck idle session
+            # per-phase wait cap (optional): never hang forever on a stuck idle
+            # session. Disabled (None) by default: a busy-but-streaming phase
+            # must never be killed by wall clock — the SSE-liveness watchdog is
+            # the stall backstop; --deadline / default_deadline_sec is the
+            # explicit kill switch.
             if (self._phase_started
+                    and self.settings.default_deadline_sec is not None
                     and time.time() - self._phase_started > self.settings.default_deadline_sec):
                 self._abort_waiting_session(
                     reason=f"node timeout after {self.settings.default_deadline_sec}s")

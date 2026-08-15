@@ -68,7 +68,10 @@ class OpenCodeClient:
     """Thin typed client over the opencode server REST API."""
 
     base_url: str
-    timeout: float = 240.0
+    # aligned with settings.request_timeout (default 600): a message POST
+    # blocks until the turn completes, so a slow long generation must not be
+    # cut by a tight transport default
+    timeout: float = 600.0
     model: str | None = None
 
     # -- low-level ----------------------------------------------------------

@@ -19,12 +19,20 @@ class Settings(BaseModel):
         default=600.0, ge=10.0,
         description="HTTP/stream timeout (s) for each message POST; slow judges may exceed the old 240s"
     )
-    max_driver_wait_sec: float = Field(
-        default=3600.0, ge=60.0,
-        description="driver.run() default wait cap (s) when no explicit timeout/deadline is given"
+    max_driver_wait_sec: float | None = Field(
+        default=None, ge=60.0,
+        description="driver.run() wait cap (s) when no explicit timeout/deadline is given; "
+                    "None = no wall-clock cap (wait until terminal) — the SSE-liveness "
+                    "watchdog and max_total_nodes remain the anti-runaway backstops"
     )
     agent_reviewer: str = Field(default="reviewer", description="reviewer agent name (for meta-analysis)")
-    default_deadline_sec: int = Field(default=600, ge=1, description="per-segment deadline")
+    default_deadline_sec: int | None = Field(
+        default=None, ge=1,
+        description="per-phase wall-clock wait cap (s); None = disabled — a busy-but-"
+                    "streaming phase must never be killed by wall clock, the SSE-liveness "
+                    "watchdog is the stall backstop. Pass --deadline / set this to impose "
+                    "an explicit kill switch."
+    )
     poll_sec: float = Field(default=5.0, ge=0.1, description="session poll interval")
     human_confirm_timeout_sec: int = Field(
         default=300, ge=1,

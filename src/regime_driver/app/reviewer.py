@@ -86,7 +86,9 @@ class Reviewer:
     agent: str
     state_machine: StateMachine
     skills_dir: str | None = None
-    max_retries: int = 2
+    # must stay aligned with settings.max_reviewer_retries (default 3); call
+    # sites pass the settings value — this is only the bare-construction default
+    max_retries: int = 3
 
     # -- prompt building ----------------------------------------------------
 

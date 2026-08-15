@@ -17,9 +17,9 @@
 | `base_url` | str | `http://127.0.0.1:4097` | worker opencode 服务器 URL |
 | `model` | str | `deepseek-api/deepseek-v4-flash` | 所有 session 的模型 |
 | `request_timeout` | float | 600.0 | 每个 message POST 的流式超时（秒） |
-| `max_driver_wait_sec` | float | 3600.0 | `driver.run()` 无显式 deadline 时的等待上限（秒） |
+| `max_driver_wait_sec` | float\|null | null | `driver.run()` 无显式 deadline 时的等待上限（秒）；**null=无墙钟上限**（等待至终态）——活性看门狗与 `max_total_nodes` 仍是反失控兜底 |
 | `agent_reviewer` | str | `reviewer` | 审查者 agent 名 |
-| `default_deadline_sec` | int | 600 | 每段等待超时（秒） |
+| `default_deadline_sec` | int\|null | null | 每阶段墙钟等待上限（秒）；**null=禁用**——busy 且流式推进的阶段绝不因墙钟被杀，停滞由 SSE 活性看门狗兜底；传 `--deadline` 才启用显式杀开关 |
 | `human_confirm_timeout_sec` | int | 300 | **ask_human 人工确认等待超时（秒）** |
 | `human_default_on_timeout` | str | `block` | ask_human 超时默认动作：`block`（安全兜底）\| `advance`（放行）\| `rework`（回开发者重做） |
 | `poll_sec` | float | 5.0 | session 轮询间隔（秒） |
@@ -138,6 +138,24 @@ context_handover_policy_json = '{"soft_fraction": 0.5, "hard_fraction": 0.7, "do
 （语义门同时兜底）。preflight/离线运行自动关闭（`verify_enabled=false`），不执行宿主命令。
 
 ---
+
+
+## 超时与误杀防护（fail-safe 语义）
+
+regime-driver 用两类机制防止任务失控，**默认只有"活性"机制会终止任务**：
+
+| 机制 | 默认 | 何时终止 | 误杀风险 |
+|------|------|---------|---------|
+| **SSE 活性看门狗**（`stall_sec`=120 + `watchdog_policy_json`） | 开 | busy 且**无任何 SSE 事件流活性**超过阈值（真冻结/真停滞） | 低：流式生成（含长思考）持续产出 delta，不误杀 |
+| **每阶段墙钟**（`default_deadline_sec`） | **关（null）** | 显式 `--deadline`/配置启用后，单阶段超过 X 秒（无论是否健康推进） | 高——曾默认 600s 误杀长节点，已改默认关 |
+| **整跑墙钟**（`max_driver_wait_sec`） | **关（null）** | 显式启用后，无 deadline 的整跑超过 X 秒 | 高——曾默认 3600s 杀死 >1h 健康长跑，已改默认关 |
+| **节点总数上限**（`max_total_nodes`=50） | 开（可配） | 单跑执行节点数超上限（反失控） | 低：正常流程远低于 50 |
+| **审查门重试/对话轮次**（`max_reviewer_retries`=3、`max_dialogue_rounds`=5） | 开（可配） | 判定/质询轮次耗尽 | 低：作用于审查闭环，非工作节点 |
+
+**原则（对齐 DSH 的成熟做法）**：
+1. **阻塞操作有界、后台工作无超时**：message POST 有流式超时（`request_timeout`=600，可配），但任务运行本身只在"真停滞"或"显式 deadline"下终止。
+2. **默认值 fail-safe**：任何按墙钟杀任务的开关默认关闭；要强约束请显式传 `--deadline`（drive/run 均支持）。
+3. **单一真源**：传输/重试默认值与 `settings` 默认一致（`OpenCodeClient.timeout`、`Reviewer.max_retries`），由 `tests/test_no_silent_kill.py` 守卫。
 
 ## 环境变量覆盖
 
