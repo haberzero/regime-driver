@@ -3,19 +3,32 @@
 The distributed wheel ships the templates under ``regime_driver/data/`` (skills,
 agents, dialog-control-assistant subagents, docker recipes, regime.json). ``scaffold`` copies
 them to an opencode config target (default ``~/.config/opencode``) so a fresh
-user does not need to clone the source repository:
+user does not need to clone the source repository.
 
-- agents   → <target>/agents/       (developer/reviewer templates)
-- skills   → <target>/skills/       (the runtime skills the flows reference)
-- plugins/ → <target>/plugins/      (regime-dialog-control.js — the A-route plugin that
-                                     lets a HOST opencode be the primary dialog; opencode
-                                     auto-loads local plugins here)
-- agents/dialog-control.md → <target>/agents/  (the dialog-control agent, auto-discovered)
-- package.json → <target>/package.json         (plugin SDK dep; opencode auto `bun install`)
-- opencode.json → <target>/opencode.json  (model providers; host-mode without docker)
-- config.example.toml → <target>/config.example.toml  (config reference, single truth)
-- --assistants    → also copies the dialog-control-assistant subagents (analyst/advisor/reviewer)
-           → <target>/agents/
+Two modes (``workspace=`` flag):
+
+- **global** (default): deploy into a global opencode config root:
+  - agents   → <target>/agents/       (developer/reviewer templates)
+  - skills   → <target>/skills/       (the runtime skills the flows reference)
+  - plugins/ → <target>/plugins/      (regime-dialog-control.js — the A-route plugin that
+                                       lets a HOST opencode be the primary dialog; opencode
+                                       auto-loads local plugins here)
+  - agents/dialog-control.md → <target>/agents/  (the dialog-control agent, auto-discovered)
+  - package.json → <target>/package.json         (plugin SDK dep; opencode auto `bun install`)
+  - opencode.json → <target>/opencode.json  (model providers; host-mode without docker)
+  - config.example.toml → <target>/config.example.toml  (config reference, single truth)
+  - --assistants    → also copies the dialog-control-assistant subagents (analyst/advisor/reviewer)
+             → <target>/agents/
+
+- **workspace** (recommended): deploy into a project-local ``<dir>/.opencode/`` so
+  only that workspace's opencode sessions are affected:
+  - ``agent/`` (singular — the project-level opencode convention) instead of ``agents/``
+  - ``skills/`` (``.opencode/skills/`` is the project-level skills path opencode discovers)
+  - ``plugins/``, ``package.json`` as in global mode
+  - ``agent-handbook.md`` — the operator manual, deployed with the workspace so the
+    user can read it inside opencode and self-serve configuration
+  - **no** ``opencode.json`` (never overwrite the project config) and **no**
+    ``config.example.toml`` (do not pollute the project root)
 
 Design rules:
 - Idempotent: existing destination files are NOT overwritten unless --force.
@@ -273,6 +286,16 @@ def load_manifest(target: str | Path) -> dict | None:
         return None
 
 
+def _contained_in(path: Path, target: Path) -> bool:
+    """True when ``path`` is inside ``target`` (defense against a tampered
+    manifest pointing at files outside the deployment root)."""
+    try:
+        path.resolve().relative_to(target.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def uninstall(target: str | Path, *, dry_run: bool = False) -> dict:
     """Remove ONLY regime-deployed files from ``target`` (safe uninstall).
 
@@ -280,6 +303,7 @@ def uninstall(target: str | Path, *, dry_run: bool = False) -> dict:
       - exists + content matches the recorded hash → delete (regime's file)
       - exists + content differs → KEEP (user modified it) and warn
       - missing → already gone (no-op)
+      - outside the deployment target (tampered manifest) → SKIP and warn
     Empty parent directories regime created are pruned. The manifest itself is
     removed last. Returns a summary {removed, kept_modified, missing, manifest}.
     """
@@ -294,6 +318,9 @@ def uninstall(target: str | Path, *, dry_run: bool = False) -> dict:
     missing: list[str] = []
     for entry in manifest.get("files", []):
         p = Path(entry["path"])
+        if not _contained_in(p, target):
+            kept_modified.append(str(p))   # tampered manifest — never touch outside
+            continue
         if not p.is_file():
             missing.append(str(p))
             continue
@@ -336,7 +363,9 @@ def check_deployed(target: str | Path) -> dict:
     modified: list[str] = []
     for entry in manifest.get("files", []):
         p = Path(entry["path"])
-        if not p.is_file():
+        if not _contained_in(p, target):
+            modified.append(str(p))   # tampered manifest — flag, never delete
+        elif not p.is_file():
             missing.append(str(p))
         elif _sha256(p) != entry.get("sha256"):
             modified.append(str(p))
@@ -394,14 +423,23 @@ def check_plugin(plugins_dir: str | Path | None = None) -> dict:
         return {"ok": False, "detail": f"plugin not deployed: {plugin}",
                 "path": str(plugin)}
     text = plugin.read_text(encoding="utf-8", errors="replace")
-    # v1 default-export shape: export default { id: "...", server: ... }
-    has_default = re.search(
-        r"export\s+default\s*\{[^}]*?id\s*:\s*[\"'][^\"']+[\"'][^}]*?server\s*:",
-        text, re.S,
-    ) is not None
-    if not has_default:
+    # v1 default-export shape: `export default { id: "...", server: ... }`.
+    # Strip line comments first so comment text can never satisfy the shape,
+    # then require BOTH keys inside the default-export object (order-independent).
+    code = re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    m = re.search(r"export\s+default\s*\{", code)
+    if m is None:
         return {"ok": False,
-                "detail": f"plugin lacks `export default {{ id, server }}` — "
+                "detail": f"plugin lacks `export default` — opencode may "
+                          f"silently skip it: {plugin}",
+                "path": str(plugin)}
+    obj = code[m.end():]
+    has_id = re.search(r"^\s*id\s*:\s*[\"'][^\"']+[\"']\s*,?", obj, re.M) is not None
+    has_server = re.search(r"^\s*server\s*:", obj, re.M) is not None
+    if not (has_id and has_server):
+        return {"ok": False,
+                "detail": f"plugin default export must carry both `id` and "
+                          f"`server` (found id={has_id} server={has_server}) — "
                           f"opencode may silently skip it: {plugin}",
                 "path": str(plugin)}
     return {"ok": True,

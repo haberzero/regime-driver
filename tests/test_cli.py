@@ -414,6 +414,35 @@ def test_doctor_survives_bad_env(monkeypatch):
     assert "worker health" in [c["check"] for c in data["checks"]]
 
 
+def test_doctor_workspace_checks_project_deployment(tmp_path, monkeypatch):
+    """N2: `doctor --workspace <dir>` must check the project-local deployment
+    (the recommended install mode), not the global ~/.config/opencode."""
+    import pathlib
+
+    from regime_driver.cli import scaffold_cmd
+
+    # isolate HOME so key/auth checks are deterministic
+    monkeypatch.setattr(pathlib.Path, "home", lambda: tmp_path / "fakehome")
+    (tmp_path / "fakehome" / ".regime" / "keys").mkdir(parents=True)
+    (tmp_path / "fakehome" / ".regime" / "keys" / "deepseek.key").write_text("k", encoding="utf-8")
+
+    # deploy into a workspace
+    ws = tmp_path / "proj"
+    r1 = runner.invoke(app, ["scaffold", "--workspace", str(ws), "--json"])
+    assert r1.exit_code == 0, r1.output
+    assert (ws / ".opencode" / "plugins" / "regime-dialog-control.js").is_file()
+
+    # doctor --workspace sees the deployed plugin as loadable + integrity ok
+    res = runner.invoke(app, ["doctor", "--workspace", str(ws),
+                              "--base", "http://127.0.0.1:1", "--json"])
+    data = json.loads(res.output)
+    checks = {c["check"]: c for c in data["checks"]}
+    pl = checks.get("dialog-control plugin loadable")
+    assert pl is not None and pl["ok"] is True, pl
+    dep = checks.get("deployed files integrity")
+    assert dep is not None and dep["ok"] is True, dep
+
+
 def test_version_compatible_major_minor():
     from regime_driver.infra.opencode import _version_compatible
     assert _version_compatible("1.18.11", "1.18.11")

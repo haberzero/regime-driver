@@ -369,7 +369,8 @@ key_present,host_mode_ready,container_mode_ready}`。
 
 自检就绪状态：worker 健康、模型配置、API key 是否存在、部署完整性、A 路插件可加载形状。
 
-**参数**：`--base`、`--json`。
+**参数**：`--base`、`--workspace`（检查项目级部署 `<dir>/.opencode/` 的部署/插件检查，替代全局
+`~/.config/opencode`）、`--json`。
 **输出**：`{model,provider,ok,checks}`。检查项含 worker health、key for provider、opencode auth.json、
 环境检测（docker/opencode/conda/平台，advisory）、部署完整性（`.regime-deployed.json` 与磁盘一致性）、
 dialog-control plugin loadable（已部署时检查实际部署文件、否则检查打包副本；插件缺 v1 default export

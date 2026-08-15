@@ -318,3 +318,46 @@ def test_cli_uninstall_workspace(tmp_path):
     assert r2.exit_code == 0, r2.output
     assert not (tmp_path / ".opencode" / "plugins" / "regime-dialog-control.js").exists()
     assert not (tmp_path / ".opencode" / ".regime-deployed.json").exists()
+
+
+def test_cli_workspace_accepts_dir_already_named_opencode(tmp_path):
+    """W1: passing a dir that already IS `.opencode` must not compose
+    `.opencode/.opencode` (idempotent target resolution)."""
+    from typer.testing import CliRunner
+
+    from regime_driver.cli import app
+
+    runner = CliRunner()
+    ws = tmp_path / ".opencode"
+    r1 = runner.invoke(app, ["scaffold", "--workspace", str(ws), "--json"])
+    assert r1.exit_code == 0, r1.output
+    # files land directly in ws (not ws/.opencode)
+    assert (ws / "plugins" / "regime-dialog-control.js").is_file()
+    assert not (ws / ".opencode").exists()
+    # uninstall on the same dir works
+    r2 = runner.invoke(app, ["uninstall", "--workspace", str(ws), "--json"])
+    assert r2.exit_code == 0, r2.output
+    assert not (ws / "plugins" / "regime-dialog-control.js").exists()
+
+
+def test_uninstall_skips_tampered_manifest_outside_target(tmp_path):
+    """W2: a manifest entry pointing OUTSIDE the deployment target must never be
+    deleted (defense against a tampered manifest)."""
+    from regime_driver.scaffold import MANIFEST_NAME, scaffold, uninstall
+    target = tmp_path / ".opencode"
+    scaffold(target, workspace=True)
+    # tamper the manifest: add an entry pointing at a file outside the target
+    outside = tmp_path / "outside.txt"
+    outside.write_text("do not delete", encoding="utf-8")
+    manifest_path = target / MANIFEST_NAME
+    import json
+    m = json.loads(manifest_path.read_text(encoding="utf-8"))
+    m["files"].append({"path": str(outside), "sha256": __import__("hashlib").sha256(
+        outside.read_bytes()).hexdigest()})
+    manifest_path.write_text(json.dumps(m), encoding="utf-8")
+
+    u = uninstall(target)
+    assert outside.is_file(), "outside file must never be deleted"
+    assert str(outside) in u["kept_modified"], "outside path must be flagged as kept"
+    # regime's own files inside target are still removed
+    assert not (target / "plugins" / "regime-dialog-control.js").exists()

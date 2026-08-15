@@ -24,7 +24,7 @@
 | run-many | `regime run-many` | 无人值守/并发 | — | 01_cli.md |
 | drive | `regime drive` | **无人值守核心** | 全部 4 复杂任务（harness 入口） | 01_cli.md |
 | drive-many | `regime drive-many` | 并发隔离 | — | 01_cli.md |
-| doctor | `regime doctor` | 一次性/运维 | 环境检测(docker/opencode/conda/平台) + 部署路径引导 + 插件可加载形状 | 01_cli.md |
+| doctor | `regime doctor` | 一次性/运维 | 环境检测(docker/opencode/conda/平台) + 部署路径引导 + 插件可加载形状（`--workspace` 检查项目级部署） | 01_cli.md |
 | preflight | `regime preflight` | 无人值守（drive 内嵌） | 全部任务（默认强制） | 01_cli.md |
 | report | `regime report` | 值守 | —（capabilities 引导） | 01_cli.md |
 | supervisor | `regime supervisor` | 值守/专项 | drive 内嵌等价 | 01_cli.md |

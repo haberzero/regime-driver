@@ -63,12 +63,42 @@
 - **R4 验证（已加）**：`tests/test_plugin_load.py`（导出形状静态断言 + node --check 语法 + 真源/包一致 +
   无主机路径）+ `scaffold.check_plugin()`（doctor 用，可检查实际部署文件形状）+ doctor 新检查项
   "dialog-control plugin loadable"。
-- **工作区模式（设计中）**：`scaffold_plan(..., workspace=True)`：
+- **工作区模式（已实现）**：`scaffold_plan(..., workspace=True)`：
   - 目标 = `<dir>/.opencode/`；`agents/`→`agent/`（单数，opencode 项目级约定）、skills/plugins 同构、
     dialog-control.md→agent/、package.json、**新增 agent-handbook.md**（用户可在 opencode 读它自助配置）。
   - **不装** opencode.json（不覆盖项目配置）与 config.example.toml（不污染项目根）。
   - manifest 落在 `<dir>/.opencode/.regime-deployed.json`；uninstall 支持 `--workspace`。
   - 全局路径（默认 `regime scaffold` → `~/.config/opencode/`）保留但不推荐。
+  - CLI：scaffold/setup/uninstall 均支持 `--workspace`（与 `--target` 互斥）；真实冒烟通过
+    （scaffold→check→uninstall 全周期，单 bash 调用内验证 0 残留）。
 - **opencode skills 路径（已核验 docs）**：项目级 `.opencode/skills/<name>/SKILL.md` ✅ 被 opencode 支持
   （还有 `.claude/skills/`、`.agents/skills/` 兼容路径；全局 `~/.config/opencode/skills/`）。
+- **R3 版本契约（已修）**：`data/opencode-package.json` `@opencode-ai/plugin` → `^1.18.11`
+  （与 SUPPORTED_OPCODE="1.18.11" major.minor 一致）；守卫测试
+  `test_plugin_sdk_version_matches_supported_opencode`。注意：`.opencode/package.json` 是
+  gitignored 机器本地文件（记录已装 SDK），测试只对 data/ 版断言（tracked 分发源）。
+- **DriveClient 协议（已实现）**：`infra/drive_client.py`（typing.Protocol，runtime_checkable，
+  13 方法面 + Message 重导出）；内核消费者（app/*、drive、supervisor、parallel、cli helper）类型注解
+  改 DriveClient；构造点（cli/worker/chaos/dialog_app/parallel）保持 OpenCodeClient；MockClient 补
+  4 方法（list_sessions/session_status_map/health_info/check_version）使其符合协议；
+  `test_drive_client_protocol_conformance` 锁双实现符合。
+- **doctor 测试环境隔离（已修）**：`test_doctor_env_readiness_advisory_does_not_gate` 原依赖真实
+  HOME（开发机有旧全局部署 → 新插件检查正确标红）。已改 monkeypatch Path.home 到 tmp +
+  种 key/auth.json，测试确定性化（这本身暴露了开发机全局部署是过期的——doctor 检查工作正常）。
+- **版本 0.3.0**：`__version__` 0.2.0 → 0.3.0；wheel 重建（281KB，含新插件/手册/package.json）。
+- **文档同步（完成）**：01_cli（scaffold/setup/uninstall/doctor 工作区说明）、05_setup（工作区推荐）、
+  00_dialog_control、04_distribution_blueprint（wheel 矩阵 + 用户路径）、capabilities、README、
+  howto/host-mode-agents、agent-handbook（真源 + data 镜像）。
+
+## 进度
+
+- [x] R1 插件导出形状
+- [x] R4 插件加载验证（测试 + doctor 检查）
+- [x] 工作区模式（scaffold/setup/uninstall --workspace + manifest + 测试 + 冒烟）
+- [x] R3 版本契约对齐
+- [x] DriveClient 协议抽取（647 passed 零回归）
+- [x] 文档同步（全部）
+- [x] 版本 0.3.0 + wheel 重建
+- [ ] general 只读 review（进行中）
+- [ ] WORKLOG + HANDOVER 收尾
 

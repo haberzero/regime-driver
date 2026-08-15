@@ -7,38 +7,41 @@
 ## 为什么这是推荐的默认形态
 
 regime-driver 不强制 Docker。用户更倾向于直接用 opencode 作为载体（对话框 + 执行）。
-`regime scaffold` 一条命令把全部官方模板装配到 `~/.config/opencode/`：
+`regime scaffold` 一条命令把全部官方模板装配好（推荐工作区模式；全局模式可选）：
 
 ## 装配内容（一条命令）
 
 ```bash
+# 推荐：工作区模式 —— 只影响当前项目的 opencode 会话，不污染其它对话环境
+regime scaffold --workspace <你的项目目录>     # → <项目>/.opencode/
+# 可选：全局模式（影响机器上所有 opencode 会话，不推荐）
 regime scaffold
 ```
 
-生成到 `~/.config/opencode/`：
+工作区模式生成到 `<项目>/.opencode/`：
 
 | 路径 | 内容 |
 |---|---|
 | `plugins/regime-dialog-control.js` | **A 路插件**：把 `regime_*` 命令包装成 22 个 opencode 工具（opencode 启动自动加载本地插件） |
-| `agents/dialog-control.md` | **对话控制 agent**：主操作对话框（primary，`Tab` 切换） |
-| `agents/reviewer.md` | 只读审查 subagent |
+| `agent/dialog-control.md` | **对话控制 agent**：主操作对话框（primary，`Tab` 切换） |
+| `agent/reviewer.md` | 只读审查 subagent |
 | `skills/` | 运行时 skills（design-philosophy / code-review / developer-quality 等） |
-| `opencode.json` | 模型 provider 配置（`{env:...}` 占位，无密钥） |
 | `package.json` | 插件 SDK 依赖 `@opencode-ai/plugin`（opencode 启动自动 `bun install`） |
-| `config.example.toml` | 配置参考（唯一真源） |
+| `agent-handbook.md` | 操作说明书（用户可在 opencode 里让 agent 读它自助配置工作区） |
 
+> 全局模式（`~/.config/opencode/`）额外含 `opencode.json`（provider 占位）与 `config.example.toml`。
 > `--assistants` 追加 analyst（态势分析师）/ advisor（流程设计顾问）两个对话助手。
 
 ## 使用
 
 ```bash
-# 1) 装配模板
-regime scaffold
+# 1) 装配模板（工作区模式推荐）
+regime scaffold --workspace <你的项目目录>      # 或 regime setup --workspace <dir>
 
 # 2) 配置模型密钥（见 guide/05_setup.md）
 printf '%s' '你的-deepseek-api-key' > ~/.regime/keys/deepseek.key
 
-# 3) 自检（含环境检测：docker/opencode/conda 可用性）
+# 3) 自检（含环境检测 + 插件可加载形状）
 regime doctor
 
 # 4) 启动主机 opencode（serve 模式），用对话框对话
@@ -47,6 +50,9 @@ opencode serve --port 4097
 # 5) 另开终端，用对话框（B 路 REPL 或 A 路 opencode 会话）操作
 regime dialog --live --perm run        # B 路纯 Python 对话框
 # 或在 opencode 里切到 dialog-control agent 对话（A 路，需插件已加载）
+
+# 卸载（只移除该工作区部署，用户改过的文件保留）
+regime uninstall --workspace <你的项目目录>
 ```
 
 `regime run --base http://127.0.0.1:4097 <任务>` 即可在主机模式跑流程。

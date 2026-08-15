@@ -38,16 +38,25 @@ PLUGIN_PATHS = {
 # The v1 plugin default-export shape opencode's loader reliably detects:
 #   export default { id: "<id>", server: <fn> }
 # plus the legacy named export kept for import compatibility.
-_DEFAULT_EXPORT_RE = re.compile(
-    r"export\s+default\s*\{[^}]*?id\s*:\s*[\"'][^\"']+[\"'][^}]*?server\s*:",
-    re.S,
-)
 _NAMED_EXPORT_RE = re.compile(r"export\s+const\s+DialogControlPlugin\s*=")
 
 
 def _plugin_text(path: Path) -> str:
     assert path.is_file(), f"plugin file missing: {path}"
     return path.read_text(encoding="utf-8")
+
+
+def _default_export_keys(text: str) -> tuple[bool, bool]:
+    """Order-independent check of the v1 default-export object keys (id, server),
+    with line comments stripped so comment text can never satisfy the shape."""
+    code = re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    m = re.search(r"export\s+default\s*\{", code)
+    if m is None:
+        return False, False
+    obj = code[m.end():]
+    has_id = re.search(r"^\s*id\s*:\s*[\"'][^\"']+[\"']\s*,?", obj, re.M) is not None
+    has_server = re.search(r"^\s*server\s*:", obj, re.M) is not None
+    return has_id, has_server
 
 
 @pytest.mark.parametrize("name", sorted(PLUGIN_PATHS))
@@ -61,7 +70,8 @@ def test_plugin_has_v1_default_export(name: str):
     auto-scan path reliably loads it (a named-export-only file may be skipped
     silently)."""
     text = _plugin_text(PLUGIN_PATHS[name])
-    assert _DEFAULT_EXPORT_RE.search(text), (
+    has_id, has_server = _default_export_keys(text)
+    assert has_id and has_server, (
         f"{name}: missing `export default {{ id, server }}` — opencode's "
         "auto-scan loader requires the v1 default-export form"
     )

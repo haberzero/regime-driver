@@ -63,6 +63,15 @@ def _note(message: str, markup: bool = False) -> None:
     console.print(Text("· ", style="yellow") + (Text(message) if not markup else Text.from_markup(message)))
 
 
+def _workspace_target(workspace: Path) -> Path:
+    """Resolve a `--workspace <dir>` argument to the project-local `.opencode`
+    deploy target. Accepts both the project dir itself and a dir that already
+    is `.opencode` (never composes `.opencode/.opencode`)."""
+    if workspace.name == ".opencode":
+        return workspace
+    return workspace / ".opencode"
+
+
 def _emit_json(data) -> None:
     """Print machine-readable JSON to raw stdout (the CLI contract's --json surface).
 
@@ -890,6 +899,10 @@ def _env_readiness() -> list[dict]:
 @app.command("doctor")
 def doctor(
     base: Optional[str] = typer.Option(None, "--base", help="worker URL"),
+    workspace: Optional[Path] = typer.Option(
+        None, "--workspace", "-w", help="check a project-local deployment at "
+        "<dir>/.opencode/ instead of the global ~/.config/opencode "
+        "(deployment/plugin checks; worker health still probes --base)"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
 ) -> None:
     """Self-check readiness: worker health, model config, API key presence.
@@ -897,6 +910,10 @@ def doctor(
     Read-only. Reports whether the configured model + key are likely usable and
     prints context-appropriate next steps (containerized worker vs host opencode).
     Never prints API keys — only presence.
+
+    ``--workspace <dir>`` checks a project-local deployment (the recommended
+    install mode): the deployment-integrity and plugin-loadability checks target
+    ``<dir>/.opencode`` instead of the global ``~/.config/opencode``.
     """
     import os as _os
     from pathlib import Path as _Path
@@ -967,11 +984,14 @@ def doctor(
     # the v1 default-export shape opencode's auto-scan loader reliably detects,
     # or it is silently skipped (the dialog-control agent then has no regime_*
     # tools). Checks the packaged copy by default; when a deployment manifest
-    # exists, checks the actually-deployed file instead.
+    # exists, checks the actually-deployed file instead. `--workspace <dir>`
+    # targets a project-local deployment (the recommended install mode).
     from ..scaffold import check_deployed, check_plugin
-    _dep = check_deployed(_Path.home() / ".config" / "opencode")
-    _deployed_plugins = (_Path.home() / ".config" / "opencode" / "plugins"
-                         if _dep.get("deployed") else None)
+    deploy_root = (_workspace_target(workspace)
+                   if workspace is not None
+                   else _Path.home() / ".config" / "opencode")
+    _dep = check_deployed(deploy_root)
+    _deployed_plugins = (deploy_root / "plugins" if _dep.get("deployed") else None)
     _pl = check_plugin(_deployed_plugins)
     checks.append({"check": "dialog-control plugin loadable",
                    "ok": _pl["ok"], "detail": _pl["detail"]})
@@ -2755,7 +2775,7 @@ def scaffold_cmd(
     if target is not None and workspace is not None:
         _fail("--target and --workspace are mutually exclusive")
     if workspace is not None:
-        dest = workspace / ".opencode"
+        dest = _workspace_target(workspace)
         mode = "workspace"
     else:
         dest = target or _Path.home() / ".config" / "opencode"
@@ -2831,7 +2851,7 @@ def setup_cmd(
     if target is not None and workspace is not None:
         _fail("--target and --workspace are mutually exclusive")
     if workspace is not None:
-        dest = workspace / ".opencode"
+        dest = _workspace_target(workspace)
         mode = "workspace"
     else:
         dest = target or _Path.home() / ".config" / "opencode"
@@ -2923,7 +2943,7 @@ def uninstall_cmd(
     if target is not None and workspace is not None:
         _fail("--target and --workspace are mutually exclusive")
     if workspace is not None:
-        dest = workspace / ".opencode"
+        dest = _workspace_target(workspace)
     else:
         dest = target or _Path.home() / ".config" / "opencode"
 
