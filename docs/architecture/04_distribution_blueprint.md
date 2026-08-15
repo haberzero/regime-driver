@@ -139,11 +139,11 @@ pip install regime-driver  →  regime scaffold [--assistants]  →  ~/.config/o
 3. 卸载是整机级（`regime uninstall` 影响所有项目）。
 仅当用户是"单机专用、只跑 regime 相关任务"时才可接受；**多项目用户必须用工作区模式**。
 
-> **验证（2026-08-15）**：真实 opencode 1.18.15 隔离工作区实测——`scaffold --workspace` 部署的
-> `.opencode/` 被 opencode 自动发现（`/config` 含 `file://.../.opencode/plugins/regime-dialog-control.js`），
-> `dialog-control`/`reviewer` agent 出现在 `/agent` 列表，`/experimental/tool/ids` 含全部 `regime_*`
-> 工具；内置 agents（build/plan/general/explore）正常共存不受干扰；`uninstall --workspace` 精确移除
-> 零残留。分发设计端到端正确。
+> **分发验证**：真实 opencode 1.18.x 隔离工作区实测（与 `SUPPORTED_OPCODE=1.18.11` major.minor
+> 一致）——`scaffold --workspace` 部署的 `.opencode/` 被 opencode 自动发现（`/config` 含
+> `file://.../.opencode/plugins/regime-dialog-control.js`），`dialog-control`/`reviewer` agent 出现在
+> `/agent` 列表，`/experimental/tool/ids` 含全部 `regime_*` 工具；内置 agents（build/plan/general/
+> explore）正常共存不受干扰；`uninstall --workspace` 精确移除零残留。分发设计端到端正确。
 
 ---
 

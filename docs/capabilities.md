@@ -16,7 +16,7 @@
 
 ---
 
-## 一、CLI 命令（18 顶层 + 6 子面：session/task/flow/worker/chaos/job）
+## 一、CLI 命令（18 顶层 + 7 子面：session/task/flow/regime/worker/chaos/job）
 
 | 能力 | 入口 | 场景 | 验证任务（covers） | 文档 |
 |---|---|---|---|---|
@@ -55,11 +55,11 @@
 | watch / events | `watch [n] [主题]` | 值守 | test_watch_topic_filter |
 | start | `start [flow] <任务>` | 值守 | test_start |
 | inspect | `inspect <wid>` | 值守 | test_inspect |
-| design | `design <flow|regime> <spec>` | 值守/流程期 | test_design（含 regime JSON=整制度，阶段1d） |
+| design | `design <flow|regime> <spec>` | 值守/流程期 | test_design（含 regime JSON=整制度） |
 | flow list/validate/reload | `flow ...` | 值守/流程期 | test_flow |
 | regime list/inspect | `regime ...` | 值守/流程期 | test_regime_list_and_inspect |
-| hook list/path/reload | `hook ...` | 值守/运维 | test_hook_*（阶段2 统一扩展点） |
-| decide / 裁决 | `decide <wid> <yes\|no> [评论]` | 值守 | test_decide_*（阶段4 ask_human 人工确认点） |
+| hook list/path/reload | `hook ...` | 值守/运维 | test_hook_*（统一扩展点） |
+| decide / 裁决 | `decide <wid> <yes\|no> [评论]` | 值守 | test_decide_*（ask_human 人工确认点） |
 | talk | `talk <sid> <msg>` | 值守 | test_talk |
 | sessions / parallel / abort / reclaim | 会话管理 | 值守 | test_sessions |
 | doctor | `doctor` | 值守 | test_doctor |
@@ -86,20 +86,19 @@
 | 中断恢复（PAUSE/RESUME/auto-resume） | 运行中自动中断当前生成→冻结推进→超时注入"继续"续接；仅最终兜底 kill | 复杂任务长思考/并发压力场景 |
 | SSE 活性判定 | 停滞判定以 opencode SSE 事件流为活性信号（token 计数仅上下文占用） | 全部任务（长思考不误杀） |
 | 确定性 gate | reviewer verdict 门禁 | 全部任务（reviewer_verdict 事件） |
-| 语义门（WORK_PLAN13） | verdict `issues[].severity=blocking` 时禁止 advance（审出真问题就不能放行） | 复杂任务（blocking 拦截事件） |
-| 节点能力边界（WORK_PLAN13） | `readonly` 节点禁止写文件，强制"先设计后实现"分工 | 复杂任务（understand 只读节点） |
-| 运行时验证（WORK_PLAN13） | judge 节点 `verify` 宿主命令结果作为独立运行时证据喂给审查者 | 复杂任务（test 门真实 pytest 结果） |
-| 上下文预算交接（WORK_PLAN13） | 会话上下文使用率达阈值时询问自检预算/是否同会话续进，需交接则产出真实交接文档换新会话 | 长任务（context_handover 事件） |
+| 语义门 | verdict `issues[].severity=blocking` 时禁止 advance（审出真问题就不能放行） | 复杂任务（blocking 拦截事件） |
+| 节点能力边界 | `readonly` 节点禁止写文件，强制"先设计后实现"分工 | 复杂任务（understand 只读节点） |
+| 运行时验证 | judge 节点 `verify` 宿主命令结果作为独立运行时证据喂给审查者 | 复杂任务（test 门真实 pytest 结果） |
+| 上下文预算交接 | 会话上下文使用率达阈值时询问自检预算/是否同会话续进，需交接则产出真实交接文档换新会话 | 长任务（context_handover 事件） |
 | reporter 报告总线 | journal + rollup + 模板 | harness 每任务 journal 审计 |
 | FlowRegistry 热加载 | 命名 flow 注册/重载 | 复杂任务 + flow 命令 |
 | session rotate/self-assess | 长任务会话管理 | 复杂任务（20-30 分钟长任务触发） |
 
 ## 五、能力 ↔ 验证任务对照（试用套件）
 
-> WORK_PLAN9（2026-08-13）：套件从 8 个浅层单模块任务重构为 **4 个复杂多文件工程任务**
-> （每个 15–30 分钟，带 seed 既有代码 / 设计决策 / 并发与故障隔离压力），
-> 使 reviewer 判定与监督纠错真正被检验。covers 声明设计意图，harness 从事件账本
-> 验证实际触发（`quality-report.json` 的 `capability_coverage`）。
+> 套件为 **4 个复杂多文件工程任务**（每个 15–30 分钟，带 seed 既有代码 / 设计决策 /
+> 并发与故障隔离压力），使 reviewer 判定与监督纠错真正被检验。covers 声明设计意图，
+> harness 从事件账本验证实际触发（`quality-report.json` 的 `capability_coverage`）。
 
 | 任务 | 设计激活能力（covers） |
 |---|---|

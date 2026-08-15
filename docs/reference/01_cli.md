@@ -35,6 +35,8 @@
 | `--ledger` | path | JSONL 事件账本路径 |
 | `--deadline` | int | 每段超时（秒） |
 | `--skills-dir` | path | workflow-regime skills 目录 |
+| `--task-control-dir` | path | 任务控制文档目录（task-control docs） |
+| `--title` | str | 会话标题（默认 `regime-driver`） |
 | `--no-preflight` | flag | 跳过强制离线预检（不建议；预检默认强制，无 `--preflight` 开关） |
 | `--reporter` | path | append-only 报告日志路径（report bus） |
 | `--async` | flag | 作为后台 job 提交，立即返回句柄 |
@@ -185,7 +187,7 @@ deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外�
 
 从**内联规格**（无需文件）设计并注册一个新流程——控制对话框 A 路设计制度的入口。
 规格可为完整 regime JSON 或紧凑格式 `{"entry":"a","nodes":[{id,desc,role,type,next}]}`；
-统一经 `compile_spec` 编译 + F9 深检门 + 持久注册（写入 `REGIME_FLOW_STORE`）。
+统一经 `compile_spec` 编译 + 深度校验门 + 持久注册（写入 `REGIME_FLOW_STORE`）。
 
 **参数**：`--skills-dir`、`--preflight`（额外离线预检）、`--preflight-fault`（配合 `--preflight`
 注入故障 `stall|delay`，仅与 `--preflight` 同用生效）、`--perm`。
@@ -219,7 +221,7 @@ deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外�
 
 ### `regime`（命名运行制度，一等公民）
 
-> **体系化重构（WORK_PLAN14 阶段 1）**：`Regime` = 完整"怎么跑一个任务"的声明对象
+> `Regime` = 完整"怎么跑一个任务"的声明对象
 > （flow + roles + watchdog 监督策略 + handover 交接策略 + stall/auto_resume 阈值），
 > 拥有与 flow 相同的生命周期（compile → deep_validate → preflight → hot-reload → version →
 > permission → audit）。`regime run/drive --regime-name <name>` 按整制度运行；
@@ -259,11 +261,11 @@ deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外�
 **输出**：`{ok,name,version,nodes,source:"design",has_watchdog,has_handover}`。
 **权限**：`run`。
 **约束**：各组件编译时校验（watchdog 负/零阈值响亮拒绝、空 handover 对象拒绝、roles 未知字段拒绝、
-name 只允许 `[A-Za-z0-9._-]`）；F9 深检门对 flow 的 role/skill/tool 注册做检查。
+name 只允许 `[A-Za-z0-9._-]`）；深度校验门对 flow 的 role/skill/tool 注册做检查。
 
 #### `regime load <spec.json>`
 
-加载 + 深度校验 + 注册一个制度文件（F9 门）。
+加载 + 深度校验 + 注册一个制度文件（深度校验门）。
 
 **参数**：`--name`（覆盖注册名）、`--skills-dir`、`--preflight`、`--perm`。
 **输出**：`{ok,name,version,nodes,source}`。
@@ -308,7 +310,7 @@ name 只允许 `[A-Za-z0-9._-]`）；F9 深检门对 flow 的 role/skill/tool �
 
 用 MockClient 离线试跑一次流程，验证其能干净终止。
 
-**参数**：`--regime`、`--fault`（stall|delay，弹性试炼）、`--json`。
+**参数**：`--regime`、`--fault`（stall|delay，弹性试炼）、`--stall-sec`（stall 故障的停滞阈值，默认 5.0）、`--json`。
 **输出**：`{ok,outcome,end,detail}`。失败时退出码 1。
 **权限**：`read`。
 
@@ -382,10 +384,18 @@ dialog-control plugin loadable（已部署时检查实际部署文件、否则�
 
 ### `status`
 
-检查 worker 健康。
+检查 worker 健康；`--deep` 返回聚合态势。
 
-**参数**：`--base`、`--json`。
-**输出**：`{healthy,base}`。
+**参数**：
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `--base` | str | worker URL |
+| `--deep` | flag | 聚合态势：健康 + 会话 + 注册流程 + 监管任务 + 报告 rollup（对话框判断全局状态用） |
+| `--reporter` | path | 报告日志路径（配合 `--deep` 并入 rollup） |
+| `--tasks-dir` | path | 监管任务目录（配合 `--deep`） |
+| `--json` | flag | 机器可读输出 |
+
+**输出**：`{healthy,base}`；`--deep` 输出 `{healthy,base,sessions,busy_sessions,flows,tasks,reporter?}`。
 
 ### `events`
 
@@ -404,9 +414,14 @@ dialog-control plugin loadable（已部署时检查实际部署文件、否则�
 |------|------|------|
 | `--journal` | path | 报告日志（JSONL）路径 |
 | `--wf` / `object_id` | str | 按 workflow 过滤 / 单对象聚焦 |
+| `--history` | flag | 同时打印日志记录 |
+| `--limit` | int | 日志记录条数上限（默认 50） |
+| `--tasks-dir` | path | 监管任务目录（并入面板） |
 | `--template` | str | milestone\|blocker\|period\|activity |
 | `--since` | float | 周期/活动下界（epoch 秒） |
 | `--prune` | flag | 修剪日志（配合 `--max-age`/`--max-records`） |
+| `--max-age` | float | 配合 `--prune`：删除早于该秒数的记录 |
+| `--max-records` | int | 配合 `--prune`：只保留尾部 N 条 |
 | `--trace` | flag | 按序打印单对象因果时间线 |
 
 **输出**：汇总表或 JSON `{rollups,history,tasks}`。
@@ -621,7 +636,7 @@ dialog-control plugin loadable（已部署时检查实际部署文件、否则�
 
 打开控制对话框：一个自然语言控制/监控界面。
 
-**参数**：`--live`（用真实 worker，否则离线 MockClient）、`--model`、`--perm`。
+**参数**：`--base`（worker URL）、`--live`（用真实 worker，否则离线 MockClient）、`--model`、`--perm`。
 **输出**：交互式 REPL。写能力仅在有效持有权限 `>= run` 时启用。
 **权限**：`run`。
 

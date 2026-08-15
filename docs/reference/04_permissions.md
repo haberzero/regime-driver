@@ -42,15 +42,13 @@ regime run "任务" --perm clean   # 有效等级被截断为 run
 
 | 命令/子命令 | 所需等级 |
 |-------------|----------|
-| `status` / `events` / `validate` / `gate` / `preflight` / `report` / `job list/status` | read |
+| `status` / `events` / `validate` / `gate` / `preflight` / `report` / `web` / `job list/status` / `session reply` | read |
 | `session send` | interact |
-| `session reply` | read |
-| `run` / `run-many` / `drive` / `drive-many` / `dialog` | run |
-| `flow load` / `reload` / `rm` | run |
-| `scaffold` / `setup` | run |
-| `task submit` / `job create` | run |
+| `run` / `run-many` / `drive` / `drive-many` / `dialog` / `flow load/reload/rm` / `scaffold` / `setup` | run |
+| `task submit` | run |
 | `task stop` / `clean` | clean |
 | `sessions --clean` / `--kill` | clean |
+| `chaos` | clean |
 | `supervisor` | clean |
 | `uninstall` | clean |
 
@@ -58,8 +56,9 @@ regime run "任务" --perm clean   # 有效等级被截断为 run
 
 1. 命令的首个非 flag 参数决定基础等级；子命令再细化。
 2. `sessions` 带 `--clean`/`--kill` 升为 clean。
-3. `flow` 的 load/reload/rm 升为 run，其余为 read。
+3. `flow` 的 load/reload/rm/design 升为 run，其余为 read。
 4. `task` 的 stop/clean 升为 clean，submit 为 run，其余为 read。
+5. `web` 是只读观察窗（read）；`chaos` 是故障注入（clean）。
 
 ## 控制对话框写门禁
 

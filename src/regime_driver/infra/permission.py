@@ -71,6 +71,9 @@ _COMMAND_LEVEL: dict[str, PermissionLevel] = {
     "run": PermissionLevel.RUN,
     "run-many": PermissionLevel.RUN,
     "drive": PermissionLevel.RUN,         # launches the whole self-driving stack
+    "drive-many": PermissionLevel.RUN,    # parallel batch of isolated full-stack drives
+    "web": PermissionLevel.READ,          # read-only observation window (no write endpoints)
+    "chaos": PermissionLevel.CLEAN,       # fault injection: kill/stop/start/restart containers
     "scaffold": PermissionLevel.RUN,      # writes official templates into config root
     "setup": PermissionLevel.RUN,         # guided install: deploys templates + reports
     "uninstall": PermissionLevel.CLEAN,   # deletes regime-deployed files: destructive

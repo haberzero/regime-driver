@@ -141,12 +141,12 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 - **诊断口径**：`auto_resume`/`nudge`/`interrupt`/`resume` 是恢复性事件 ≠ 失败。`outcome`
   仍以最终节点结果为准（续跑成功则 `complete`）；`blocked (monitor: ...)` 仅在兜底 kill
   时才出现。
-- **外部中止 vs 瞬时错误（阶段 3 W3）**：`blocked (externally aborted)` 只在会话被**真正
+- **外部中止 vs 瞬时错误**：`blocked (externally aborted)` 只在会话被**真正
   中止**时出现（`MessageAbortedError` 类 error，或 completed 但无 finish 的 abort 形状）。
   **瞬时消息错误**（模型 HTTP/限流/网络）**不是**死会话——工作流继续轮询（受节点
   `default_deadline_sec` 上限），并记 `message_transient_error` 审计事件，绝不误判 BLOCKED。
 
-### 4.2 人工确认点（ask_human，阶段 4）
+### 4.2 人工确认点（ask_human）
 
 审查者判定可返回 `action: "ask_human"` + `human_question`——**人工介入检查点**：workflow
 冻结推进，把问题写黑板（`{wid}.human_ask`，对话框监控可见），等待对话框裁决。

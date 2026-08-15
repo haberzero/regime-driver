@@ -121,7 +121,7 @@ regime dialog --live --base http://127.0.0.1:4097
 # 离线确定性试跑（无网络/无 LLM）：同一驱动代码跑 MockClient，验证流程能终止
 regime preflight [--fault stall|delay] --json
 # 真实 worker E2E（需 worker 容器健康 + REGIME_E2E=1）
-REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_worker.py -q
 # 事件 / 宏观台账
 regime events --ledger /tmp/rep.jsonl
 regime report --journal /tmp/rep.jsonl

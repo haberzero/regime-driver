@@ -31,7 +31,7 @@ CLI: regime drive-many <任务...> --workspaces "ws1,ws2,.." [--workers N] [--de
 - **共享 Reporter**：多个 Drive 传**同一个** Reporter 实例（单锁串行化 journal 写入），
   归属键用各自 task_id；宏观 `regime report` 一张板看整个并行任务。
 - **有界并发**：`--workers N` 用 ThreadPoolExecutor 限制同时跑的成员数（默认全并行）。
-- **制度统一（阶段 1d）**：`--regime-name` 把命名制度交给 `Parallel`，`_make_drive` 把
+- **制度统一**：`--regime-name` 把命名制度交给 `Parallel`，`_make_drive` 把
   `regime` 传入每个成员 `Drive`（`drive-many --regime-name` = 并行个 `drive --regime-name`）。
   `run-many --regime-name` 经 `StatechartCluster.from_regime` 把制度（flow+roles+watchdog+
   handover）共享给同一 worker 上的全部并发 workflow。
@@ -42,7 +42,7 @@ CLI: regime drive-many <任务...> --workspaces "ws1,ws2,.." [--workers N] [--de
    两个隔离实例（独立端口+挂载），各自跑完整 Drive。✅
 2. 产物仅落各自工作区（`iso_12.py` 只在 fwtest，不在其它工作区；默认 worker 无）。✅
 3. `worker down` 后工作区 chown 回宿主用户（容器内 root 写入 → down 时 chown）。✅
-4. no-duplicate、顺序 ensure、共享 reporter 由单测覆盖（`test_parallel.py` 5 项）。✅
+4. no-duplicate、顺序 ensure、共享 reporter 由单测覆盖（`test_parallel.py`，以 pytest 实跑为准）。✅
 
 ## 诚实边界
 

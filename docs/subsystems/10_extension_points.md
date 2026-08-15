@@ -1,4 +1,4 @@
-# 统一扩展点模型（阶段 2）
+# 统一扩展点模型
 
 > 本文描述 regime-driver 的统一扩展面：用户经一个插件文件（`~/.regime/hooks.py`）注入
 > 三类行为——生命周期 hooks、看门狗规则、确定性工具。面向需要自定义系统的开发者。
@@ -9,11 +9,11 @@
 
 ## 1. 为什么需要统一扩展点
 
-阶段 2 前，系统把"自定义"拆在三个互不协调的载体（根因 A / W-硬编码 / W-自定义）：
+系统的"自定义"能力分散在三个互不协调的载体，各自存在注入与表达缺口：
 
 | 载体 | 形态 | 问题 |
 |---|---|---|
-| 交接文档/提示词 | 硬编码 Python 字符串（`handover_policy.py`） | 无用户注入入口（W-硬编码） |
+| 交接文档/提示词 | 硬编码 Python 字符串（`handover_policy.py`） | 无用户注入入口 |
 | 看门狗规则 | 仅 JSON（`watchdog_policy_json`） | 无法用 Python 表达复杂谓词 |
 | TOOL 工具 | 全局 `core.tools.register_tool` | 无统一入口/可见性 |
 
@@ -61,7 +61,7 @@ def register(reg):
 **边界纪律**：观察类 hook 的返回值被忽略；只有 `handover` hook 可按契约返回覆盖。
 任何 hook 都不能改变确定性判定（advance 门 / 看门狗动作 / gate），否则违反内核不变量。
 
-## 4. 交接模板声明式化（W-硬编码）
+## 4. 交接模板声明式化
 
 `ContextHandoverPolicy` 增两个 `.format` 式模板字段（经 `context_handover_policy_json`）：
 
@@ -78,7 +78,7 @@ def register(reg):
 `document_template` 字段：`{role} {node_id} {node_desc} {task_context} {report} {messages}`；
 `opening_template` 字段：`{role} {node_id} {node_desc} {task_context} {document} {usage}`。
 
-## 5. verify 白名单化（W5，消 RCE）
+## 5. verify 白名单化（消 RCE）
 
 `app/verify.py` 的 `run_verify` 不再接受宿主任意 shell 命令。命令**必须**是
 
@@ -91,7 +91,7 @@ docker exec {container} <白名单可执行程序> <参数...>
 - docker 组过期时透明回退 `sg docker -c <shlex.join(校验后 argv)>`（宿主 shell 只见**再引号化的已校验 argv**，无法解释用户元字符）；
 - 非白名单命令 → `verify whitelist: ...` 失败证据（响亮，非静默）。
 
-## 6. 对话框 hook 装配（W-自定义）
+## 6. 对话框 hook 装配
 
 控制对话框新增 `hook` 命令：
 - `hook list`（只读）——hooks/rules/tools 汇总 + 插件来源；

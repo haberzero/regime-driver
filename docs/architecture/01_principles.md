@@ -73,7 +73,7 @@ LLM 只能在合法后继内推进，无法任意跳转。
 每轮循环摄入事件、做 T1 健康检查与 T2 会话停顿检测、
 强制 deadline，并按纠正阶梯升级（nudge→abort→fallback→restart→human）。
 
-**阶段 0 修正（监督职责统一抽象）**：在 **drive 模式**下会话级监督只属于进程内
+**监督职责统一抽象**：在 **drive 模式**下会话级监督只属于进程内
 watchdog（`supervise_sessions=False`）——进程内可跟随 `wait_sid` 旋转不失焦、拥有
 完整 PAUSE/RESUME/fallback/kill 恢复阶梯；进程外退为只做它独有的能力（T1 worker
 健康/docker 重启 + 全局 deadline + 对 journaled fire 的 meta 智能第二意见）。这消除

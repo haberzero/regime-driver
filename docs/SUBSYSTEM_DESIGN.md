@@ -10,12 +10,13 @@
 | 01 | [01_drive](subsystems/01_drive.md) | 一键自驱动栈 | 执行器线程 + 进程外 supervisor + 共享 reporter，`regime drive` |
 | 02 | [02_worker_isolation](subsystems/02_worker_isolation.md) | 多实例工作区隔离 | `regime worker`，每工作区一个 opencode 实例，物理隔离 |
 | 03 | [03_parallel](subsystems/03_parallel.md) | 并发隔离并行任务 | `regime drive-many`，N 任务各自工作区并行全栈 |
-| 04 | [04_supervisor](subsystems/04_supervisor.md) | 进程外监督 | T1/T2/deadline/纠正阶梯，收编 M0 |
+| 04 | [04_supervisor](subsystems/04_supervisor.md) | 进程外监督 | T1/T2/deadline/纠正阶梯 |
 | 05 | [05_chaos](subsystems/05_chaos.md) | 故障注入/恢复演练 | `regime chaos`，FaultInjector |
 | 06 | [06_dialog_control](subsystems/06_dialog_control.md) | 控制对话框 | DialogControlUnit，对等状态机单元，对话控制面 |
 | 07 | [07_dialog_control_carrier](subsystems/07_dialog_control_carrier.md) | 控制对话框载体决策 | opencode 作载体（A 路）+ DialogControlUnit（B 路）+ CLI 契约 |
 | 08 | [08_mock](subsystems/08_mock.md) | Mock 机制 | MockClient，无网络确定性调试 |
 | 09 | [09_testing_architecture](subsystems/09_testing_architecture.md) | 测试架构 | E2E 系统化、控制对话框容器、A 路打通 |
+| 10 | [10_extension_points](subsystems/10_extension_points.md) | 统一扩展点 | hooks/看门狗规则/确定性工具（~/.regime/hooks.py） |
 
 ## 阅读路径
 

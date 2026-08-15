@@ -17,7 +17,7 @@ session_hygiene_threshold = 100              # doctor 对累积 session 数的�
 #   min_age_sec   (int)  只清理存在超过该秒数的 session（0 = 不限）
 #   only_idle     (bool) true 只清理 idle（默认，绝不删 busy）
 # 用法：`regime sessions --cleanup '{"max_sessions": 100}' --perm clean`
-# 或经 cron 周期性执行。详见 docs/durability_report.md §4.3。
+# 或经 cron 周期性执行。字段说明见 docs/reference/02_configuration.md 的 session_cleanup_policy。
 #session_cleanup_policy = '{"max_sessions": 100, "min_age_sec": 3600, "only_idle": true}'
 agent_reviewer = "reviewer"                  # 审查者 agent 名
 

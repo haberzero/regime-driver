@@ -49,14 +49,15 @@
 | 交接模板 | 正常/紧急交接文档格式 |
 | 自评协议提示词 | 自评的 system prompt |
 
-## 4. 当前最大偏差
+## 4. 角色注册（当前实现）
 
-代码里 ~191 处 `developer`/`reviewer` 硬编码，**把"审查者/开发者"当成了内核概念**。
-正确做法：内核只认识**抽象角色 id**，`developer`/`reviewer` 是**用户注册的角色实例**。
+内核只认识**抽象角色 id**；`developer`/`reviewer` 是**用户注册的角色实例**（`core/role.py` 的
+`RoleRegistry` + `default_roles()`）。节点通过 `role` 字段命名持有它的角色（session），
+同一角色可拥有多个节点，不同角色占据不同 session。
 
-## 5. 重构方向
+## 5. 边界纪律
 
-- **内核通用化**：把 `Actor`/`role` 从 `developer|reviewer|machine` 改为**任意角色 id**。
+- **内核通用化**：`Actor`/`role` 接受**任意角色 id**，不写死 `developer|reviewer|machine`。
 - **角色注册**：用户定义角色（策略 + skill + 目录），节点映射到角色。
 - **流转策略可自定义**：session 切换、是否锁锚点，都是用户策略。
-- 保留看门狗层：安全监控、确定性门、收敛检测、节点预算。
+- **保留看门狗层**：安全监控、确定性门、收敛检测、节点预算。

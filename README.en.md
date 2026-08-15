@@ -61,8 +61,9 @@ conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
 
-> The pip wheel ships the official templates (agents/skills/dialog-control-assistants/docker
-> recipes), so you can `regime scaffold` a full config without cloning the repo.
+> The pip wheel ships the official templates (agents/skills/dialog-control plugin and
+> agent, opencode config), so you can `regime scaffold` a full config without cloning
+> the repo. Docker build assets live in the GitHub repo, not the wheel.
 
 ## Deployment
 
@@ -134,7 +135,7 @@ regime dialog --live --base http://127.0.0.1:4097
 ```bash
 conda run -n regime-driver python -m pytest            # full suite, no worker needed
 conda run -n regime-driver python -m pytest --cov=regime_driver --cov-fail-under=68
-REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q  # real worker
+REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_worker.py -q  # real worker
 ```
 
 ## Configuration & secrets

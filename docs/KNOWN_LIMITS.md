@@ -7,11 +7,11 @@
 
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
-> - **耐久验证（2h+）**：2026-08-12 完成 2h 真实验证——零崩溃/停滞/重启，资源线性有界增长
+> - **耐久验证（2h+）**：2h 真实运行零崩溃/停滞/重启，资源线性有界增长
 >   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。已知边界：**session 记录累积**
 >   （见下方行为限制），长期（多天）运行可用 `regime sessions --cleanup` 清理或重建容器。
-> - **GitHub 真实模型 E2E 已封存**：CI 内不再跑真实 worker E2E（2026-08-11 起，长期不列入计划；
->   需 `OPENCODE_GO_API_KEY` secret）。`e2e_tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
+> - **GitHub 真实模型 E2E 长期不列入计划**：CI 内不跑真实 worker E2E（需 `OPENCODE_GO_API_KEY` secret）。
+>   `e2e_tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
 > - **项目特定默认**：默认模型（`deepseek-api/deepseek-v4-flash`，DeepSeek 官方 API）、端口、目录为项目配置，需自行适配。
 > - **依赖 opencode 内部 HTTP API**（`/event` SSE、session 端点），并锁定 opencode 1.18.x，
 >   版本漂移可能破坏。**护栏**：`regime doctor` 会校验 worker 版本（major.minor 匹配才通过，
@@ -28,11 +28,10 @@
 
 ## 行为限制
 
-- **~~DELETE /session/{id} 返回 404~~（已更正 2026-08-12）**：实测 opencode 1.18.11 的
-  `DELETE /session/{id}` **真正删除** session 记录（从 `GET /session` 列表与 `/session/status` map
-  都移除，含 idle 与 busy 会话）。早期"无法删除只能 abort"的结论有误。`regime sessions --clean`
-  现可真正清理累积 session。自动清理策略配置 `session_cleanup_*`（可自定义，参考模型非强制）。
-  归属：`infra/opencode.py` + `cli`。
+- **DELETE /session/{id} 真正删除**：opencode 1.18.11 的 `DELETE /session/{id}` **真正删除**
+  session 记录（从 `GET /session` 列表与 `/session/status` map 都移除，含 idle 与 busy 会话）。
+  `regime sessions --clean` 可真正清理累积 session。自动清理策略配置 `session_cleanup_*`
+  （可自定义，参考模型非强制）。归属：`infra/opencode.py` + `cli`。
 - **session 状态不一致（message 404 + status busy）**：容器重启后，旧 session 的 `/session/{id}/message`
   可能 404，但 `/session/status` 仍报 busy（状态 map 残留）。受影响的 workflow 会在该会话上卡住
   （`_step_judge`/`_step_agent` 轮询死会话）。规避：`regime sessions --clean`（现可真正删除）或重启容器；
@@ -61,28 +60,28 @@
   应加文件锁或改为每作业独立文件 + 目录扫描。归属：`infra/jobs.py`。
 - **插件工具经 shell 拼接命令**：`.opencode/plugins/regime-dialog-control.js` 把参数拼成字符串走 shell；job_id
   等由机器生成的内部 id 拼接，注入风险低，但新参数若来自外部输入需消毒。归属：`.opencode/plugins/regime-dialog-control.js`。
-- **事件链路【可】接入（WORK_PLAN10 起）**：控制对话框/摄入层可经 `GET /event`（SSE 流）+
+- **事件链路可接入**：控制对话框/摄入层可经 `GET /event`（SSE 流）+
   插件 `event:` hook 实时接入事件链（`session.*`、`message.part.*`、`tool.execute.*`…）。
   **停滞判定统一以 SSE 事件流为活性信号**（`SseActivity` 采集器 → watchdog/supervisor），
   token 计数（`session_tokens`）是 step 粒度记账（processor.ts step-finish 才落账 + 异步
   projector 写库），单步长思考期间恒 0，不能作为流式活性信号。归属：`app/sse_activity.py` +
   `app/watchdog_unit.py` + `supervisor.py`。
-- **工具执行期间可能误杀（WORK_PLAN10 边界）**：会话 busy 但长时间跑工具（如 >`stall_sec` 的长
+- **工具执行期间可能误杀**：会话 busy 但长时间跑工具（如 >`stall_sec` 的长
   bash 命令）且无 LLM delta 时，SSE 活性链看不到进展 → 判停滞并 abort（破坏性）。默认
   `stall_sec=120` 缓解；如需覆盖，提高 `stall_sec` 或把 `session.status`/`tool.*` 事件计入活性。
   归属：`app/watchdog_unit.py`。
-- **可编程看门狗策略（WORK_PLAN11）**：watchdog 是策略引擎（`app/watchdog_policy.py`）——
+- **可编程看门狗策略**：watchdog 是策略引擎（`app/watchdog_policy.py`）——
   `SessionEvidence`（SSE活性/消息时间戳/节点/首次busy/系统时间/paused）+ 可注入 `Rule`
   判定（多规则取最严重）+ 动作阶梯 `Ladder`（nudge→interrupt(PAUSE)→resume→fallback→kill，
   per-session 隔离 + fire-once）。PAUSE 中断当前生成并冻结节点推进，RESUME 恢复（agent 注入
   "继续"/judge 重发判定），paused 超 `auto_resume_sec` 自动 RESUME 再兜底 kill。`meta=True`
-  规则发 ESCALATE 交由智能判定确认。默认 `default_policy` 保持经典行为。
-- **两级 watchdog 协调边界（WORK_PLAN11 记录）**：drive 同时有进程内 policy watchdog
+  规则交由智能判定确认（仅作第二意见，不推翻已执行的确定性动作）。默认 `default_policy` 保持经典行为。
+- **两级 watchdog 协调边界**：drive 同时有进程内 policy watchdog
   （默认 stall_sec=120）与进程外 supervisor（默认 60）。外部 T2 先 abort 会让内部误判"已恢复"
   并重置阶梯。建议部署时让外部 stall_sec ≥ 内部，或明确职责边界（内部护栏 / 外部纠正阶梯）。
   归属：`app/watchdog_unit.py` + `supervisor.py`。
-- **测试套件分层（2026-08-13 起）**：单元/功能正确性套件在 `tests/`（`testpaths=["tests"]`，
-   纯 mock 无真实 LLM/Docker，全绿）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
+- **测试套件分层**：单元/功能正确性套件在 `tests/`（`testpaths=["tests"]`，
+   纯 mock 无真实 LLM/Docker）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
    （`REGIME_E2E=1` 显式运行）。`pytest` 默认不收集 E2E。归属：`pyproject.toml` + `e2e_tests/`。
 - **能力地图与实现一致性**：`docs/capabilities.md` 是能力索引单点真理；`ops/check_capabilities.py`
   做交叉核对（CLI 命令/skills/covers 标签），改动能力时应同步文档或跑脚本确认。归属：
@@ -90,11 +89,11 @@
 - **默认流程 skill 注入**：`code_workflow` 的 design/test（reviewer judge）挂 design-philosophy/code-review，
    implement/wrap（developer）挂 developer-quality。agent 节点 skill 缺失会 fail-fast（配置错误）。
   归属：`data/regime.json` + `app/workflow_unit.py`。
-- **verify 阻塞混合循环（阶段 2 review W4 记录）**：`verify` 是同步 `subprocess.run`（上限
+- **verify 阻塞混合循环**：`verify` 是同步 `subprocess.run`（上限
   `min(request_timeout, 300)`s），执行期间 workflow 混合循环无法 drain STOP/PAUSE——兜底 kill
   或 deadline 期间若恰在跑 verify 会等它结束。已白名单化到 docker-exec（argv、无宿主 shell）。
   归属：`app/verify.py` + `app/workflow_unit.py`。
-- **瞬时消息错误不误杀（阶段 3 W3）**：`_latest_abort` 只把真正 abort（`MessageAbortedError`
+- **瞬时消息错误不误杀**：`_latest_abort` 只把真正 abort（`MessageAbortedError`
   类 / completed 无 finish 形状）判死会话；瞬时错误（模型 HTTP/限流）继续轮询（受节点
   `default_deadline_sec` 上限）+ 记 `message_transient_error` 审计。边界：若瞬时错误恰带
   completed 且 finish=None 的 abort 形状，无法与真 abort 区分（判 abort）。归属：

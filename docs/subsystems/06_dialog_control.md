@@ -27,7 +27,7 @@
 | 并行状态机运行时 | `statechart_runtime.py`：ThreadedUnit（独立线程+队列）、Runtime（异步路由+黑板+不变量） | 无 |
 | 共享状态 + 变更通知 | `app/blackboard.py`（线程安全 key/value + `blackboard.changed`） | 无 |
 | 实时监控区 | `app/dialog_control.py`：DialogControlUnit 订阅 `blackboard.changed`+`watchdog_fire` 并 `render_monitor()` 快照 | 无 |
-| 看门狗 / 看门狗 | `app/watchdog_unit.py` + `app/watchdog_policy.py`（策略引擎：REPORT→证据→Rule→动作阶梯 NUDGE/PAUSE/RESUME/ESCALATE/STOP） | 无 |
+| 看门狗 / 看门狗 | `app/watchdog_unit.py` + `app/watchdog_policy.py`（策略引擎：REPORT→证据→Rule→动作阶梯 nudge/interrupt/resume/fallback/kill） | 无 |
 | 多 workflow 并发 | `app/statechart_cluster.py`（一 Runtime 多 WorkflowUnit） | 无 |
 | 无网络确定性调试 | `testing/mock_client.py` | 无 |
 | 内省探针 | `testing/mock_client.py`、`infra/opencode.py`（session/status/tokens/message） | 无 |
@@ -86,12 +86,12 @@
 2. 命令能力：
    - `design <名称> <JSON|自然语言>` — 设计并注册新 workflow（编译为 StateMachine）；
      **JSON 含 `flow` 键 = 整制度（regime：flow+roles+watchdog+handover）**，注册进
-     RegimeRegistry（持久 store，另一进程可经 `--regime-name` 运行）——制度设计入口（阶段 1d）；
-     **自然语言意图级设计（阶段 4）**：LLM 按需求生成 flow JSON 或整制度 JSON（需求提到监督/
+     RegimeRegistry（持久 store，另一进程可经 `--regime-name` 运行）——制度设计入口；
+     **自然语言意图级设计**：LLM 按需求生成 flow JSON 或整制度 JSON（需求提到监督/
      看门狗/人工确认 → 整制度；提到"审查前必须跑测试" → judge 节点自动带 `verify`）
    - `regime list` / `regime inspect <名称>` — 查看整制度注册表（只读）
-   - `hook list` / `hook path` / `hook reload` — 统一扩展点注册表查看 / 插件热重载（阶段 2；reload 写）
-   - `decide <wid> <yes|no> [评论]` / `裁决` — **应答 ask_human 人工确认点**（阶段 4；`decide` 列出待决，写）
+   - `hook list` / `hook path` / `hook reload` — 统一扩展点注册表查看 / 插件热重载（reload 写）
+   - `decide <wid> <yes|no> [评论]` / `裁决` — **应答 ask_human 人工确认点**（`decide` 列出待决，写）
    - `status` / `monitor [字段]` — 实时 workflow 快照（可只查某字段）
    - `watch [n] [watchdog|blackboard|notify]` — 最近事件/按主题
    - `start [flow名] <任务上下文>` — 非阻塞启动 workflow（可用设计流）

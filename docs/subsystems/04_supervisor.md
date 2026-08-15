@@ -20,21 +20,21 @@
 | 停滞首道防线（进程内 watchdog 策略引擎：SSE 活性 → Rule → 动作阶梯 nudge/interrupt/resume/fallback/kill） | **进程内** | 可 |
 | 任务注册表 / 提交接口 | 任务管理 | 可 |
 
-> **活性信号（WORK_PLAN10）**：停滞判定统一基于 opencode SSE `/event` 事件流
+> **活性信号**：停滞判定统一基于 opencode SSE `/event` 事件流
 > （`message.part.delta` 等即时推送）——token 计数（`session_tokens`）是 step 粒度
 > 记账（processor.ts 在 step-finish 才落账 + 异步 projector 写库），单步长思考期间
 > 恒为 0，不能作为流式活性信号。进程内 watchdog 与进程外 supervisor 共用同一
 > SSE 活性判定。
 >
-> **可编程策略（WORK_PLAN11）**：进程内 watchdog 是策略引擎（`app/watchdog_policy.py`）——
+> **可编程策略**：进程内 watchdog 是策略引擎（`app/watchdog_policy.py`）——
 > REPORT 证据 → `WatchdogPolicy.decide`（多规则取最严重；`meta=True` 走智能判定）→
 > 动作阶梯（`nudge`→`interrupt`(PAUSE)→`resume`→`fallback`→`kill`，per-session +
 > fire-once + `auto_resume_sec` 自动 RESUME）。中断（PAUSE）非破坏性：abort 当前生成、
 > 保持会话、冻结推进，RESUME 注入"继续"续接；只有最终 kill 才终止。配置见
 > `settings.watchdog_policy_json`。
 >
-> **判定统一（阶段 1c）**：独立 `regime supervisor` 的 T2 判定**走同一 `watchdog_policy`
-> 规则引擎**（曾自研的 `SessionWatch`/`_verdict_for_stall` 第二套判定实现已删除）。
+> **判定统一**：独立 `regime supervisor` 的 T2 判定**走同一 `watchdog_policy`
+> 规则引擎**（T2 判定由该规则引擎统一裁决，无第二套实现）。
 > 引擎统一（Observer→Judge→Actor）：证据 `SessionEvidence` → 规则 → per-session 阶梯 +
 > fire-once + 恢复重置全部共享；仅动作词汇按 Actor 能力位声明——进程内走
 > `nudge/interrupt/resume/fallback/kill`，进程外走 `abort/fallback_model/restart/human`
@@ -69,7 +69,7 @@
 │    · 任务模型：regime_driver.task（吸收 oc-task）             │
 │        submit/list/status/stop/logs/clean + 只读 web         │
 │    · 可编程看门狗策略：Settings.watchdog_policy_json           │
-│        （WORK_PLAN11 策略引擎，进程内 watchdog 同用）         │
+│        （策略引擎，进程内 watchdog 同用）         │
 │                                                            │
 │  报告总线：监督事件与 workflow 事件统一写入 Reporter           │
 │   → `regime report --tasks-dir` 由 Reporter 自身任务视图取代   │
@@ -80,7 +80,7 @@
 1. **单一包内**：`regime_driver.supervisor`、`regime_driver.task` 作为包内模块，而非 `ops/` 独立脚本。
 2. **单一真源**：监督事件（T1/T2/deadline/ladder/meta）全部经 `Reporter.ingest` 落同一 journal，
    与 workflow 事件同 schema（复用 `ReportRecord` + 归属键）。不再有独立 `run-ledger.jsonl`。
-3. **单一策略**：`Settings.watchdog_policy_json`（WORK_PLAN11 可编程看门狗策略）+ 各独立字段
+3. **单一策略**：`Settings.watchdog_policy_json`（可编程看门狗策略）+ 各独立字段
    （deadline/stall_sec/meta_*），进程内 watchdog 与进程外 supervisor 共用同一活性信号
    （SSE 事件流）与策略语义，不再双份。
 4. **任务视图**：`regime report` 的任务看板由 `regime_driver.task` 的注册表直接消费（吸收 oc-task），
@@ -130,7 +130,7 @@ flowchart TD
 ```
 
 > 图例：菱形 = 判定，圆角矩形 = 动作。正常路径每轮回到循环起点；异常路径最终都
-> 落到 Reporter 记账（唯一事件真源）。T2 判定经 `WatchdogPolicy.decide`（阶段 1c 起与
+> 落到 Reporter 记账（唯一事件真源）。T2 判定经 `WatchdogPolicy.decide`（与
 > 进程内 watchdog 同一引擎），动作词汇为进程外能力集 `abort/fallback_model/restart/human`
 > （`EXTERNAL_ACTIONS`，`Ladder.order` 参数化）；阶梯逐级升级由绝对静默时长规则驱动
 > （`stall_sec`→abort、`2×`→换模型、`3×`→重启、`4×`→人工），恢复（SSE 活性恢复/idle）
@@ -142,12 +142,12 @@ flowchart TD
 
 ## 3. 风险与护栏
 
-- **不先删后建**：M0 是活生产控制面；必须先让新监督层真实验证可用，再退役旧容器监督，最后删文件。
+- **不先删后建**：现有容器监督是活生产控制面；必须先让新监督层真实验证可用，再退役旧容器监督，最后删文件。
 - **真实 E2E 门槛**：新 supervisor 必须真跑一个任务验证 T1/T2/deadline/ladder 后才算完成，不能只单测。
 - **单一真源纪律**：新监督事件必须走 Reporter，禁止再开第二个 `run-ledger`。
 - **进程外时钟不可省**：T1 健康/L4 重启与全局期限必须留在进程外（独立时钟），绝不能被进程内替代。
 - **T2 会话级停滞不双头**：会话级 T2 要么进程内（drive 模式：策略引擎 + 跟随 wait_sid + 完整恢复阶梯），
   要么进程外（独立 `regime supervisor`），**不允许在同一运行里两者并存**（否则不同 stall_sec 的
-  双判定竞态会重现 W1/W2）。
+  双判定竞态会重现）。
 
 ---

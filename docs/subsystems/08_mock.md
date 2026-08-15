@@ -1,7 +1,8 @@
 # Mock 机制
 
-> 本文描述 MockClient（`src/regime_driver/testing/mock_client.py`）：与 OpenCodeClient 同接口的
-> drop-in 模拟器，用于无网络/无 LLM 的确定性调试与故障注入。面向调试状态机/并发/超时的开发者。
+> 本文描述 MockClient（`src/regime_driver/testing/mock_client.py`）：实现 `DriveClient` 协议
+> （`infra/drive_client.py`）的 drop-in 模拟器，与 `OpenCodeClient` 同接口，用于无网络/无 LLM 的
+> 确定性调试与故障注入。面向调试状态机/并发/超时的开发者。
 
 ## 1. 为什么
 
@@ -13,9 +14,9 @@ E2E 调试依赖真实 opencode worker + 官方 LLM，慢、非确定、贵。�
 ## 2. 思路
 
 **不改生产代码，只替换客户端**。`WorkflowUnit` 等只依赖
-`infra/opencode.OpenCodeClient` 的接口（`create_session/send_message/read_messages/
-session_status/session_tokens/abort_session/delete_session/ask_and_get_text/health`）。
-因此做一个**实现同一接口的 `MockClient`**，作为 drop-in 替换：
+`infra/drive_client.DriveClient` 协议（`create_session/send_message/read_messages/
+session_status/session_tokens/abort_session/delete_session/ask_and_get_text/health/...`）。
+因此做一个**实现同一协议的 `MockClient`**，作为 drop-in 替换：
 
 ```
 生产：  OpenCodeClient  ──> 真实 worker:4097 + 官方 deepseek-api

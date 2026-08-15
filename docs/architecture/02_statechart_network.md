@@ -47,7 +47,7 @@
 | 现行实现 | 在状态机网络里的定位 |
 |---|---|
 | `app/statechart_runtime.py`（ThreadedUnit/Runtime + 信号队列） | 并行状态机运行时的载体 |
-| `app/watchdog_unit.py` + `app/watchdog_policy.py`（策略引擎：REPORT→证据→规则→动作阶梯，发 NUDGE/PAUSE/RESUME/ESCALATE/STOP） | 看门狗状态机 |
+| `app/watchdog_unit.py` + `app/watchdog_policy.py`（策略引擎：REPORT→证据→规则→动作阶梯，发 nudge/interrupt/resume/fallback/kill） | 看门狗状态机 |
 | `app/workflow_unit.py` + `app/statechart_driver.py` | 有智能体的工作流状态机（单线程混合循环） |
 | `app/dialog_control.py`（DialogControlUnit，role=human） | 控制对话框单元 |
 | `core/contract.py` 确定性门 | 看门狗状态机的"转移守卫" |
@@ -57,8 +57,8 @@
 
 ## 3. 现状与构想
 
-下表列出设计之初（多状态机网络定案时）的差距；实施后各行已对齐，除个别明确标注者外，
-"现状"与"构想所需"现在一致。现行实现的模块真源见 `docs/subsystems/*` 与 `src/regime_driver/`。
+下表列出各能力在本架构中的定位：左列为当前实现，右列为该能力在本架构标准下的要求。
+除个别明确标注者外两者一致。现行实现的模块真源见 `docs/subsystems/*` 与 `src/regime_driver/`。
 
 | 能力 | 现状（已实现） | 构想所需 |
 |---|---|---|
@@ -66,7 +66,7 @@
 | 执行模型 | 单线程混合循环（发派线程池 + session 轮询 + 消息队列，见 `WorkflowUnit._dispatch`） | 事件驱动：外部消息可触发转移/回调 |
 | 状态机间通信 | `Bus` 双向信号（点对点 / 广播 / 主题订阅）+ `Runtime.post` 异步投递 | 双向消息/信号/数据交换 |
 | 互相唤起 | 信号→处理回调（`on_signal` 按消息进入对应处理） | A 可唤起 B 的特定节点/智能判断 |
-| 权限/信号逻辑 | 看门狗单元（`watchdog` 角色）按可编程策略发 NUDGE/PAUSE/RESUME/ESCALATE/STOP（`watchdog_policy_json` 可配）；CLI 写操作走 `--perm` 门禁 | 显式授权模型 |
+| 权限/信号逻辑 | 看门狗单元（`watchdog` 角色）按可编程策略发 nudge/interrupt/resume/fallback/kill（`watchdog_policy_json` 可配）；CLI 写操作走 `--perm` 门禁 | 显式授权模型 |
 | 看门狗层可覆写 | 用户可注入自定义看门狗状态机；根不变量（I1/I2/I3）仍由运行时强制 | 可注入自定义看门狗状态机 |
 | 生命周期 | 单元自治（register/start/stop），`Runtime` 总线协调 | 状态机自治 + 总线协调 |
 
@@ -87,7 +87,7 @@
 
 | 风险 | 说明 | 缓解 |
 |---|---|---|
-| 状态机需"事件驱动" | 现为"推进到 next"，无事件输入口 | 在转移层加"事件/信号触发"（阶段1） |
+| 状态机需"事件驱动" | 现为"推进到 next"，无事件输入口 | 在转移层加"事件/信号触发" |
 | 并发执行模型 | 线程/asyncio/多进程选型 | 渐进：先线程+消息队列，保同步 client |
 | 消息总线/命令通道缺失 | ledger 只读审计 | 新增双向事件/命令总线（可复用 ledger 格式）|
 | 调试/可观测性 | 多状态机并发难调 | 状态快照 + 消息日志 + 每状态机独立账本段 |
@@ -121,11 +121,11 @@ StatechartUnit {
 | asyncio | 海量并发轻量；`task.cancel()` 可精确取消阻塞调用 | 需把 client 改异步（大改）；本项目状态机数量少（几个~十几个），高并发优势不显著 | ❌ 降级为**远期备注**（仅当彻底改造纯异步架构时再考虑）|
 | 多进程 | 强隔离 | 消息传递成本高、状态共享难 | 不推荐 |
 
-> 备注：asyncio 真正优于线程的仅有"精确取消阻塞调用"一点，但兑现它需重写同步 client，而此场景已用"每段 deadline + monitor abort + 根不变量"兜住，无需为此引入 asyncio。决策点②定案为**线程 + 消息队列**。
+> 备注：asyncio 真正优于线程的仅有"精确取消阻塞调用"一点，但兑现它需重写同步 client，而此场景已用"每段 deadline + monitor abort + 根不变量"兜住，无需为此引入 asyncio。并发模型采用**线程 + 消息队列**。
 
 ### 5.2.1 执行模型原则：状态机线程 = 单线程混合循环（硬约束）
 
-**关键前提（已核实成立）**：任务发派给 session 后，session 的 LLM 工作由 worker 容器
+**关键前提**：任务发派给 session 后，session 的 LLM 工作由 worker 容器
 异步执行，**不占状态机线程**。因此状态机线程保持空闲，空闲时间可用于轮询/收发消息——
 这正是状态机间能通信的前提。
 
@@ -180,25 +180,23 @@ StatechartUnit {
 
 ---
 
-## 7. 分阶段工作路径与可验证标准
+## 7. 架构能力与可验证标准
 
-> 下表是设计时的落地路径；阶段 0→4 已全部完成，各阶段产物见 `src/regime_driver/app/*`，
-> 验证见 `tests/`（对应单测在测试基线中全绿）。
+> 下表列出本架构的各能力及其在 `src/regime_driver/app/*` 中的实现与验证方式；
+> 验证以 `python -m pytest` 实跑为准。
 
-| 阶段 | 内容 | 可验证标准 |
+| 能力 | 内容 | 可验证标准 |
 |---|---|---|
-| **0（本次）** | 沉淀架构文档（本文件） | 文档评审通过 |
-| **1 状态机泛化** | 把 `StateMachine`/driver 泛化为"事件驱动可交互单元"：加事件/消息输入口、`send/emit/on_event`；新增"消息唤起节点/回调" | 以 `python -m pytest` 实跑为准 + 新增"消息唤起节点"单测 |
-| **2 并行运行时 + 总线** | 引入多状态机调度 + 双向事件/命令总线；状态机 A/B/C 并行，互发消息、互驱 | 多状态机并行 + 消息互驱集成测试 |
-| **3 看门狗状态机化** | 把硬编码 monitor/gate 重写为"无智能看门狗状态机 + 通信协议"；工作流在回调里回送时间戳/回复，看门狗检测并回发 stop/retry/escalate | 原 monitor/gate 全部功能经看门狗状态机重现；安全不变量仍成立；死循环/卡死 E2E 全过 |
-| **4 用户自定义看门狗** | 暴露注册接口：用户可注入自定义看门狗状态机/策略，覆盖默认；根不变量仍由运行时强制 | 用户自定义看门狗状态机端到端；"关掉全部看门狗"被运行时拒绝 |
+| **状态机泛化** | 把 `StateMachine`/driver 泛化为"事件驱动可交互单元"：加事件/消息输入口、`send/emit/on_event`；新增"消息唤起节点/回调" | 以 `python -m pytest` 实跑为准 + 新增"消息唤起节点"单测 |
+| **并行运行时 + 总线** | 引入多状态机调度 + 双向事件/命令总线；状态机 A/B/C 并行，互发消息、互驱 | 多状态机并行 + 消息互驱集成测试 |
+| **看门狗状态机化** | 把硬编码 monitor/gate 重写为"无智能看门狗状态机 + 通信协议"；工作流在回调里回送时间戳/回复，看门狗检测并回发 stop/retry/escalate | 原 monitor/gate 全部功能经看门狗状态机重现；安全不变量仍成立；死循环/卡死 E2E 以 pytest 实跑为准 |
+| **用户自定义看门狗** | 暴露注册接口：用户可注入自定义看门狗状态机/策略，覆盖默认；根不变量仍由运行时强制 | 用户自定义看门狗状态机端到端；"关掉全部看门狗"被运行时拒绝 |
 
 ---
 
 ## 8. 决策结论
 
 1. **迁移路线**：渐进（现有同步模型上叠加总线，monitor 升级为看门狗状态机）。
-   阶段 1-4 已按此实施完成。
 2. **并发模型**：线程 + 消息队列（保同步 client），而非 asyncio（改异步 client）——
    状态机数量少、I/O 密集，asyncio 无显著优势（见 §5.2）。
 3. **根安全不变量**：可覆写具体看门狗策略，但保留运行时强制的 3 条根不变量
@@ -210,10 +208,10 @@ StatechartUnit {
 
 ## 9. 结论
 
-用户构想**合理且可行**，且与监督控制理论（supervisory control）高度一致。核心洞察正确：
-"看门狗层不特殊，只是无智能体的独立状态机，通过信号与其它状态机交互"。可行性关键在
+该架构与监督控制理论（supervisory control）高度一致："看门狗层不特殊，只是无智能体的独立状态机，
+通过信号与其它状态机交互"。三条关键决策为：
 **(a) 状态机从遍历器泛化为事件驱动单元**、**(b) 引入双向消息/命令总线**、
-**(c) 把根安全不变量从看门狗层剥离到运行时**。按阶段 1→4 渐进实施，风险可控、每阶段可验证。
+**(c) 把根安全不变量从看门狗层剥离到运行时**。
 ---
 
 ## 10. 消息/信号机制总览（v1.1 完善）
@@ -233,7 +231,7 @@ StatechartUnit {
 - `subscribe` 需在 `register` 之后（`register` 设置 `unit.bus`）。
 - 黑板变更即事件：工作流写指标 → 看门狗/遥测读黑板 + 订阅 `blackboard.changed`。
 
-**一次"看门狗拦截"的完整信号时序（WORK_PLAN10/11：SSE 活性 + 可编程策略 + 中断恢复）**：
+**一次"看门狗拦截"的完整信号时序（SSE 活性 + 可编程策略 + 中断恢复）**：
 
 ```mermaid
 sequenceDiagram
@@ -249,7 +247,7 @@ sequenceDiagram
     看门狗->>工作流: NUDGE（轻提示）/ PAUSE（中断生成+冻结）/ RESUME（注入"继续"续接）
     看门狗->>看门狗: 每次动作随发 watchdog_fire 事件（可观测）
     工作流->>看门狗: paused 持续 REPORT（防证据枯竭；超 auto_resume_sec 自动 RESUME）
-    看门狗->>工作流: ESCALATE（meta-gated，需智能判定确认）
+    看门狗->>工作流: fallback（切换模型重试）
     看门狗->>工作流: STOP（最终兜底 kill，只停出问题 workflow）
     工作流->>工作流: 中止当前节点 → 结果 blocked（monitor: …）
 ```
@@ -278,9 +276,9 @@ sequenceDiagram
 
 ---
 
-## 12. WORK_PLAN13（2026-08-14）：语义门 + 节点能力边界 + 运行时验证 + 上下文交接
+## 12. 语义门 + 节点能力边界 + 运行时验证 + 上下文交接
 
-本节的四项变更把"确定性流程"从**格式把关**升级为**语义把关 + 结构分工 + 运行时证据**，
+这四项机制把"确定性流程"从**格式把关**升级为**语义把关 + 结构分工 + 运行时证据**，
 并把"会话会疲劳"纳入流程管理。
 
 ### 12.1 语义门：ReviewerVerdict.issues
@@ -290,7 +288,7 @@ sequenceDiagram
 "阻塞性问题"又挥手放行（kv_failover-advance 类矛盾被直接拒绝）。`ask_developer` 要求
 `message_to_developer` 仍成立。该字段可选（缺省 `[]`），旧审查输出向后兼容。
 
-**人工确认点（阶段 4）**：新增动作 `ask_human`（要求 `human_question`，置信度 ≥ 0.6）——
+**人工确认点**：新增动作 `ask_human`（要求 `human_question`，置信度 ≥ 0.6）——
 workflow 冻结推进（`human_wait` 相），把问题写黑板 `{wid}.human_ask` 等待对话框裁决
 （`decide <wid> <yes|no>`；yes 放行推进、no 回开发者重做带评论）；超时按
 `human_confirm_timeout_sec`/`human_default_on_timeout`（默认 block）兜底。事件
@@ -304,7 +302,7 @@ workflow 冻结推进（`human_wait` 相），把问题写黑板 `{wid}.human_as
 
 ### 12.3 运行时验证：judge 节点 `verify`
 
-`Node.verify`：**白名单化的容器验证命令（阶段 2 W5，消 RCE）**——只允许
+`Node.verify`：**白名单化的容器验证命令（消 RCE）**——只允许
 `docker exec {container} <pytest|python|node|bash|sh...> <参数>` 形态，以 **argv** 执行
 （`shell=False`，绝无宿主 shell 解释），`{container}` → `settings.worker_container`；docker
 组过期时自动回退 `sg docker -c`（再引号化已校验 argv）。进入 judge 节点时驱动执行，把

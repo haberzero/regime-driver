@@ -34,7 +34,7 @@ regime drive <task>
   - `_discover_session()`：轮询执行器的 anchor（主工作）session 供监督循环知晓。
   - `supervisor.run(stop_when=...)`：工作流一产出结果即结束监督循环
     （返回 `"workflow_done"`），而非跑到 deadline——快路径立即返回。
-  - **进程内策略看门狗（会话级监督唯一拥有者，阶段 0）**：drive 模式
+  - **进程内策略看门狗（会话级监督唯一拥有者）**：drive 模式
     `supervise_sessions=False`——会话级监督全部归进程内 WatchdogUnit（跟随
     `wait_sid` 旋转不失焦），SSE 活性是唯一活性源，PAUSE/RESUME/kill 全阶梯可用；
     `watchdog_fire` 落共享 journal 供诊断。进程外退为只做它独有能力：

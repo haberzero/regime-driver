@@ -48,21 +48,21 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
 ## 3. 发布渠道
 
-### GitHub（已完成）
+### GitHub
 
 - public 仓库：https://github.com/haberzero/regime-driver （`main`，SSH 认证）。
 - CI（`.github/workflows/ci.yml`）：py3.11/3.12 单测 + 覆盖率门（离线，无需密钥）。
-  真实 worker E2E 已从 CI 移除（2026-08-11 封存：无 `OPENCODE_GO_API_KEY` secret 长期
-  不启用）；本地经 `REGIME_E2E=1` 可用。
+  真实 worker E2E 已从 CI 移除（无 `OPENCODE_GO_API_KEY` secret，长期不启用）；
+  本地经 `REGIME_E2E=1` 可用。
 
-### PyPI（可选，WORK_PLAN7 V-2）
+### PyPI（可选）
 
 1. `python -m pip install build twine`
 2. `python -m build`（生成 sdist + wheel）
 3. `python -m twine upload dist/*`（PyPI 正式源或 `--repository testpypi`）
 4. 发布后验证：`pip install regime-driver` → `regime doctor` → `regime scaffold`。
 
-### GitHub Pages 文档站（WORK_PLAN7 V-1，MkDocs + Read the Docs 主题）
+### GitHub Pages 文档站（MkDocs + Read the Docs 主题）
 
 用 MkDocs 把 `docs/` 构建为 Read the Docs 风格的静态站点（左侧导航、搜索、面包屑）。
 
@@ -85,16 +85,16 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
 **本地预览**：`conda run -n regime-driver mkdocs serve`（http://127.0.0.1:8000）。
 
-**旧方案说明**：早期用 `.nojekyll`（Pages 从 `main/docs` 原样伺服 `.md`）效果为"纯 Markdown 无渲染"，
-已弃用——`.nojekyll` 保留但不再需要（MkDocs 生成的 HTML 站点替代）。
+**渲染方式说明**：`.nojekyll` 保留但不再需要——文档站由 MkDocs 生成静态 HTML 站点伺服，
+而非从 `main/docs` 原样伺服 `.md`（纯 Markdown 无渲染）。
 
 ## 4. 许可与免责复核（对外发布前必须确认）
 
 - `LICENSE`（MIT，© 2026 Nan Shi 施楠）、`SECURITY.md`（密钥处理/报告流程）、
   `CONTRIBUTING.md`（工作流/约定）、README 中英免责声明 — 均已就位。
 - `docs/KNOWN_LIMITS.md` 按"对外使用"姿态复核：默认模型/端口/目录为项目特定配置，
-  需用户自行适配；无外部安全审计。**耐久验证已完成**（2h 真实运行稳定、资源有界增长，
-  见 `tasks_docs/durability_report.md`）。
+  需用户自行适配；无外部安全审计。**耐久验证**：2h 真实运行稳定、资源有界增长
+  （见 `tasks_docs/durability_report.md`）。
 
 ## 5. 发布后收尾
 
