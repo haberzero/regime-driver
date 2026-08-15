@@ -307,7 +307,9 @@ soft..hard 询问会话自检预算+是否续进；≥hard **强制交接**（�
 
 ```bash
 # 1) 装环境（conda env regime-driver，Python 3.12）
-# 2) 装配官方模板（agent/skill/插件/dialog-control 助手）
+# 2) 装配官方模板 —— 推荐工作区模式（只影响当前项目，不污染其它对话环境）
+regime setup --workspace <当前项目目录>       # 或 regime scaffold --workspace <dir>
+#    全局模式（不推荐，影响机器上所有 opencode 会话）：
 regime scaffold [--assistants]
 # 3) 配模型密钥（默认 deepseek-api/deepseek-v4-flash）
 printf '%s' '你的-key' > ~/.regime/keys/deepseek.key
@@ -322,5 +324,13 @@ regime preflight --json             # 离线跑完默认 flow
 regime run "实现 add(x,y) 并写 pytest" --base http://127.0.0.1:4097
 ```
 
+> **工作区模式（推荐）**：`regime setup --workspace <dir>` 把插件/agent/skills/说明书装进
+> `<dir>/.opencode/`——只有该工作区的 opencode 会话能看到 regime 工具面，机器上其它项目的
+> 对话不受影响；卸载用 `regime uninstall --workspace <dir>` 精确移除，不碰用户自己的文件。
+> **自助配置**：工作区里的 `agent-handbook.md` 即本手册——用户在 opencode 中打开该工作区、
+> 让任何 agent 读这份手册，即可按 §1–§9 自助完成监控/运行/设计/扩展，无需人工介入。
+> 全局模式（`regime scaffold` → `~/.config/opencode/`）保留但**不推荐**：它会让机器上所有
+> opencode 会话都带上 regime 工具面（A 路插件 + dialog-control agent + skills）。
+>
 > 分发：wheel 自带全部模板（`regime scaffold`/`setup` 一键装配）；Docker 资产在
 > GitHub 仓库（不进 wheel）。详见 `docs/architecture/04_distribution_blueprint.md`。

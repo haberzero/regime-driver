@@ -34,7 +34,7 @@ from typing import Callable
 from .app.reporter import Reporter
 from .app.sse_activity import is_progress_event
 from .app.watchdog_policy import Rule, SessionEvidence, WatchdogPolicy, no_activity_for
-from .infra.opencode import OpenCodeClient
+from .infra.drive_client import DriveClient
 
 # correction ladder levels (L1 light -> L5 human)
 L1_NUDGE = "nudge"
@@ -212,7 +212,7 @@ class Supervisor:
 
     def __init__(
         self,
-        client: OpenCodeClient,
+        client: DriveClient,
         reporter: Reporter | None = None,
         *,
         container: str | None = None,

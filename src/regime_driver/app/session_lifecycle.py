@@ -11,7 +11,7 @@ from ..core.handoff import Handoff
 from ..core.policy import RolePolicy, SelfAssessment
 from ..core.role import RoleRegistry
 from ..core.session import SessionState
-from ..infra.opencode import OpenCodeClient
+from ..infra.drive_client import DriveClient
 from ..infra.settings import Settings
 from .self_assess import SelfAssessor
 
@@ -22,7 +22,7 @@ class SessionLifecycle:
     def __init__(
         self,
         settings: Settings,
-        client: OpenCodeClient,
+        client: DriveClient,
         roles: RoleRegistry,
     ) -> None:
         self.settings = settings
@@ -79,7 +79,7 @@ class SessionLifecycle:
 class SessionRotator:
     """Performs a rotation: handover + fresh session + inject."""
 
-    def __init__(self, client: OpenCodeClient, sessions) -> None:
+    def __init__(self, client: DriveClient, sessions) -> None:
         self.client = client
         self.sessions = sessions  # SessionRegistry
 

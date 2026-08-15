@@ -90,32 +90,64 @@ def _copies_from(data_subdir: str, target_subdir: str, target: Path) -> list[Cop
     return items
 
 
-def scaffold_plan(target: str | Path, *, assistants: bool = False) -> list[CopyItem]:
+def scaffold_plan(target: str | Path, *, assistants: bool = False,
+                  workspace: bool = False) -> list[CopyItem]:
     """Compute the full copy plan (read-only; nothing is written).
 
     ``target`` may be a ``str`` or a ``Path``; it is coerced to ``Path`` so a
     caller cannot trip over ``str``/``Path`` path arithmetic.
+
+    Two deployment modes:
+
+    - **global** (``workspace=False``, default): deploy into a global opencode
+      config root (e.g. ``~/.config/opencode``). ``agents/`` (plural — the
+      global opencode convention), ``skills/``, ``plugins/``, ``package.json``,
+      plus the opencode.json provider template and ``config.example.toml``.
+      Affects every opencode session on the machine — **not recommended** for
+      most users (it pollutes unrelated conversations).
+
+    - **workspace** (``workspace=True``): deploy into a project-local
+      ``<dir>/.opencode/`` directory so only that workspace's opencode sessions
+      are affected. The agent directory is ``agent/`` (singular — the project
+      opencode convention); skills go to ``skills/`` (``.opencode/skills/`` is
+      the project-local skills path opencode discovers); the agent handbook is
+      deployed too so the user can read it *inside* opencode and self-serve
+      workspace configuration. **No** ``opencode.json`` (never overwrite the
+      project config) and **no** ``config.example.toml`` (do not pollute the
+      project root).
     """
     target = Path(target)
     plan: list[CopyItem] = []
-    plan += _copies_from("agents", "agents", target)
+    agent_dir = "agent" if workspace else "agents"
+    plan += _copies_from("agents", agent_dir, target)
     plan += _copies_from("skills", "skills", target)
     if assistants:
-        plan += _copies_from("dialog-control-assistants", "agents", target)
+        plan += _copies_from("dialog-control-assistants", agent_dir, target)
 
     # A-route dialog-control carrier (host opencode as the primary dialog):
     #   - the plugin goes to plugins/ (opencode auto-loads local plugins there)
-    #   - the dialog-control agent merges into agents/ (opencode auto-discovers
-    #     markdown agents there)
+    #   - the dialog-control agent merges into <agent_dir>/ (opencode
+    #     auto-discovers markdown agents from both `agent/` and `agents/`)
     #   - a package.json declares the plugin SDK dependency (opencode runs
     #     `bun install` at startup automatically — official plugin mechanism)
     plan += _copies_from("plugins", "plugins", target)
     _dc = DATA_DIR / "dialog-control-agent" / "dialog-control.md"
     if _dc.is_file():
-        plan.append(CopyItem(_dc, target / "agents" / "dialog-control.md"))
+        plan.append(CopyItem(_dc, target / agent_dir / "dialog-control.md"))
     _pkg = DATA_DIR / "opencode-package.json"
     if _pkg.is_file():
         plan.append(CopyItem(_pkg, target / "package.json"))
+
+    if workspace:
+        # agent handbook: the machine-oriented operator manual ships with the
+        # workspace so the user can ask opencode to read it and self-serve
+        # workspace configuration (no global pollution).
+        _hb = DATA_DIR / "agent-handbook.md"
+        if _hb.is_file():
+            plan.append(CopyItem(_hb, target / "agent-handbook.md"))
+        # workspace mode never writes opencode.json (project config is the
+        # user's own) and never drops config.example.toml into the project.
+        return _dedupe(plan)
 
     # opencode main config (model providers; `{env:...}` placeholders, no secrets).
     # Needed by HOST mode (no docker): without it opencode has no provider entry.
@@ -133,6 +165,11 @@ def scaffold_plan(target: str | Path, *, assistants: bool = False) -> list[CopyI
 
     # Dedupe by destination (reviewer.md ships in both data/agents and
     # data/dialog-control-assistants; first occurrence wins, content is identical).
+    return _dedupe(plan)
+
+
+def _dedupe(plan: list[CopyItem]) -> list[CopyItem]:
+    """Dedupe a copy plan by destination (first occurrence wins)."""
     seen: set[str] = set()
     unique: list[CopyItem] = []
     for item in plan:
@@ -150,21 +187,26 @@ def scaffold(
     assistants: bool = False,
     dry_run: bool = False,
     force: bool = False,
+    workspace: bool = False,
 ) -> ScaffoldResult:
     """Deploy the packaged templates to ``target``.
 
     Args:
-        target: destination config root (e.g. ~/.config/opencode); str or Path.
+        target: destination config root — for global mode e.g. ~/.config/opencode;
+            for workspace mode the project-local `.opencode` directory itself
+            (the CLI composes `<dir>/.opencode` before calling).
         assistants: also deploy the dialog-control-assistant subagents (analyst/advisor/reviewer).
         dry_run: compute + report the plan without writing anything.
         force: overwrite existing destination files (default: keep them).
+        workspace: project-local mode (agent/ singular dir, agent handbook
+            shipped, no opencode.json / config.example.toml).
 
     Returns:
         A ScaffoldResult describing what was copied / skipped.
     """
     target = Path(target)
     result = ScaffoldResult(target=target, assistants=assistants, dry_run=dry_run)
-    plan = scaffold_plan(target, assistants=assistants)
+    plan = scaffold_plan(target, assistants=assistants, workspace=workspace)
     result.plan = plan
 
     for item in plan:
@@ -324,3 +366,44 @@ def templates_ready() -> dict:
         else:
             checks.append({"template": subdir, "ok": True, "detail": f"{len(expected)} expected files"})
     return {"ok": all(c["ok"] for c in checks), "checks": checks}
+
+
+def check_plugin(plugins_dir: str | Path | None = None) -> dict:
+    """Doctor-style check: is the A-route dialog-control plugin deployed in a
+    shape opencode's auto-scan loader reliably loads?
+
+    opencode (v1.18.x) auto-scans ``{plugin,plugins}/*.{ts,js}`` under each
+    config directory; a file that does NOT default-export the v1 plugin form
+    (``{ id, server }``) can be silently skipped. This check verifies the
+    deployed file exists and carries that shape, so a user learns before
+    starting opencode whether the dialog-control plugin will actually load.
+
+    Args:
+        plugins_dir: the plugins directory to inspect (default: the packaged
+            data/plugins, i.e. what ``regime scaffold`` would deploy). A real
+            deployment can be checked by passing e.g.
+            ``~/.config/opencode/plugins`` or ``<ws>/.opencode/plugins``.
+
+    Returns ``{ok, detail, ...}`` (never raises).
+    """
+    import re
+
+    plugins_dir = Path(plugins_dir) if plugins_dir else DATA_DIR / "plugins"
+    plugin = plugins_dir / "regime-dialog-control.js"
+    if not plugin.is_file():
+        return {"ok": False, "detail": f"plugin not deployed: {plugin}",
+                "path": str(plugin)}
+    text = plugin.read_text(encoding="utf-8", errors="replace")
+    # v1 default-export shape: export default { id: "...", server: ... }
+    has_default = re.search(
+        r"export\s+default\s*\{[^}]*?id\s*:\s*[\"'][^\"']+[\"'][^}]*?server\s*:",
+        text, re.S,
+    ) is not None
+    if not has_default:
+        return {"ok": False,
+                "detail": f"plugin lacks `export default {{ id, server }}` — "
+                          f"opencode may silently skip it: {plugin}",
+                "path": str(plugin)}
+    return {"ok": True,
+            "detail": f"plugin loadable shape OK: {plugin}",
+            "path": str(plugin)}

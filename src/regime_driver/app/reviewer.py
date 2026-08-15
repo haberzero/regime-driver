@@ -21,7 +21,7 @@ from ..core.contract import (
 from ..core.json_utils import extract_json
 from ..core.models import GateResult, ReviewerVerdict
 from ..core.state_machine import StateMachine
-from ..infra.opencode import OpenCodeClient
+from ..infra.drive_client import DriveClient
 from ..infra.skill_loader import load_skill
 
 SYSTEM_PROMPT = (
@@ -81,7 +81,7 @@ class ReviewerResult:
 class Reviewer:
     """Wraps the reviewer session and builds prompts for it."""
 
-    client: OpenCodeClient
+    client: DriveClient
     session_id: str
     agent: str
     state_machine: StateMachine

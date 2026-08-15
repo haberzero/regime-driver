@@ -8,7 +8,7 @@ owns one active session (its private brain capacity).
 from __future__ import annotations
 
 from ..core.session import SessionState
-from ..infra.opencode import OpenCodeClient
+from ..infra.drive_client import DriveClient
 
 
 class SessionRegistry:
@@ -16,7 +16,7 @@ class SessionRegistry:
 
     def __init__(
         self,
-        client: OpenCodeClient,
+        client: DriveClient,
         agent_by_role: dict[str, str] | None = None,
     ) -> None:
         self.client = client

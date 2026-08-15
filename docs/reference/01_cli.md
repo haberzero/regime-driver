@@ -322,11 +322,20 @@ name 只允许 `[A-Za-z0-9._-]`）；F9 深检门对 flow 的 role/skill/tool �
 opencode 配置根目录，无需 clone 源码仓库。部署后写 `.regime-deployed.json` 部署清单
 （供 `regime uninstall` 安全移除与 `regime doctor` 一致性检测）。
 
+**两种模式**：
+- **工作区模式（推荐）**：`--workspace <dir>` 部署到 `<dir>/.opencode/`（项目级：`agent/` 单数目录、
+  插件、skills、agent-handbook）。**只影响该工作区的 opencode 会话**，机器上其它项目的对话不受污染；
+  卸载用 `regime uninstall --workspace <dir>`。不写 `opencode.json` / `config.example.toml`（不覆盖
+  项目配置、不污染项目根）。
+- **全局模式（可选，不推荐）**：默认（或 `--target`）部署到 `~/.config/opencode/`（`agents/` 复数目录
+  + opencode.json + config.example.toml）。影响机器上所有 opencode 会话。
+
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `--target` | path | 目标配置根（默认 `~/.config/opencode`） |
+| `--target` | path | 目标配置根（默认 `~/.config/opencode`；与 `--workspace` 互斥） |
+| `--workspace` / `-w` | path | 工作区模式：部署到 `<dir>/.opencode/`（推荐；与 `--target` 互斥） |
 | `--assistants` | flag | 同时部署控制对话框助手 subagent（analyst/advisor/reviewer） |
 | `--dry-run` | flag | 只打印计划，不写任何文件 |
 | `--force` | flag | 覆盖已存在文件（默认保留） |
@@ -340,27 +349,31 @@ opencode 配置根目录，无需 clone 源码仓库。部署后写 `.regime-dep
 
 引导式首次安装：检测环境（docker/opencode/密钥）→ 一键装配官方模板 → 按检测结果给分步指引。
 
-**参数**：`--target`、`--assistants`、`--json`、`--perm`（默认 run）。
-**输出**：`{target,templates_copied,templates_kept,docker_available,opencode_available,
+**参数**：`--target`、`--workspace`（推荐，同 `scaffold`）、`--assistants`、`--json`、`--perm`（默认 run）。
+**输出**：`{target,mode,templates_copied,templates_kept,docker_available,opencode_available,
 key_present,host_mode_ready,container_mode_ready}`。
-**行为**：同 `scaffold` 部署模板 + 环境检测 + 部署路径引导（主机模式/容器模式/缺依赖提示）。
+**行为**：同 `scaffold` 部署模板 + 环境检测 + 部署路径引导（主机模式/容器模式/缺依赖提示）；
+工作区模式指引含"让 opencode 读 `.opencode/agent-handbook.md` 自助配置"。
 
 ### `uninstall`
 
 按部署清单安全移除 regime 部署的文件（卸载/恢复流程）。读取 `.regime-deployed.json`，
 哈希匹配的文件删除、用户改过的文件保留、缺失的跳过；空父目录清理，清单最后删除。
 
-**参数**：`--target`、`--dry-run`（预览不删）、`--json`、`--perm`（默认 clean）。
+**参数**：`--target`、`--workspace`（移除 `<dir>/.opencode/` 的项目级部署）、`--dry-run`（预览不删）、
+`--json`、`--perm`（默认 clean）。
 **输出**：`{removed,kept_modified,missing,manifest}`。
 **行为**：不破坏用户改动过的文件；无清单时是 no-op。
 
 ### `doctor`
 
-自检就绪状态：worker 健康、模型配置、API key 是否存在、部署完整性。
+自检就绪状态：worker 健康、模型配置、API key 是否存在、部署完整性、A 路插件可加载形状。
 
 **参数**：`--base`、`--json`。
 **输出**：`{model,provider,ok,checks}`。检查项含 worker health、key for provider、opencode auth.json、
-环境检测（docker/opencode/conda/平台，advisory）、部署完整性（`.regime-deployed.json` 与磁盘一致性）。
+环境检测（docker/opencode/conda/平台，advisory）、部署完整性（`.regime-deployed.json` 与磁盘一致性）、
+dialog-control plugin loadable（已部署时检查实际部署文件、否则检查打包副本；插件缺 v1 default export
+会被标红——opencode 自动扫描路径会静默跳过它）。
 不全通过时退出码 1。
 
 ### `status`

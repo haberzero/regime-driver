@@ -371,3 +371,12 @@ export const DialogControlPlugin = async ({ $ }) => {
     },
   }
 }
+
+// opencode v1 plugin form: a default export with `id` + `server()` is the shape
+// opencode's plugin loader reliably detects for auto-scanned local files
+// (`.opencode/plugins/` / `~/.config/opencode/plugins/`). The named
+// `DialogControlPlugin` export is kept for legacy-compatible/import use.
+export default {
+  id: "regime-dialog-control",
+  server: DialogControlPlugin,
+}

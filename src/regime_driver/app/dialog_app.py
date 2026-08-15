@@ -13,6 +13,7 @@ from .dialog_control import DialogControlUnit
 from .statechart_cluster import StatechartCluster
 from ..extensions import load_user_hooks
 from ..flow import FlowRegistry
+from ..infra.drive_client import DriveClient
 from ..infra.opencode import OpenCodeClient
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
@@ -21,7 +22,7 @@ from ..testing import MockClient
 from ..worker import WorkerPool
 
 
-def make_llm_runner(client: OpenCodeClient, timeout: float) -> Callable[[str, str], str]:
+def make_llm_runner(client: DriveClient, timeout: float) -> Callable[[str, str], str]:
     """Worker-thread LLM runner for the dialog's free-form explain."""
     def run(text: str, context: str) -> str:
         sid = client.create_session("dialog-control-explain")

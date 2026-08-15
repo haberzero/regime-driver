@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from .app.reporter import Reporter
 from .core.models import Outcome
 from .drive import Drive, DriveResult
+from .infra.drive_client import DriveClient
 from .infra.opencode import OpenCodeClient
 from .infra.settings import Settings
 from .worker import WorkerPool
@@ -79,7 +80,7 @@ class Parallel:
 
     # -- run ------------------------------------------------------------------
 
-    def _make_drive(self, client: OpenCodeClient) -> Drive:
+    def _make_drive(self, client: DriveClient) -> Drive:
         """Construct a Drive bound to the given worker client (overridable in tests)."""
         return Drive(
             self.settings, self.sm, client, self.reporter,

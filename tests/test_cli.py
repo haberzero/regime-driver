@@ -313,11 +313,26 @@ def test_doctor_readonly_reports_unhealthy():
     assert data["provider"] == "deepseek-api"
 
 
-def test_doctor_env_readiness_advisory_does_not_gate():
+def test_doctor_env_readiness_advisory_does_not_gate(tmp_path, monkeypatch):
     """Deployment UX (WORK_PLAN8): doctor's environment detection (docker /
     opencode / conda / platform) is ADVISORY — it informs the user which
     deployment path their machine supports, but a missing docker/conda must NOT
-    fail the doctor run (host mode works without either)."""
+    fail the doctor run (host mode works without either).
+
+    HOME is isolated to a temp dir so the run is deterministic regardless of
+    the dev machine's real ~/.config/opencode deployment state (a stale
+    deployment would otherwise legitimately flag the plugin check). A key file
+    and an auth.json are planted so the key-readiness checks pass (their
+    absence would otherwise add non-advisory failers unrelated to this test's
+    concern)."""
+    import pathlib
+    monkeypatch.setattr(pathlib.Path, "home", lambda: tmp_path)
+    (tmp_path / ".regime" / "keys").mkdir(parents=True)
+    (tmp_path / ".regime" / "keys" / "deepseek.key").write_text("test-key", encoding="utf-8")
+    auth_dir = tmp_path / ".local" / "share" / "opencode"
+    auth_dir.mkdir(parents=True)
+    (auth_dir / "auth.json").write_text(
+        json.dumps({"deepseek-api": {"type": "api", "key": "test"}}), encoding="utf-8")
     res = runner.invoke(app, ["doctor", "--base", "http://127.0.0.1:1", "--json"])
     data = json.loads(res.output)
     checks = {c["check"]: c for c in data["checks"]}

@@ -15,7 +15,8 @@ from __future__ import annotations
 from ..core.json_utils import extract_json
 from ..core.policy import RolePolicy, SelfAssessment
 from ..core.session import SessionState
-from ..infra.opencode import OpenCodeClient, OpenCodeError
+from ..infra.drive_client import DriveClient
+from ..infra.opencode import OpenCodeError
 from ..infra.settings import Settings
 
 
@@ -25,7 +26,7 @@ class SelfAssessor:
     def __init__(
         self,
         settings: Settings,
-        client: OpenCodeClient,
+        client: DriveClient,
         policy: RolePolicy,
         agent: str,
         max_retries: int = 2,

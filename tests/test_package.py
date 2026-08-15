@@ -274,3 +274,29 @@ def test_wheel_preflight_without_source_tree(tmp_path):
     assert proc.returncode == 0, f"stderr:\n{proc.stderr}"
     assert "RESULT True complete" in proc.stdout
     assert "workflow-regime" not in proc.stdout
+
+
+def test_plugin_sdk_version_matches_supported_opencode():
+    """R3 version-contract guard: the shipped `@opencode-ai/plugin` range must
+    target the same major.minor as SUPPORTED_OPCODE, so wheel users resolve the
+    plugin SDK family the driver is built and tested against.
+
+    Note: `.opencode/package.json` is machine-local (gitignored — it records the
+    dev checkout's installed plugin SDK); the tracked distribution source is
+    `data/opencode-package.json`, which is what ships in the wheel."""
+    import json
+    import re
+
+    from regime_driver.infra.opencode import SUPPORTED_OPCODE
+
+    pkg_json = json.loads((PKG / "data" / "opencode-package.json").read_text(encoding="utf-8"))
+
+    dep = pkg_json["dependencies"].get("@opencode-ai/plugin")
+    assert dep, f"missing @opencode-ai/plugin dependency: {pkg_json}"
+    m = re.search(r"(\d+)\.(\d+)", dep)
+    assert m, f"cannot parse plugin SDK version range: {dep!r}"
+    major, minor = int(m.group(1)), int(m.group(2))
+    smajor, sminor = (int(x) for x in SUPPORTED_OPCODE.split(".")[:2])
+    assert (major, minor) == (smajor, sminor), (
+        f"@opencode-ai/plugin range {dep!r} targets {major}.{minor} but "
+        f"SUPPORTED_OPCODE is {SUPPORTED_OPCODE} ({smajor}.{sminor})")

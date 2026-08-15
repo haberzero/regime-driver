@@ -164,10 +164,25 @@ def test_open_code_client_surface_is_lean():
     # only methods actually consumed by the driver/supervisor remain on the client
     for m in ("create_session", "session_status", "session_status_map", "list_sessions",
               "session_tokens", "abort_session", "delete_session", "send_message",
-              "ask_and_get_text", "read_messages", "event_stream", "health"):
+              "ask_and_get_text", "read_messages", "event_stream", "health",
+              "health_info", "check_version"):
         assert hasattr(OpenCodeClient, m)
     for m in ("prompt_async", "todo", "children", "fork", "summarize"):
         assert not hasattr(OpenCodeClient, m)
+
+
+def test_drive_client_protocol_conformance():
+    """DriveClient is the adaptor seam: the real client and the test fake must
+    both structurally conform, so the kernel can type against the protocol and
+    any future agent adapter is a construction-site swap."""
+    from regime_driver.infra.drive_client import DriveClient
+    from regime_driver.testing.mock_client import MockClient
+
+    assert issubclass(OpenCodeClient, DriveClient), (
+        "OpenCodeClient must conform to the DriveClient protocol")
+    assert issubclass(MockClient, DriveClient), (
+        "MockClient must conform to the DriveClient protocol "
+        "(it is the test fake for the drive surface)")
 
 
 def _raw(m: Message) -> dict:

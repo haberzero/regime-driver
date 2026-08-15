@@ -24,7 +24,7 @@
 | run-many | `regime run-many` | 无人值守/并发 | — | 01_cli.md |
 | drive | `regime drive` | **无人值守核心** | 全部 4 复杂任务（harness 入口） | 01_cli.md |
 | drive-many | `regime drive-many` | 并发隔离 | — | 01_cli.md |
-| doctor | `regime doctor` | 一次性/运维 | 环境检测(docker/opencode/conda/平台) + 部署路径引导 | 01_cli.md |
+| doctor | `regime doctor` | 一次性/运维 | 环境检测(docker/opencode/conda/平台) + 部署路径引导 + 插件可加载形状 | 01_cli.md |
 | preflight | `regime preflight` | 无人值守（drive 内嵌） | 全部任务（默认强制） | 01_cli.md |
 | report | `regime report` | 值守 | —（capabilities 引导） | 01_cli.md |
 | supervisor | `regime supervisor` | 值守/专项 | drive 内嵌等价 | 01_cli.md |
@@ -34,9 +34,9 @@
 | sessions | `regime sessions` | 值守/运维 | harness 每任务 `--clean` | 01_cli.md |
 | dialog | `regime dialog` | **值守** | — | 05_dialog_control_contract.md |
 | web | `regime web` | 值守/观察窗 | **只读观察窗**（HTML 面板 + JSON API，聚合态势/事件/会话/报告，不暴露写操作） | 01_cli.md |
-| scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/插件/opencode.json/config.example.toml | 06_release.md |
-| setup | `regime setup` | 一次性/运维 | 引导安装：环境检测 + 装配 + 分步指引 | 04_distribution_blueprint.md |
-| uninstall | `regime uninstall` | 一次性/运维 | 按部署清单安全移除 regime 文件（保留用户改动） | 04_distribution_blueprint.md |
+| scaffold | `regime scaffold` | 一次性/运维 | 部署 agents/skills/插件/说明书（**工作区模式 `--workspace` 推荐**：只影响该项目；全局模式可选） | 06_release.md |
+| setup | `regime setup` | 一次性/运维 | 引导安装：环境检测 + 装配 + 分步指引（工作区模式推荐） | 04_distribution_blueprint.md |
+| uninstall | `regime uninstall` | 一次性/运维 | 按部署清单安全移除 regime 文件（保留用户改动）；`--workspace` 移除项目级部署 | 04_distribution_blueprint.md |
 | events | `regime events` | 值守 | — | 01_cli.md |
 | session | `regime session` | 值守 | — | 01_cli.md |
 | task | `regime task` | 值守/无人值守 | harness `task status` | 01_cli.md |

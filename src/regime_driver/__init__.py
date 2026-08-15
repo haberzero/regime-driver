@@ -7,4 +7,4 @@ reviewer judgements gated by a deterministic gate.
 See the architecture doc: docs/ARCHITECTURE.md
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

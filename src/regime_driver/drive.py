@@ -32,7 +32,7 @@ from .app.sse_activity import SseActivity
 from .app.statechart_driver import StatechartDriver
 from .core.models import Outcome
 from .infra.ledger import Ledger
-from .infra.opencode import OpenCodeClient
+from .infra.drive_client import DriveClient
 from .infra.settings import Settings
 from .supervisor import Supervisor
 
@@ -77,7 +77,7 @@ class Drive:
         self,
         settings: Settings,
         state_machine,
-        client: OpenCodeClient,
+        client: DriveClient,
         reporter: Reporter | None = None,
         *,
         container: str | None = None,

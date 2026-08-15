@@ -34,17 +34,29 @@ worker 需要连到一个可用模型。
 
 ## 步骤
 
-### 1. 部署官方模板（一次）
+### 1. 部署官方模板（一次，推荐工作区模式）
 
 ```bash
-# 从包内模板生成 ~/.config/opencode/{agents,skills}（幂等；--dry-run 预览）
-regime scaffold
-# 需要控制对话框助手 subagent 时
-regime scaffold --assistants
+# 推荐：工作区模式——只影响当前项目的 opencode 会话，不污染其它对话环境
+regime setup --workspace <你的项目目录>        # 或 regime scaffold --workspace <dir>
+# 可选：全局模式（影响机器上所有 opencode 会话，不推荐）
+regime scaffold [--assistants]
 ```
 
-预期结果：`~/.config/opencode/` 下生成官方 agent/skill 配置。
-`regime doctor` 会校验模板是否就绪。
+**工作区模式**把模板装进 `<项目>/.opencode/`：
+- `plugins/regime-dialog-control.js` —— A 路插件（`regime_*` 工具，opencode 启动自动加载）
+- `agent/dialog-control.md` + `agent/reviewer.md` —— 主控对话框 agent + 只读审查 subagent
+- `skills/` —— 项目级 skills（opencode 从 `.opencode/skills/` 自动发现）
+- `agent-handbook.md` —— 随工作区的操作说明书：在 opencode 里让 agent 读它即可自助完成
+  监控/运行/设计/扩展，无需人工介入
+- `package.json` —— 插件 SDK 依赖（opencode 自动 `bun install`）
+
+预期结果：`<项目>/.opencode/` 下生成上述模板；`regime doctor` 会校验模板与插件可加载形状。
+卸载：`regime uninstall --workspace <项目目录>`（只移除该工作区部署，不碰用户自己的文件）。
+
+> **为什么推荐工作区模式**：全局模式（`~/.config/opencode/`）会让机器上**所有** opencode 会话
+> 都带上 regime 工具面（插件工具 + dialog-control agent + skills），可能干扰用户其它项目的对话。
+> 工作区模式把 regime 的影响限定在用户主动选择的项目里，卸载也干净。
 
 ### 2. 配置模型密钥
 
@@ -78,20 +90,22 @@ worker 默认端口为 4097，dialog-control 默认端口为 4098。
 ### 4. 方式 B：配置主机 opencode（无 Docker，opencode 作主对话框）
 
 无 Docker 时，直接用主机 opencode 既当 worker 也当**主操作对话框**。
-`regime scaffold` 一条命令装配全部官方模板（agents + skills + 插件 + opencode.json）：
+**推荐工作区模式**（只影响当前项目）：
 
 ```bash
-regime scaffold
+regime setup --workspace <你的项目目录>
 ```
 
-预期结果：`~/.config/opencode/` 下生成：
-- `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 22 个
-  opencode 工具，opencode 启动自动加载）
-- `agents/dialog-control.md` + `reviewer.md` —— 对话控制主 agent + 只读审查 subagent
-- `skills/`、`opencode.json`（provider 占位）、`package.json`（插件 SDK 依赖，opencode
-  自动 `bun install`）、`config.example.toml`
+预期结果：`<项目>/.opencode/` 下生成：
+- `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 opencode 工具，
+  opencode 启动自动加载）
+- `agent/dialog-control.md` + `agent/reviewer.md` —— 对话控制主 agent + 只读审查 subagent
+- `skills/`、`package.json`（插件 SDK 依赖，opencode 自动 `bun install`）、`agent-handbook.md`
+  （操作说明书：在 opencode 里让 agent 读它即可自助配置工作区）
 
-`regime doctor` 自检（含环境检测）应全部通过。
+需要全局安装（影响机器上所有会话，不推荐）时用 `regime scaffold` → `~/.config/opencode/`。
+
+`regime doctor` 自检（含环境检测 + 插件可加载形状）应全部通过。
 
 > **Docker 不是必须**：regime-driver 不强制 Docker。Docker 只是方式 A（容器化 worker）的
 > 可选依赖；方式 B 直接用主机 opencode（对话框 + worker 一体或分开）。
@@ -99,6 +113,8 @@ regime scaffold
 >
 > **混合部署**：对话框与 worker 可以是不同 opencode 实例/机器——插件连远程 worker 时设
 > `REGIME_WORKER_BASE=http://<地址>:<端口>`；regime CLI 用 `--base` 指 worker。
+>
+> **卸载**：`regime uninstall --workspace <项目目录>` 精确移除工作区部署（用户改过的文件保留）。
 
 ### 5. 自检
 

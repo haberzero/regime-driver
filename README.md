@@ -55,16 +55,23 @@ conda run -n regime-driver pip install -e ".[dev]"
 
 ## 部署
 
-### 1. 获取官方模板（一次）
+### 1. 获取官方模板（一次，推荐工作区模式）
 
 ```bash
-# 从包内模板生成 ~/.config/opencode/{agents,skills}（幂等；--dry-run 预览）
-regime scaffold
+# 推荐：工作区模式 —— 只影响当前项目的 opencode 会话，不污染其它对话环境
+regime setup --workspace <你的项目目录>      # 或 regime scaffold --workspace <dir>
 # 需要控制对话框助手 subagent（analyst/advisor/reviewer）时
-regime scaffold --assistants
-# 自检：worker 健康 / 模型密钥 / 模板就绪
+regime setup --workspace <dir> --assistants
+# 可选：全局模式（影响机器上所有 opencode 会话，不推荐）
+regime scaffold [--assistants]
+# 自检：worker 健康 / 模型密钥 / 模板就绪 / 插件可加载形状
 regime doctor
+# 卸载（只移除该工作区部署，用户改过的文件保留）
+regime uninstall --workspace <dir>
 ```
+
+> 工作区模式把插件/agent/skills/操作说明书装进 `<项目>/.opencode/`——用户可在 opencode 里让
+> agent 读 `.opencode/agent-handbook.md` 自助完成监控/运行/设计/扩展，无需人工介入。
 
 ### 2. 起执行面
 

@@ -352,9 +352,10 @@ CLI 契约（regime 命令，唯一真源）        ← 对话框只说这一种
 | 职责 | **干净地干活**：被 regime-driver 通过 HTTP 驱动，只执行不自治 | 承载控制对话框，对话载体 |
 
 > **主机 opencode 当主对话框时需要插件**：你直接用主机 opencode 作为主操作对话框（推荐
-> 形态）时，`regime scaffold` / `regime setup` 会把 `regime-dialog-control.js` 部署到
-> `~/.config/opencode/plugins/`（随 wheel 分发），opencode 启动自动加载，对话框 agent
-> 就能调用 `regime_*` 命令。这个插件是**对话面**需要的，worker 不需要。
+> 形态）时，`regime setup --workspace <项目>` / `regime scaffold` 会把 `regime-dialog-control.js`
+> 部署到 `<项目>/.opencode/plugins/`（工作区模式，推荐）或 `~/.config/opencode/plugins/`
+> （全局模式，可选），opencode 启动自动加载，对话框 agent 就能调用 `regime_*` 命令。
+> 这个插件是**对话面**需要的，worker 不需要。
 
 **为什么 worker 必须是干净的**：worker 只负责执行，所有"制度"（流程、审查、监督、报告）都住在
 regime-driver 这一层，通过 HTTP 驱动它。如果 worker 装了插件，它就有了"自己决定怎么做"的能力——

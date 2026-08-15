@@ -28,7 +28,7 @@ import threading
 import time
 from typing import Callable
 
-from ..infra.opencode import OpenCodeClient
+from ..infra.drive_client import DriveClient
 
 
 def is_progress_event(event_type: str | None) -> bool:
@@ -50,7 +50,7 @@ class SseActivity:
 
     def __init__(
         self,
-        client: OpenCodeClient,
+        client: DriveClient,
         *,
         start: bool = True,
         max_retries: int | None = None,

@@ -15,7 +15,7 @@ import time
 from ..core.role import RoleRegistry, default_roles
 from ..core.state_machine import StateMachine
 from ..infra.ledger import Ledger
-from ..infra.opencode import OpenCodeClient
+from ..infra.drive_client import DriveClient
 from ..infra.settings import Settings
 from .watchdog_unit import WatchdogUnit
 from .statechart_runtime import Runtime, ThreadedUnit
@@ -34,7 +34,7 @@ class StatechartCluster:
 
     def __init__(
         self,
-        client: OpenCodeClient,
+        client: DriveClient,
         ledger: Ledger | None = None,
         reporter: "Reporter | None" = None,
         watchdog: ThreadedUnit | None = None,
@@ -77,7 +77,7 @@ class StatechartCluster:
         cls,
         regime: "Regime",
         settings: Settings,
-        client: OpenCodeClient,
+        client: DriveClient,
         ledger: Ledger | None = None,
         reporter: "Reporter | None" = None,
         enforce_invariants: bool = True,

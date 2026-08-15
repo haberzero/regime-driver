@@ -115,6 +115,16 @@ class MockClient:
         return "busy" if (self._is_stalled(session_id)
                           or session_id in self._generating) else "idle"
 
+    def list_sessions(self) -> list[dict]:
+        """DriveClient surface: every created session as a summary dict."""
+        return [{"id": sid, "title": self.sid_title.get(sid, ""),
+                 "agent": "", "tokens": {"input": 0, "output": 0}}
+                for sid in self.msgs]
+
+    def session_status_map(self) -> dict[str, str | None]:
+        """DriveClient surface: {session_id: status} for every created session."""
+        return {sid: self.session_status(sid) for sid in self.msgs}
+
     def session_tokens(self, session_id: str) -> tuple[int, int]:
         return (0, 0)
 
@@ -126,6 +136,14 @@ class MockClient:
 
     def health(self) -> bool:
         return True
+
+    def health_info(self) -> dict:
+        """DriveClient surface: healthy flag (mock is always healthy)."""
+        return {"healthy": True}
+
+    def check_version(self, supported: str | None = None) -> tuple[bool, str | None]:
+        """DriveClient surface: mock reports no server version (contract unknown)."""
+        return True, None
 
     def send_message(self, session_id: str, text: str, agent: str) -> None:
         node_id = self.node_of(text) or ""

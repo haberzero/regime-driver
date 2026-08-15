@@ -20,6 +20,7 @@ from ..core.models import Outcome
 from ..core.state_machine import StateMachineError
 from ..infra.config import load_settings
 from ..infra.ledger import Ledger
+from ..infra.drive_client import DriveClient
 from ..infra.opencode import OpenCodeClient
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
@@ -238,7 +239,7 @@ def _sm_from_flow_or_regime(flow: str | None, regime: Path | None,
         _fail(f"error loading regime: {exc}")
 
 
-def _driver_from_options(settings: Settings, client: OpenCodeClient,
+def _driver_from_options(settings: Settings, client: DriveClient,
                          ledger: Ledger | None, reporter,
                          flow: str | None, regime: Path | None,
                          regime_name: str | None, sm: "StateMachine | None" = None,
@@ -962,11 +963,18 @@ def doctor(
     _tpl = templates_ready()
     checks.append({"check": "packaged templates (scaffold)", "ok": _tpl["ok"]})
 
-    # deployment integrity (uninstall/recovery UX): if scaffold/setup ran, verify
-    # the manifest ↔ disk consistency (files modified/missing) so the user knows
-    # what a later `regime uninstall` would touch / whether config drifted.
-    from ..scaffold import check_deployed
+    # A-route dialog-control plugin loadability: the deployed plugin must carry
+    # the v1 default-export shape opencode's auto-scan loader reliably detects,
+    # or it is silently skipped (the dialog-control agent then has no regime_*
+    # tools). Checks the packaged copy by default; when a deployment manifest
+    # exists, checks the actually-deployed file instead.
+    from ..scaffold import check_deployed, check_plugin
     _dep = check_deployed(_Path.home() / ".config" / "opencode")
+    _deployed_plugins = (_Path.home() / ".config" / "opencode" / "plugins"
+                         if _dep.get("deployed") else None)
+    _pl = check_plugin(_deployed_plugins)
+    checks.append({"check": "dialog-control plugin loadable",
+                   "ok": _pl["ok"], "detail": _pl["detail"]})
     if _dep.get("deployed"):
         checks.append({
             "check": "deployed files integrity",
@@ -2716,6 +2724,10 @@ app.add_typer(_job_app, name="job")
 def scaffold_cmd(
     target: Optional[Path] = typer.Option(
         None, "--target", help="opencode config root (default ~/.config/opencode)"),
+    workspace: Optional[Path] = typer.Option(
+        None, "--workspace", "-w", help="project-local deploy: install into "
+        "<dir>/.opencode/ so ONLY that workspace's opencode sessions are affected "
+        "(RECOMMENDED — avoids polluting other conversations; mutually exclusive with --target)"),
     assistants: bool = typer.Option(False, "--assistants",
                              help="also deploy the dialog-control-assistant subagents (analyst/advisor/reviewer)"),
     dry_run: bool = typer.Option(False, "--dry-run",
@@ -2725,20 +2737,34 @@ def scaffold_cmd(
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
     perm: str = typer.Option("run", "--perm", help="held permission level"),
 ) -> None:
-    """Deploy the packaged official templates into an opencode config root.
+    """Deploy the packaged official templates into opencode.
 
-    A fresh install (pip wheel) carries the agent/skill/dialog-control templates inside the
-    package; ``scaffold`` copies them to ``~/.config/opencode`` so no source
-    clone is needed. Idempotent: existing files are kept unless --force.
+    Two modes:
+
+    - **workspace (recommended)**: ``regime scaffold --workspace <dir>`` installs
+      the plugin / dialog-control agent / skills / agent handbook into
+      ``<dir>/.opencode/`` — only that workspace's opencode sessions see the
+      regime tooling, and nothing outside the project is touched. Uninstall with
+      ``regime uninstall --workspace <dir>``.
+    - **global (optional, not recommended)**: ``regime scaffold`` (default) deploys
+      into ``~/.config/opencode`` and affects every opencode session on the machine.
     """
     from pathlib import Path as _Path
 
     _gate(perm, ["scaffold"])
-    dest = target or _Path.home() / ".config" / "opencode"
+    if target is not None and workspace is not None:
+        _fail("--target and --workspace are mutually exclusive")
+    if workspace is not None:
+        dest = workspace / ".opencode"
+        mode = "workspace"
+    else:
+        dest = target or _Path.home() / ".config" / "opencode"
+        mode = "global"
 
     from ..scaffold import scaffold as _scaffold
 
-    result = _scaffold(dest, assistants=assistants, dry_run=dry_run, force=force)
+    result = _scaffold(dest, assistants=assistants, dry_run=dry_run, force=force,
+                       workspace=(mode == "workspace"))
 
     if json_out:
         _emit_json(result.to_dict())
@@ -2759,9 +2785,15 @@ def scaffold_cmd(
                   f"(kept {len(result.skipped)}) → {dest}")
     if not dry_run:
         console.print("\n[bold]next steps[/bold]")
-        console.print("  · 起栈：`ops/up.sh all`（构建+拉起 worker/控制对话框容器）")
-        console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
-        console.print("  · 配模型密钥：`regime doctor`（设 DEEPSEEK_API_KEY 或 ~/.regime/keys/deepseek.key）")
+        if mode == "workspace":
+            console.print("  · 在该工作区启动 opencode（自动加载 .opencode/ 插件/agent/skills）")
+            console.print("  · 新会话选 `dialog-control` agent 作为主控对话框")
+            console.print("  · 让 opencode 读 `.opencode/agent-handbook.md` 自助配置工作区")
+            console.print("  · 卸载：`regime uninstall --workspace <dir>`（只移除本工作区部署）")
+        else:
+            console.print("  · 起栈：`ops/up.sh all`（构建+拉起 worker/控制对话框容器）")
+            console.print("  · 或主机模式：`regime run --base <主机 opencode 端口>`")
+            console.print("  · 配模型密钥：`regime doctor`（设 DEEPSEEK_API_KEY 或 ~/.regime/keys/deepseek.key）")
 
 
 # ---------------------------------------------------------------------------
@@ -2771,6 +2803,10 @@ def scaffold_cmd(
 def setup_cmd(
     target: Optional[Path] = typer.Option(
         None, "--target", help="opencode config root (default ~/.config/opencode)"),
+    workspace: Optional[Path] = typer.Option(
+        None, "--workspace", "-w", help="project-local deploy: install into "
+        "<dir>/.opencode/ so ONLY that workspace's opencode sessions are affected "
+        "(RECOMMENDED — mutually exclusive with --target)"),
     assistants: bool = typer.Option(False, "--assistants",
                              help="also deploy the dialog-control-assistant subagents"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
@@ -2783,15 +2819,26 @@ def setup_cmd(
     user can follow to get from a bare pip install to a working host-installed
     opencode (primary dialog + worker). Docker is NOT required — host mode works
     out of the box; docker / remote worker are optional (see the blueprint).
+
+    **Workspace mode is the recommended path** (``--workspace <dir>``): only that
+    project's opencode sessions are affected; global install (``--target`` /
+    default ``~/.config/opencode``) is available but not recommended.
     """
     from pathlib import Path as _Path
 
     _gate(perm, ["setup"])
     import os as _os
-    dest = target or _Path.home() / ".config" / "opencode"
+    if target is not None and workspace is not None:
+        _fail("--target and --workspace are mutually exclusive")
+    if workspace is not None:
+        dest = workspace / ".opencode"
+        mode = "workspace"
+    else:
+        dest = target or _Path.home() / ".config" / "opencode"
+        mode = "global"
 
     from ..scaffold import scaffold as _scaffold
-    result = _scaffold(dest, assistants=assistants)
+    result = _scaffold(dest, assistants=assistants, workspace=(mode == "workspace"))
 
     env = {c["check"]: c.get("ok") for c in _env_readiness()}
     has_docker = env.get("docker available")
@@ -2801,6 +2848,7 @@ def setup_cmd(
 
     summary = {
         "target": str(dest),
+        "mode": mode,
         "templates_copied": len(result.copied),
         "templates_kept": len(result.skipped),
         "docker_available": bool(has_docker),
@@ -2815,18 +2863,25 @@ def setup_cmd(
 
     console.print("[bold]regime setup[/bold] — 引导装配完成")
     console.print(f"  模板已写入 {dest}（copied={len(result.copied)} kept={len(result.skipped)}）")
+    console.print(f"  模式：{'工作区（项目级，推荐）' if mode == 'workspace' else '全局（影响所有会话，不推荐）'}")
     console.print(f"  环境检测：docker={has_docker} opencode={has_opencode} 密钥={has_key}")
     console.print("\n[bold]接下来怎么做[/bold]")
     if not has_key:
         console.print("  · [cyan]1. 配模型密钥[/cyan]：")
         console.print("      mkdir -p ~/.regime/keys && printf '%s' '你的-deepseek-api-key' > ~/.regime/keys/deepseek.key")
     if has_opencode:
-        console.print("  · [cyan]2. 启动主机 opencode（主对话框 + worker）[/cyan]：")
-        console.print("      opencode serve --port 4097")
-        console.print("  · [cyan]3. 自检[/cyan]：`regime doctor`")
-        console.print("  · [cyan]4. 跑第一个任务[/cyan]：")
-        console.print("      regime dialog --live --perm run      # B 路对话框")
-        console.print("      或在 opencode 切到 dialog-control agent（A 路）")
+        console.print("  · [cyan]2. 在该工作区启动 opencode（主对话框 + worker）[/cyan]：")
+        console.print("      opencode serve --port 4097     # 或直接 `opencode` 在该目录")
+        if mode == "workspace":
+            console.print("  · [cyan]3. 自检[/cyan]：`regime doctor`")
+            console.print("  · [cyan]4. 使用[/cyan]：新会话选 `dialog-control` agent 作主控；")
+            console.print("      或让 opencode 读 `.opencode/agent-handbook.md` 自助配置")
+            console.print("  · 卸载：`regime uninstall --workspace <当前目录>`（只移除本工作区）")
+        else:
+            console.print("  · [cyan]3. 自检[/cyan]：`regime doctor`")
+            console.print("  · [cyan]4. 跑第一个任务[/cyan]：")
+            console.print("      regime dialog --live --perm run      # B 路对话框")
+            console.print("      或在 opencode 切到 dialog-control agent（A 路）")
     elif has_docker:
         console.print("  · [cyan]2. 起容器化 worker（方式 A）[/cyan]：")
         console.print("      git clone https://github.com/haberzero/regime-driver && ops/up.sh all")
@@ -2844,6 +2899,9 @@ def setup_cmd(
 def uninstall_cmd(
     target: Optional[Path] = typer.Option(
         None, "--target", help="opencode config root (default ~/.config/opencode)"),
+    workspace: Optional[Path] = typer.Option(
+        None, "--workspace", "-w", help="remove a project-local deployment from "
+        "<dir>/.opencode/ (mutually exclusive with --target)"),
     dry_run: bool = typer.Option(False, "--dry-run",
                                  help="show what would be removed without removing"),
     json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
@@ -2855,11 +2913,19 @@ def uninstall_cmd(
     and deletes exactly the files it recorded. Files you modified yourself are
     KEPT (never silently destroyed); missing files are no-ops. The manifest is
     removed last. Use --dry-run first to preview.
+
+    ``--workspace <dir>`` removes a project-local deployment from ``<dir>/.opencode/``
+    (the recommended mode) without touching anything global.
     """
     from pathlib import Path as _Path
 
     _gate(perm, ["uninstall"])
-    dest = target or _Path.home() / ".config" / "opencode"
+    if target is not None and workspace is not None:
+        _fail("--target and --workspace are mutually exclusive")
+    if workspace is not None:
+        dest = workspace / ".opencode"
+    else:
+        dest = target or _Path.home() / ".config" / "opencode"
 
     from ..scaffold import uninstall as _uninstall
     res = _uninstall(dest, dry_run=dry_run)

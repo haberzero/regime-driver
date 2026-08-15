@@ -17,9 +17,7 @@
 | **PyPI（pip）** | Python 包 + 用户装配模板 | regime 本体是 Python；装配模板是运行必需，随包最简 |
 | **GitHub 仓库** | Dockerfile / docker 配置、文档站、插件源码（开发）、CI | 容器化辅助 + 开发源 + 文档；pip 之外的内容 |
 | **npm（opencode 生态）** | （可选）把插件发布为 npm 包 | opencode 官方支持的插件分发；本地文件方式已够则不必 |
-| **opencode 官方渠道** | （无） | 插件走本地文件（`~/.config/opencode/plugins/`）即可，无需上官方插件市场 |
-
----
+| **opencode 官方渠道** | （无） | 插件走本地文件（项目 `.opencode/plugins/` 或全局 `~/.config/opencode/plugins/`）即可，无需上官方插件市场 |
 
 ## 2. 内容归属矩阵（每项内容 → 渠道 → 用户如何获得）
 
@@ -34,15 +32,18 @@
 | `data/plugins/regime-dialog-control.js` | 模板 | A 路插件（主机 opencode 主对话框） | 纯 JS，无容器路径 |
 | `data/dialog-control-agent/dialog-control.md` | 模板 | 对话控制 agent | 文本模板 |
 | `data/opencode-package.json` | 模板 | 插件 SDK 依赖声明（opencode 自动 bun install） | 纯声明 |
-| `data/opencode-template/opencode.json` | 模板 | 模型 provider 配置（`{env:...}` 占位） | 无密钥、无主机路径 |
+| `data/agent-handbook.md` | 模板 | 操作说明书（工作区模式随项目部署，用户可在 opencode 内读它自助配置） | 文本模板 |
+| `data/opencode-template/opencode.json` | 模板 | 模型 provider 配置（`{env:...}` 占位；仅全局模式部署） | 无密钥、无主机路径 |
 | `data/regime.json` | 模板 | 默认流程描述 | 纯数据 |
-| `data/config.example.toml` | 模板 | 配置参考（唯一真源） | 纯注释示例 |
+| `data/config.example.toml` | 模板 | 配置参考（唯一真源；仅全局模式部署） | 纯注释示例 |
 | `data/examples/` | 模板 | 示例流程 | 纯数据 |
 
 **pip wheel 的合规断言**（test_package 守卫）：
 - ❌ 不含 Dockerfile / docker 配置（`/data/docker/`）
 - ❌ 不含 `/home/`、`oc-meta`、`/opt/miniconda3`、`/root/work` 主机路径
 - ✅ 插件不含容器路径回退（`regime` 纯 PATH 解析）
+- ✅ 插件含 opencode v1 default export（`{ id, server }`）——自动扫描路径可靠加载
+- ✅ 插件 SDK 版本范围与 `SUPPORTED_OPCODE` 的 major.minor 一致
 
 ### 2.2 走 GitHub 仓库（clone / 下载，不进 pip）
 
@@ -101,11 +102,15 @@
 
 ### 情形 A：主机直装（推荐，默认）
 ```
-pip install regime-driver  →  regime scaffold  →  写密钥  →  opencode serve
+pip install regime-driver  →  regime setup --workspace <项目>  →  写密钥  →  在项目里起 opencode
 → 对话框（A 路 opencode 会话 或 B 路 regime dialog）→ 跑任务
 ```
 - 不需要 Docker、不需要 clone 仓库、不需要 npm。
-- 插件经本地文件自动加载，`@opencode-ai/plugin` 由 opencode 自动 bun install。
+- **工作区模式**：插件/agent/skills/说明书只装进 `<项目>/.opencode/`，机器上其它项目的 opencode
+  会话不受影响；`@opencode-ai/plugin` 由 opencode 自动 bun install；插件经本地文件自动加载。
+- **自助配置**：用户让 opencode 读 `<项目>/.opencode/agent-handbook.md`，即可按手册自助完成
+  监控/运行/设计/扩展，无需人工介入。
+- **卸载**：`regime uninstall --workspace <项目>` 精确移除，不碰用户自己的文件。
 
 ### 情形 B：带 Docker（方式 A，可选）
 ```
@@ -116,11 +121,18 @@ clone 仓库 → ops/up.sh all（构建 worker + dialog-control 容器）
 
 ### 情形 C：混合部署（主控主机 + worker 远程/docker）
 ```
-主机：pip install + scaffold（opencode 主对话框）
+主机：pip install + scaffold --workspace <项目>（opencode 主对话框）
 远程/docker：worker opencode 实例
 插件/CLI 设 REGIME_WORKER_BASE / --base 指向远程 worker → 跑任务
 ```
 - 对话框与执行分离，职责清晰；`~/.regime/` 状态归属各端，`--base` 明确 worker 地址。
+
+### 全局模式（可选，不推荐）
+```
+pip install regime-driver  →  regime scaffold [--assistants]  →  ~/.config/opencode/
+```
+- 影响机器上所有 opencode 会话（A 路插件 + dialog-control agent + skills 全局可见）。
+  适合个人单机专用场景；多项目用户应优先工作区模式。
 
 ---
 
