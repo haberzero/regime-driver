@@ -2,6 +2,9 @@
 
 Provides a thin, typed wrapper over the opencode server HTTP API:
 session create/read/abort, message send/read, and health check.
+
+Implements the ``infra.drive_client.DriveClient`` protocol; ``Message`` is
+re-exported there as the transport-neutral message shape.
 """
 
 from __future__ import annotations

@@ -12,9 +12,9 @@ settings.worker_container; the exec program must be in `VERIFY_ALLOWED_EXECS`.
 This lives in `core` (pure spec, no I/O) so BOTH the runtime runner
 (`app/verify.py`) and the static validator (`core/validate.py`) share ONE
 definition of the shape — a flow whose verify command is outside the whitelist
-is rejected at load/validate time, not discovered mid-run (the 2026-08-14
-nightly finding: a store-residual `sg docker -c` wrapper around docker-exec was
-whitelist-rejected only at runtime, stalling a long task in its test gate).
+is rejected at load/validate time, not discovered mid-run (a store-residual
+wrapper around docker-exec would otherwise be whitelist-rejected only at
+runtime, stalling a long task in its test gate).
 """
 
 from __future__ import annotations

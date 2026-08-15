@@ -51,9 +51,9 @@ reading ledgers/journals/session snapshots. Also read `docs/KNOWN_LIMITS.md`. Wh
 - **校验**：`regime validate --json`、`regime gate '<verdict>'`、`regime preflight --json`（离线试跑）。
 - **清理**：`regime sessions --clean` / `--kill <id>`（写操作，谨慎，`--perm clean`）。
 - **观察窗**：`regime web` 启动只读观察窗（聚合态势 + 事件流 + 会话，浏览器查看）。
-- **扩展点（阶段 2）**：`~/.regime/hooks.py` 插件统一注入 hooks/rules/tools；对话框内 `hook list/path/reload`。
+- **扩展点**：`~/.regime/hooks.py` 插件统一注入 hooks/rules/tools；对话框内 `hook list/path/reload`。
   verify 命令已白名单化（`docker exec {container} <白名单程序>`，消 RCE）。
-- **人工确认点（阶段 4）**：审查者可返回 `ask_human`——workflow 冻结等待 `decide <wid> <yes|no> [评论]`
+- **人工确认点**：审查者可返回 `ask_human`——workflow 冻结等待 `decide <wid> <yes|no> [评论]`
   （或 `裁决`）应答；超时按 `human_confirm_timeout_sec` 兜底。裸 `decide` 列出待决检查点。
 
 ## 诊断流程（读日志/内省，区分"失败"与"表象"）
@@ -67,7 +67,7 @@ reading ledgers/journals/session snapshots. Also read `docs/KNOWN_LIMITS.md`. Wh
 3. **看会话原文**：`regime session <id> reply --json` / `regime session <id> events --json` 读该会话
    的原始消息，区分"瞬时错误"（HTTP/限流，可恢复）vs "真 abort"（MessageAbortedError）。
 4. **对照 journal**：`regime report --journal <p> --history --limit N` 看规范化事件；`--trace <wf>` 看因果链。
-5. **诊断口径（WORK_PLAN11/13）**：`workflow_paused`/`resumed`/`nudged`/`auto_resume` 是**恢复性事件 ≠ 失败**；
+5. **诊断口径**：`workflow_paused`/`resumed`/`nudged`/`auto_resume` 是**恢复性事件 ≠ 失败**；
    `watchdog_fire`（kind∈kill 等）才是兜底终止；`context_handover` 是正常机制。`blocked (monitor: ...)`
    仅在续跑后仍无活性才出现。**不要把 interrupt/resume 当停滞或终止。**
 
@@ -94,7 +94,7 @@ CLI 写操作受统一权限门禁（`--perm read|interact|run|clean`）。等�
   "上层制度规划者"：不介入具体开发代码，只设计制度流程并调度。
 - **只读观察者**（`--perm read`）：只 `status --deep`/`sessions`/`report`/`events` 监控，不触发写操作。
 
-## 运行时中断恢复（可编程看门狗，WORK_PLAN11）
+## 运行时中断恢复（可编程看门狗）
 
 `run`/`drive` 由进程内可编程策略看门狗监督（`settings.watchdog_policy_json`）。运行中可能**自动中断并续跑，
 这不是失败**：

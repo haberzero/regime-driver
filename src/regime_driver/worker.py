@@ -1,6 +1,6 @@
 """Worker pool: multiple opencode instances, one per workspace (isolation by instance).
 
-Architecture pivot (2026-08-09, per directive): per-SESSION workspace isolation is
+Per-SESSION workspace isolation is
 impossible with this opencode version — the `directory` field on create_session is
 project-level and ignored (verified: always resolves to the server's cwd). So we
 achieve physical workspace isolation by launching **multiple opencode instances**,

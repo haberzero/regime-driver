@@ -167,12 +167,24 @@
 
 ## 8. 下一步（下一 session 主线任务）
 
-> **当前主线（唯一指针，2026-08-15）**：发布就绪主线已完成（工作区模式 + DriveClient 协议 +
-> 插件加载验证 + 版本 0.3.0 + wheel 重建，650 passed 零回归 + general review APPROVE）。
+> **当前主线（唯一指针，2026-08-15）**：技术文档全方位同步 + 版本号统一 v0.1 已完成
+> （commit `9dd10d3` + `db99aaa` + `1bed87f`，658 passed 零回归 + general review 收口中）。
 > **下一 session 主攻：V-2 PyPI 发布**（用户 token 就绪即可 `python -m build && twine upload dist/*`；
-> `dist/regime_driver-0.3.0-py3-none-any.whl` 已重建并通过隔离安装验证），随后按优先级表推进。
+> `dist/regime_driver-0.1.0-py3-none-any.whl` 已重建并通过隔离安装验证），随后按优先级表推进。
 
 ### 当前状态速览（2026-08-15）
+
+> **技术文档全方位同步 + 版本号统一 v0.1（2026-08-15，commit 9dd10d3 + db99aaa + 1bed87f，
+> 658 passed 零回归）**：①**版本统一 v0.1**——`__version__` 0.3.0→0.1.0（唯一真源，pyproject 动态读），
+> README 中英 / docs index / 描述符 schema 版本（regime.json/example/flow_v13/flow_spec）全部对齐，
+> wheel 重建 0.1.0；②**代码注释清理**（workflow 5 批次 28 文件）——任务代号残留移除 + 4 断链文档指针
+> 修正 + 历史叙述改现在时；③**三并行审计修复**（用户文档/架构子系统/代码注释）——P0 事实错误
+> （README e2e 路径、README.en docker-in-wheel 声明、max_reviewer_retries 2→3、verify_enabled
+> true→false、config.example.toml 断链）、P1 CLI 缺参补齐（run/preflight/status/report/dialog）、
+> P2 红线清理（18 文档）、P3 一致性（permission `_COMMAND_LEVEL` 补 drive-many/chaos/web + 测试、
+> 02_configuration env 表、04_permissions 命令表）；④stale-wrong 修复（ESCALATE 幽灵动作、
+> capabilities 6→7 子面、03_boundary 角色注册已实现、08_mock DriveClient 协议）。**下一步 =
+> general review 收口 → V-2 PyPI 发布**。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
 
 > **发布就绪第二阶段（2026-08-15，commit aa9bf31 + 78f5c26，656 passed 零回归）**：
 > ①**全局模式标注不推荐**——scaffold/setup 输出缺点说明（opencode 无按 agent 隔离工具机制，源码核验
@@ -441,9 +453,9 @@
 | 守卫测试 | ✅ 过 | test_config_doc_guard + test_cli_doc_guard + test_deadcode + test_package + test_capabilities_map |
 | 测试基线 | ✅ 610 passed | 全量零回归（阶段0–4 全部完成后） |
 
-> **注意**：`opencode-dialog-control` 容器内的 regime-driver 是旧 wheel（0.2.0，无
-> `watchdog_policy_json`、`context_handover_policy_json`、`verify`、`regime` 命令）。它仅作 A 路验证窗，
-> 不影响宿主实验（drive/harness 全在宿主源码上跑）。如需同步最新代码用
+> **注意**：`opencode-dialog-control` 容器内的 regime-driver 是旧 wheel（0.2.0，早于当前统一口径
+> 0.1.0，无 `watchdog_policy_json`、`context_handover_policy_json`、`verify`、`regime` 命令）。它仅作
+> A 路验证窗，不影响宿主实验（drive/harness 全在宿主源码上跑）。如需同步最新代码用
 > `ops/up.sh dialog-control --rebuild`。
 
 #### 遗留问题清单（2026-08-14 深夜，体系化重构阶段 0–4 全部完成后）
@@ -530,8 +542,8 @@ conda run -n regime-driver python ops/quality_run.py --root /tmp/recheck-2026081
 - **WORK_PLAN9 套件/归档**：`ops/quality_tasks.py` 4 复杂任务；`ops/quality_run.py` per-task
   全量归档（会话快照+工作区+切片+result.json）+ `--clean-sessions` 归档后执行 + 中断可续；
   `ops/run_nightly.sh` trap EXIT 保证中断也归档。
-- **dialog-control 容器版本注意**：容器内 regime-driver 是旧 wheel（0.2.0，无
-  `watchdog_policy_json`），仅 A 路验证窗用，**不影响宿主夜间实验**；如需同步最新代码
+- **dialog-control 容器版本注意**：容器内 regime-driver 是旧 wheel（0.2.0，早于当前统一口径
+  0.1.0，无 `watchdog_policy_json`），仅 A 路验证窗用，**不影响宿主夜间实验**；如需同步最新代码
   用 `ops/up.sh dialog-control --rebuild`。
 - 复用工具：`ops/quality_run.py --tasks <id>`（单任务重跑）、`--root <dir>`（产出 quality-report.json
   含 capability_coverage）、`ops/run_nightly.sh`（夜间一键长跑）。

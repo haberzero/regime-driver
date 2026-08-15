@@ -19,11 +19,11 @@ def extract_json(text: str | None) -> dict | None:
     returns the first object that actually parses as a dict. A truncated object
     (token-limit cut) is skipped, not misparsed.
 
-    Phase-3 (W4 contract tolerance): a candidate that differs from valid JSON
-    only by TRAILING COMMAS before `}`/`]` (a common model quirk) is repaired
+    Trailing-comma tolerance: a candidate that differs from valid JSON only by
+    TRAILING COMMAS before `}`/`]` (a common model quirk) is repaired
     (string-safe) before being rejected.
 
-    Robustness (2026-08-15 nightly): a single walk from the FIRST `{` is
+    Robustness: a single walk from the FIRST `{` is
     fragile — prose before the object can contain an unbalanced `"` (which
     permanently poisons the in-string flag and swallows the object's braces) or
     a stray `{` (which starts tracking at the wrong depth). Instead, every `{`
@@ -74,7 +74,7 @@ def _try_from(text: str, start: int) -> dict | None:
 
 
 def _try_loads(candidate: str) -> dict | None:
-    """Parse a JSON candidate; tolerate a trailing-comma quirk (W4)."""
+    """Parse a JSON candidate; tolerate a trailing-comma quirk."""
     try:
         obj = json.loads(candidate)
     except json.JSONDecodeError:

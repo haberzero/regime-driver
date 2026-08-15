@@ -29,6 +29,30 @@ subsystems 三篇），导致智能照旧文档调用不存在的 `run --preflig
 
 ## 🔴 当前主线
 
+### 主线：技术文档全方位同步 + 版本号统一 v0.1（2026-08-15 第三阶段）
+
+**状态**：✅ 完成（commit `9dd10d3` + `db99aaa` + `1bed87f` + 收尾 commit，658 passed 零回归 +
+general 只读 review **APPROVE 0 blocker/0 warning** + 注释审计二轮清尾）。
+
+**用户要求**：技术文档与注释全方位改进/同步/更新/统一，确保用户可见文档跟随代码最新情况；
+版本号统一为 v0.1，消除混乱口径。
+
+**交付**：
+1. **版本号统一 v0.1**：`__version__` 0.3.0→0.1.0（唯一真源）+ README 中英/docs index 口径 +
+   描述符 schema 版本对齐 + wheel 0.1.0 重建。
+2. **代码注释清理**（28 文件）：任务代号残留移除 + 4 断链指针修正 + 历史叙述改现在时。
+3. **文档审计驱动修复**（3 并行审计）：P0 事实错误 / P1 CLI 缺参 / P2 红线 / P3 一致性。
+4. **门禁缺口修复**：permission `_COMMAND_LEVEL` 补 drive-many/chaos/web 登记。
+5. **收尾清尾**（general review APPROVE 后）：注释审计二轮——`data/` 与真源 `.opencode/`/根
+   config.example.toml 任务代号清零（WORK_PLAN/阶段 N/phase-N/W#）、断链指针修正
+   （statechart→02_statechart_network、DESIGN-worker-isolation→subsystems/02、
+   DESIGN-usability→guide/04_environment）、历史叙述/日期戳去除（worker/session_cleanup/
+   verify_spec/state_machine/json_utils/repetition）、review N1 版本戳（v1.1/v1.2）移除、
+   opencode.py 补 DriveClient 协议声明；sync 后全树扫描零残留，658 passed 仍零回归。
+
+**下一步**：V-2 PyPI 发布（用户 token 就绪即可 `python -m build && twine upload dist/*`；wheel 0.1.0
+已重建并通过隔离安装验证 + 真实 opencode 加载验证）。
+
 ### 主线：发布就绪 + 助手脚本易用性增强 + 分发验证（2026-08-15 第二阶段）
 
 **状态**：✅ 完成（2026-08-15，commit `aa9bf31` + `78f5c26` + `c1c34c6`，657 passed 零回归 +
@@ -69,8 +93,8 @@ APPROVE 0 blocker）。蓝图 `tasks_docs/_release_workspace.md` 已总结并入
    不污染项目根）；manifest/uninstall 支持 + 越界路径防御；`doctor --workspace` 检查项目级部署。
 3. 版本契约对齐（`@opencode-ai/plugin ^1.18.11` 与 SUPPORTED_OPCODE 一致 + 守卫测试）。
 4. DriveClient 协议抽取（纯接口抽取，运行时零变化；OpenCodeClient/MockClient 双实现符合）。
-5. 版本 0.3.0 + wheel 重建（隔离安装验证通过）+ 文档同步（01_cli/05_setup/00/04_blueprint/capabilities/
-   README/howto/agent-handbook）。
+5. 版本 0.3.0（历史口径，第三阶段已统一为 0.1.0）+ wheel 重建（隔离安装验证通过）+ 文档同步
+   （01_cli/05_setup/00/04_blueprint/capabilities/README/howto/agent-handbook）。
 
 **下一步**（发布候选）：V-2 PyPI 发布（用户 token 就绪即可 `python -m build && twine upload dist/*`）。
 

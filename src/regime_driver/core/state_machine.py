@@ -51,10 +51,10 @@ class StateMachine:
             # W5 verify-shape guard at the SINGLE construction point: any flow
             # loaded from a store / file / registry / design must carry a verify
             # command inside the docker-exec whitelist, or it is rejected HERE —
-            # never discovered mid-run when a judge node tries to run it (the
-            # 2026-08-14 nightly: a store-residual `sg docker -c` wrapper around
-            # docker-exec passed construction, then stalled a long task in its
-            # test gate before failing loudly).
+            # never discovered mid-run when a judge node tries to run it (a
+            # store-residual wrapper around docker-exec could otherwise pass
+            # construction, then stall a long task in its test gate before
+            # failing loudly).
             if node.verify:
                 err = verify_command_error(node.verify)
                 if err is not None:

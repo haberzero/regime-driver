@@ -891,7 +891,7 @@ class DialogControlUnit(ThreadedUnit):
             "\n"
             "── 运行任务 ────────────────────────────────\n"
             "  start [flow名] <任务> / 启动 ..      非阻塞启动 workflow\n"
-            "  decide <wid> <yes|no> [评论] / 裁决   应答 ask_human 人工确认点（阶段4）\n"
+            "  decide <wid> <yes|no> [评论] / 裁决   应答 ask_human 人工确认点\n"
             "  talk <session_id> <内容>            与指定 session 独立交互\n"
             "  abort / reclaim <session_id>         中止 / 回收会话(写)\n"
             "\n"

@@ -214,7 +214,7 @@ StatechartUnit {
 **(c) 把根安全不变量从看门狗层剥离到运行时**。
 ---
 
-## 10. 消息/信号机制总览（v1.1 完善）
+## 10. 消息/信号机制总览
 
 | 机制 | 位置 | 说明 |
 |---|---|---|
@@ -258,7 +258,7 @@ sequenceDiagram
 
 ---
 
-## 11. 多 workflow 并发 + 可视化（v1.2）
+## 11. 多 workflow 并发 + 可视化
 
 ### 多 workflow 并发（`app/statechart_cluster.py`）
 - `StatechartCluster`：一个 `Runtime` 承载一个 `WatchdogUnit` + 多个 `WorkflowUnit`。

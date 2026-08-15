@@ -9,7 +9,7 @@ import { tool } from "@opencode-ai/plugin"
 // subprocess output capture is lost when spawned from the tool process, which makes
 // the tool return empty. The `regime` binary (pip-installed) is on PATH.
 //
-// Portability (WORK_PLAN6 III + deployment UX): the `regime` binary is resolved at
+// Portability: the `regime` binary is resolved at
 // load time as REGIME_BIN env -> `regime` on PATH. The worker base URL is
 // REGIME_WORKER_BASE env -> localhost:4097, so a host-installed dialog control can
 // drive a remote / docker worker by setting the env var. No container-specific
@@ -311,7 +311,7 @@ export const DialogControlPlugin = async ({ $ }) => {
 
       regime_regime_design: tool({
         description: "Design AND register a WHOLE operating rule (regime: flow + roles + watchdog + handover) " +
-                     "from an inline JSON spec (phase-1d). Spec shape: " +
+                     "from an inline JSON spec. Spec shape: " +
                      "{\"flow\":{\"entry\":..,\"nodes\":[..]},\"roles\":{..},\"watchdog\":{\"soft_sec\":..,\"hard_sec\":..},\"handover\":{..}} " +
                      "with optional name/stall_sec/auto_resume_sec. Compiles + deep-validates + registers into the " +
                      "persistent RegimeRegistry (runnable via --regime-name). Returns {ok, name, version, nodes, has_watchdog, has_handover} JSON.",

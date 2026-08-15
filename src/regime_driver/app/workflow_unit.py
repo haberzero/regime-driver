@@ -56,7 +56,7 @@ _ST_ERROR = "error"
 _PH_NONE = "none"
 _PH_AGENT = "agent_wait"   # agent node dispatched, polling its session
 _PH_JUDGE = "judge_wait"   # judge node dispatched, polling the reviewer session
-_PH_HUMAN = "human_wait"   # phase-4: awaiting a dialog decision on an ask_human checkpoint
+_PH_HUMAN = "human_wait"   # awaiting a dialog decision on an ask_human checkpoint
 
 
 class _LegacyPolicy:
@@ -133,7 +133,7 @@ class WorkflowUnit(ThreadedUnit):
         self._own_abort: bool = False
         # last logged transient message error, for throttled audit
         self._last_transient_logged = None
-        # phase-4: pending ask_human checkpoint question (None when not waiting)
+        # pending ask_human checkpoint question (None when not waiting)
         self._human_question = None
         # dispatch pool: blocking send_message (up to the client timeout) runs on
         # a worker thread so the mixed loop never blocks and stays responsive to
@@ -424,7 +424,7 @@ class WorkflowUnit(ThreadedUnit):
     def _step(self) -> None:
         self._touch_heartbeat()
         if self._phase == _PH_HUMAN:
-            # phase-4 ask_human checkpoint: awaits the dialog's decision with its
+            # ask_human checkpoint: awaits the dialog's decision with its
             # OWN timeout (`human_confirm_timeout_sec`), not the per-node deadline
             self._step_human()
             return
@@ -818,7 +818,7 @@ class WorkflowUnit(ThreadedUnit):
             self._result = (Outcome.HUMAN, self._node, verdict.reason)
             return
         if action == "ask_human":
-            # phase-4 human-in-the-loop checkpoint: surface the question to the
+            # human-in-the-loop checkpoint: surface the question to the
             # dialog (blackboard.human_ask) and wait for its decision
             self._begin_human_checkpoint(
                 verdict.human_question or verdict.reason or "需要人工确认")

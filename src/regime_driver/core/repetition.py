@@ -55,8 +55,8 @@ class RepetitionDetector:
     # 0.40 (was 0.35): structured reviewer output (JSON verdicts echoing a
     # developer report / inquiry) can exceed 0.35 n-gram overlap without being a
     # true loop; 0.40 still catches degenerate repetition while reducing
-    # false-positive aborts on legitimate mixed structured text. Calibrated in
-    # the C3 tuning pass (2026-08-11 real-run observation).
+    # false-positive aborts on legitimate mixed structured text. Calibrated
+    # against real structured reviewer output.
     rate_threshold: float = 0.40
     adjacency_threshold: float = 0.9
 

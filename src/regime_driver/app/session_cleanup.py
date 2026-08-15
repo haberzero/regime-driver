@@ -2,7 +2,7 @@
 
 The worker accumulates session records over long runs (each drive creates
 developer+reviewer sessions). opencode 1.18.11 supports true deletion via
-``DELETE /session/{id}`` (verified 2026-08-12) — not just abort.
+``DELETE /session/{id}`` — not just abort.
 
 This module implements a **user-configurable cleanup policy** (a reference model,
 NOT enforced by default). The operator opts in via the ``session_cleanup_policy``

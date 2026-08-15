@@ -1,6 +1,6 @@
 """Statechart network primitives (pure domain, stage 1).
 
-The long-term architecture (see ARCHITECTURE-statechart-network.md) replaces the
+The long-term architecture (see docs/architecture/02_statechart_network.md) replaces the
 special-cased "watchdog layer" with a set of *peer* state machines that
 coordinate by exchanging signals. This module lays the foundation: a statechart
 unit that can (a) receive signals and be woken into a callback/node, (b) send
