@@ -1,3 +1,0 @@
-{"event": "node_enter", "ts": "2026-08-13T21:08:22", "source": "regime-driver", "node": "understand", "type": "agent", "role": "developer"}
-{"event": "monitor_abort", "ts": "2026-08-13T21:10:39", "source": "regime-driver", "session": "ses_004c3100fffe7haoR34kwZSZVl", "reason": "busy but no growth (output nor reasoning) for 120.0s"}
-{"event": "outcome", "ts": "2026-08-13T21:10:39", "source": "regime-driver", "node": "understand", "outcome": "blocked", "detail": "monitor: busy but no growth (output nor reasoning) for 120.0s"}

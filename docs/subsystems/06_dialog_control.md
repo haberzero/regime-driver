@@ -80,7 +80,7 @@
 └──────────────────────┘   └──────────────────────────────────┘
 ```
 
-## 5. MVP 范围（本次实施）
+## 5. 范围
 
 1. `DialogControlUnit`（ThreadedUnit）：事件驱动、订阅总线、维护实时监控、非阻塞对话。
 2. 命令能力：
@@ -103,7 +103,7 @@
 4. REPL 前端：`regime dialog` 命令（离线 MockClient / 在线真实 worker+LLM）。
 5. 接入 StatechartCluster：launcher 回调启动（真实 worker 或 MockClient 离线）。
 
-## 6. 后续（本次不做）
+## 6. 后续
 - 对运行中 workflow / 已注册 session 的更深交互与回收。
 - 监控区随用户请求动态增删字段/主题（当前：monitor<字段>、watch<主题>已支持）。
 - 权限门控的细粒度策略（按命令/按用户角色）。

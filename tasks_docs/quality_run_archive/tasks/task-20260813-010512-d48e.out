@@ -1,9 +1,0 @@
-✓ preflight PASSED (offline outcome=complete)
-  drive · 194s · task-20260813-010512-d48e  
-┌─────────┬────────────────────────────────┐
-│    node │ design                         │
-│   state │ error                          │
-│ session │ ses_0091095e9ffeQvvNxfG3yDWjv7 │
-└─────────┴────────────────────────────────┘  ✗ outcome: error @ design (194.0s)
-  supervisor: workflow_done  session: ses_0091095e9ffeQvvNxfG3yDWjv7
-✗ drive error at design: reviewer gate exhausted

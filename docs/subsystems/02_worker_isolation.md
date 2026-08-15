@@ -2,7 +2,7 @@
 
 > 本文描述 `regime worker` 的多实例工作区隔离：每工作区一个 opencode 实例（物理隔离），
 > 同一工作区的实例不重复启动，工作区内的角色仍以 session 区分。面向需要并发 self-driving 的开发者。
-> 测试：`tests/test_worker.py`（10）+ 真实 E2E（多实例隔离）。
+> 测试：`tests/test_worker.py`（以 pytest 实跑为准）+ 真实 E2E（多实例隔离）。
 
 ## 为什么是"按实例"而非"按 session"
 
@@ -42,11 +42,11 @@ regime_driver.worker.WorkerPool            —— 管理 workspace -> instance �
 ## 验证（真实 E2E）
 
 1. `regime worker up ws-algo` → 起实例（容器 `opencode-worker-ws-algo`，端口 4200）。
-2. `regime worker up ws-algo` **再次** → 复用同一实例（同端口，未重复启动）✅。
-3. `regime worker up ws-infra` → 第二个独立实例（端口 4201，独立挂载）✅。
-4. `regime drive ... --workspace ws-algo` → 真实任务 **COMPLETE**（119.6s, supervisor=workflow_done）。
+2. `regime worker up ws-algo` **再次** → 复用同一实例（同端口，未重复启动）。
+3. `regime worker up ws-infra` → 第二个独立实例（端口 4201，独立挂载）。
+4. `regime drive ... --workspace ws-algo` → 真实任务 COMPLETE（supervisor=workflow_done）。
 5. 产物 `ws_nine.py` **仅出现在** `/…/ws-algo/code/`；`ws-infra` 与默认 worker `/root/work`
-   均无 → **物理隔离成立** ✅。
+   均无 → **物理隔离成立**。
 
 ## 边界
 

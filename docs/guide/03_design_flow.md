@@ -36,7 +36,7 @@ Dialog> start my_flow 实现某个功能
   "roles": {"developer": {"context_threshold_normal": 0.4}},
   "watchdog": {"soft_sec": 30, "soft_action": "interrupt", "hard_sec": 600},
   "handover": {"soft_fraction": 0.5, "hard_fraction": 0.7},
-  "stall_sec": 120,
+  "stall_sec": 180,
   "auto_resume_sec": 30
 }
 ```

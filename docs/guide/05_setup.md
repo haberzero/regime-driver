@@ -45,7 +45,7 @@ regime scaffold [--assistants]
 
 **工作区模式**把模板装进 `<项目>/.opencode/`（`setup`/`scaffold` 会自动创建该目录，**无需先启动 opencode 初始化**）：
 - `plugins/regime-dialog-control.js` —— A 路插件（`regime_*` 工具，opencode 启动自动加载）
-- `agent/dialog-control.md` + `agent/reviewer.md` —— 主控对话框 agent + 只读审查 subagent
+- `agent/dialog-control.md` + `agent/reviewer.md` + `agent/developer.md` —— 主控对话框 agent + 只读审查 subagent + 执行 worker
 - `skills/` —— 项目级 skills（opencode 从 `.opencode/skills/` 自动发现）
 - `agent-handbook.md` —— 随工作区的操作说明书：在 opencode 里让 agent 读它即可自助完成
   监控/运行/设计/扩展，无需人工介入
@@ -107,7 +107,7 @@ regime setup --workspace <你的项目目录>
 预期结果：`<项目>/.opencode/` 下生成：
 - `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 opencode 工具，
   opencode 启动自动加载）
-- `agent/dialog-control.md` + `agent/reviewer.md` —— 对话控制主 agent + 只读审查 subagent
+- `agent/dialog-control.md` + `agent/reviewer.md` + `agent/developer.md` —— 对话控制主 agent + 只读审查 subagent + 执行 worker
 - `skills/`、`package.json`（插件 SDK 依赖，opencode 自动 `bun install`）、`agent-handbook.md`
   （操作说明书：在 opencode 里让 agent 读它即可自助配置工作区）
 
@@ -130,7 +130,7 @@ regime setup --workspace <你的项目目录>
 regime doctor
 ```
 
-预期结果：worker 健康、模型密钥、模板就绪、session 卫生全部 ✓。
+预期结果：worker 健康、模型密钥、模板就绪、角色 agent 完整性（developer/reviewer 部署与在线可见）、session 卫生全部 ✓。
 若某项不通过，按输出的建议处理。
 
 ## 你现在能做什么

@@ -1,9 +1,0 @@
-✓ preflight PASSED (offline outcome=complete)
-  drive · 74s · task-20260813-020956-9285   
-┌─────────┬────────────────────────────────┐
-│    node │ wrap                           │
-│   state │ done                           │
-│ session │ ses_008d5500affejVAXXhBMtcE19s │
-└─────────┴────────────────────────────────┘  ✓ outcome: complete @ wrap (73.9s)
-  supervisor: workflow_done  session: ses_008d5500affejVAXXhBMtcE19s
-✓ drive task task-20260813-020956-9285 completed

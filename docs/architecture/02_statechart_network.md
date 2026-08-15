@@ -271,7 +271,7 @@ sequenceDiagram
 - 纯被动（订阅推送），不打扰运行。
 
 ### 健壮性（slow-judge 应对）
-- `Settings.request_timeout`（默认 600s）替代固定 240s，慢 judge POST 不超时。
+- `Settings.request_timeout`（默认 600s）为每个 message POST 的流式超时，慢 judge POST 不超时。
 - `WorkflowUnit._dispatch` 失败重试（3 次 + 退避），丢给池线程不阻塞混合循环。
 
 ---

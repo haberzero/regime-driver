@@ -8,14 +8,14 @@
 
 项目已公开于 GitHub（`haberzero/regime-driver`）。"发布"不等于"clone 源码跑"——
 pip 安装的 wheel 必须自带用户运行所需的官方模板（agents/skills/插件/opencode.json/regime.json），
-否则用户 `regime preflight` / `regime scaffold` 必败。硬缺口的审查快照见
-`tasks_docs/release_readiness_audit.md`。
+否则用户 `regime preflight` / `regime scaffold` 必败（硬缺口审查的结论与处置见
+`tasks_docs/WORKLOG.md` 对应条目）。
 
-**当前状态**：模板已随 wheel 打包（`src/regime_driver/data/`），`regime scaffold` / `regime setup`
-一键装配（含 A 路插件 + dialog-control agent + opencode.json）。**智能体说明书
-（`data/agent-handbook.md`，agent 视角完整手册）随 wheel 分发**，不部署进
+模板随 wheel 打包（`src/regime_driver/data/`），`regime scaffold` / `regime setup`
+一键装配（含 A 路插件 + dialog-control agent + opencode.json）。智能体说明书
+（`data/agent-handbook.md`，agent 视角完整手册）随 wheel 分发，不部署进
 `~/.config/opencode`（是参考材料，不是 agent 定义）；其真源在 `.opencode/agent-handbook.md`，
-由 `sync_templates` 派生（漂移守卫覆盖）。单一真源 + CI 漂移守卫已就位。
+由 `sync_templates` 派生（漂移守卫覆盖）。
 **Docker 资产（Dockerfile/镜像配置）不进 pip wheel**（属容器化辅助，GitHub 仓库提供），
 符合"pip 只和 pip 有关"的分发原则。完整渠道/内容归属见
 [分发与部署蓝图](../architecture/04_distribution_blueprint.md)。
@@ -52,8 +52,7 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
 - public 仓库：https://github.com/haberzero/regime-driver （`main`，SSH 认证）。
 - CI（`.github/workflows/ci.yml`）：py3.11/3.12 单测 + 覆盖率门（离线，无需密钥）。
-  真实 worker E2E 已从 CI 移除（无 `OPENCODE_GO_API_KEY` secret，长期不启用）；
-  本地经 `REGIME_E2E=1` 可用。
+  CI 不跑真实 worker E2E（无 `OPENCODE_GO_API_KEY` secret）；本地经 `REGIME_E2E=1` 可用。
 
 ### PyPI（可选）
 
@@ -78,7 +77,7 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
   分支）。**需要把 Pages 源改为 "Deploy from a branch: gh-pages / (root)"**。
 
 **启用步骤（A 案，推荐）**：
-1. 本仓库已提交 `mkdocs.yml` + `.github/workflows/docs.yml`。
+1. 仓库含 `mkdocs.yml` + `.github/workflows/docs.yml`。
 2. GitHub → Settings → **Pages** → **Source** 选 **GitHub Actions**。
 3. push 到 `main`（或手动触发 `docs` workflow）后，站点部署在
    `https://haberzero.github.io/regime-driver/`。
@@ -91,10 +90,10 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 ## 4. 许可与免责复核（对外发布前必须确认）
 
 - `LICENSE`（MIT，© 2026 Nan Shi 施楠）、`SECURITY.md`（密钥处理/报告流程）、
-  `CONTRIBUTING.md`（工作流/约定）、README 中英免责声明 — 均已就位。
+  `CONTRIBUTING.md`（工作流/约定）、README 中英免责声明 — 随仓库分发。
 - `docs/KNOWN_LIMITS.md` 按"对外使用"姿态复核：默认模型/端口/目录为项目特定配置，
   需用户自行适配；无外部安全审计。**耐久验证**：2h 真实运行稳定、资源有界增长
-  （见 `tasks_docs/durability_report.md`）。
+  （结论见 `tasks_docs/WORKLOG.md` 对应条目）。
 
 ## 5. 发布后收尾
 

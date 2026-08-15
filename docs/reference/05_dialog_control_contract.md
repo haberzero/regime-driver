@@ -99,16 +99,8 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 | `regime dialog [--live] [--base url] [--model m]` | 交互式 REPL（设计/启动/监控/talk/解释）。作为替代面 |
 
 ### 3.8 权限门禁（--perm）
-写操作受统一分级门禁，等级由低到高：`read` < `interact` < `run` < `clean`。
-| 等级 | 允许 |
-|---|---|
-| `read` | status / sessions(列表) / events / session reply / validate / gate / job list/status |
-| `interact` | + `session <id> send`（与指定 session 对话） |
-| `run` | + `run` / `run-many`（含 `--async` 作业） |
-| `clean` | + `sessions --clean` / `--kill`（破坏性清理） |
-
-- 用法：`regime run "<任务>" --perm run`；`regime session <id> send ... --perm interact`；
-  `regime sessions --clean --perm clean`。读命令无需 `--perm`（恒为 read）。
+写操作受统一分级门禁（等级 `read` < `interact` < `run` < `clean`；等级表与命令分类见
+`reference/04_permissions.md`，单一真源）。对话框语境要点：
 - `regime dialog` 是写能力 REPL（live 时 `allow_write=True`），进入需 `--perm run` 及以上。
 - 判定逻辑：`src/regime_driver/infra/permission.py`（`classify` + `require`），CLI 与对话框共用同一门禁。
 - 对应 DialogControlUnit 的 `allow_write`：`False`==read，`True`==clean（见 `../subsystems/06_dialog_control.md`）。
@@ -143,8 +135,9 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
   时才出现。
 - **外部中止 vs 瞬时错误**：`blocked (externally aborted)` 只在会话被**真正
   中止**时出现（`MessageAbortedError` 类 error，或 completed 但无 finish 的 abort 形状）。
-  **瞬时消息错误**（模型 HTTP/限流/网络）**不是**死会话——工作流继续轮询（受节点
-  `default_deadline_sec` 上限），并记 `message_transient_error` 审计事件，绝不误判 BLOCKED。
+  **瞬时消息错误**（模型 HTTP/限流/网络）**不是**死会话——工作流继续轮询
+  （受节点 `default_deadline_sec` 上限；默认 None=无墙钟上限，busy 会话到期宽限续期，
+  停滞由 SSE 活性看门狗兜底），并记 `message_transient_error` 审计事件，绝不误判 BLOCKED。
 
 ### 4.2 人工确认点（ask_human）
 

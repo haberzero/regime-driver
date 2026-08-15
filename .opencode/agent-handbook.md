@@ -78,6 +78,10 @@ regime job list|status <id> --json      # --async 后台作业
 - **运行中可能自动中断续跑**：看到 `workflow_paused`/`workflow_resumed`/`workflow_nudged`/
   `watchdog_fire`（kind∈nudge/interrupt/resume/auto_resume）是**恢复性事件 ≠ 失败**。
   `outcome` 以最终节点结果为准；`blocked (monitor: ...)` 仅在续跑后仍无活性（兜底 kill）才出现。
+- **崩溃后续跑**：drive 进程若中断（机器重启/被杀），用 `regime drive ... --resume <journal>`
+  从上次 reporter journal 定位第一个未完成节点继续（先前节点跳过；工作文件在磁盘上保留）。
+- **长跑监控**：`regime drive ... --monitor <path>` 每 `--monitor-interval` 秒写一行 JSONL
+  快照（节点/阶段/会话/uptime），可随时 tail；结束输出 `notable` 摘要（重试/传输抖动/看门狗计数）。
 
 ### 3.2 设计 / 管理 flow 与制度
 

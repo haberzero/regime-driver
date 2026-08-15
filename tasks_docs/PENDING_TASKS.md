@@ -7,7 +7,7 @@
 
 | 编号 | 标题 | 目标 | 状态 |
 |------|------|------|------|
-| P-001 | V-2 PyPI 发布 | 上传 wheel 到 PyPI（dist/ 已构建 `regime_driver-0.2.0`） | 待用户（需 PyPI 账号/token） |
+| P-001 | V-2 PyPI 发布 | 上传 wheel 到 PyPI（dist/ 已构建 `regime_driver-0.1.0`） | 待用户（需 PyPI 账号/token） |
 | P-002 | C3 opencode-go 延迟调优 | 长期观测后校准延迟参数 | 待真实长时间观测 |
 | P-003 | 收敛测试内零散 FakeClient | T6 已评估不转；如需统一另建轻量脚本化 fake | 待做 |
 | P-004 | MaxListenersExceeded 纳入 doctor 检查 | opencode 内部监听器泄漏提示（非本仓缺陷） | 低优先 |

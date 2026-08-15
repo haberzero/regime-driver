@@ -24,6 +24,7 @@ regime scaffold
 |---|---|
 | `plugins/regime-dialog-control.js` | **A 路插件**：把 `regime_*` 命令包装成 22 个 opencode 工具（opencode 启动自动加载本地插件） |
 | `agent/dialog-control.md` | **对话控制 agent**：主操作对话框（primary，`Tab` 切换） |
+| `agent/developer.md` | **执行 worker**：实现节点的干活 agent（primary，写权限） |
 | `agent/reviewer.md` | 只读审查 subagent |
 | `skills/` | 运行时 skills（design-philosophy / code-review / developer-quality 等） |
 | `package.json` | 插件 SDK 依赖 `@opencode-ai/plugin`（opencode 启动自动 `bun install`） |

@@ -7,8 +7,7 @@
 
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
-> - **耐久验证（2h+）**：2h 真实运行零崩溃/停滞/重启，资源线性有界增长
->   （session 16→96、内存 +231MB、journal 3.4MB），worker 全程健康。已知边界：**session 记录累积**
+> - **耐久验证（2h+）**：2h 真实运行零崩溃/停滞/重启，资源线性有界增长（session/内存/journal 随运行时长线性累积），worker 全程健康。已知边界：**session 记录累积**
 >   （见下方行为限制），长期（多天）运行可用 `regime sessions --cleanup` 清理或重建容器。
 > - **GitHub 真实模型 E2E 长期不列入计划**：CI 内不跑真实 worker E2E（需 `OPENCODE_GO_API_KEY` secret）。
 >   `e2e_tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
@@ -68,18 +67,18 @@
   `app/watchdog_unit.py` + `supervisor.py`。
 - **工具执行期间可能误杀**：会话 busy 但长时间跑工具（如 >`stall_sec` 的长
   bash 命令）且无 LLM delta 时，SSE 活性链看不到进展 → 判停滞并 abort（破坏性）。默认
-  `stall_sec=120` 缓解；如需覆盖，提高 `stall_sec` 或把 `session.status`/`tool.*` 事件计入活性。
-  归属：`app/watchdog_unit.py`。
+  `stall_sec=180`（长思考/突发流式裕量）；如需覆盖，提高 `stall_sec` 或把
+  `session.status`/`tool.*` 事件计入活性。归属：`app/watchdog_unit.py`。
 - **可编程看门狗策略**：watchdog 是策略引擎（`app/watchdog_policy.py`）——
   `SessionEvidence`（SSE活性/消息时间戳/节点/首次busy/系统时间/paused）+ 可注入 `Rule`
   判定（多规则取最严重）+ 动作阶梯 `Ladder`（nudge→interrupt(PAUSE)→resume→fallback→kill，
   per-session 隔离 + fire-once）。PAUSE 中断当前生成并冻结节点推进，RESUME 恢复（agent 注入
   "继续"/judge 重发判定），paused 超 `auto_resume_sec` 自动 RESUME 再兜底 kill。`meta=True`
   规则交由智能判定确认（仅作第二意见，不推翻已执行的确定性动作）。默认 `default_policy` 保持经典行为。
-- **两级 watchdog 协调边界**：drive 同时有进程内 policy watchdog
-  （默认 stall_sec=120）与进程外 supervisor（默认 60）。外部 T2 先 abort 会让内部误判"已恢复"
-  并重置阶梯。建议部署时让外部 stall_sec ≥ 内部，或明确职责边界（内部护栏 / 外部纠正阶梯）。
-  归属：`app/watchdog_unit.py` + `supervisor.py`。
+- **两级 watchdog 职责边界**：drive 模式的会话级停滞判定**只归进程内策略看门狗**
+  （`supervise_sessions=False`，外部 supervisor 不做会话 T2，避免双头竞态）；进程外 supervisor
+  只保留 T1 健康/容器重启 + 全局期限 + 元分析。独立 `regime supervisor` 命令才有完整外部
+  会话阶梯。归属：`app/watchdog_unit.py` + `supervisor.py` + `drive.py`。
 - **测试套件分层**：单元/功能正确性套件在 `tests/`（`testpaths=["tests"]`，
    纯 mock 无真实 LLM/Docker）；真实 worker E2E 独立于 `e2e_tests/test_e2e_worker.py`
    （`REGIME_E2E=1` 显式运行）。`pytest` 默认不收集 E2E。归属：`pyproject.toml` + `e2e_tests/`。

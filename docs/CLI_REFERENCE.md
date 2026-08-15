@@ -31,8 +31,8 @@ regime-driver 是一个把制度化流程编译成状态机、驱动干净 openc
 > 命令速查（简）：
 > ```bash
 > regime validate                          # 校验流程
-> regime run "任务" --base :4097           # 单任务
-> regime drive "任务" --base :4097         # 一键自驱动栈
+> regime run "任务" --base http://127.0.0.1:4097      # 单任务
+> regime drive "任务" --base http://127.0.0.1:4097    # 一键自驱动栈
 > regime flow list|validate|load|reload    # 流程热生命周期
 > regime worker up|list|down|prune <ws>    # 工作区实例
 > regime drive-many "t1" "t2" --workspaces # 并发并行任务

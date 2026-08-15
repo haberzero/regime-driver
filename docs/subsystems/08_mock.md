@@ -45,11 +45,11 @@ session_status/session_tokens/abort_session/delete_session/ask_and_get_text/heal
 - `src/regime_driver/testing/mock_client.py` — `MockClient` + `MockRule`
 - `src/regime_driver/testing/__init__.py` — 导出
 
-## 5. 可行性验证（已跑通）
+## 5. 能力面
 
-`regime preflight` 用 `MockClient` 离线驱动：
-1. `WorkflowUnit` 完整流程 → COMPLETE（无网络）
-2. `StatechartDriver` 完整流程 → COMPLETE
+`regime preflight` 用 `MockClient` 离线驱动，可覆盖：
+1. `WorkflowUnit` 完整流程（无网络）
+2. `StatechartDriver` 完整流程
 3. 注入 `delay` 的慢 judge → 观察到生成耗时（>delay）
 4. 注入 `stall` 的 developer → 看门狗 STOP → BLOCKED
 5. 注入 `error` 的 judge → 失败路径可复现

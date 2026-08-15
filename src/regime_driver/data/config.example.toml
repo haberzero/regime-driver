@@ -9,7 +9,9 @@ base_url = "http://127.0.0.1:4097"          # worker opencode server URL
 model = "deepseek-api/deepseek-v4-flash"  # 所有 session 的模型（默认 DeepSeek 官方 API）
 # 备选回退: my-opencode-go/deepseek-v4-flash（OpenCode Go）；需要 provider + key 见 docs/guide/04_environment.md
 request_timeout = 600.0                      # 每个 message POST 的流式超时(秒)（慢 judge 需较大值）
-max_driver_wait_sec = 3600.0                 # driver.run() 无显式 deadline 时的等待上限(秒)
+# 墙钟杀开关默认关闭（fail-safe）：以下两字段取消注释才启用显式超时。
+# 停滞由 SSE 活性看门狗兜底（stall_sec）；要强约束请用 CLI `--deadline`。
+# max_driver_wait_sec = 3600.0                # 整跑墙钟上限(秒)，取消注释启用
 session_hygiene_threshold = 100              # doctor 对累积 session 数的警告阈值
 # session 自动清理策略（可自定义参考模型，默认关闭）。
 # JSON 字符串；None/空 = 关闭。字段：
@@ -22,7 +24,7 @@ session_hygiene_threshold = 100              # doctor 对累积 session 数的�
 agent_reviewer = "reviewer"                  # 审查者 agent 名
 
 # --- 流程控制 ---
-default_deadline_sec = 600                   # 每节点等待超时(秒)
+# default_deadline_sec = 600               # 每阶段墙钟上限(秒)，取消注释启用
 human_confirm_timeout_sec = 300              # ask_human 人工确认等待超时(秒)
 human_default_on_timeout = "block"           # ask_human 超时默认: block|advance|rework
 poll_sec = 5.0                               # session 轮询间隔(秒)

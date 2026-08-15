@@ -1,9 +1,0 @@
-✓ preflight PASSED (offline outcome=complete)
-  drive · 612s · task-20260812-011247-1d43  
-┌─────────┬────────────────────────────────┐
-│    node │ design                         │
-│   state │ running                        │
-│ session │ ses_00e300023ffes6F0ubz2Zb9rv2 │
-└─────────┴────────────────────────────────┘  ✗ outcome: error @ ? (612.3s)
-  supervisor: timeout  session: ses_00e300023ffes6F0ubz2Zb9rv2
-✗ drive error at ?: drive did not complete

@@ -273,8 +273,9 @@ node_enter ──► node_done ──► reviewer_verdict ──► advance ─�
    └─ 期限：  超过设定 deadline 了吗？
         │  任一命中
         ▼
-纠正阶梯（按严重程度升级）
-   L1 提示  →  L2 中止当前会话  →  L3 换模型  →  L4 重启容器  →  L5 人工介入
+进程外纠正阶梯（`regime supervisor`，按严重程度升级；与进程内看门狗阶梯并列，
+后者更温柔——见下）
+   L1 提示(nudge，判定可选) → L2 中止会话(abort) → L3 换模型 → L4 重启容器 → L5 人工介入
 ```
 
 **进程内还有一个更温柔的"第一道"：可编程看门狗**：配置了 `watchdog_policy_json`

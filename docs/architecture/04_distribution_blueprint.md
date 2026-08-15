@@ -26,7 +26,7 @@
 | 内容 | 位置（wheel） | 用途 | 合规说明 |
 |---|---|---|---|
 | Python 包（`regime_driver/*`） | 包本体 | CLI / 监督 / 报告 / 流程引擎 | 纯 Python |
-| `data/agents/reviewer.md` | 模板 | 只读审查 agent | 文本模板 |
+| `data/agents/developer.md` + `reviewer.md` | 模板 | 执行 worker + 只读审查 agent | 文本模板 |
 | `data/dialog-control-assistants/` | 模板 | analyst/advisor/reviewer 助手 | 文本模板 |
 | `data/skills/` | 模板 | 运行时 skills | 文本模板 |
 | `data/plugins/regime-dialog-control.js` | 模板 | A 路插件（主机 opencode 主对话框） | 纯 JS，无容器路径 |
@@ -93,7 +93,7 @@
 |---|---|---|
 | **环境检测** | `regime doctor` | docker/opencode/conda/平台/镜像源可用性 + 部署路径引导 |
 | **模板装配** | `regime scaffold` | 一键部署 agents/skills/插件/opencode.json/config |
-| **引导安装** | `regime setup`（规划） | 分步引导：检测 → 装配 → 密钥 → 启动 → 验证 |
+| **引导安装** | `regime setup` | 分步引导：检测 → 装配 → 密钥 → 启动 → 验证 |
 | **版本/契约** | `regime doctor` | opencode 版本契约、模板就绪、session 卫生 |
 
 ---
@@ -173,7 +173,7 @@ pip install regime-driver  →  regime scaffold [--assistants]  →  ~/.config/o
 
 doctor 增加 "deployed files integrity" 检查：清单 ↔ 磁盘一致性——
 - 文件被删 / 被改 → 标红，提示 `regime uninstall --dry-run` 查看
-- 一致 → "17 files tracked — `regime uninstall` 可安全移除"
+- 一致 → "清单内文件一致 — `regime uninstall` 可安全移除"
 
 ### 运行时状态（非模板）
 

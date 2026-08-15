@@ -5,7 +5,7 @@
 
 ## 问题
 
-纠正阶梯（卡死→abort→回退→重启）需要**可重复的故障注入 + 恢复验证**编排。混沌演练把
+进程外纠正阶梯（stall 静默→abort→换模型→重启容器→人工）需要**可重复的故障注入 + 恢复验证**编排。混沌演练把
 "在坏条件下系统仍收敛"变成可回归的保证（抗扰动），而不只是演示。
 
 ## 架构
@@ -26,9 +26,9 @@ CLI: regime chaos list | inject <fault> <ws> | scenario <name> <ws>
 
 ## 验证
 
-1. 单测：`test_chaos.py`（4）——场景列表、未知场景报错、崩溃恢复全 ok、单动作。
+1. 单测：`test_chaos.py`——场景列表、未知场景报错、崩溃恢复、单动作（以 pytest 实跑为准）。
 2. 真实场景：`regime chaos scenario worker-crash-recovery chw1` →
-   `start → kill → observe_down → start → observe_recovered` 全 ✓，worker 恢复。✅
+   `start → kill → observe_down → start → observe_recovered`，worker 恢复。
 3. 与既有 `test_real_supervisor_t1_restart_recovery`（监督器 L4 重启恢复）互补：
    前者验证 supervisor 反应，后者是独立可重复的故障编排工具。
 

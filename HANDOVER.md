@@ -508,6 +508,11 @@ conda run -n regime-driver python ops/quality_run.py --root /tmp/recheck-2026081
 
 | 数据 | 位置 | 内容 |
 |---|---|---|
+> **数据地图清理（2026-08-16 文档治理）**：历史运行报告与归档
+> （`quality_report.md`/`durability_report.md`/`quality_deep_check.md`/`release_readiness_audit.md`
+> 与 `nightly_run_archive/`/`quality_run_archive/`/`durability_run_archive/`）已按四文档制删除——
+> 结论与证据摘要均保存在 `tasks_docs/WORKLOG.md` 对应条目；本文件历史章节中的旧路径引用即此。
+>
 | **质量套件产物（旧 12 任务）** | `tasks_docs/quality_run_archive/artifacts/<12任务>/` | 每任务模块代码 + 测试（宿主 pytest 通过，深审结论见 `quality_deep_check.md`） |
 | 质量报告（旧 43 次） | `tasks_docs/quality_run_archive/quality-report.json` | 43 次运行（outcome / host_pytest / reviewer verdicts） |
 | **WORK_PLAN9 新套件归档** | `tasks_docs/nightly_run_archive/` | 新 4 复杂任务 per-task 全量归档（会话消息快照+完整工作区+journal/events 切片+result.json） |
