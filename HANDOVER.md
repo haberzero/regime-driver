@@ -168,7 +168,8 @@
 ## 8. 下一步（下一 session 主线任务）
 
 > **当前主线（唯一指针，2026-08-15）**：技术文档全方位同步 + 版本号统一 v0.1 已完成
-> （commit `9dd10d3` + `db99aaa` + `1bed87f`，658 passed 零回归 + general review 收口中）。
+> （commit `9dd10d3` + `db99aaa` + `1bed87f` + `d9d9b97`，658 passed 零回归 + general review
+> **APPROVE 0 blocker** + 审计二轮清尾）。
 > **下一 session 主攻：V-2 PyPI 发布**（用户 token 就绪即可 `python -m build && twine upload dist/*`；
 > `dist/regime_driver-0.1.0-py3-none-any.whl` 已重建并通过隔离安装验证），随后按优先级表推进。
 
@@ -183,8 +184,10 @@
 > true→false、config.example.toml 断链）、P1 CLI 缺参补齐（run/preflight/status/report/dialog）、
 > P2 红线清理（18 文档）、P3 一致性（permission `_COMMAND_LEVEL` 补 drive-many/chaos/web + 测试、
 > 02_configuration env 表、04_permissions 命令表）；④stale-wrong 修复（ESCALATE 幽灵动作、
-> capabilities 6→7 子面、03_boundary 角色注册已实现、08_mock DriveClient 协议）。**下一步 =
-> general review 收口 → V-2 PyPI 发布**。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
+> capabilities 6→7 子面、03_boundary 角色注册已实现、08_mock DriveClient 协议）。收尾 commit
+> `d9d9b97`：general review **APPROVE 0 blocker** + 审计二轮清尾（data/ 与真源模板任务代号清零、
+> 断链指针、历史叙述去功能化、review N1 版本戳、opencode.py 协议声明），wheel 0.1.0 重建+隔离验证。
+> **下一步 = V-2 PyPI 发布**。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
 
 > **发布就绪第二阶段（2026-08-15，commit aa9bf31 + 78f5c26，656 passed 零回归）**：
 > ①**全局模式标注不推荐**——scaffold/setup 输出缺点说明（opencode 无按 agent 隔离工具机制，源码核验
