@@ -686,3 +686,39 @@ def _complete_result():
     from regime_driver.drive import DriveResult
     return DriveResult("complete", end="wrap", supervisor="workflow_done",
                        elapsed_sec=1.0)
+
+
+
+
+def test_job_logs_prints_captured_output(tmp_path, monkeypatch):
+    """job logs reads the --async subprocess output for after-the-fact viewing."""
+    import regime_driver.infra.jobs as jobs_mod
+    from regime_driver.infra.jobs import JobRegistry
+
+    jobs_dir = tmp_path / "jobs"
+    jobs_dir.mkdir()
+    out = jobs_dir / "job-x.stdout.log"
+    out.write_text("preflight PASSED\nwork done\n[WORK_DONE]\n", encoding="utf-8")
+
+    # fake registry.get to find the job, and point .dir at the temp dir
+    monkeypatch.setattr(JobRegistry, "get",
+                        lambda self, jid: {
+                            "id": jid, "status": "done", "type": "run"}
+                        if jid == "job-x" else None)
+    monkeypatch.setattr(JobRegistry, "__init__",
+                        lambda self, dir=None: setattr(self, "dir", jobs_dir))
+
+    res = runner.invoke(app, ["job", "logs", "job-x", "--tail", "2"])
+    assert res.exit_code == 0, res.output
+    assert "work done" in res.output
+    assert "preflight PASSED" not in res.output  # --tail 2 keeps last 2
+
+    res_json = runner.invoke(app, ["job", "logs", "job-x", "--json"])
+    assert res_json.exit_code == 0
+    data = json.loads(res_json.output)
+    assert data["id"] == "job-x"
+    assert "work done" in "\n".join(data["lines"])
+
+    # unknown job -> clean failure
+    bad = runner.invoke(app, ["job", "logs", "nope"])
+    assert bad.exit_code != 0

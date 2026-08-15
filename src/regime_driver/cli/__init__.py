@@ -23,6 +23,7 @@ from ..infra.ledger import Ledger
 from ..infra.opencode import OpenCodeClient
 from ..infra.regime_loader import load_regime
 from ..infra.settings import Settings
+from ..app.observe import DEFAULT_WEB_PORT
 from ..app.statechart_driver import StatechartDriver
 
 console = Console()
@@ -1045,6 +1046,67 @@ def doctor(
         console.print("    · 主机模式（方式B）：`regime run --base <主机 opencode 端口> <任务>`")
     if not env.get("docker available") and not env.get("opencode available"):
         console.print("    · 本机未检测到 docker 与 opencode —— 先装其一，或查看 05_setup 教程")
+
+
+# ---------------------------------------------------------------------------
+# web — read-only observation window (观察窗)
+# ---------------------------------------------------------------------------
+@app.command("web")
+def web(
+    base: str = typer.Option(Settings().base_url, "--base", help="worker URL"),
+    journal: Optional[Path] = typer.Option(None, "--journal", help="report journal path to show"),
+    ledger: Optional[Path] = typer.Option(None, "--ledger", help="event ledger path to tail"),
+    tasks_dir: Optional[Path] = typer.Option(
+        None, "--tasks-dir", help="supervised-task registry dir to show"),
+    port: int = typer.Option(DEFAULT_WEB_PORT, "--port", help="observation-window port"),
+    host: str = typer.Option("127.0.0.1", "--host", help="bind host"),
+) -> None:
+    """Start the READ-ONLY observation window (web panel + JSON API).
+
+    Aggregate situational data the same way `regime status --deep` / `regime report`
+    do, served as BOTH a minimal HTML panel (human) and a JSON API (agent/scripts)
+    at http://<host>:<port>/. Exposes NO write endpoint — it is a pure consumer of
+    the CLI's own read commands (single source of truth via subprocess), so safety
+    stays in the deterministic backend and the `--perm` gate.
+    """
+    import subprocess as _sp
+    import sys as _sys
+
+    from ..app.observe import serve_observation
+
+    # reuse this CLI's own read commands (single source of truth): the panel
+    # shows exactly what `status --deep` / `report --journal` report. Best-effort:
+    # a hung worker must never crash the observation request (W1).
+    def _status_json() -> str:
+        try:
+            p = _sp.run(
+                [_sys.executable, "-m", "regime_driver.cli", "status", "--deep",
+                 "--json", "--base", base,
+                 *(["--reporter", str(journal)] if journal else []),
+                 *(["--tasks-dir", str(tasks_dir)] if tasks_dir else [])],
+                capture_output=True, text=True, timeout=60)
+            return p.stdout or "{}"
+        except Exception:  # noqa: BLE001 — observation must never crash
+            return "{}"
+
+    def _report_json() -> str:
+        if not journal:
+            return "{}"
+        try:
+            p = _sp.run(
+                [_sys.executable, "-m", "regime_driver.cli", "report",
+                 "--journal", str(journal), "--json"],
+                capture_output=True, text=True, timeout=60)
+            return p.stdout or "{}"
+        except Exception:  # noqa: BLE001
+            return "{}"
+
+    serve_observation(
+        base, journal=str(journal) if journal else None,
+        ledger=str(ledger) if ledger else None,
+        tasks_dir=str(tasks_dir) if tasks_dir else None,
+        port=port, host=host,
+        status_fn=_status_json, report_fn=_report_json)
 
 
 # ---------------------------------------------------------------------------
@@ -2603,6 +2665,45 @@ def job_status(
             console.print(f"  elapsed: {result['elapsed_sec']}s")
     elif status == "running":
         _ok(f"still running (pid={pub.get('pid')})", markup=False)
+
+
+@_job_app.command("logs")
+def job_logs(
+    job_id: str = typer.Argument(..., help="job id from `regime run --async`"),
+    tail: int = typer.Option(200, "--tail", help="max lines to print (0 = all)"),
+    json_out: bool = typer.Option(False, "--json", help="machine-readable JSON"),
+) -> None:
+    """Print a background job's captured stdout/stderr (after-the-fact viewing).
+
+    `run/run-many --async` captures the subprocess output to
+    `<jobs-dir>/<job_id>.stdout.log`; this reads it so the Dialog Control can
+    inspect a background job's real output without blocking or re-running it.
+    """
+    from ..infra.jobs import JobRegistry
+
+    record = JobRegistry().get(job_id)
+    if record is None:
+        _fail(f"unknown job: {job_id}")
+    out_path = Path(record.get("out_path") or "")
+    if not out_path.is_absolute():
+        out_path = JobRegistry().dir / f"{job_id}.stdout.log"
+    lines: list[str] = []
+    if out_path.exists():
+        try:
+            with out_path.open(encoding="utf-8", errors="replace") as fh:
+                lines = [l.rstrip("\n") for l in fh]
+        except OSError as exc:
+            _fail(f"cannot read job output: {exc}")
+    if tail > 0 and len(lines) > tail:
+        lines = lines[-tail:]
+    if json_out:
+        _emit_json({"id": job_id, "lines": lines, "tail": tail})
+        return
+    if not lines:
+        _ok("(no captured output yet)", markup=False)
+        return
+    for line in lines:
+        console.print(line)
 
 
 app.add_typer(_job_app, name="job")
