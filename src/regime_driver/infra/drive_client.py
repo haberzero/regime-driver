@@ -15,7 +15,10 @@ site change, not a kernel change.
 ``Message`` is the transport-neutral message shape (parsed from each agent's
 raw reply format by the adapter); it is defined in ``infra/opencode.py`` today
 and re-exported here so protocol consumers do not need to import the opencode
-module directly.
+module directly. The same applies to the transport error surface:
+``OpenCodeError`` (raised by adapters on transport failures) and
+``is_abort_error`` (classifies a message error string as a deliberate
+session-abort sentinel) are re-exported here for kernel use.
 """
 
 from __future__ import annotations
@@ -23,6 +26,8 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from .opencode import Message  # re-export: transport-neutral message shape
+from .opencode import OpenCodeError  # re-export: adapter transport error
+from .opencode import is_abort_error  # re-export: abort-sentinel predicate
 
 
 @runtime_checkable

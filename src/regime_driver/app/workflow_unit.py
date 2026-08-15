@@ -28,8 +28,7 @@ from ..core.statechart import Signal, SignalKind
 from ..core.state_machine import StateMachine
 from ..core.tools import UnknownToolError, run_tool
 from ..infra.ledger import Ledger
-from ..infra.drive_client import DriveClient
-from ..infra.opencode import is_abort_error
+from ..infra.drive_client import DriveClient, is_abort_error
 from ..infra.settings import Settings
 from ..infra.skill_loader import SkillNotFoundError, load_skill
 from ..infra.task_control import TaskControl

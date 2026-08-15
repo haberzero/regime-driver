@@ -70,3 +70,21 @@ regime report --tasks-dir ~/.regime/tasks   # 宏观看板并轨
   `regime supervisor` 命令保留完整 T2。
 - supervisor 若先于工作流触发 L5 人工升级/重启，工作流线程以 `timeout_sec`
   兜底返回，不会无限挂起。
+
+## 客户端适配层（DriveClient seam）
+
+内核（状态机/看门狗/门/台账）驱动的是**被驱动的 agent 抽象**，不是 opencode：
+`infra/drive_client.py` 定义 `DriveClient`（`typing.Protocol`，13 方法面：
+session 建/列/查/中止/删、消息收发、SSE 事件流、健康/版本检查），并再导出
+传输中立表面供内核使用——`Message`（消息形状）、`OpenCodeError`（传输错误）、
+`is_abort_error`（abort 哨兵判定）。
+
+- **实现**：生产 `OpenCodeClient`（`infra/opencode.py`）与测试 `MockClient`
+  （`testing/mock_client.py`）都结构符合该协议（`test_drive_client_protocol_conformance`
+  锁定）；接新 agent = 写一个符合协议的适配器，在构造点换入即可。
+- **纪律**：内核模块（`app/`、`core/`、`drive`/`supervisor`/`parallel`/`task`/
+  `flow`/`regime`）不得直接 import `infra/opencode.py`，只能经 `drive_client.py`
+  或协议类型；`OpenCodeClient` 只出现在构造点（`app/dialog_app.py`、
+  `parallel.py`）。`tests/test_adaptor_seam.py` 守卫此边界。
+- 换 agent 是**构造点变更**而非内核变更：内核零改动即可把驱动目标从 opencode
+  换成其它 headless agent。

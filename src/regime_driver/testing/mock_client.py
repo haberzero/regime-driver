@@ -1,7 +1,8 @@
-"""Configurable offline mock of the opencode client interface.
+"""Configurable offline mock of the drive-client interface.
 
-Implements the same surface as ``regime_driver.infra.opencode.OpenCodeClient``
-so it is a drop-in replacement for offline runs and tests:
+Implements the same ``DriveClient`` protocol
+(``regime_driver.infra.drive_client.DriveClient``) as the production
+``OpenCodeClient``, so it is a drop-in replacement for offline runs and tests:
 
     create_session / send_message / read_messages / session_status /
     session_tokens / abort_session / delete_session / ask_and_get_text / health

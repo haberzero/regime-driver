@@ -15,8 +15,7 @@ from __future__ import annotations
 from ..core.json_utils import extract_json
 from ..core.policy import RolePolicy, SelfAssessment
 from ..core.session import SessionState
-from ..infra.drive_client import DriveClient
-from ..infra.opencode import OpenCodeError
+from ..infra.drive_client import DriveClient, OpenCodeError
 from ..infra.settings import Settings
 
 
