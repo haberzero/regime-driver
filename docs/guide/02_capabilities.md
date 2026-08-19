@@ -44,7 +44,7 @@ understand → read_code → design → implement → test → wrap
 - **扩展你的体系**：`~/.regime/hooks.py` 自定义 hooks/看门狗规则/工具（详见开发者文档
    `../subsystems/10_extension_points.md`）；对话框 `hook list/path/reload` 管理与热重载。
 
-> 为什么这么设计：流程/制度是体系的心脏，但"怎么写配置文件"是技术细节。对话框把它变成一句话的事。
+> 为什么这么设计：流程/制度是体系的关键，但"怎么写配置文件"是技术细节。对话框把它变成一句话的事。
 
 ## 四、监控与复盘
 

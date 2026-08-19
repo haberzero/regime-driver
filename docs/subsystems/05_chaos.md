@@ -35,7 +35,7 @@ CLI: regime chaos list | inject <fault> <ws> | scenario <name> <ws>
 ## 边界
 
 - 故障注入作用于**已有实例**（需先 `regime worker up <ws>`）。
-- `kill` 是 SIGKILL（硬崩溃）；`stop` 是优雅停。恢复用 `docker start`/`restart`。
+- `kill` 是 SIGKILL（强制崩溃）；`stop` 是 graceful 停止（发停止信号）。恢复用 `docker start`/`restart`。
 - 真实恢复验证依赖 worker 容器可被 docker 控制（宿主权限）。
 
 ## 深入指引
