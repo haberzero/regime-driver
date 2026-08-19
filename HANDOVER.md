@@ -495,7 +495,10 @@
 | 1d-补 | run-many/drive-many `--regime-name`；对话框制度设计入口 | ✅ **阶段 1d 根治** | StatechartCluster.from_regime + Parallel.regime；dialog design 整制度。commit `ea50be8` |
 
 **P 类（长期搁置，待用户或低优先）**：见 `tasks_docs/PENDING_TASKS.md`（V-2 PyPI 待用户 token、
-GitHub Pages 待用户 Settings、P-005 覆盖率、C3 延迟调优、FakeClient 收敛、MaxListeners doctor 检查）。
+P-005 覆盖率、C3 延迟调优、FakeClient 收敛、MaxListeners doctor 检查）。
+> GitHub Pages 已定案并落地（2026-08-16）：Pages 源 = GitHub Actions（早已生效，站点由
+> `main` 的 `docs/` 经 docs.yml 构建发布）；陈旧 `gh-pages` 分支已删除（远端+本地），
+> 全仓单源，无双份维护。见 `docs/guide/07_release.md`。
 
 **产物技术债（任务归档内，已显式登记，非本仓缺陷）**：
 - payment_ledger：`_op_keys` 无淘汰策略、内存态无持久化（`20260814-012700/payment_ledger/`）
