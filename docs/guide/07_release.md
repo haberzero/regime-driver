@@ -36,7 +36,11 @@ conda run -n regime-driver python -m pytest tests/test_package.py -q
 cd /tmp && unzip -q /tmp/wheeltest/regime_driver-*.whl -d /tmp/wheeltest/extracted && \
   PYTHONPATH=/tmp/wheeltest/extracted conda run -n regime-driver \
   python -m regime_driver.cli preflight --json   # 期望 {"ok":true,"outcome":"complete"}
+```
 
+装配与引导可用性：
+
+```bash
 # 5) scaffold 可用：向临时目录生成全套配置（--dry-run 不写；含 A 路插件/agent/package.json）
 conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --assistants --dry-run
 # 6) setup 引导可用：环境检测 + 装配 + 分步指引
