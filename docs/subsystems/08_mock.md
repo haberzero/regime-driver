@@ -14,8 +14,8 @@ E2E 调试依赖真实 opencode worker + 官方 LLM，慢、非确定、贵。�
 ## 2. 思路
 
 **不改生产代码，只替换客户端**。`WorkflowUnit` 等只依赖
-`infra/drive_client.DriveClient` 协议（`create_session/send_message/read_messages/
-session_status/session_tokens/abort_session/delete_session/ask_and_get_text/health/...`）。
+`infra/drive_client.DriveClient` 协议（14 方法面：session 建/列/查/中止/删、消息收发、
+SSE 事件流、健康/版本检查，完整方法面见 `docs/subsystems/01_drive.md` 的"客户端适配层"节）。
 因此做一个**实现同一协议的 `MockClient`**，作为 drop-in 替换：
 
 ```
@@ -53,3 +53,9 @@ session_status/session_tokens/abort_session/delete_session/ask_and_get_text/heal
 3. 注入 `delay` 的慢 judge → 观察到生成耗时（>delay）
 4. 注入 `stall` 的 developer → 看门狗 STOP → BLOCKED
 5. 注入 `error` 的 judge → 失败路径可复现
+
+## 深入指引
+
+- 用 mock 离线调试的逐步操作：`../howto/debug-with-mock.md`
+- DriveClient 适配层（协议 14 方法面）：`01_drive.md`
+- `regime preflight --fault` 命令契约：`../reference/01_cli.md`

@@ -51,6 +51,24 @@ def test_reviewer_retry_default_aligned_with_settings():
     assert Reviewer.__dataclass_fields__["max_retries"].default == s.max_reviewer_retries
 
 
+def test_supervisor_stall_default_aligned_with_settings():
+    """The process-external supervisor's bare stall default must fall back to
+    the documented settings.stall_sec (180s long-reasoning margin), not a
+    tighter hardcode that would re-introduce the long-reasoning mis-kill."""
+    import inspect
+    from regime_driver.supervisor import Supervisor
+    param = inspect.signature(Supervisor.__init__).parameters["stall_sec"]
+    assert param.default is None, (
+        "Supervisor bare stall_sec default must be None so it falls back to "
+        "settings.stall_sec; a hardcoded 60s would mis-kill long reasoning")
+    # a None default actually resolves to the settings margin at construction
+    s = Settings()
+    sup = Supervisor(object(), stall_sec=None)
+    assert sup.stall_sec == s.stall_sec
+    # the bare omitted-argument path (as `regime supervisor` does) resolves the same
+    assert Supervisor(object()).stall_sec == s.stall_sec
+
+
 def test_anti_runaway_caps_stay_configurable():
     """Anti-runaway caps (not kill-on-healthy-work) remain present and sane."""
     s = Settings()

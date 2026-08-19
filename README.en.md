@@ -2,8 +2,8 @@
 
 > **⚠️ Experimental · In Development — currently v0.1.**
 > No stable API/CLI contract. Interfaces and behaviour may change
-> without notice. Long-running durability (2h+ no-leak/recovery) is being
-> systematically validated; real-model E2E is available locally only;
+> without notice. Long-running durability (2h+ no-leak/recovery) has been
+> validated with bounded resource growth; real-model E2E is available locally only;
 > some machine/model/path/port defaults are project-specific. **Use at your own
 > risk** — it drives real AI models and Docker containers and can auto-execute
 > code. Run it only in a controlled, isolated environment. See `SECURITY.md`.
@@ -54,8 +54,8 @@ invariants) supervising agentic workflow units. See
   (A/B dual surface), workspace-mode install (`scaffold/setup/uninstall
   --workspace`, `doctor --workspace`).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
-  source of truth / release docs) and long-run durability (2h+ real run) are
-  complete.
+  source of truth / release docs) and long-run durability (2h+ real run,
+  bounded growth) are validated.
 
 ## Install
 

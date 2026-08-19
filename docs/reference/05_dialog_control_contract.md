@@ -168,4 +168,4 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 ## 7. 文档导航（需要时查阅）
 
 `docs/README.md`（导航）→ `docs/architecture/02_statechart_network.md`（架构）→ `docs/subsystems/07_dialog_control_carrier.md`
-（载体决策）→ `KNOWN_LIMITS.md`（边界）→ `docs/howto/*`（实操）。书写准则 `docs/WRITING_GUIDE.md`。
+（载体决策）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/*`（实操）。书写准则 `docs/WRITING_GUIDE.md`。

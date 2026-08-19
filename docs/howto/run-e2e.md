@@ -16,15 +16,16 @@
    REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_worker.py -q
    ```
    或对单个任务：`regime drive "<任务>" --base http://127.0.0.1:4097 --reporter /tmp/rep.jsonl`，
-   用 `regime report --journal /tmp/rep.jsonl --trace <wf>` 看每节点因果耗时。
+   用 `regime report <wf> --journal /tmp/rep.jsonl --trace` 看每节点因果耗时。
 
 ## 预期结果
 
-正常 E2E 应在 60–120s 内 `COMPLETE`。agent 节点约 3–7s，judge 约 2–60s（长推理不定）。
+正常 E2E 应在分钟级 `COMPLETE`（agent 节点秒级，judge 节点因长推理可能数十秒）。
+以 `regime report <wf> --journal ... --trace` 实跑耗时为准。
 
 ## 异常排查
 
-- 会话"卡"（busy 但无输出增长）：多半是发派池饱和或 judge 长推理，见 `KNOWN_LIMITS.md`。
+- 会话"卡"（busy 但无输出增长）：多半是发派池饱和或 judge 长推理，见 `docs/KNOWN_LIMITS.md`。
 - 总墙钟远大于远程耗时：主循环在等 poll 间隔或读消息阻塞。
 - 慢 judge 停滞：`regime drive` 传 `--stall <秒>` 与 `--meta`（真实模型判定停滞）调整判定。
 

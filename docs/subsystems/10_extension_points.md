@@ -103,3 +103,9 @@ docker exec {container} <白名单可执行程序> <参数...>
 - hooks/规则/工具在**进程启动时**加载（CLI 各命令 / `regime dialog`）；对话框内 `hook reload` 热更新。
 - `hook reload` 归写操作（`allow_write` 门禁，同 start/design/talk）。
 - 新增插件文件不需要重装/重启 worker——它只影响宿主侧治理（驱动/看门狗在宿主源码上跑）。
+
+## 深入指引
+
+- 用户视角（怎么扩展体系）：`../guide/03_design_flow.md`（扩展点小节）
+- `REGIME_HOOKS` 环境变量与加载：`../reference/02_configuration.md`
+- verify 白名单（字段契约）：`../reference/03_flow_spec.md`；运行时验证机制见本文 §5

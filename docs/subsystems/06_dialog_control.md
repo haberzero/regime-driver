@@ -107,3 +107,9 @@
 - 对运行中 workflow / 已注册 session 的更深交互与回收。
 - 监控区随用户请求动态增删字段/主题（当前：monitor<字段>、watch<主题>已支持）。
 - 权限门控的细粒度策略（按命令/按用户角色）。
+
+## 深入指引
+
+- 对话框命令契约：`../reference/05_dialog_control_contract.md`
+- 用户视角（为什么有对话框、怎么用）：`../guide/00_dialog_control.md`
+- 载体决策（A/B 双路）：`07_dialog_control_carrier.md`

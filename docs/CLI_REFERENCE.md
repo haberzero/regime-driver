@@ -12,7 +12,7 @@ regime-driver 是一个把制度化流程编译成状态机、驱动干净 openc
 
 | 章 | 文件 | 主题 | 说明 |
 |----|------|------|------|
-| 01 | [01_cli](reference/01_cli.md) | CLI 命令契约 | `regime` 全部子命令：run/run-many/drive/drive-many/flow/worker/chaos/validate/preflight/report/task/supervisor/session/sessions/job/dialog/doctor/scaffold/setup/uninstall/status/events/gate |
+| 01 | [01_cli](reference/01_cli.md) | CLI 命令契约 | `regime` 全部子命令：run/run-many/drive/drive-many/web/flow/regime/worker/chaos/validate/preflight/report/task/supervisor/session/sessions/job/dialog/doctor/scaffold/setup/uninstall/status/events/gate |
 | 02 | [02_configuration](reference/02_configuration.md) | 配置 | `config.example.toml` 字段、环境变量覆盖、模型/密钥/端口 |
 | 03 | [03_flow_spec](reference/03_flow_spec.md) | 流程规格 | regime.json / flow spec 的 JSON 结构、节点类型、角色、flow 热重载 |
 | 04 | [04_permissions](reference/04_permissions.md) | 权限门禁 | 权限等级 read/interact/run/clean、`--perm`、配置 ceiling |

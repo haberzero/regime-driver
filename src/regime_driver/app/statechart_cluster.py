@@ -55,7 +55,7 @@ class StatechartCluster:
             policy = watchdog_kwargs.pop("policy", None)
             if hooks is not None and hooks.rules:
                 base = (policy if policy is not None
-                        else default_policy(watchdog_kwargs.get("stall_sec") or 120.0))
+                        else default_policy(watchdog_kwargs.get("stall_sec") or Settings().stall_sec))
                 watchdog_kwargs["policy"] = base.with_rules(hooks.rules)
             elif policy is not None:
                 watchdog_kwargs["policy"] = policy

@@ -25,17 +25,18 @@
    - 制度：`regime regime design/list/inspect`（整制度）+ `run/drive --regime-name <名>`
    - 扩展点：`hook list/path/reload`（`~/.regime/hooks.py`）
    - 人工确认：`decide <workflow> <yes|no> [评论]`（应答 ask_human 检查点）
-3. 写操作走统一权限门禁；dialog-control 默认持 `clean`，可降权只读。
+3. 写操作走统一权限门禁；对话框的有效持有级别由 `--perm`（默认 `run`）决定，受配置 ceiling
+   （默认 `clean`）截断，只读需显式 `--perm read`。
 4. 相关文件（随 wheel 分发，`regime scaffold` / `regime setup` 部署；推荐 `--workspace <dir>`
    工作区模式，全局模式不推荐）：
-   `agents/dialog-control.md`（agent 定义）、`agent-handbook.md`（操作手册，agent 视角）、
-   `plugins/regime-dialog-control.js`（**可选**的 `regime_*` 工具引导——主路径是自由 CLI 直连，
-   见 `agent-handbook.md` §4）。
+   `.opencode/agent/dialog-control.md`（agent 定义）、`.opencode/agent-handbook.md`
+   （操作手册，agent 视角）、`.opencode/plugins/regime-dialog-control.js`（**可选**的
+   `regime_*` 工具引导——主路径是自由 CLI 直连，见 `agent-handbook.md` §4）。
 
 ## B 路：regime dialog REPL
 
 ```bash
-regime dialog                         # 离线（MockClient），只读
+regime dialog                         # 离线（MockClient）；只读需显式 --perm read
 regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker + 写能力
 ```
 
@@ -51,7 +52,7 @@ regime dialog --live --base http://127.0.0.1:4097 --perm run   # 真实 worker +
 - `decide <workflow> <yes|no> [评论]` / `裁决` — 应答 ask_human 人工确认点（裸 `decide` 列待决）
 - `start myflow 做任务` — 非阻塞启动（可用设计流）
 - `inspect dialog-1` — 查看某 workflow 黑板指标
-- `flow list` — 列出已注册流程（`flow design` 同 `design`）
+- `flow list` — 列出已注册流程（设计用顶层 `design` 命令）
 - `doctor` — 自检 worker/密钥/模板就绪
 - `talk <session_id> 内容` — 与指定 opencode session 独立交互
 - `sessions [busy]` — 列出 worker 会话及实时状态

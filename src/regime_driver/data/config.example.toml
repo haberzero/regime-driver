@@ -83,7 +83,9 @@ meta_max_context_msgs = 20                   # 喂给元分析的会话最近消
 #                                             # 也读 REGIME_PERMISSION_CEILING。
 #                                             # 注意：本地 CLI 中此上限由进程环境控制，
 #                                             # 任何能控制进程环境者可自行设 clean（本地
-#                                             # CLI 无法做到进程级不可绕过），详见 TECH_DEBT G5。
+#                                             # CLI 无法做到进程级不可绕过）——属平台/部署
+#                                             # 固有边界，见 tasks_docs/PENDING_TASKS.md
+#                                             # 「确认不修复的设计决策」。
 
 # --- session 生命周期 ---
 context_limit_tokens = 120_000               # session token 上限（算用量分数）

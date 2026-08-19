@@ -150,7 +150,7 @@
 - **`opencode-dialog-control` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 `--pure`。见 `docs/howto/dialog-control-window.md`。
 - **测试基线**：255 passed（+2 skip E2E 门控）。真实 worker E2E 已打通（REGIME_E2E=1）+ 控制对话框 A 路 HTTP 驱动打通。死代码守卫 + CLI 命令级测试已加。
 - **CLI 契约**：`regime` 命令集 `run/run-many/validate --deep/preflight/gate/status/sessions/session/events/dialog/job/report/task/supervisor` 全部 `--json` + 权限门禁（`--perm`，配置 ceiling 不可自提权）。
-- **技术债治理完成**：G1–G14 全清（`TECH_DEBT.md`）；权限/保障默认强制；文档单点真理收口。
+- **技术债治理完成**：G1–G14 全清（闭源记录见 `tasks_docs/WORKLOG.md` 2026-08-07/08 条目；过时登记 `TECH_DEBT.md` 已按"不留遗"删除）；权限/保障默认强制；文档单点真理收口。
 - 工作区已清理测试产物。
 
 ## 7. 主目录污染清单（已迁移/清理完成）
@@ -167,11 +167,21 @@
 
 ## 8. 下一步（下一 session 主线任务）
 
+> **本 session 已完成（2026-08-16，文档系统完整审计 + 更新，commit 待）**：按 doc-governance
+> 9 阶段 + 4 路并行 subagent 全覆盖审计。P0 事实错误 ×6（CONTRIBUTING E2E 路径、对话框权限默认值 ×3、
+> run-many 隔离语义、flow design 子命令不存在）；P1 红线（guide/07 任务控制引用、冻结数字、WRITING_GUIDE
+> 任务代号）；A.4 归属收敛（guide/03 hooks 示例、08_mock 方法面、architecture/02 全文重写去过程叙事）；
+> 断链修复（KNOWN_LIMITS 路径、guide/03 误链）；文档管理规范（MAIN_TASKS 已完成主线移除、
+> PENDING_TASKS W 类清理、**TECH_DEBT.md 删除**、docs/README 对齐 nav、子系统 10 篇补深入指引）；
+> CLI 代码对齐（drive --stall help 120→180、Supervisor.stall_sec 裸默认 60→settings 180 + 守卫）。
+> 677 passed 零回归 + mkdocs 绿 + 死链 0。详见 `tasks_docs/WORKLOG.md` 最新 DONE 条目。
+
 > **当前主线（唯一指针，2026-08-16）**：adaptor 层收尾 + 夜间长跑完成——DriveClient seam 完全化
 > （commit 074d60c + b0713bb，663 passed）；dqueue 11 节点长跑 **complete @ wrap 2191s**：
 > 独立 opencode 主控实例（4297，隔离 XDG）+ 主控窗口（dialog-control agent）全程待命；
 > 6 判定门含 1 次 blocking 返工环（审查抓到退避溢出崩溃缺陷并实质修复）；产物 2303 行 +
 > 87 用例宿主独立全过；零异常。详见 `tasks_docs/MAIN_TASKS.md` 当前主线。
+> **下一步：V-2 PyPI 发布**（用户 token 就绪即可 `python -m build && twine upload dist/*`）或新一轮长跑。
 
 > **历史主线（2026-08-15）**：技术文档全方位同步 + 版本号统一 v0.1 已完成
 > （commit `9dd10d3` + `db99aaa` + `1bed87f` + `d9d9b97`，658 passed 零回归 + general review
@@ -303,7 +313,7 @@
   **`WorkerPool` 多实例工作区隔离**（每工作区一个 opencode 实例，角色用 session）+
   **`Parallel` 并发隔离并行任务** + **`chaos` 故障注入/恢复演练**。
 - **一键起栈**：`ops/up.sh`（worker/dialog-control 一键构建+拉起+等健康，sg fallback，--rebuild，注入 opencode-go key）。
-- **技术债**：G1–G14 全清（`TECH_DEBT.md`），无已知双通道/半接通死能力/双写真相。
+- **技术债**：G1–G14 全清（闭源记录见 WORKLOG 2026-08-07/08 条目；`TECH_DEBT.md` 已删除），无已知双通道/半接通死能力/双写真相。
 - **测试架构**：`e2e_tests/test_e2e_worker.py`（REGIME_E2E 门控，含真实 drive/supervisor 无假停滞 +
   T1→L4 重启恢复 + 元分析真实模型）+ 死代码守卫 `test_deadcode.py`（扩 drive/dialog_control/worker/parallel/chaos）+
   CLI 命令级测试 `test_cli.py`。

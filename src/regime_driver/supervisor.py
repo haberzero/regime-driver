@@ -32,6 +32,7 @@ from .app.reporter import Reporter
 from .app.sse_activity import is_progress_event
 from .app.watchdog_policy import Rule, SessionEvidence, WatchdogPolicy, no_activity_for
 from .infra.drive_client import DriveClient
+from .infra.settings import Settings
 
 # correction ladder levels (L1 light -> L5 human)
 L1_NUDGE = "nudge"
@@ -211,7 +212,7 @@ class Supervisor:
         reporter: Reporter | None = None,
         *,
         container: str | None = None,
-        stall_sec: float = 60.0,
+        stall_sec: float | None = None,
         health_poll_sec: float = 10.0,
         deadline_sec: float | None = None,
         session_id: str | None = None,
@@ -225,7 +226,10 @@ class Supervisor:
         self.client = client
         self.reporter = reporter
         self.container = container
-        self.stall_sec = stall_sec
+        # bare default aligns with the documented settings.stall_sec margin
+        # (180s for long-reasoning/burst providers); a tighter hardcode would
+        # re-introduce the long-reasoning mis-kill the margin exists to avoid.
+        self.stall_sec = stall_sec if stall_sec is not None else Settings().stall_sec
         self.health_poll_sec = health_poll_sec
         self.deadline_sec = deadline_sec
         self.session_id = session_id
@@ -239,7 +243,7 @@ class Supervisor:
         # `external_policy` walks the external action ladder
         # (abort/fallback/restart/human) with absolute-duration multi-level
         # rules.
-        self.policy = policy or external_policy(stall_sec)
+        self.policy = policy or external_policy(self.stall_sec)
         # meta bounder (the deterministic gate on intelligence): each ladder
         # type is used at most once per supervision run.
         self.ladder = LadderState()

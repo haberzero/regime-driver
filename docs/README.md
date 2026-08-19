@@ -20,6 +20,7 @@
 
 | 文档 | 内容 |
 |---|---|
+| [howto 总览](howto/README.md) | 操作指南导航 |
 | [跑真实 E2E](howto/run-e2e.md) | 离线预跑 + 真实 worker E2E + 耗时解读 |
 | [用 mock 离线调试](howto/debug-with-mock.md) | 无网络/无 LLM 下确定性调试 |
 | [并发多 workflow](howto/run-many-sessions.md) | 并发与 session 管理 |
@@ -30,6 +31,8 @@
 
 | 文档 | 内容 |
 |---|---|
+| [能力地图](capabilities.md) | 全部官方能力的索引（入口/场景/验证） |
+| [CLI 参考总览](CLI_REFERENCE.md) | 命令/配置参考手册导航 |
 | [CLI 命令契约](reference/01_cli.md) | 全部 `regime` 子命令签名/参数/权限 |
 | [配置参考](reference/02_configuration.md) | 全部配置字段、环境变量、密钥 |
 | [流程规格](reference/03_flow_spec.md) | regime.json / flow spec 结构 |
@@ -41,9 +44,11 @@
 
 | 文档 | 内容 |
 |---|---|
+| [架构总览](ARCHITECTURE.md) | 架构文档导航 |
 | [总体设计思路](architecture/01_principles.md) | 七条架构原则与设计理念 |
 | [最终架构（状态机网络）](architecture/02_statechart_network.md) | 对等状态机网络 + 看门狗 |
 | [边界](architecture/03_boundary.md) | 系统边界与责任划分 |
+| [分发与部署蓝图](architecture/04_distribution_blueprint.md) | 渠道/内容归属/用户路径 |
 | [子系统总览](SUBSYSTEM_DESIGN.md) | 各子系统实现导航 |
 | [控制对话框容器验证窗](howto/dialog-control-window.md) | A 路验证容器搭建 |
 | [发布教程（维护者）](guide/07_release.md) | 构建/发布/Pages 部署 |

@@ -90,3 +90,9 @@ session 建/列/查/中止/删、消息收发、SSE 事件流、健康/版本检
   `infra/opencode.py`。
 - 换 agent 是**构造点变更**而非内核变更：内核零改动即可把驱动目标从 opencode
   换成其它 headless agent。
+
+## 深入指引
+
+- 状态机网络与信号协议：`../architecture/02_statechart_network.md`
+- 进程外 supervisor 的职责边界：`04_supervisor.md`
+- `regime drive` 命令契约：`../reference/01_cli.md`

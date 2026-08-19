@@ -258,7 +258,7 @@ deadline（`supervise_sessions=False`），杜绝双看门狗阈值竞态（外�
   "roles": {"developer": {"agent": "developer", "context_threshold_normal": 0.4}},
   "watchdog": {"soft_sec": 30, "soft_action": "interrupt", "meta_gate_soft": true, "hard_sec": 600},
   "handover": {"soft_fraction": 0.5, "hard_fraction": 0.7},
-  "stall_sec": 120,
+  "stall_sec": 180,
   "auto_resume_sec": 30
 }
 ```
@@ -626,7 +626,7 @@ developer.md/reviewer.md + worker `/agent` 列表含 developer/reviewer——缺
 | `--base` | str | worker opencode 服务器 URL |
 | `--container` | str | L4 重启的 docker 容器 |
 | `--deadline` | int | 期限秒（0 = 无） |
-| `--stall` | int | 停滞检测秒数（T2） |
+| `--stall` | int | 停滞检测秒数（T2；默认 `settings.stall_sec`=180） |
 | `--meta` | flag | 智能元分析（真实模型判停滞） |
 | `--meta-model` | str | 元分析模型 |
 | `--reporter` | path | append-only 报告日志路径 |

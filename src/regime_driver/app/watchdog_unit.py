@@ -30,6 +30,7 @@ import time
 
 from ..core.repetition import RepetitionDetector
 from ..core.statechart import Signal, SignalKind
+from ..infra.settings import Settings
 from .blackboard import WORKFLOW_METRICS
 from .statechart_runtime import ThreadedUnit
 from .watchdog_policy import (
@@ -70,7 +71,7 @@ class WatchdogUnit(ThreadedUnit):
     def __init__(
         self,
         unit_id: str = "watchdog",
-        stall_sec: float = 120.0,
+        stall_sec: float | None = None,
         repetition: RepetitionDetector | None = None,
         control_dst: str = "*",
         bus=None,
@@ -84,7 +85,10 @@ class WatchdogUnit(ThreadedUnit):
         hooks: "HookRegistry | None" = None,
     ) -> None:
         super().__init__(unit_id, bus, role="watchdog")
-        self.stall_sec = stall_sec
+        # bare default aligns with the documented settings.stall_sec margin
+        # (180s); a tighter hardcode would re-introduce the long-reasoning
+        # mis-kill the margin exists to avoid.
+        self.stall_sec = stall_sec if stall_sec is not None else Settings().stall_sec
         self.repetition = repetition or RepetitionDetector()
         self.control_dst = control_dst or "*"
         self.global_deadline_sec = global_deadline_sec

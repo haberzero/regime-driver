@@ -54,3 +54,9 @@ regime_driver.worker.WorkerPool            —— 管理 workspace -> instance �
 - `regime worker down <ws>` 会**停止并删除**该实例容器（及其未提交的容器内状态；
   挂载目录在宿主机 `REGIME_WORKSPACE_ROOT` 保留）。
 - 默认（无 `--workspace`）仍用单共享 worker（向后兼容）；需要隔离的并发任务显式指定 `--workspace`。
+
+## 深入指引
+
+- 用户视角（怎么用多工作区并行）：`../guide/06_parallel.md`
+- 并行任务（`drive-many`）：`03_parallel.md`
+- `regime worker` / `regime drive --workspace` 命令契约：`../reference/01_cli.md`

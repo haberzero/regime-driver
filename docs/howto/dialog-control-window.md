@@ -64,7 +64,8 @@ c.send_message(sid, "请调用你的 regime_status 工具检查 worker 健康，
 ## 说明 / 边界
 - 控制对话框工具默认 `--base http://127.0.0.1:4097`（worker）；`--network host` 使其在本容器内直达宿主的 worker。
 - 若改用 docker 网络而非 host，需把插件 `BASE` 改为 worker 的可达地址。
-- 改 `regime-dialog-control.js` 后需 `docker cp` + `docker restart opencode-dialog-control` 生效（或重建镜像）。
+- 改 `regime-dialog-control.js` / `dialog-control.md` 后需重建镜像生效（插件已固化进镜像）：
+  `ops/up.sh dialog-control --rebuild`（无需 `docker cp`）。
 - **权限 ask 死锁（HTTP 驱动必读）**：dialog-control agent 的 bash 策略在 headless HTTP 驱动下若为 `ask`，
   无交互方应答会永久挂起（复合命令中任一子命令未放行即整体 ask）。**当前 dialog-control.md 对 bash 设 `*: allow`**
   （安全边界靠顶层 `edit/write/apply_patch: deny` + 权限门禁，而非 bash ask）。若你为 dialog-control 设回 `ask`，

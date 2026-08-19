@@ -190,7 +190,7 @@ def snapshot_sessions(dest: Path) -> list[str]:
 # drive submission / wait / audit
 # --------------------------------------------------------------------------- #
 
-def submit_drive(root: Path, task: QualityTask, deadline: int, stall: int = 60) -> str | None:
+def submit_drive(root: Path, task: QualityTask, deadline: int, stall: int | None = None) -> str | None:
     tasks_dir = root / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
     journal = root / "journal.jsonl"
@@ -201,7 +201,7 @@ def submit_drive(root: Path, task: QualityTask, deadline: int, stall: int = 60) 
            "--deadline", str(deadline), "--reporter", str(journal),
            "--ledger", str(ledger), "--tasks-dir", str(tasks_dir),
            "--async", "--json"]
-    if stall:
+    if stall is not None:
         cmd += ["--stall", str(stall)]
     if task.flow:
         cmd += ["--flow", task.flow]
@@ -312,7 +312,7 @@ def host_pytest(dest: Path) -> dict:
 # --------------------------------------------------------------------------- #
 
 def run_one(root: Path, archive: Path | None, task: QualityTask, deadline: int,
-            start_line: int, journal_start: int, stall: int = 60) -> dict:
+            start_line: int, journal_start: int, stall: int | None = None) -> dict:
     print(f"== task {task.id}: est {task.minutes_est}min, deadline {deadline}s ==",
           flush=True)
     t0 = time.time()
@@ -424,8 +424,9 @@ def main() -> None:
                     help="per-task drive deadline override (sec)")
     ap.add_argument("--tasks", type=str, default="",
                     help="comma list of task ids to run (default: all)")
-    ap.add_argument("--stall", type=int, default=60,
-                    help="drive session-stall detection seconds (long complex tasks: raise it)")
+    ap.add_argument("--stall", type=int, default=None,
+                    help="drive session-stall detection seconds (default = settings.stall_sec 180; "
+                         "long complex tasks: raise it)")
     ap.add_argument("--sample-sec", type=float, default=60.0)
     ap.add_argument("--clean-sessions", action="store_true",
                     help="clean worker sessions AFTER each task is archived")

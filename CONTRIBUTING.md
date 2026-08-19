@@ -19,7 +19,7 @@ This repo follows a strict autonomous workflow (see `AGENTS.md` / `HANDOVER.md`)
 ```bash
 conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
-conda run -n regime-driver python -m pytest      # 333+ tests
+conda run -n regime-driver python -m pytest      # full suite; pass counts as run
 ```
 
 ## Conventions
@@ -38,7 +38,7 @@ conda run -n regime-driver python -m pytest
 # coverage gate
 conda run -n regime-driver python -m pytest --cov=regime_driver --cov-fail-under=68
 # real-worker E2E (requires a live worker + model key)
-REGIME_E2E=1 conda run -n regime-driver python -m pytest tests/test_e2e_worker.py -q
+REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_worker.py -q
 ```
 
 See `HANDOVER.md §9` for the full command reference.

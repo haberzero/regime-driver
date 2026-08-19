@@ -3,13 +3,15 @@
 > 本文记录控制对话框的载体选择：**opencode 作为人类对话载体（A 路）+ 自研 DialogControlUnit 作为
 > 程序化面（B 路）并行共存**，共用同一确定性后端与 CLI 契约。面向需要理解或接入控制对话框双路的开发者。
 
-## 1. 结论（可行性量化）
+## 1. 结论
 
-| 方案 | 可行性 | 说明 |
-|---|---|---|
-| opencode 作控制对话框载体 | **高 ~85%** | 对话层/UI/权限/工具调用全由 opencode 提供；剩余主要是 CLI 契约升级 |
-| 全自研 agent | 高但成本高 | 能拿到原生事件订阅/确定性/精确权限，但要重造 opencode |
-| 双路并行共存 | **高 ~80%，最佳终态** | 同一后端两个接入面，非替代关系 |
+控制对话框采用**双路并行共存**：opencode 作人类对话载体（A 路）+ 自研 DialogControlUnit 作程序化面（B 路），
+共用同一确定性后端与 CLI 契约，非替代关系。
+
+- **A 路（低成本）**：对话层/UI/权限/工具调用全由 opencode 提供（custom-tool 插件把 regime 命令注册成原生工具），
+  剩余主要是 CLI 契约升级。
+- **B 路**：能拿到原生事件订阅/确定性/精确权限，但自研 agent 的成本高于复用 opencode。
+- **双路并行**：同一后端两个接入面——A 路 = 人类日常对话控制，B 路 = 机器对机器/事件驱动/自省控制面。
 
 ## 2. opencode 支撑载体能力（调研结论）
 
@@ -59,10 +61,16 @@
 4. **session 交互**：`regime session <id> send "<msg>" --reply`（对应原 `talk`）。
 5. **门禁**：写操作经 `allow_write`/权限策略；对 opencode 暴露的是一组受控命令。
 
-## 6. 路线图
+## 6. 落地状态
 
-1. **地基（本次）**：CLI 契约升级——`--json` 全输出、`events --follow`、`session send`、控制命令 async。
-2. **A 路（低成本）**：opencode `dialog-control` agent 配置 + regime custom-tool 插件，先跑通"opencode 作控制对话框"。
-3. **B 路（可并行/远期）**：保留/演进 `DialogControlUnit` 作为程序化面。
+1. **CLI 契约**：全命令 `--json` 输出、`events --follow`、`session send`、控制命令 async-submit。
+2. **A 路**：opencode `dialog-control` agent 配置 + regime-dialog-control 插件（随 wheel 分发，`scaffold` 装配）。
+3. **B 路**：`DialogControlUnit` 程序化面（`regime dialog` REPL，订阅总线/自省/对等交互）。
 
 > 详细可行性论证与 opencode 能力依据见本文件上文。
+
+## 深入指引
+
+- DialogControlUnit 程序化面：`06_dialog_control.md`
+- 对话框命令契约：`../reference/05_dialog_control_contract.md`
+- A 路容器验证窗搭建：`../howto/dialog-control-window.md`

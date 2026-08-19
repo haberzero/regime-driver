@@ -151,3 +151,9 @@ flowchart TD
   双判定竞态会重现）。
 
 ---
+
+## 深入指引
+
+- 状态机网络与信号协议（watchdog_fire 落盘）：`../architecture/02_statechart_network.md`
+- drive 模式的监督职责边界：`01_drive.md`
+- `regime supervisor` / `regime drive` 命令契约：`../reference/01_cli.md`

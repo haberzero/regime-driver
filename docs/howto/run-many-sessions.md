@@ -26,11 +26,12 @@ regime sessions --clean                  # 中止并删除全部 session（真�
 ```
 
 - **累积会增长**：`DELETE /session/{id}` 在 opencode 1.18.11 上**真正删除** session 记录，
-  `--clean` 因此可以真清理（见 `KNOWN_LIMITS.md`）。
+  `--clean` 因此可以真清理（见 `docs/KNOWN_LIMITS.md`）。
 - **按策略自动清理**：`regime sessions --cleanup '{"max_sessions": 100, "only_idle": true}'`
   按策略删除超额 idle 会话（busy 会话绝不删）；对应配置项 `session_cleanup_policy`。
   `regime doctor` 的 "session hygiene" 检查会在累积达到阈值时提醒。
 
 ## 深入
 
-`app/statechart_cluster.py`（StatechartCluster）、`docs/KNOWN_LIMITS.md`（session 限制）。
+并发执行与工作区隔离的实现见 `docs/subsystems/03_parallel.md`；session 限制见
+`docs/KNOWN_LIMITS.md`。

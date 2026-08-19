@@ -37,3 +37,9 @@ CLI: regime chaos list | inject <fault> <ws> | scenario <name> <ws>
 - 故障注入作用于**已有实例**（需先 `regime worker up <ws>`）。
 - `kill` 是 SIGKILL（硬崩溃）；`stop` 是优雅停。恢复用 `docker start`/`restart`。
 - 真实恢复验证依赖 worker 容器可被 docker 控制（宿主权限）。
+
+## 深入指引
+
+- 工作区实例管理：`02_worker_isolation.md`
+- `regime chaos` 命令契约：`../reference/01_cli.md`
+- 用户视角（并行/隔离）：`../guide/06_parallel.md`

@@ -532,7 +532,7 @@ def drive(
         None, "--container", help="worker docker container name (for L4 restart on T1)"),
     stall: Optional[int] = typer.Option(
         None, "--stall", help="session-stall detection seconds (in-process watchdog; "
-        "config default 120)"),
+        "config default 180, settings.stall_sec)"),
     meta: bool = typer.Option(
         False, "--meta", help="enable intelligent meta-analysis (real model judges a stall)"),
     meta_model: str = typer.Option(
@@ -1436,7 +1436,8 @@ def supervisor_cmd(
     session: str = typer.Option(None, "--session", help="session id to supervise"),
     container: str = typer.Option(None, "--container", help="docker container for L4 restart"),
     deadline: int = typer.Option(None, "--deadline", help="deadline seconds (0 = none)"),
-    stall: int = typer.Option(60, "--stall", help="stall detection seconds (T2)"),
+    stall: Optional[int] = typer.Option(
+        None, "--stall", help="stall detection seconds (T2; default = settings.stall_sec, 180)"),
     reporter: Optional[Path] = typer.Option(
         None, "--reporter", help="report journal path (single truth)"),
     meta: bool = typer.Option(

@@ -67,7 +67,8 @@ understand → read_code → design → implement → test → wrap
 
 ## 六、并发与隔离
 
-- **多任务并行**：同时跑多个任务，互不干扰（`run-many`）。
+- **多任务并行**：同时跑多个任务（`run-many`）——黑板按 workflow id 隔离、互不干扰；但同一
+  worker 的文件系统共享，可能发生文件碰撞，需要产物隔离时用下面的工作区隔离。
 - **工作区隔离**：每个任务在独立的 worker 实例里跑，产物互不污染（`drive --workspace` / 并行任务）。
 
 > 为什么这么设计：真实使用中会有多个任务。物理隔离保证它们不互相踩踏。

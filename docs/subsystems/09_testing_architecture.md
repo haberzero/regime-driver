@@ -108,3 +108,9 @@ regime run <flow>  ──HTTP──▶  worker 容器(:4097)  真正干任务
 
 **职责不混乱的关键**：开发（宿主）≠ 执行（worker）≠ 控制（dialog-control）≠ 监督（supervisor）；
 验证一律走 **HTTP 程序化驱动 + 容器里的干净实例**，绕开交互 TUI。E2E 验"执行"，dialog-control E2E 验"控制"，两路分工、同一机制。
+
+## 深入指引
+
+- 跑真实 E2E 的步骤：`../howto/run-e2e.md`
+- A 路验证容器搭建：`../howto/dialog-control-window.md`
+- 离线确定性调试（MockClient）：`08_mock.md` + `../howto/debug-with-mock.md`

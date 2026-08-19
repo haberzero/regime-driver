@@ -2,14 +2,13 @@
 
 > 面向维护者：把 regime-driver 从"开发态"推向"发布态"。给读者的是"别人能用"
 > 的完整路径：构建 → 供给自检 → 发布渠道 → 复核。
-> 书写遵守 `docs/WRITING_GUIDE.md`；发布就绪主线见 `tasks_docs/MAIN_TASKS.md`。
+> 书写遵守 `docs/WRITING_GUIDE.md`。
 
 ## 1. 发布姿态与硬缺口
 
 项目已公开于 GitHub（`haberzero/regime-driver`）。"发布"不等于"clone 源码跑"——
 pip 安装的 wheel 必须自带用户运行所需的官方模板（agents/skills/插件/opencode.json/regime.json），
-否则用户 `regime preflight` / `regime scaffold` 必败（硬缺口审查的结论与处置见
-`tasks_docs/WORKLOG.md` 对应条目）。
+否则用户 `regime preflight` / `regime scaffold` 必败（这是发布前的硬缺口）。
 
 模板随 wheel 打包（`src/regime_driver/data/`），`regime scaffold` / `regime setup`
 一键装配（含 A 路插件 + dialog-control agent + opencode.json）。智能体说明书
@@ -92,10 +91,10 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 - `LICENSE`（MIT，© 2026 Nan Shi 施楠）、`SECURITY.md`（密钥处理/报告流程）、
   `CONTRIBUTING.md`（工作流/约定）、README 中英免责声明 — 随仓库分发。
 - `docs/KNOWN_LIMITS.md` 按"对外使用"姿态复核：默认模型/端口/目录为项目特定配置，
-  需用户自行适配；无外部安全审计。**耐久验证**：2h 真实运行稳定、资源有界增长
-  （结论见 `tasks_docs/WORKLOG.md` 对应条目）。
+  需用户自行适配；无外部安全审计。**耐久验证**：长期真实运行（2h+）资源有界增长，
+  具体边界见 `docs/KNOWN_LIMITS.md`。
 
 ## 5. 发布后收尾
 
-- 更新 `tasks_docs/WORKLOG.md`（发布记录 + REFLECT）、`tasks_docs/MAIN_TASKS.md`（主线）、`HANDOVER.md`（交接）。
-- 本地 commit；push 需明确授权（AGENTS.md 硬原则）。
+- 复核 README 中英免责声明、`docs/KNOWN_LIMITS.md` 对外姿态；本地 commit。
+- push 需维护者明确授权（`AGENTS.md` 硬原则）。

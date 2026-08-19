@@ -70,7 +70,7 @@ regime uninstall --workspace <你的项目目录>
 
 官方 agent/插件模板是**机器专用配置**（含提示词与权限），由 `regime scaffold` 从打包模板部署。
 `docker/worker-config/` 与 `docker/dialog-control-config/` 是镜像内副本（同源，漂移守卫保证一致）。
-`reviewer` 保持只读（`edit/write/apply_patch: deny`，`bash` 只读白名单），与仓库 `AGENTS.md` 一致。
+`reviewer` 保持只读（`edit/write/apply_patch: deny`，`bash` 只读白名单）——审查角色只读是体系硬约束。
 
 **用户扩展点**：主机模式下，你可以在 `~/.regime/hooks.py` 写一个 Python 插件统一注入
 hooks（生命周期观察者）/ 看门狗规则 / 自定义工具；对话框内 `hook list/path/reload` 管理与热重载。

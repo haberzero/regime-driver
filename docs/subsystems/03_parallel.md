@@ -51,3 +51,9 @@ CLI: regime drive-many <任务...> --workspaces "ws1,ws2,.." [--workers N] [--de
   非并行任务基础设施缺陷（未做 trick 掩盖）。
 - 工作区文件为容器内 root 所有；`worker down`/clean 时 chown 回宿主用户，宿主可管理。
 - 多实例 = 多容器，资源随工作区数线性增长。
+
+## 深入指引
+
+- 工作区隔离机制：`02_worker_isolation.md`
+- 用户视角（并行任务）：`../guide/06_parallel.md`
+- `regime drive-many` 命令契约：`../reference/01_cli.md`

@@ -67,7 +67,7 @@ Dialog> regime list      # 已注册完整制度（flow+roles+watchdog+handover 
 这些情况下，查询 [流程规格](../reference/03_flow_spec.md)（JSON 结构）与
 [CLI 流程命令](../reference/01_cli.md)（`flow validate/load/reload`）。
 
-> **设计原则**：90% 的流程可以用对话表达。JSON 是"精确控制"手段，不是日常使用门槛。
+> **设计原则**：绝大多数流程可以用对话表达。JSON 是"精确控制"手段，不是日常使用门槛。
 
 ## 节点类型：设计流程的四种积木
 
@@ -119,22 +119,10 @@ flowchart LR
 ## 扩展你的体系：用户扩展点
 
 除 JSON 声明外，你可以在 `~/.regime/hooks.py` 写一个 Python 插件，统一注入三类行为
-（统一扩展点模型，hooks/rules/tools 三通道合一）：
-
-```python
-# ~/.regime/hooks.py
-from regime_driver.core.tools import ToolResult
-
-def register(reg):
-    @reg.hook("node_done")               # 生命周期观察者（不覆盖确定性判定）
-    def on_done(ctx): ...
-    def never_busy(ev): return False
-    reg.register_rule("never-busy", never_busy, "nudge")   # 看门狗规则
-    reg.register_tool("ping", lambda c, r, a: ToolResult(True, "pong"))  # 自定义工具
-```
-
-对话框内 `hook list`（查看）/ `hook path`（路径）/ `hook reload`（原子热重载）管理与验证。
-详细契约见 [统一扩展点](../reference/02_configuration.md) 与 `docs/subsystems/10_extension_points.md`。
+（hooks / 看门狗规则 / 自定义工具三通道合一）：`@reg.hook("node_done")` 观察生命周期、
+`reg.register_rule(...)` 加看门狗判定规则、`reg.register_tool(...)` 加自定义工具。
+对话框内用 `hook list` / `hook path` / `hook reload` 管理与验证。
+完整代码示例见 [统一扩展点](../subsystems/10_extension_points.md)。
 
 ## 人工确认点（ask_human）
 

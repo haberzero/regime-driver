@@ -36,7 +36,7 @@ worker 上**逐节点驱动**执行。流程不是"建议"，而是**机制**：
 
 - 每个节点是明确的一步，按序推进——不会因为对话长了就跳步。
 - 审查节点由只读审查者判定，过不了确定性门就**不前进**。
-- 进程外监督器用独立时钟看着——卡死、停滞、超时会自动纠正。
+- 内嵌看门狗盯着卡死与停滞（运行时强制），进程外监督器用独立时钟看着健康与期限——异常自动纠正。
 - 每一次运行都被记录——可以复盘"当时为什么这样走"。
 
 一句话：**你说过的元指令，从"对话里的请求"变成"运行里一定会被执行的结构"**。
@@ -57,7 +57,7 @@ flowchart TB
     end
     subgraph 执行与监督
         W["opencode worker<br/>干净执行器 → 真实模型"]
-        SUP["进程外 supervisor<br/>健康 / 停滞 / 期限 → 纠正阶梯"]
+        SUP["进程外 supervisor<br/>健康 / 期限 → 纠正阶梯"]
     end
     R["报告日志 + 事件账本<br/>每一步都记录，可复盘"]
 
@@ -123,7 +123,8 @@ regime-driver（确定性体系）
 
 - **开箱即用的官方模板**：agent 模板、skills、**A 路插件**（`regime-dialog-control.js`，让主机
   opencode 成为主对话框）、dialog-control agent、opencode.json/config——随 wheel 打包，
-  `regime scaffold` / `regime setup` 一条命令装配到 `~/.config/opencode/`。
+  `regime setup` / `regime scaffold` 一条命令装配（**推荐工作区模式**：只影响当前项目，
+  装进 `<项目>/.opencode/`；全局模式装到 `~/.config/opencode/`，不推荐）。
 - **CLI**：`regime` 命令集（run/drive/report/dialog/flow/worker/chaos/doctor/scaffold/setup/uninstall/…）。
 - **文档站**：你正在读的这份（用户指南 / 开发者指南 / 参考）。
 - **容器配方**（GitHub 仓库，不进 wheel）：`ops/up.sh` 一键构建 + 拉起 worker/控制对话框容器。

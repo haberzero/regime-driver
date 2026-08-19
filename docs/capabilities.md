@@ -96,7 +96,7 @@
 
 ## 五、能力 ↔ 验证任务对照（试用套件）
 
-> 套件为 **4 个复杂多文件工程任务**（每个 15–30 分钟，带 seed 既有代码 / 设计决策 /
+> 套件为 **5 个复杂多文件工程任务**（每个 15–45 分钟，带 seed 既有代码 / 设计决策 /
 > 并发与故障隔离压力），使 reviewer 判定与监督纠错真正被检验。covers 声明设计意图，
 > harness 从事件账本验证实际触发（`quality-report.json` 的 `capability_coverage`）。
 
@@ -106,3 +106,4 @@
 | kv_cluster | multi-module / cross-module-contract / concurrency-testing / thread-safety / error-isolation / design-node / api-design / tradeoff-documentation / integration / edge-cases |
 | payment_ledger | bug-fixing / root-cause / read-existing-code / error-handling / edge-cases / thread-safety / concurrency-testing / design-node |
 | etl_pipeline | multi-module / design-node / api-design / error-isolation / concurrency-testing / edge-cases / integration / tradeoff-documentation / wrap-hygiene |
+| distributed_scheduler | multi-module / cross-module-contract / concurrency-testing / thread-safety / design-node / api-design / error-isolation / integration / edge-cases / tradeoff-documentation / read-existing-code / wrap-hygiene |
