@@ -120,7 +120,7 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 ### 4.1 运行时中断恢复（可编程看门狗）
 
 `run`/`drive` 受进程内可编程策略看门狗监督（`settings.watchdog_policy_json`）。运行中
-可能**自动中断并续跑**，这不是失败：
+可能**自动中断并续跑**，属正常恢复机制：
 
 - **PAUSE（interrupt）**：判定需要时中断当前生成、保持会话、冻结节点推进；
 - **自动 RESUME**：paused 超 `auto_resume_sec`（默认 30s）自动注入"继续"续接；
@@ -135,7 +135,7 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
   时才出现。
 - **外部中止 vs 瞬时错误**：`blocked (externally aborted)` 只在会话被**真正
   中止**时出现（`MessageAbortedError` 类 error，或 completed 但无 finish 的 abort 形状）。
-  **瞬时消息错误**（模型 HTTP/限流/网络）**不是**死会话——工作流继续轮询
+  **瞬时消息错误**（模型 HTTP/限流/网络）按可恢复错误处理——工作流继续轮询
   （受节点 `default_deadline_sec` 上限；默认 None=无墙钟上限，busy 会话到期宽限续期，
   停滞由 SSE 活性看门狗兜底），并记 `message_transient_error` 审计事件，绝不误判 BLOCKED。
 

@@ -23,7 +23,7 @@ regime-driver 把一条**流程**（有顺序、有角色的步骤：理解 → 
 - **干活与审查分离**：`developer` 干活、`reviewer`（只读）审查判定；
 - **确定性门**：审查判定过不了门就**不前进**；
 - **进程内策略看门狗**：SSE 活性 + 可编程策略（nudge→interrupt→resume→kill），运行中
-  可能**自动中断并续跑**（这不是失败）；
+  可能**自动中断并续跑**（属正常恢复机制）；
 - **进程外监督**：独立时钟做 T1 健康/docker 重启 + 全局 deadline（drive 模式）；
 - **全程可复盘**：每次运行写事件账本（ledger）+ 报告日志（journal）。
 
@@ -138,7 +138,7 @@ regime validate --json | gate '<verdict>'        # 校验
 > 主控对话框（dialog-control）像人类操作员一样**直接用 bash 自由组合命令**——不需要通过任何中间层。
 > 这是本手册推荐的主路径，与"分发后主控对话框不能读源码"的约束兼容：CLI 契约 + 本手册 = 完整说明书。
 
-**为什么自由 CLI 而不是固定工具集**：
+**选择自由 CLI 的依据**：
 
 - **完整**：`regime --help` 的每个命令都可直接用，不会被一个有限工具清单截断；
 - **可组合**：`regime events --ledger <p> | grep reviewer_verdict`、`| python3 -m json.tool`、
@@ -251,7 +251,7 @@ def register(reg):
 长任务会话"会疲劳"。`context_handover_policy_json`
 （soft_fraction/hard_fraction/min_continue_nodes）在**节点边界**检查：
 soft..hard 询问会话自检预算+是否续进；≥hard **强制交接**（新会话+真实交接文档+
-【上下文交接】开头）。事件 `context_handover`。交接是**正常机制**，不是失败。
+【上下文交接】开头）。事件 `context_handover`。交接属**正常机制**。
 
 ---
 
@@ -282,8 +282,8 @@ soft..hard 询问会话自检预算+是否续进；≥hard **强制交接**（�
    --journal <p> --trace <wf>` 看因果链；`regime events --ledger <p>` 看时间线。
 7. **失败诊断**：`outcome` 非 complete 看 `detail`：`node 'X' exceeded default_deadline_sec`
    = 超时；`reviewer gate exhausted` = 审查重试耗尽；`blocked (monitor: ...)` = 看门狗兜底 kill；
-   `blocked (externally aborted)` = 会话被真正中止。**`interrupt/resume/auto_resume` 是恢复，
-   不是失败。** 仍不明查 `docs/KNOWN_LIMITS.md`。
+   `blocked (externally aborted)` = 会话被真正中止。**`interrupt/resume/auto_resume` 属恢复机制。**
+   仍不明查 `docs/KNOWN_LIMITS.md`。
 
 ---
 

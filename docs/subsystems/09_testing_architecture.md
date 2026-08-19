@@ -1,7 +1,7 @@
 # 测试架构
 
 > 本文描述测试架构与职责定位：**开发 session ≠ 被测对象**；E2E / 控制对话框验证走 HTTP 程序化驱动，
-> 而非交互式 TUI。澄清各 opencode 实例（worker/dialog-control/开发）的运行位置与驱动方式。面向测试维护者。
+> 不用交互式 TUI。澄清各 opencode 实例（worker/dialog-control/开发）的运行位置与驱动方式。面向测试维护者。
 
 ---
 

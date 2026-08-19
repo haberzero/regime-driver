@@ -134,8 +134,8 @@ context_handover_policy_json = '{"soft_fraction": 0.5, "hard_fraction": 0.7, "do
 **类型/默认**：str `opencode-worker`；bool `false`。
 **语义**：judge 节点可声明 `verify` 宿主命令（flow schema 的节点字段）。进入该 judge 节点时
 驱动在宿主执行它（`{container}` 替换为 `worker_container`），把结果（rc + 输出尾部）作为
-**独立运行时验证证据**喂给审查者——补上"reviewer 只读、无法真跑测试"的缺口（test 门不再只
-静态数用例，而是拿到真实 pytest 结果）。失败证据会被显式标注"blocking 级、不许 advance"
+**独立运行时验证证据**喂给审查者——补上"reviewer 只读、无法真跑测试"的缺口（test 门拿到
+真实 pytest 结果，不只静态统计用例）。失败证据会被显式标注"blocking 级、不许 advance"
 （语义门同时兜底）。preflight/离线运行自动关闭（`verify_enabled=false`），不执行宿主命令。
 
 ---

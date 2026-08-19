@@ -77,7 +77,7 @@
 ```
 
 ### 2.1 监督层收编原则（避免重蹈"平行系统"覆辙）
-1. **单一包内**：`regime_driver.supervisor`、`regime_driver.task` 作为包内模块，而非 `ops/` 独立脚本。
+1. **单一包内**：`regime_driver.supervisor`、`regime_driver.task` 收进包内模块，不保留 `ops/` 独立脚本。
 2. **单一真源**：监督事件（T1/T2/deadline/ladder/meta）全部经 `Reporter.ingest` 落同一 journal，
    与 workflow 事件同 schema（复用 `ReportRecord` + 归属键）。不再有独立 `run-ledger.jsonl`。
 3. **单一策略**：`Settings.watchdog_policy_json`（可编程看门狗策略）+ 各独立字段
@@ -96,7 +96,7 @@
   进程内策略看门狗（单一职责），进程外只保留它独有的 T1/deadline/meta。这从结构上消除双看门狗
   阈值竞态（外部 T2 以不同 stall_sec 抢先硬 abort，绕过进程内恢复阶梯）与 T2 失焦（外部只盯
   anchor 会话，rotate 后失去当前 wait_sid）。
-- 二者通过 **Reporter/journal（唯一事件真源）** 通信，而非各自独立记账；进程内 watchdog 的
+- 二者通过 **Reporter/journal（唯一事件真源）** 通信，不使用各自独立记账；进程内 watchdog 的
   `watchdog_fire` 也写入共享 journal（经 `WatchdogUnit(reporter=...)`），不再只在内存总线可见。
 - **单一活性事实源（drive 模式）**：会话级活性判定由进程内 watchdog 基于同一个
   `SseActivity` 采集器（`Drive` 注入 workflow，经 REPORT 携带 `activity_ts`）。进程外

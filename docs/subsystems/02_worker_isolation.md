@@ -4,7 +4,7 @@
 > 同一工作区的实例不重复启动，工作区内的角色仍以 session 区分。面向需要并发 self-driving 的开发者。
 > 测试：`tests/test_worker.py`（以 pytest 实跑为准）+ 真实 E2E（多实例隔离）。
 
-## 为什么是"按实例"而非"按 session"
+## 为什么按实例隔离，不按 session
 
 本 opencode 版本（1.18.11）的 `POST /session` 的 `directory` 字段是 **project 级**的，
 恒解析为服务器自身 cwd（`/root/work`），**无法按 session 设 cwd**。因此"同一 worker 内

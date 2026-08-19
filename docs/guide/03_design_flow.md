@@ -67,7 +67,7 @@ Dialog> regime list      # 已注册完整制度（flow+roles+watchdog+handover 
 这些情况下，查询 [流程规格](../reference/03_flow_spec.md)（JSON 结构）与
 [CLI 流程命令](../reference/01_cli.md)（`flow validate/load/reload`）。
 
-> **设计原则**：绝大多数流程可以用对话表达。JSON 是"精确控制"手段，不是日常使用门槛。
+> **设计原则**：绝大多数流程可以用对话表达；JSON 用于"精确控制"场景，日常使用无需手写。
 
 ## 节点类型：设计流程的四种积木
 
@@ -82,7 +82,7 @@ Dialog> regime list      # 已注册完整制度（flow+roles+watchdog+handover 
 | `route` | 按条件选择下一步 | "有报告→去审查；没有→先重新生成" |
 | `gate` | 硬门禁，必须通过才继续（高级） | "必须已有测试通过才能收尾" |
 
-`tool` 和 `route` 让流程能**根据实际情况分支**，而不是一条道走到黑。
+`tool` 和 `route` 让流程能**根据实际情况分支**。
 官方示例流程 `verify_then_report` 就是"tool 检查 → route 分支 → 再回环"的结构，
 加载方式见 [流程规格：示例流程](../reference/03_flow_spec.md)。
 

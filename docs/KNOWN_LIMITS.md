@@ -46,7 +46,7 @@
   但 Python 包本体（`regime-driver`）仍以镜像内版本为准。归属：`docker/` + `ops/up.sh`。
 - **HTTP 驱动对话面的权限策略**：dialog-control agent 的 bash 策略若为 `ask`，经 HTTP 程序化驱动（无交互方）会挂起
   （复合命令中任一子命令未放行即整体 ask）。当前 dialog-control.md 对 bash 设 `*: allow`，安全边界靠顶层
-  `edit/write/apply_patch: deny` + 权限门禁（`--perm`），而非 bash ask。若改回 `ask`，需协作者轮询
+  `edit/write/apply_patch: deny` + 权限门禁（`--perm`），不用 bash ask。若改回 `ask`，需协作者轮询
   `GET /permission` 并 `POST /permission/{id}/reply`（`{"reply":"once"|"always"|"reject"}`）。
   归属：`.opencode/agent/dialog-control.md` + opencode 权限系统。
 - **免费 provider 有排队**：`opencode/deepseek-v4-flash-free` 基线慢 4–6 倍于官方

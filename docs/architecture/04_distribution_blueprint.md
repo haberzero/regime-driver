@@ -58,7 +58,7 @@
 | `.opencode/`（开发源） | 仓库 | 插件/agent 的开发真源（经 sync 进 data/） |
 | `ops/`（脚本） | 仓库 | 一键起栈（`up.sh`）、同步、夜间长跑 |
 
-> **为什么 docker 资产不进 pip**：Dockerfile 与镜像配置是容器化辅助，不是 Python 内容。
+> **docker 资产不进 pip 的原因**：Dockerfile 与镜像配置属容器化辅助，不在 Python 包内容范围内。
 > 用户走方式 A（容器）时 clone 仓库即可；走方式 B（主机直装）根本不需要它们。
 > 这符合"pip 只和 pip 有关"。
 

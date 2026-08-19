@@ -83,8 +83,8 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
 **本地预览**：`conda run -n regime-driver mkdocs serve`（http://127.0.0.1:8000）。
 
-**渲染方式说明**：`.nojekyll` 保留但不再需要——文档站由 MkDocs 生成静态 HTML 站点伺服，
-而非从 `main/docs` 原样伺服 `.md`（纯 Markdown 无渲染）。
+**渲染方式说明**：`.nojekyll` 保留但不再需要——文档站由 MkDocs 生成静态 HTML 站点伺服；
+`main/docs` 下的 `.md` 文件不直接伺服（纯 Markdown 无渲染）。
 
 ## 4. 许可与免责复核（对外发布前必须确认）
 

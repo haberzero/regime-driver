@@ -106,8 +106,8 @@ skills、操作说明书、插件依赖声明），opencode 启动自动加载�
 
 `regime doctor` 自检（含环境检测 + 模板就绪）应全部通过。
 
-> **Docker 不是必须**：regime-driver 不强制 Docker。Docker 只是方式 A（容器化 worker）的
-> 可选依赖；方式 B 直接用主机 opencode（对话框 + worker 一体或分开）。
+> **Docker 为可选**：regime-driver 不强制 Docker。Docker 仅用于方式 A（容器化 worker）的
+> 部署；方式 B 直接用主机 opencode（对话框 + worker 一体或分开）。
 > `regime doctor` 的环境检测（docker/opencode/conda 是否可用）会告诉你本机支持哪条路径。
 >
 > **混合部署**：对话框与 worker 可以是不同 opencode 实例/机器——插件连远程 worker 时设

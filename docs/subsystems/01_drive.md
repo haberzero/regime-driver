@@ -33,7 +33,7 @@ regime drive <task>
 - **`regime_driver.drive.Drive`**：拥有执行器线程 + supervisor 循环的对象。
   - `_discover_session()`：轮询执行器的 anchor（主工作）session 供监督循环知晓。
   - `supervisor.run(stop_when=...)`：工作流一产出结果即结束监督循环
-    （返回 `"workflow_done"`），而非跑到 deadline——快路径立即返回。
+    （返回 `"workflow_done"`），不等待 deadline——快路径立即返回。
   - **进程内策略看门狗（会话级监督唯一拥有者）**：drive 模式
     `supervise_sessions=False`——会话级监督全部归进程内 WatchdogUnit（跟随
     `wait_sid` 旋转不失焦），SSE 活性是唯一活性源，PAUSE/RESUME/kill 全阶梯可用；
@@ -73,7 +73,7 @@ regime report --tasks-dir ~/.regime/tasks   # 宏观看板并轨
 
 ## 客户端适配层（DriveClient seam）
 
-内核（状态机/看门狗/门/台账）驱动的是**被驱动的 agent 抽象**，不是 opencode：
+内核（状态机/看门狗/门/台账）驱动的是**被驱动的 agent 抽象**（DriveClient 协议），不直接依赖 opencode：
 `infra/drive_client.py` 定义 `DriveClient`（`typing.Protocol`，14 方法面：
 session 建/列/查/中止/删、消息收发、SSE 事件流、健康/版本检查），并再导出
 传输中立表面供内核使用——`Message`（消息形状）、`OpenCodeError`（传输错误）、
@@ -88,7 +88,7 @@ session 建/列/查/中止/删、消息收发、SSE 事件流、健康/版本检
   `parallel` 等处选择具体适配器）。`tests/test_adaptor_seam.py` 守卫内核模块（`app/`、
   `core/`、`drive`/`supervisor`/`parallel`/`task`/`flow`/`regime`）不直连
   `infra/opencode.py`。
-- 换 agent 是**构造点变更**而非内核变更：内核零改动即可把驱动目标从 opencode
+- 换 agent 是**构造点变更**，内核保持不变：内核零改动即可把驱动目标从 opencode
   换成其它 headless agent。
 
 ## 深入指引
