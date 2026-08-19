@@ -161,7 +161,7 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_work
   (what/why/features/what-you-can-do), organized by reader: **User Guide**
   (run/configure/operate), **Reference** (CLI/config/flow spec), **Developer
   Guide** (architecture/subsystems/how-to-develop).
-- In-repo navigation: `docs/README.md`. Known limits: `docs/KNOWN_LIMITS.md`.
+- In-repo navigation: `docs/MAP.md`. Known limits: `docs/KNOWN_LIMITS.md`.
   Writing standards: `docs/WRITING_GUIDE.md`.
 - Task-control docs (historical): `tasks_docs/` (WORKLOG / MAIN_TASKS / PENDING_TASKS).
 - Note: `docs-ref/` is a reference copy of another project's docs — it is **not

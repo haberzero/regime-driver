@@ -12,7 +12,7 @@
 `regime-driver` 把一条**流程**（有顺序、有角色的步骤）编译成状态机，驱动一个干净无插件的
 opencode worker 完成开发任务，并由只读审查者判定、确定性门把关；进程外监督器用独立时钟
 盯着卡死/停滞/超时。**核心架构**是对等多状态机网络（看门狗=无智能状态机+信号协议+根不变量）。
-详细见 `docs/README.md` 导航 + `docs/architecture/02_statechart_network.md`。
+详细见 `docs/MAP.md` 导航 + `docs/architecture/02_statechart_network.md`。
 
 **角色**：developer=干活（agent 节点）、reviewer=审查判定（judge 节点）。内核角色无关，只是注册实例。
 
@@ -167,5 +167,5 @@ opencode worker 完成开发任务，并由只读审查者判定、确定性门�
 
 ## 7. 文档导航（需要时查阅）
 
-`docs/README.md`（导航）→ `docs/architecture/02_statechart_network.md`（架构）→ `docs/subsystems/07_dialog_control_carrier.md`
+`docs/MAP.md`（导航）→ `docs/architecture/02_statechart_network.md`（架构）→ `docs/subsystems/07_dialog_control_carrier.md`
 （载体决策）→ `docs/KNOWN_LIMITS.md`（边界）→ `docs/howto/*`（实操）。书写准则 `docs/WRITING_GUIDE.md`。

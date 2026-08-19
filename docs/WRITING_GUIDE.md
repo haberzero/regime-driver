@@ -24,7 +24,7 @@
 
 ### A.3 文档按读者旅程分层（Divio 体系）
 
-本仓库文档体系遵循 Divio 四分法，并映射到本仓库的组织方式（见 `docs/README.md`）。每篇文档应明确自身属于哪一类，并使用对应的写作风格：
+本仓库文档体系遵循 Divio 四分法，并映射到本仓库的组织方式（见 `docs/MAP.md`）。每篇文档应明确自身属于哪一类，并使用对应的写作风格：
 
 | 类型 | 本仓库载体 | 写作要求 |
 |------|-----------|----------|
@@ -82,8 +82,8 @@
 
 每个文档的定位段应明确读者需要的前置知识，并在末尾的"深入指引"中给出下一步阅读方向。跨文档的引用链形成多个"读者旅程线"——例如：
 
-> 新用户旅程：根 `README.md` → `docs/README.md`（导航）→ `guide/`（教程）→ `reference/`（查契约）→ `KNOWN_LIMITS.md`（查边界）
-> 开发者旅程：`docs/README.md` → `ARCHITECTURE.md`（全貌）→ `architecture/`（原则）→ `subsystems/`（模块）→ 源码
+> 新用户旅程：根 `README.md` → `docs/MAP.md`（导航）→ `guide/`（教程）→ `reference/`（查契约）→ `KNOWN_LIMITS.md`（查边界）
+> 开发者旅程：`docs/MAP.md` → `ARCHITECTURE.md`（全貌）→ `architecture/`（原则）→ `subsystems/`（模块）→ 源码
 
 ---
 

@@ -136,7 +136,7 @@ conda run -n regime-driver pytest
 
 文档站（MkDocs + Read the Docs 主题）：`https://haberzero.github.io/regime-driver/`，从门户首页
 （是什么/为什么/功能/能做到什么）开始，按读者分层：**用户指南**（跑任务/配置/操作）、**参考**（CLI/
-配置/流程规格）、**开发者指南**（架构/子系统/如何开发）。仓库内导航见 `docs/README.md`；
+配置/流程规格）、**开发者指南**（架构/子系统/如何开发）。仓库内导航见 `docs/MAP.md`；
 已知限制见 `docs/KNOWN_LIMITS.md`；书写准则见 `docs/WRITING_GUIDE.md`。
 当前主线见 `tasks_docs/MAIN_TASKS.md`。
 > 注：`docs-ref/` 是另一项目文档的参考副本，**不入库**（gitignore），仅作写作参考。

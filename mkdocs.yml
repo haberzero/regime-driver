@@ -23,7 +23,7 @@ site_dir: site
 # 供 agent 执行的内部配置（workflow-regime/skills、.opencode/dialog-control、控制对话框助手）不入本站点。
 nav:
   - 首页: index.md
-  - 文档地图: README.md
+  - 文档地图: MAP.md
   - 用户指南:
       - 控制对话框（第一入口）: guide/00_dialog_control.md
       - 快速开始: guide/01_quickstart.md
