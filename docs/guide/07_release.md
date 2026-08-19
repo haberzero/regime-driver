@@ -65,24 +65,21 @@ conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json
 
 ### GitHub Pages 文档站（MkDocs + Read the Docs 主题）
 
-用 MkDocs 把 `docs/` 构建为 Read the Docs 风格的静态站点（左侧导航、搜索、面包屑）。
+用 MkDocs 把 **`main` 的 `docs/`** 构建为 Read the Docs 风格的静态站点（左侧导航、搜索、面包屑）。
+**单一真源 = `main` 的 `docs/`**：站点由 `.github/workflows/docs.yml`（GitHub Actions）在 push 到
+`main`（改动 `docs/` 或 `mkdocs.yml`）时自动构建并发布，**不维护独立部署分支**（无 gh-pages
+分支部署——站点只从 `main` 的 `docs/` 经构建发布，避免双份维护）。
 
 **技术栈**：`mkdocs.yml`（`docs_dir: docs`，`theme: readthedocs`，完整 `nav` 导航）+ 内置 search 插件。
 生成物输出到 `site/`（gitignore，不入库）。
 
-**部署方式（二选一）**：
+**部署**：`.github/workflows/docs.yml`（`upload-pages-artifact` + `deploy-pages`）。
+**Pages 源必须设为 GitHub Actions**（一次性设置）：
 
-- **A. GitHub Actions（推荐，自动）**：`.github/workflows/docs.yml` 在 push 到 `main`（改 `docs/` 或
-  `mkdocs.yml`）时自动 `mkdocs build` + 部署。**需要把 Pages 源改为 "GitHub Actions"**：
-  Settings → Pages → Source 选 **GitHub Actions**。
-- **B. 手动 gh-deploy**：本地 `conda run -n regime-driver mkdocs gh-deploy`（推 `site/` 到 `gh-pages`
-  分支）。**需要把 Pages 源改为 "Deploy from a branch: gh-pages / (root)"**。
-
-**启用步骤（A 案，推荐）**：
-1. 仓库含 `mkdocs.yml` + `.github/workflows/docs.yml`。
-2. GitHub → Settings → **Pages** → **Source** 选 **GitHub Actions**。
-3. push 到 `main`（或手动触发 `docs` workflow）后，站点部署在
-   `https://haberzero.github.io/regime-driver/`。
+1. GitHub → Settings → **Pages** → **Source** 选 **GitHub Actions**。
+2. 此后每次 push 到 `main` 且改动 `docs/`/`mkdocs.yml` 自动构建部署；也可在工作流页手动
+   **Run workflow** 触发。
+3. 站点地址：`https://haberzero.github.io/regime-driver/`。
 
 **本地预览**：`conda run -n regime-driver mkdocs serve`（http://127.0.0.1:8000）。
 
