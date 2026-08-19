@@ -7,7 +7,7 @@
 
 > **项目仍在开发中（未发布）。** 对外使用前请注意下列关键边界：
 > - **无稳定契约**：CLI/API/配置可能破坏性变更，不保证向后兼容。
-> - **耐久验证（2h+）**：2h 真实运行零崩溃/停滞/重启，资源线性有界增长（session/内存/journal 随运行时长线性累积），worker 全程健康。已知边界：**session 记录累积**
+> - **耐久边界（2h+）**：长时间（2h+）真实运行资源线性有界增长（session/内存/journal 随运行时长线性累积），无崩溃/停滞/重启；已知边界：**session 记录累积**
 >   （见下方行为限制），长期（多天）运行可用 `regime sessions --cleanup` 清理或重建容器。
 > - **GitHub 真实模型 E2E 长期不列入计划**：CI 内不跑真实 worker E2E（需 `OPENCODE_GO_API_KEY` secret）。
 >   `e2e_tests/test_e2e_worker.py` 保留本地/手动可用（`REGIME_E2E=1`）。
@@ -22,8 +22,9 @@
 
 ## 未实现 / 恒空项
 
-> `data/regime.json` 现仅含 `code_workflow` 一个 flow。当前超时模型为 `default_deadline_sec`
-> （每节点，settings）+ `global_deadline_sec`（整轮，watchdog）。
+> `data/regime.json` 现仅含 `code_workflow` 一个 flow。超时模型：`default_deadline_sec`
+> （每节点，settings）+ `global_deadline_sec`（整轮，watchdog）——**默认均关闭**（fail-safe，
+> 与 settings 默认 None 一致），停滞兜底由 SSE 活性看门狗承担；显式传 `--deadline` 才启用墙钟杀。
 
 ## 行为限制
 

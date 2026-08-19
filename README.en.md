@@ -44,9 +44,9 @@ invariants) supervising agentic workflow units. See
 ## Status / highlights
 
 - **Tests**: full `python -m pytest` green (coverage per current run); real-worker
-  E2E available locally via `REGIME_E2E=1`.
-- **CI is green**: unit tests pass on Python 3.11 & 3.12 (offline, no key needed).
-- Core features implemented & verified: hot flow compile/reload
+  E2E available locally via `REGIME_E2E=1`; CI runs unit tests on Python 3.11 & 3.12
+  (offline, no key needed).
+- Core features: hot flow compile/reload
   (`FlowRegistry` + `regime flow`), one-command self-driving stack (`regime drive`),
   per-workspace isolated worker batch (`regime worker` / `drive-many`),
   fault-injection/recovery (`regime chaos`), web console (`regime web`),
@@ -55,7 +55,7 @@ invariants) supervising agentic workflow units. See
   --workspace`, `doctor --workspace`).
 - External-supply readiness (templates in wheel / `regime scaffold` / single
   source of truth / release docs) and long-run durability (2h+ real run,
-  bounded growth) are validated.
+  bounded growth).
 
 ## Install
 

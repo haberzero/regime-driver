@@ -117,7 +117,8 @@ regime-driver（确定性体系）
 - **多任务与隔离**：同时跑多个任务，每个在独立工作区，互不污染。
 - **可复盘**：每次运行写入报告与事件账本。
 
-> 具体用例子快速上手见 [快速开始](guide/01_quickstart.md)；完整能力见 [你能做什么](guide/02_capabilities.md)。
+> 具体用例子快速上手见 [快速开始](guide/01_quickstart.md)；完整能力索引见 [能力地图](capabilities.md)
+> （教程视角见 [你能做什么](guide/02_capabilities.md)）。
 
 ## 官方提供什么
 
