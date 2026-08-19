@@ -112,5 +112,4 @@ regime run <flow>  ──HTTP──▶  worker 容器(:4097)  真正干任务
 ## 深入指引
 
 - 跑真实 E2E 的步骤：`../howto/run-e2e.md`
-- A 路验证容器搭建：`../howto/dialog-control-window.md`
 - 离线确定性调试（MockClient）：`08_mock.md` + `../howto/debug-with-mock.md`

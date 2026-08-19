@@ -25,7 +25,6 @@
 | [用 mock 离线调试](howto/debug-with-mock.md) | 无网络/无 LLM 下确定性调试 |
 | [并发多 workflow](howto/run-many-sessions.md) | 并发与 session 管理 |
 | [控制对话框操作](howto/dialog-control.md) | 监控/设计/启动/talk 用法 |
-| [主机模式 agent](howto/host-mode-agents.md) | 无 Docker 时的 host opencode 配置 |
 
 ### 参考（查契约）
 
@@ -50,12 +49,11 @@
 | [边界](architecture/03_boundary.md) | 系统边界与责任划分 |
 | [分发与部署蓝图](architecture/04_distribution_blueprint.md) | 渠道/内容归属/用户路径 |
 | [子系统总览](SUBSYSTEM_DESIGN.md) | 各子系统实现导航 |
-| [控制对话框容器验证窗](howto/dialog-control-window.md) | A 路验证容器搭建 |
 | [发布教程（维护者）](guide/07_release.md) | 构建/发布/Pages 部署 |
 | [书写准则](WRITING_GUIDE.md) | 文档书写纪律（强制） |
 
 > **内部过程/审计文档**（技术债、耐久报告、供给就绪审查）属工程过程产物，不进公开文档站；
 > 存于仓库 `tasks_docs/` 与根目录，供内部查阅。
 
-> **说明**：供 agent 执行的内部配置（skills、控制对话框助手、workflow-regime 流程模板）是机器专用内容，
+> **说明**：机器专用的内部配置（skills、控制对话框助手、workflow-regime 流程模板）是机器专用内容，
 > **不在本站点**。它们随 wheel 打包，经 `regime scaffold` 部署到运行环境。

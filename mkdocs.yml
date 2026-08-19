@@ -38,7 +38,6 @@ nav:
           - 用 mock 离线调试: howto/debug-with-mock.md
           - 并发多 workflow: howto/run-many-sessions.md
           - 控制对话框操作: howto/dialog-control.md
-          - 主机模式 agent: howto/host-mode-agents.md
   - 参考:
       - 能力地图（总览）: capabilities.md
       - CLI 参考总览: CLI_REFERENCE.md
@@ -66,7 +65,6 @@ nav:
           - mock: subsystems/08_mock.md
           - 测试架构: subsystems/09_testing_architecture.md
           - 统一扩展点: subsystems/10_extension_points.md
-      - 控制对话框容器验证窗: howto/dialog-control-window.md
       - 发布教程（维护者）: guide/07_release.md
       - 书写准则: WRITING_GUIDE.md
 

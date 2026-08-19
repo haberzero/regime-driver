@@ -49,7 +49,7 @@ flowchart TB
         U["你（只说自然语言）"]
     end
     subgraph 对话层
-        GD["控制对话框（对话 agent）<br/>替你：设计流程 / 注册 / 校验 / 启动 / 监控"]
+        GD["控制对话框（对话操作面）<br/>替你：设计流程 / 注册 / 校验 / 启动 / 监控"]
     end
     subgraph 确定性体系
         SM["流程状态机<br/>逐节点执行，审查不过关不前进"]
@@ -86,7 +86,7 @@ flowchart TB
 你（只说自然语言）
   │  "设计一个先实现、再审查的流程，跑起来"
   ▼
-控制对话框（对话 agent）
+控制对话框（对话操作面）
   │  替你：设计流程 / 注册 / 校验 / 启动 / 监控 / 解释
   ▼
 regime-driver（确定性体系）
@@ -100,7 +100,7 @@ regime-driver（确定性体系）
 | | 直接在对话里说"元指令" | 用 regime-driver |
 |---|---|---|
 | 流程约束 | 多轮后可能被遗忘 | 编译成确定性流程，**必然执行** |
-| 审查 | 靠 agent 自觉 | 只读审查者判定，过不了门**不前进** |
+| 审查 | 靠执行者自觉 | 只读审查者判定，过不了门**不前进** |
 | 卡死/打转 | 靠人盯 | 进程外监督器自动纠正 |
 | 复盘 | 难回溯 | 全程记录，可回放可报告 |
 | 使用方式 | — | **仍只是对话**，不写流程 |
@@ -122,10 +122,9 @@ regime-driver（确定性体系）
 
 ## 官方提供什么
 
-- **开箱即用的官方模板**：agent 模板、skills、**A 路插件**（`regime-dialog-control.js`，让主机
-  opencode 成为主对话框）、dialog-control agent、opencode.json/config——随 wheel 打包，
-  `regime setup` / `regime scaffold` 一条命令装配（**推荐工作区模式**：只影响当前项目，
-  装进 `<项目>/.opencode/`；全局模式装到 `~/.config/opencode/`，不推荐）。
+- **开箱即用的官方模板**：控制对话框配置、审查与执行角色、skills、插件依赖、opencode.json/config——
+  随 wheel 打包，`regime setup` / `regime scaffold` 一条命令装配（**推荐工作区模式**：只影响
+  当前项目，装进 `<项目>/.opencode/`；全局模式装到 `~/.config/opencode/`，不推荐）。
 - **CLI**：`regime` 命令集（run/drive/report/dialog/flow/worker/chaos/doctor/scaffold/setup/uninstall/…）。
 - **文档站**：你正在读的这份（用户指南 / 开发者指南 / 参考）。
 - **容器配方**（GitHub 仓库，不进 wheel）：`ops/up.sh` 一键构建 + 拉起 worker/控制对话框容器。
@@ -143,5 +142,5 @@ regime-driver（确定性体系）
 - **我想查技术细节**（命令/配置/JSON）→ [CLI 参考](reference/01_cli.md) · [配置参考](reference/02_configuration.md) · [流程规格](reference/03_flow_spec.md)
 
 > 本站导航按读者分层：**使用者** → "用户指南"（能做什么 + 少量为什么）与"参考"（查技术细节）；
-> **开发者** → "开发者指南"。供 agent 执行的内部配置（skills / 控制对话框助手 / workflow-regime）**不在此站点**，
+> **开发者** → "开发者指南"。机器专用的内部配置（skills / 控制对话框助手 / workflow-regime）**不在此站点**，
 > 保持机器专用。

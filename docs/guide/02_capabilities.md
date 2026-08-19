@@ -17,7 +17,7 @@
 ## 二、官方工作流程模板：制度驱动规划的样板
 
 为了理解"你的编程指令如何被制度化地执行"，先看官方自带的流程模板 `code_workflow`。
-它不是"一个 agent 自由发挥"，而是一条**结构化的制度路径**：
+它不是"一个执行对象自由发挥"，而是一条**结构化的制度路径**：
 
 ```
 understand → read_code → design → implement → test → wrap
@@ -27,8 +27,7 @@ understand → read_code → design → implement → test → wrap
 
 - **干活与审查分离**：`developer`（干活）走 understand / read_code / implement / wrap；
   `reviewer`（审查判定）走 design / test。审查不过关，流程**不前进**。
-- **技能按节点注入**：design 节点注入 `design-philosophy`，test 节点注入 `code-review`——
-  给审查角色它恰好需要的规则，不常驻、不稀释。
+- **审查按规则进行**：审查节点按既定规则检查方案与实现，规则在需要时应用、不常驻。
 - **全程记录**：每一步（节点进入/完成/审查判定/流转/最终结果）都写入报告与事件账本，可复盘。
 
 > 逐步展开这张表（每个节点做什么、审查如何判定、为什么这样走）见
@@ -42,8 +41,8 @@ understand → read_code → design → implement → test → wrap
 - **查看已注册流程与制度**：`flow list` / `regime list` 列出全部可运行项。
 - **让对话框代写 JSON**：你不必手写 JSON——描述意图即可（意图级设计；提到"审查前必须
   跑测试"会在审查节点加 `verify`，提到监督/人工确认会生成 watchdog 配置）。
-- **扩展你的体系**：`~/.regime/hooks.py` 插件统一注入 hooks/看门狗规则/自定义工具；
-  对话框 `hook list/path/reload` 管理与热重载。
+- **扩展你的体系**：`~/.regime/hooks.py` 自定义 hooks/看门狗规则/工具（详见开发者文档
+   `../subsystems/10_extension_points.md`）；对话框 `hook list/path/reload` 管理与热重载。
 
 > 为什么这么设计：流程/制度是体系的心脏，但"怎么写配置文件"是技术细节。对话框把它变成一句话的事。
 
@@ -62,7 +61,7 @@ understand → read_code → design → implement → test → wrap
 - **人工确认点**：审查者需要你拍板时 workflow 冻结，对话框 `decide <workflow> <yes|no>` 应答；
   无人值守时按超时默认值自动兜底（不会无限等待）。
 
-> 为什么这么设计：卡死/打转是 agent 工作的常见问题。让独立的时钟盯着，而不是靠人；
+> 为什么这么设计：卡死/打转是自动执行中的常见问题。让独立的时钟盯着，而不是靠人；
 > 真正需要人判断的关口，把决定权留给有权限的那个人。
 
 ## 六、并发与隔离

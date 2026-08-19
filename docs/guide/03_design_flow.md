@@ -118,11 +118,9 @@ flowchart LR
 
 ## 扩展你的体系：用户扩展点
 
-除 JSON 声明外，你可以在 `~/.regime/hooks.py` 写一个 Python 插件，统一注入三类行为
-（hooks / 看门狗规则 / 自定义工具三通道合一）：`@reg.hook("node_done")` 观察生命周期、
-`reg.register_rule(...)` 加看门狗判定规则、`reg.register_tool(...)` 加自定义工具。
-对话框内用 `hook list` / `hook path` / `hook reload` 管理与验证。
-完整代码示例见 [统一扩展点](../subsystems/10_extension_points.md)。
+除 JSON 声明外，你还可以用 `~/.regime/hooks.py` 扩展体系：自定义生命周期 hooks、
+看门狗判定规则与工具。对话框内用 `hook list` / `hook path` / `hook reload` 管理与验证。
+完整说明与代码示例见 [统一扩展点](../subsystems/10_extension_points.md)。
 
 ## 人工确认点（ask_human）
 

@@ -9,8 +9,6 @@
 - [并发跑多 workflow 并管理 session](run-many-sessions.md) — `regime run-many` 并发 + `regime sessions --clean/--cleanup/--kill`。
 - [用 mock 离线调试](debug-with-mock.md) — 无网络/无 LLM 下用 `MockClient`/`regime preflight` 确定性调试状态机/并发/超时。
 - [使用控制对话框](dialog-control.md) — 控制对话框（`regime dialog`）的监控/设计/启动/talk/解释用法。
-- [用专用容器跑控制对话框 A 路](dialog-control-window.md) — 绕开交互 TUI，用容器 opencode 作 A 路测试窗口。
-- [主机模式 agent 模板](host-mode-agents.md) — 无 Docker 时 `developer`/`reviewer` agent 配置模板。
 
 ## 读者旅程
 

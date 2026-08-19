@@ -48,7 +48,7 @@
   （复合命令中任一子命令未放行即整体 ask）。当前 dialog-control.md 对 bash 设 `*: allow`，安全边界靠顶层
   `edit/write/apply_patch: deny` + 权限门禁（`--perm`），而非 bash ask。若改回 `ask`，需协作者轮询
   `GET /permission` 并 `POST /permission/{id}/reply`（`{"reply":"once"|"always"|"reject"}`）。
-  详见 `docs/howto/dialog-control-window.md`。归属：`.opencode/agent/dialog-control.md` + opencode 权限系统。
+  归属：`.opencode/agent/dialog-control.md` + opencode 权限系统。
 - **免费 provider 有排队**：`opencode/deepseek-v4-flash-free` 基线慢 4–6 倍于官方
   `deepseek-api/deepseek-v4-flash`（官方有排队时更甚）。系统已默认用官方 API。归属：`infra/settings.py`。
 - **`RolePolicy(transition_mode=ROTATE)` dataclass 遮蔽**：monkey 构造时字段默认值遮蔽类属性，

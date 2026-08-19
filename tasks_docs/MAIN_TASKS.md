@@ -61,6 +61,13 @@ OpenCodeClient 仅构造点。
 
 ## 重大决策记录（并入，不设独立决策文档）
 
+- **人类手册红线彻底执行（2026-08-16，用户裁定）**：doc-governance Phase0"人类手册红线"
+  彻底执行——清除 docs/ 用户手册层（guide/howto/index/README 中英）全部智能体元信息
+  （skill 名、agent 文件引用、subagent、插件/工具配置、agent 指令/过程）；删除两个纯
+  agent 元信息 howto（dialog-control-window、host-mode-agents）。**保留例外（显式记录）**：
+  capabilities.md skills 段（检查器强制）、reference/ 产品契约 schema（--skills-dir/
+  REGIME_HOOKS/skill 字段）、architecture/ + subsystems/（开发者实现文档）、--assistants
+  旗标。详见 WORKLOG 最新 DONE 条目。
 - **文档系统完整审计 + 更新（2026-08-16，doc-governance 9 阶段）**：
   4 路并行 subagent 全覆盖（guide+howto / reference+arch+subsystems / 根索引 / 体系结构）+
   代码事实核对 + 文档管理规范层。处置：P0 事实错误（CONTRIBUTING E2E 路径、run-many 隔离语义、

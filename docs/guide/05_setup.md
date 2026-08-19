@@ -6,7 +6,7 @@
 
 ## 你将会学到
 
-- 用 `regime scaffold` 部署官方模板（agents / skills / 控制对话框助手）。
+- 用 `regime scaffold` 部署官方模板（角色配置 / skills / 插件依赖）。
 - 用 `ops/up.sh all` 启动容器化 worker 与 dialog-control。
 - 配置模型密钥（DeepSeek 官方 API 为主）。
 - 用 `regime doctor` 自检配置是否就绪。
@@ -27,10 +27,9 @@ worker 需要连到一个可用模型。
 密钥经环境变量注入，不进仓库、不入库。
 这避免把真实密钥写进可提交的配置文件。
 
-> **官方模板由 `regime scaffold` / `regime setup` 提供**：agent 配置、skills、A 路插件
-> （`regime-dialog-control.js`）、dialog-control agent、opencode.json/config 随 wheel 打包，
-> 一条命令装配到 `~/.config/opencode/`。无需手动编写 agent 提示词。Docker 配方在 GitHub
-> 仓库（不进 wheel）。
+> **官方模板由 `regime scaffold` / `regime setup` 提供**：控制对话框配置、审查与执行角色、
+> skills、opencode.json/config 随 wheel 打包，一条命令装配（工作区模式推荐）。无需手动编写
+> 角色配置。Docker 配方在 GitHub 仓库（不进 wheel）。
 
 ## 步骤
 
@@ -43,28 +42,24 @@ regime setup --workspace <你的项目目录>        # 或 regime scaffold --wor
 regime scaffold [--assistants]
 ```
 
-**工作区模式**把模板装进 `<项目>/.opencode/`（`setup`/`scaffold` 会自动创建该目录，**无需先启动 opencode 初始化**）：
-- `plugins/regime-dialog-control.js` —— A 路插件（`regime_*` 工具，opencode 启动自动加载）
-- `agent/dialog-control.md` + `agent/reviewer.md` + `agent/developer.md` —— 主控对话框 agent + 只读审查 subagent + 执行 worker
-- `skills/` —— 项目级 skills（opencode 从 `.opencode/skills/` 自动发现）
-- `agent-handbook.md` —— 随工作区的操作说明书：在 opencode 里让 agent 读它即可自助完成
-  监控/运行/设计/扩展，无需人工介入
-- `package.json` —— 插件 SDK 依赖（opencode 自动 `bun install`）
+**工作区模式**把官方模板装进 `<项目>/.opencode/`（`setup`/`scaffold` 会自动创建该目录，**无需先启动 opencode 初始化**）：
+- 控制对话框的对话配置、审查与执行角色模板——opencode 启动时自动发现加载
+- 项目级 skills 模板（opencode 自动发现）
+- 操作说明书（供你在 opencode 中让对话面自助完成监控/运行/设计/扩展）
+- 插件依赖声明（opencode 自动安装）
 
 **工作区预检**：`setup --workspace` / `scaffold --workspace` 在部署前会检查该工作区：
-- `.opencode/` 是否已存在、含哪些非 regime 文件（你的自有插件/agent/skills）——**不会覆盖**，但会提示；
-- 是否有**路径冲突**（例如你已有一个 `plugins/regime-dialog-control.js`）——此时建议**先整理工作区**（移走/改名冲突文件）再装；
+- `.opencode/` 是否已存在、含哪些非 regime 文件（你的自有配置）——**不会覆盖**，但会提示；
+- 是否有**路径冲突**（例如你已有一个同名模板文件）——此时建议**先整理工作区**（移走/改名冲突文件）再装；
 - 目录是否在 git 仓库内且 `.opencode` 未被 `.gitignore` 忽略——提示加一行 `.opencode/`；
-- opencode 是否正在运行——装完后**需要重启 opencode** 才能加载新插件/agent/skills。
+- opencode 是否正在运行——装完后**需要重启 opencode** 才能加载新配置。
 
-预期结果：`<项目>/.opencode/` 下生成上述模板；`regime doctor --workspace <目录>` 会校验模板与插件可加载形状。
+预期结果：`<项目>/.opencode/` 下生成上述模板；`regime doctor --workspace <目录>` 会校验模板就绪。
 卸载：`regime uninstall --workspace <项目目录>`（只移除该工作区部署，不碰用户自己的文件）。
 
-> **为什么不推荐全局模式**：`regime scaffold`（默认装到 `~/.config/opencode/`）会让机器上**所有**项目的
-> **所有** agent 都看到 `regime_*` 工具——opencode 没有"按 agent 隔离工具"的机制（源码核验：工具全局注册、
-> 无 per-agent 白名单），因此无法做到"只有选中主控 agent 才激活"。后果：① 其它项目的对话模型提示里
-> 会出现 regime 工具（浪费上下文、可能误调用）；② dialog-control agent 出现在每个项目的 agent 列表；
-> ③ 卸载是整机级。**工作区模式是唯一能做到"regime 完全不存在于其它项目"的方式。**
+> **为什么不推荐全局模式**：全局模式会把模板装进 `~/.config/opencode/`，影响机器上**所有**项目的
+> 对话会话（无法按项目隔离），卸载也是整机级；工作区模式只影响当前项目，是唯一能做到
+> "regime 完全不存在于其它项目"的方式。
 
 ### 2. 配置模型密钥
 
@@ -91,9 +86,9 @@ ops/up.sh all
 `ops/up.sh` 从密钥文件读取并注入 `DEEPSEEK_API_KEY`。
 worker 默认端口为 4097，dialog-control 默认端口为 4098。
 
-> **worker 与 dialog-control 是两个不同的 opencode 实例**：worker 是"干净的执行器"（无插件、只被
-> regime-driver 通过 HTTP 驱动干活），dialog-control 是"对话载体"（带插件，承载控制对话框）。
-> 为什么这样分层，见 [控制对话框（第一入口）](00_dialog_control.md)。
+> **worker 与 dialog-control 是两个不同的 opencode 实例**：worker 只被 regime-driver 通过
+> HTTP 驱动干活，dialog-control 承载控制对话框。为什么这样分层，见
+> [控制对话框（第一入口）](00_dialog_control.md)。
 
 ### 4. 方式 B：配置主机 opencode（无 Docker，opencode 作主对话框）
 
@@ -104,16 +99,12 @@ worker 默认端口为 4097，dialog-control 默认端口为 4098。
 regime setup --workspace <你的项目目录>
 ```
 
-预期结果：`<项目>/.opencode/` 下生成：
-- `plugins/regime-dialog-control.js` —— **A 路插件**（把 `regime_*` 命令变成 opencode 工具，
-  opencode 启动自动加载）
-- `agent/dialog-control.md` + `agent/reviewer.md` + `agent/developer.md` —— 对话控制主 agent + 只读审查 subagent + 执行 worker
-- `skills/`、`package.json`（插件 SDK 依赖，opencode 自动 `bun install`）、`agent-handbook.md`
-  （操作说明书：在 opencode 里让 agent 读它即可自助配置工作区）
+预期结果：`<项目>/.opencode/` 下生成与工作区模式相同的官方模板（控制对话框配置、审查与执行角色、
+skills、操作说明书、插件依赖声明），opencode 启动自动加载。
 
 需要全局安装（影响机器上所有会话，不推荐）时用 `regime scaffold` → `~/.config/opencode/`。
 
-`regime doctor` 自检（含环境检测 + 插件可加载形状）应全部通过。
+`regime doctor` 自检（含环境检测 + 模板就绪）应全部通过。
 
 > **Docker 不是必须**：regime-driver 不强制 Docker。Docker 只是方式 A（容器化 worker）的
 > 可选依赖；方式 B 直接用主机 opencode（对话框 + worker 一体或分开）。

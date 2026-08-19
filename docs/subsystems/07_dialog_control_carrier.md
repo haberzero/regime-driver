@@ -73,4 +73,3 @@
 
 - DialogControlUnit 程序化面：`06_dialog_control.md`
 - 对话框命令契约：`../reference/05_dialog_control_contract.md`
-- A 路容器验证窗搭建：`../howto/dialog-control-window.md`

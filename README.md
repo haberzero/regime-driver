@@ -48,8 +48,8 @@ conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
 
-> pip 安装（wheel）自带用户运行所需的官方模板（agents/skills/插件/dialog-control agent/
-> opencode.json/regime.json/config），无需 clone 仓库即可 `regime scaffold` / `regime setup`
+> pip 安装（wheel）自带用户运行所需的官方模板（角色配置/skills/插件/opencode.json/regime.json/config），
+> 无需 clone 仓库即可 `regime scaffold` / `regime setup`
 > 一键装配；`regime doctor` 自检就绪度。Docker 资产（Dockerfile/镜像配置）经 GitHub 仓库提供，
 > 不进 pip wheel（分发原则见 `docs/architecture/04_distribution_blueprint.md`）。
 
@@ -60,19 +60,18 @@ conda run -n regime-driver pip install -e ".[dev]"
 ```bash
 # 推荐：工作区模式 —— 只影响当前项目的 opencode 会话，不污染其它对话环境
 regime setup --workspace <你的项目目录>      # 或 regime scaffold --workspace <dir>
-# 需要控制对话框助手 subagent（analyst/advisor/reviewer）时
+# 需要控制对话框的辅助分析/设计助手时（--assistants）
 regime setup --workspace <dir> --assistants
-# 全局模式（不推荐）：影响机器上所有 opencode 会话——opencode 无按 agent 隔离工具机制，
-# regime_* 工具会对所有项目所有 agent 可见；仅单机专用场景可接受
+# 全局模式（不推荐）：影响机器上所有 opencode 会话，无法按项目隔离；仅单机专用场景可接受
 regime scaffold [--assistants]
-# 自检：worker 健康 / 模型密钥 / 模板就绪 / 插件可加载形状
+# 自检：worker 健康 / 模型密钥 / 模板就绪
 regime doctor
 # 卸载（只移除该工作区部署，用户改过的文件保留）
 regime uninstall --workspace <dir>
 ```
 
-> 工作区模式把插件/agent/skills/操作说明书装进 `<项目>/.opencode/`——用户可在 opencode 里让
-> agent 读 `.opencode/agent-handbook.md` 自助完成监控/运行/设计/扩展，无需人工介入。
+> 工作区模式把插件/角色配置/skills/操作说明书装进 `<项目>/.opencode/`——用户可在 opencode 中
+> 打开操作说明书自助完成监控/运行/设计/扩展，无需人工介入。
 
 ### 2. 起执行面
 
@@ -141,9 +140,7 @@ conda run -n regime-driver pytest
 已知限制见 `docs/KNOWN_LIMITS.md`；书写准则见 `docs/WRITING_GUIDE.md`。
 当前主线见 `tasks_docs/MAIN_TASKS.md`。
 > 注：`docs-ref/` 是另一项目文档的参考副本，**不入库**（gitignore），仅作写作参考。
-> 供 agent 执行的内部配置（skills / 控制对话框助手 / workflow-regime 模板）是机器专用内容，不进文档站。
-> 试用 regime-driver 的**智能体**请读随 wheel 分发的 `agent-handbook.md`
-> （agent 视角完整操作手册，真源 `.opencode/agent-handbook.md`）。
+> 机器专用的内部配置（skills / 控制对话框助手 / workflow-regime 模板）是机器专用内容，不进文档站。
 
 ## 配置与密钥
 

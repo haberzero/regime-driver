@@ -6,32 +6,30 @@
 
 ## 控制对话框有两条路
 
-- **A 路（推荐，opencode 作载体）**：一个 opencode `dialog-control` agent，通过 `regime` CLI 契约控制/监控系统。
+- **A 路（推荐，opencode 作载体）**：在 opencode 中以 `dialog-control` 对话模式控制/监控系统。
   这是最接近"可对话的控制体系"的形态；操作手册 `docs/reference/05_dialog_control_contract.md` + `docs/KNOWN_LIMITS.md`。
 - **B 路（程序化 REPL）**：`regime dialog` 交互式提示符，是 CLI 的对话包装（对等状态机单元）。
 
 两条路共用同一 CLI 契约与权限门禁（`--perm`）。
 
-## A 路：opencode dialog-control agent（推荐）
+## A 路：opencode 中的 dialog-control 对话模式
 
-1. 以 `dialog-control` agent 会话（`opencode` 提示中选 dialog-control，或配置为默认 primary）进入。
-2. 它会先读 `agent-handbook.md`（操作手册）与 `docs/KNOWN_LIMITS.md`，然后照手册操作：
-   - 监控：`regime status/sessions/events --json`
-   - 运行：`regime run/run-many --json`（阻塞）或 `--async`（非阻塞作业，**默认推荐**）
-   - 事后查看：`regime job status/logs`（后台作业输出）、`regime task status/logs`（drive 任务）、
-     `regime web`（只读观察窗，HTML 面板 + JSON API）
-   - 交互：`regime session <id> send/reply`
-   - 校验：`regime validate/gate`
-   - 制度：`regime regime design/list/inspect`（整制度）+ `run/drive --regime-name <名>`
-   - 扩展点：`hook list/path/reload`（`~/.regime/hooks.py`）
-   - 人工确认：`decide <workflow> <yes|no> [评论]`（应答 ask_human 检查点）
-3. 写操作走统一权限门禁；对话框的有效持有级别由 `--perm`（默认 `run`）决定，受配置 ceiling
-   （默认 `clean`）截断，只读需显式 `--perm read`。
-4. 相关文件（随 wheel 分发，`regime scaffold` / `regime setup` 部署；推荐 `--workspace <dir>`
-   工作区模式，全局模式不推荐）：
-   `.opencode/agent/dialog-control.md`（agent 定义）、`.opencode/agent-handbook.md`
-   （操作手册，agent 视角）、`.opencode/plugins/regime-dialog-control.js`（**可选**的
-   `regime_*` 工具引导——主路径是自由 CLI 直连，见 `agent-handbook.md` §4）。
+在 opencode 提示中选择 `dialog-control` 对话模式进入（可配置为默认）。它像人类操作员一样
+通过 `regime` CLI 契约控制/监控系统；操作手册见 `docs/reference/05_dialog_control_contract.md`
++ `docs/KNOWN_LIMITS.md`。可用的操作：
+
+- 监控：`regime status/sessions/events --json`
+- 运行：`regime run/run-many --json`（阻塞）或 `--async`（非阻塞作业，**默认推荐**）
+- 事后查看：`regime job status/logs`（后台作业输出）、`regime task status/logs`（drive 任务）、
+  `regime web`（只读观察窗，HTML 面板 + JSON API）
+- 交互：`regime session <id> send/reply`
+- 校验：`regime validate/gate`
+- 制度：`regime regime design/list/inspect`（整制度）+ `run/drive --regime-name <名>`
+- 扩展点：`hook list/path/reload`（`~/.regime/hooks.py`）
+- 人工确认：`decide <workflow> <yes|no> [评论]`（应答 ask_human 检查点）
+
+写操作走统一权限门禁；对话框的有效持有级别由 `--perm`（默认 `run`）决定，受配置 ceiling
+（默认 `clean`）截断，只读需显式 `--perm read`。
 
 ## B 路：regime dialog REPL
 

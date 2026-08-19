@@ -64,8 +64,8 @@ conda create -n regime-driver python=3.12
 conda run -n regime-driver pip install -e ".[dev]"
 ```
 
-> The pip wheel ships the official templates (agents/skills/dialog-control plugin and
-> agent, opencode config), so you can `regime scaffold` a full config without cloning
+> The pip wheel ships the official templates (role configs/skills/plugin/opencode
+> config), so you can `regime scaffold` a full config without cloning
 > the repo. Docker build assets live in the GitHub repo, not the wheel.
 
 ## Deployment
@@ -73,11 +73,11 @@ conda run -n regime-driver pip install -e ".[dev]"
 ### 1. Fetch official templates (once)
 
 ```bash
-# recommended: workspace mode — deploy into <dir>/.opencode/ (agent, skills,
-# plugin, agent-handbook); does not pollute other projects (idempotent;
+# recommended: workspace mode — deploy into <dir>/.opencode/ (role configs,
+# skills, plugin, handbook); does not pollute other projects (idempotent;
 # --dry-run previews without writing)
 regime setup --workspace <your-project-dir>
-regime setup --workspace <dir> --assistants   # also deploy analyst/advisor/reviewer
+regime setup --workspace <dir> --assistants   # also deploy the analysis/design assistants
 # global mode (NOT recommended: tools become visible to every opencode project;
 # see docs/architecture/04_distribution_blueprint.md)
 regime scaffold [--assistants]
@@ -165,9 +165,9 @@ REGIME_E2E=1 conda run -n regime-driver python -m pytest e2e_tests/test_e2e_work
   Writing standards: `docs/WRITING_GUIDE.md`.
 - Task-control docs (historical): `tasks_docs/` (WORKLOG / MAIN_TASKS / PENDING_TASKS).
 - Note: `docs-ref/` is a reference copy of another project's docs — it is **not
-  committed** (gitignored), kept only as writing guidance. Agent-only internals
-  (skills / dialog-control assistants / workflow-regime templates) stay machine-specific
-  and are not part of the docs site.
+  committed** (gitignored), kept only as writing guidance. Machine-specific
+  internals (skills / dialog-control assistants / workflow-regime templates) stay
+  machine-specific and are not part of the docs site.
 
 ## License & disclaimer
 

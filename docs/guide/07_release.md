@@ -7,14 +7,13 @@
 ## 1. 发布姿态与硬缺口
 
 项目已公开于 GitHub（`haberzero/regime-driver`）。"发布"不等于"clone 源码跑"——
-pip 安装的 wheel 必须自带用户运行所需的官方模板（agents/skills/插件/opencode.json/regime.json），
+pip 安装的 wheel 必须自带用户运行所需的官方模板（角色配置/skills/插件/opencode.json/regime.json），
 否则用户 `regime preflight` / `regime scaffold` 必败（这是发布前的硬缺口）。
 
 模板随 wheel 打包（`src/regime_driver/data/`），`regime scaffold` / `regime setup`
-一键装配（含 A 路插件 + dialog-control agent + opencode.json）。智能体说明书
-（`data/agent-handbook.md`，agent 视角完整手册）随 wheel 分发，不部署进
-`~/.config/opencode`（是参考材料，不是 agent 定义）；其真源在 `.opencode/agent-handbook.md`，
-由 `sync_templates` 派生（漂移守卫覆盖）。
+一键装配（含控制对话框配置、审查与执行角色、opencode.json）。操作说明书随 wheel 分发，
+不部署进配置目录（是参考材料）；其真源在 `.opencode/` 下，由 `sync_templates` 派生
+（漂移守卫覆盖）。
 **Docker 资产（Dockerfile/镜像配置）不进 pip wheel**（属容器化辅助，GitHub 仓库提供），
 符合"pip 只和 pip 有关"的分发原则。完整渠道/内容归属见
 [分发与部署蓝图](../architecture/04_distribution_blueprint.md)。
@@ -41,7 +40,7 @@ cd /tmp && unzip -q /tmp/wheeltest/regime_driver-*.whl -d /tmp/wheeltest/extract
 装配与引导可用性：
 
 ```bash
-# 5) scaffold 可用：向临时目录生成全套配置（--dry-run 不写；含 A 路插件/agent/package.json）
+# 5) scaffold 可用：向临时目录生成全套配置（--dry-run 不写；含控制对话框/角色/插件/操作说明书）
 conda run -n regime-driver regime scaffold --target /tmp/sandbox/opencode --assistants --dry-run
 # 6) setup 引导可用：环境检测 + 装配 + 分步指引
 conda run -n regime-driver regime setup --target /tmp/sandbox/opencode --json

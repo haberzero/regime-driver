@@ -147,7 +147,7 @@
 
 - **架构：对等多状态机网络**（看门狗=无智能状态机+根不变量运行时强制 I1/I2/I3）+ **进程外 `supervisor`**（T1/T2/deadline/纠正阶梯，收编 M0）+ **`task` 注册表** + **`Reporter` 报告总线** + 控制对话框双路。旧 `app/telemetry.py`/`monitor.py`/`meta_analyzer.py`/`segment_runner.py` 已删除；旧 `ops/supervisor.py`/`oc-task.py`/`oc-run.sh`/`stall-watchdog.js` 已收编删除。
 - **`opencode-worker` 容器**：端口 4097，`serve --pure` 无插件执行器，镜像 `opencode-worker:1.18.11`。
-- **`opencode-dialog-control` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 `--pure`。见 `docs/howto/dialog-control-window.md`。
+- **`opencode-dialog-control` 容器（新增，A 路验证窗）**：端口 4098，host 网络，装 regime-driver + dialog-control.md + regime-dialog-control 插件，非 `--pure`。
 - **测试基线**：255 passed（+2 skip E2E 门控）。真实 worker E2E 已打通（REGIME_E2E=1）+ 控制对话框 A 路 HTTP 驱动打通。死代码守卫 + CLI 命令级测试已加。
 - **CLI 契约**：`regime` 命令集 `run/run-many/validate --deep/preflight/gate/status/sessions/session/events/dialog/job/report/task/supervisor` 全部 `--json` + 权限门禁（`--perm`，配置 ceiling 不可自提权）。
 - **技术债治理完成**：G1–G14 全清（闭源记录见 `tasks_docs/WORKLOG.md` 2026-08-07/08 条目；过时登记 `TECH_DEBT.md` 已按"不留遗"删除）；权限/保障默认强制；文档单点真理收口。
@@ -295,7 +295,7 @@
 - **L1 预演修复 async drive 双注册任务缺陷 ✅（真实 E2E）**：`drive --async` 子进程现经
   `REGIME_TASK_ID` env + `register(task_id=)` 复用父任务记录（单 id、正确 done/complete，
   消除成功误报 crashed/任务孤儿/重复记录）。**覆盖率基线 C1 ✅**（pytest-cov，floor 68 防矩阵抖动）；
-  **dialog-control doctor 自检 C2 ✅**；**主机模式 agent 模板 C4 ✅**（`docs/howto/host-mode-agents.md`）。
+  **dialog-control doctor 自检 C2 ✅**；**主机模式 agent 模板 C4 ✅**。
 - **真实 CI 已转绿（WORK_PLAN6 II ✅）**：GitHub Actions 上 `unit · py3.11/py3.12` + `real-worker E2E`
   全 success（修复 `secrets` 不可用于 job 级 if + worker `ensure()` 死 api_key 测试隔离缺陷）。
   见 `https://github.com/haberzero/regime-driver/actions`。
@@ -880,7 +880,7 @@ sg docker -c 'docker ps --format "{{.Names}} {{.Status}}"'
 sg docker -c 'docker restart opencode-worker'
 sg docker -c 'docker build -f docker/Dockerfile.worker -t opencode-worker:1.18.11 .'
 
-# 控制对话框 A 路验证窗（opencode-dialog-control 容器, host 网络, 4098）— 见 docs/howto/dialog-control-window.md
+# 控制对话框 A 路验证窗（opencode-dialog-control 容器, host 网络, 4098; 容器配置见 docker/Dockerfile.dialog-control）
 sg docker -c 'docker build -f docker/Dockerfile.dialog-control -t opencode-dialog-control:1.18.11 .'
 sg docker -c 'docker rm -f opencode-dialog-control; docker run -d --name opencode-dialog-control --network host -e DEEPSEEK_API_KEY="$(cat /tmp/dk.txt)" -e OPENCODE_PORT=4098 opencode-dialog-control:1.18.11'
 curl -s http://127.0.0.1:4098/global/health
